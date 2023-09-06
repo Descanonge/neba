@@ -121,10 +121,13 @@ class ParametersManager:
         if ignore_command_line_args:
             args = []
 
-        if ignore_unknown_args:
-            params, _ = self.last_parser.parse_known_args(args)
-        else:
-            params = self.last_parser.parse_args(args)
+        params, _ = self.last_parser.parse_known_args(args)
+
+        # Just to check if we have some unwanted arguments
+        # We need to use the full parser because `last_parser` does not know
+        # about all the parameters that can be present in config files
+        if not ignore_unknown_args:
+            self.parser.parse_args(args)
 
         return vars(params)
 
