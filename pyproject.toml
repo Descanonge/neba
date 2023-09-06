@@ -1,0 +1,72 @@
+
+[build-system]
+requires = ['setuptools']
+build-backend = 'setuptools.build_meta'
+
+[project]
+version = '0.0.1'
+
+name = 'data-assistant'
+authors = [
+    {name='Clément Haëck', email='clement.haeck@locean.ipsl.fr'}
+]
+description = 'Help manage multi-file datasets'
+
+readme = 'README.md'
+requires-python = '>=3.8'
+classifiers = [
+    'Programming Language :: Python :: 3',
+    'License :: OSI Approved :: MIT License',
+    'Operating System :: OS Independent',
+    'Intended Audience :: Developers',
+    'Intended Audience :: Science/Research',
+    'Topic :: Utilities'
+]
+
+dependencies = [
+    'configargparse>=1.7',
+    'xarray>=2023.7',
+    'dask>=2023.6',
+    'filefinder>=1.0'
+]
+[project.optional-dependencies]
+dev = [
+    'ruff',
+    'mypy>=1.5',
+]
+
+[project.urls]
+'Homepage' = 'https://gitlab.in2p3.fr/biofronts/data-assistant'
+
+[tool.mypy]
+plugins = 'numpy.typing.mypy_plugin'
+
+[tool.ruff]
+select = [
+       'E',  # pycodestyle
+       'W',  # pycodestyle
+       'I',  # isort
+       'N',  # pep8-name
+       'B',  # bugbear
+       'G',  # flake8-logging-format
+       'Q',  # flake8-quotes
+       'F',  # pyflakes
+       'UP',  #pyupgrade
+       'D',  #pydocstyle
+]
+line-length = 88
+target-version = 'py39'
+
+ignore = [
+       'E226', # missing whitespace around arithmetic operator
+       'D203', # one blank line before class
+       'D213', # multiline docstring start at 2nd line
+       'D417', # not all parameters need doc
+]
+
+[tool.ruff.pydocstyle]
+convention = 'numpy'
+
+[tool.ruff.flake8-quotes]
+docstring-quotes = 'double'
+inline-quotes = 'single'
