@@ -84,8 +84,7 @@ class ParametersManager:
             select_params: Sequence[str] | None = None,
             add_params: Callable[[argparse.ArgumentParser], None] | None = None,
             ignore_unknown_args: bool = False,
-            ignore_command_line_args: bool = False,
-            **values: Any) -> dict:
+            ignore_command_line_args: bool = False) -> dict:
         """Get parameters from command line and config files.
 
         Parameters
@@ -105,8 +104,6 @@ class ParametersManager:
         """
         self.last_parser = self.get_parser(select_params)
 
-        # Override defaults
-        self.last_parser.set_defaults(**values)
         # Callback
         if add_params is not None:
             add_params(self.last_parser)
