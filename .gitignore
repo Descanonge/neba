@@ -1,0 +1,8 @@
+
+*.py[cod]
+*.egg
+build
+htmlcov
+
+docs/build
+docs/source/_generated

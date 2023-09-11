@@ -33,6 +33,14 @@ dependencies = [
 dev = [
     'ruff',
     'mypy>=1.5',
+    'sphinx==6.2.1',
+    'sphinx_book_theme==1.0.1',
+    'ipykernel',
+    'ipython',
+    'jupyter_client',
+    'nbsphinx>=0.9.2',
+    'matplotlib-base',
+    'pytest>=7.4'
 ]
 
 [project.urls]

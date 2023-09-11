@@ -65,7 +65,7 @@ class DataLoaderAbstract:
         self.root_directory: str
         """Root directory containing data."""
         self.filename_pattern: str
-        """Filename pattern used to find files using :module:`filefinder`."""
+        """Filename pattern used to find files using :mod:`filefinder`."""
 
         # Cached properties
         self._filefinder: Finder | None
