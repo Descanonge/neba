@@ -58,8 +58,7 @@ class ParametersManager:
 
     def get_parser(
             self,
-            select_params: Sequence[str] | None,
-            add_params: Callable[[argparse.ArgumentParser], None] | None = None,
+            select_params: Sequence[str] | None
     ) -> argparse.ArgumentParser:
         """Create a new parser for only some parameters.
 
@@ -68,9 +67,6 @@ class ParametersManager:
         select_params:
             Paremeters to parse for. If None, all registered parameters are
             selected.
-        add_params:
-            Function acting on the current parser that will be called after
-            creating the parser. Can be used to add un-registered parameters.
         """
         if select_params is None:
             select_params = list(self.parameters_args.keys())
@@ -80,10 +76,6 @@ class ParametersManager:
         for param in select_params:
             param_args, param_kwargs = self.parameters_args[param]
             parser.add_argument(*param_args, **param_kwargs)
-
-        # Callback
-        if add_params is not None:
-            add_params(parser)
 
         return parser
 
@@ -111,10 +103,13 @@ class ParametersManager:
             If True, will ignore command line arguments completely. Default
             is False.
         """
-        self.last_parser = self.get_parser(select_params, add_params)
+        self.last_parser = self.get_parser(select_params)
 
         # Override defaults
         self.last_parser.set_defaults(**values)
+        # Callback
+        if add_params is not None:
+            add_params(self.last_parser)
 
         args: Sequence[str] | None = None
         if ignore_command_line_args:
