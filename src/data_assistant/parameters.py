@@ -32,7 +32,6 @@ class ParametersManager:
         self.parameters_args: dict[str, tuple[tuple[Any], dict]] = {}
         self._actions: dict[str, argparse.Action] = {}
         self.parser = self.new_parser()
-        self.parsed: argparse.Namespace | None = None
 
     def register_parameter(self, *args, **kwargs):
         """Register a new parameter definition.
