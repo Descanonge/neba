@@ -1,8 +1,9 @@
 """Dataloader object."""
 
 import os
-from collections.abc import Hashable, Sequence
+from collections.abc import Hashable, Iterable, Mapping, Sequence
 from os import path
+from typing import Any
 
 import xarray as xr
 from filefinder import Finder
@@ -29,18 +30,6 @@ class DataLoaderAbstract:
     Methods to override when subclassing (in simple, basic cases) include:
     :func:`_get_root_directory`, :func:`get_filename_pattern`,
     :func:`_get_data`, :func:`postprocess_dataset`.
-    """
-
-    SHORTNAME: str
-    ID: str | None
-
-    PARAMS_NAMES: Sequence[Hashable]
-    """List of parameters names."""
-    PARAMS_DEFAULTS: dict = {}
-    """Default values of parameters.
-
-    Optional. Can be used to define parameters local to a dataset, that are not
-    defined in project-wide :class:`ParametersManager`.
 
     Parameters
     ----------
@@ -50,6 +39,23 @@ class DataLoaderAbstract:
         Parameters values. Will take precedence over ``params``.
         Parameters will be taken in order of first available in:
         ``kwargs``, ``params``, :attr:`PARAMS_DEFAULTS`.
+    exact_params:
+        If True, only parameters explicitly defined in ``PARAMS_NAMES`` are
+        allowed. Default is False: unknown parameters are kept. They will not be
+        passed to the filefinder object.
+    """
+
+    SHORTNAME: str | None = None
+    ID: str | None = None
+
+    PARAMS_NAMES: Sequence[Hashable] = []
+    """List of parameters names."""
+    PARAMS_DEFAULTS: dict = {}
+    """Default values of parameters.
+
+    Optional. Can be used to define default values for parameters local to a
+    dataset, (*ie* that are not defined in project-wide
+    :class:`ParametersManager`).
     """
     OPEN_MFDATASET_KWARGS: dict = {}
     """Arguments passed to :func:`xarray.open_mfdataset`."""
@@ -114,18 +120,30 @@ class DataLoaderAbstract:
 
     @property
     def filefinder(self) -> Finder:
+        """Filefinder instance to scan for datafiles.
+
+        Is also used to create filenames for a specific set of parameters.
+        """
         if self._filefinder is None:
             self._filefinder = self.get_filefinder()
         return self._filefinder
 
     @property
     def fixable_params(self) -> list[str]:
+        """List of parameters that vary in the filefinder object.
+
+        Found automatically from a :attr:`filefinder` instance.
+        """
         if self._fixable_params is None:
             self._fixable_params = self._find_fixable_params(self.filefinder)
         return self._fixable_params
 
     @property
     def datafiles(self) -> list[str]:
+        """List of datafiles to open.
+
+        This property is the cached result of :func:`get_datafiles`.
+        """
         if self._datafiles is None:
             self._datafiles = self.get_datafiles()
         return self._datafiles
@@ -137,20 +155,41 @@ class DataLoaderAbstract:
         return list(set(groups_names))
 
     def _get_root_directory(self) -> str | list[str]:
-        """Redefine me!"""
+        """Return directory containing datafiles.
+
+        Returns either the directory path as a string, or a list of directories
+        that will be joined together using :func:`os.path.join`.
+        """
         raise NotImplementedError()
 
     def get_root_directory(self) -> str:
+        """Return directory containing datafiles."""
         root_dir = self._get_root_directory()
         if not isinstance(root_dir, str):
             root_dir = path.join(*root_dir)
         return root_dir
 
     def get_filename_pattern(self) -> str:
-        """Redefine me!"""
+        """Return the datafiles filenames pattern.
+
+        The pattern specifies how the filenames are structured: which parts
+        vary and how.
+        For details on the syntax, see :external+filefinder:doc:`find_files`.
+        """
         raise NotImplementedError()
 
     def get_filename(self, **fixes) -> PathLike:
+        """Create a filename corresponding to a set of parameters values.
+
+        All parameters must be defined, with this instance :attr:`params`,
+        or with the ``fixes`` arguments.
+
+        Parameters
+        ----------
+        fixes:
+            Parameters to fix to specific values. Will take precedence
+            over the instance :attr:`params` attribute.
+        """
         self._check_param_known(fixes)
         fixes_params = {p: self.params[p] for p in self.fixable_params}
         fixes.update(fixes_params)
@@ -158,6 +197,13 @@ class DataLoaderAbstract:
         return filename
 
     def get_filefinder(self) -> Finder:
+        """Return a filefinder instance to scan for datafiles.
+
+        Any parameter corresponding to a group in the pattern is fixed to
+        that parameter's value.
+
+        Is also used to create filenames for a specific set of parameters.
+        """
         root_dir = self.get_root_directory()
         pattern = self.get_filename_pattern()
         finder = Finder(root_dir, pattern)
@@ -172,18 +218,40 @@ class DataLoaderAbstract:
         return finder
 
     def get_datafiles(self) -> list[str]:
+        """Scan and return files corresponding to pattern.
+
+        Use the :attr:`filefinder` object to scan for files corresponding to
+        the filename pattern.
+        """
         return self.filefinder.get_files()
 
     def get_data(self, **kwargs) -> xr.Dataset:
+        """Return a dataset object.
 
+        The dataset is obtained from :func:`xarray.open_mfdataset` applied to
+        the files found using :func:`get_datafiles`.
 
+        The function :func:`postprocess_dataset` is then applied to the dataset.
+        (By default, this function does nothing).
+
+        Parameters
+        ----------
+        kwargs:
+            Arguments passed to :func:`xarray.open_mfdataset`. They will
+            take precedence over the class default values in
+            :attr:`OPEN_MFDATASET_KWARGS`.
+        """
         kwargs = self.OPEN_MFDATASET_KWARGS | kwargs
         ds = xr.open_mfdataset(self.datafiles, **kwargs)
         ds = self.postprocess_dataset(ds)
         return ds
 
     def postprocess_dataset(self, ds: xr.Dataset) -> xr.Dataset:
-        """Redefine me!"""
+        """Apply any action on the dataset after opening it.
+
+        By default, just return the dataset without doing anything (*ie* the
+        identity function).
+        """
         return ds
 
 
