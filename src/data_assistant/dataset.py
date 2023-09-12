@@ -121,7 +121,7 @@ class DataLoaderAbstract:
     @property
     def fixable_params(self) -> list[str]:
         if self._fixable_params is None:
-            self._fixable_params = self._find_fixable_params()
+            self._fixable_params = self._find_fixable_params(self.filefinder)
         return self._fixable_params
 
     @property
@@ -130,8 +130,9 @@ class DataLoaderAbstract:
             self._datafiles = self.get_datafiles()
         return self._datafiles
 
-    def _find_fixable_params(self) -> list[str]:
-        groups_names = [g.name for g in self.filefinder.groups]
+    @staticmethod
+    def _find_fixable_params(finder) -> list[str]:
+        groups_names = [g.name for g in finder.groups]
         # remove doublons
         return list(set(groups_names))
 
@@ -160,12 +161,18 @@ class DataLoaderAbstract:
         root_dir = self.get_root_directory()
         pattern = self.get_filename_pattern()
         finder = Finder(root_dir, pattern)
+
+        # we do not use self.fixable_params directly because it needs
+        # self.get_filefinder to be defined
+        fixable_params = self._find_fixable_params(finder)
+        for p, value in self.params.items():
+            if p in fixable_params:
+                finder.fix_group(p, value)
+
         return finder
 
     def get_datafiles(self) -> list[str]:
-        finder = self.get_filefinder()
-        files = finder.get_files()
-        return files
+        return self.filefinder.get_files()
 
     def get_data(self, **kwargs) -> xr.Dataset:
         kwargs = self.OPEN_MFDATASET_KWARGS | kwargs
