@@ -57,7 +57,8 @@ class DataLoaderAbstract:
     _CACHED_PROPERTIES = ['filefinder', 'fixable_params', 'datafiles']
 
     def __init__(self,
-                 params: dict | None = None,
+                 params: Mapping | None = None,
+                 exact_params: bool = False,
                  **kwargs):
         # Definitions for type checking and documentation
         self.params: dict
@@ -72,9 +73,11 @@ class DataLoaderAbstract:
         self._fixable_params: list[str] | None
         self._datafiles: list[str] | None
 
+        self.exact_params: bool = exact_params
+
         self.set_params(params, **kwargs)
 
-    def set_params(self, params: dict | None = None, **kwargs):
+    def set_params(self, params: Mapping[str, Any] | None = None, **kwargs):
         """Set parameters values.
 
         Parameters
@@ -88,13 +91,11 @@ class DataLoaderAbstract:
         """
         if params is None:
                  params = {}
+        params = dict(params)  # shallow copy
         params = params | self.PARAMS_DEFAULTS
         params.update(kwargs)
 
-        for p in self.PARAMS_NAMES:
-            if p not in params:
-                raise KeyError(f'Parameter {p} was not specified for '
-                               f' dataset {self.SHORTNAME}.')
+        self._check_param_known(params)
 
         self.params = params
         self._reset_cached_properties()
@@ -102,6 +103,14 @@ class DataLoaderAbstract:
     def _reset_cached_properties(self) -> None:
         for prop in self._CACHED_PROPERTIES:
             setattr(self, '_'+prop, None)
+
+    def _check_param_known(self, params: Iterable[str]):
+        if not self.exact_params:
+            return
+        for p in params:
+            if p not in self.PARAMS_NAMES:
+                raise KeyError(f'Parameter {p} was not expected for dataset'
+                                f' {self.SHORTNAME} {self.PARAMS_NAMES}.')
 
     @property
     def filefinder(self) -> Finder:
@@ -141,6 +150,7 @@ class DataLoaderAbstract:
         raise NotImplementedError()
 
     def get_filename(self, **fixes) -> PathLike:
+        self._check_param_known(fixes)
         fixes_params = {p: self.params[p] for p in self.fixable_params}
         fixes.update(fixes_params)
         filename = self.filefinder.make_filename(fixes)
