@@ -175,16 +175,11 @@ class DataLoaderAbstract:
         return self.filefinder.get_files()
 
     def get_data(self, **kwargs) -> xr.Dataset:
+
+
         kwargs = self.OPEN_MFDATASET_KWARGS | kwargs
-
-        ds = self._get_data(self.datafiles, **kwargs)
+        ds = xr.open_mfdataset(self.datafiles, **kwargs)
         ds = self.postprocess_dataset(ds)
-        return ds
-
-    @staticmethod
-    def _get_data(datafiles: Sequence[PathLike], **kwargs) -> xr.Dataset:
-        """Redefine me!"""
-        ds = xr.open_mfdataset(datafiles, **kwargs)
         return ds
 
     def postprocess_dataset(self, ds: xr.Dataset) -> xr.Dataset:
