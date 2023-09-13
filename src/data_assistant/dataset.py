@@ -196,8 +196,13 @@ class DataLoaderAbstract:
             over the instance :attr:`params` attribute.
         """
         self._check_param_known(fixes)
-        fixes_params = {p: self.params[p] for p in self.fixable_params}
-        fixes.update(fixes_params)
+        for f in fixes:
+            if f not in self.fixable_params:
+                raise KeyError(f'Parameter {f} cannot be fixed.')
+
+        fixable_params = {p: self.params[p] for p in self.fixable_params
+                          if p in self.params}
+        fixes.update(fixable_params)
         filename = self.filefinder.make_filename(fixes)
         return filename
 
