@@ -95,10 +95,9 @@ class DataLoaderAbstract:
         params = params | self.PARAMS_DEFAULTS
         params.update(kwargs)
 
-        self._check_param_known(params)
-
         self.params = params
         self._reset_cached_properties()
+        self._check_param_known(params)
 
     def _reset_cached_properties(self) -> None:
         for prop in self._CACHED_PROPERTIES:
