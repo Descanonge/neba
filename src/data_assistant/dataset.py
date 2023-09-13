@@ -61,6 +61,37 @@ class DataLoaderAbstract:
 
     _CACHED_PROPERTIES = ['filefinder', 'fixable_params', 'datafiles']
 
+    def __str__(self) -> str:
+        name = []
+        if self.SHORTNAME is not None:
+            name.append(self.SHORTNAME)
+        if self.ID is not None:
+            name.append(self.ID)
+
+        clsname = self.__class__.__name__
+        if name:
+            clsname = f' ({clsname})'
+
+        return ':'.join(name) + clsname
+
+    def __repr__(self) -> str:
+        s = []
+        s.append(self.__str__())
+        s.append('Parameters:')
+        s.append(f'\tdefined: {self.PARAMS_NAMES}')
+        if self.PARAMS_DEFAULTS:
+            s.append(f'\tdefaults: {self.PARAMS_DEFAULTS}')
+        s.append(f'\tset: {self.params}')
+        s.append(f'Root directory: {self.root_directory}')
+        s.append(f'Filename pattern: {self.filename_pattern}')
+
+        cached = [p for p in self._CACHED_PROPERTIES
+                  if getattr(self, f'_{p}') is not None]
+        if cached:
+            s.append(f'Cached properties: {", ".join(cached)}')
+
+        return '\n'.join(s)
+
     def __init__(self,
                  params: Mapping | None = None,
                  exact_params: bool = False,
