@@ -132,6 +132,12 @@ class DataLoaderAbstract:
         """
         if self._filefinder is None:
             self._filefinder = self.get_filefinder()
+
+        fixable_params = self._find_fixable_params(self._filefinder)
+        for p, value in self.params.items():
+            if p in fixable_params:
+                self._filefinder.fix_group(p, value)
+
         return self._filefinder
 
     @property
@@ -198,19 +204,8 @@ class DataLoaderAbstract:
     def get_filefinder(self) -> Finder:
         """Return a filefinder instance to scan for datafiles.
 
-        Any parameter corresponding to a group in the pattern is fixed to
-        that parameter's value.
-
         Is also used to create filenames for a specific set of parameters.
         """
-
-        # we do not use self.fixable_params directly because it needs
-        # self.get_filefinder to be defined
-        fixable_params = self._find_fixable_params(finder)
-        for p, value in self.params.items():
-            if p in fixable_params:
-                finder.fix_group(p, value)
-
         finder = Finder(self.root_directory, self.filename_pattern)
         return finder
 
