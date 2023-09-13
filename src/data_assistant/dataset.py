@@ -65,18 +65,13 @@ class DataLoaderAbstract:
                  params: Mapping | None = None,
                  exact_params: bool = False,
                  **kwargs):
-        # Definitions for type checking and documentation
-        self.params: dict
+        self.params: dict = dict()
         """Mapping of parameters values."""
-        self.root_directory: str
-        """Root directory containing data."""
-        self.filename_pattern: str
-        """Filename pattern used to find files using :mod:`filefinder`."""
 
         # Cached properties
-        self._filefinder: Finder | None
-        self._fixable_params: list[str] | None
-        self._datafiles: list[str] | None
+        self._filefinder: Finder | None = None
+        self._fixable_params: list[str] | None = None
+        self._datafiles: list[str] | None = None
 
         self.exact_params: bool = exact_params
 
