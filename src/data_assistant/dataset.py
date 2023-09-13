@@ -1,6 +1,5 @@
-"""Dataloader object."""
+"""Dataset classes."""
 
-import functools
 import os
 from collections.abc import Hashable, Iterable, Mapping, Sequence
 from os import path
@@ -26,14 +25,28 @@ class DataLoaderAbstract:
         Some properties are cached to avoid overhead. Changing parameters
         voids the cache.
 
-    Methods to override when subclassing (in simple, basic cases) include:
-    :func:`_get_root_directory`, :func:`get_filename_pattern`,
-    :func:`_get_data`, :func:`postprocess_dataset`.
+    At minima, a subclass should define the methods :func:`get_root_directory`
+    and :func:`get_filename_pattern`, which return the root directory containing
+    the data and the filename pattern of the datafiles (following the
+    syntax detailed here: :external+filefinder:doc:`find_files`).
+    Both methods can used the parameters stored in the :attr:`params` attribute.
+
+    If needed, more methods can be overriden, :func:`postprocess_dataset` for
+    instance act on the dataset object after it has been opened. The default
+    implementation is the identity function, it simply returns the dataset as is.
+
+    Class attributes can be changed as well. :attr:`SHORTNAME` and
+    :attr:`ID` can be useful to select this class amongst others, if registered
+    in a :class:`DataLoadersMapping` object (using the :decorator:`register`
+    decorator).
+    The attribute :attr:`OPEN_MFDATASET_KWARGS` can also be of use to change
+    how the datafiles are opened.
 
     Parameters
     ----------
     params:
-        Mapping of parameters values.
+        Mapping of parameters values. Fixable parameters (those defined
+        as varying in the filename pattern) can be omitted.
     kwargs:
         Parameters values. Will take precedence over ``params``.
         Parameters will be taken in order of first available in:
@@ -45,7 +58,9 @@ class DataLoaderAbstract:
     """
 
     SHORTNAME: str | None = None
+    """Short name to refer to this dataset class."""
     ID: str | None = None
+    """Long name to identify uniquely this dataset class."""
 
     PARAMS_NAMES: Sequence[Hashable] = []
     """List of parameters names."""
@@ -105,6 +120,9 @@ class DataLoaderAbstract:
         self._datafiles: list[str] | None = None
 
         self.exact_params: bool = exact_params
+        """If True, only parameters explicitly defined in :attr:`PARAMS_NAMES`
+        are allowed. Default is False: unknown parameters are kept. They will
+        not be passed to the filefinder object."""
 
         self.set_params(params, **kwargs)
 
@@ -135,6 +153,13 @@ class DataLoaderAbstract:
             setattr(self, '_'+prop, None)
 
     def _check_param_known(self, params: Iterable[str]):
+        """Check if the parameters are known to this dataset class.
+
+        A 'known parameter' is one present in :attr:`PARAMS_NAMES` or defined
+        in the filename pattern (as a varying group).
+
+        Only run the check if :attr:`exact_params` is True.
+        """
         if not self.exact_params:
             return
         for p in params:
@@ -191,7 +216,11 @@ class DataLoaderAbstract:
         return self._datafiles
 
     @staticmethod
-    def _find_fixable_params(finder) -> list[str]:
+    def _find_fixable_params(finder: Finder) -> list[str]:
+        """Find parameters that vary in the filename pattern.
+
+        Automatically find them using a :class:`Finder` instance.
+        """
         groups_names = [g.name for g in finder.groups]
         # remove doublons
         return list(set(groups_names))
@@ -216,14 +245,15 @@ class DataLoaderAbstract:
     def get_filename(self, **fixes) -> str:
         """Create a filename corresponding to a set of parameters values.
 
-        All parameters must be defined, with this instance :attr:`params`,
+        All parameters must be defined, with the instance :attr:`params`,
         or with the ``fixes`` arguments.
 
         Parameters
         ----------
         fixes:
-            Parameters to fix to specific values. Will take precedence
-            over the instance :attr:`params` attribute.
+            Parameters to fix to specific values. Only parameters defined in the
+            filename pattern can be fixed. Will take precedence over the
+            instance :attr:`params` attribute.
         """
         self._check_param_known(fixes)
         for f in fixes:
@@ -331,13 +361,25 @@ class DataLoadersMap(dict):
         return super().__getitem__(key)
 
 
-class register:
+class register:  # noqa: N801
+    """Decorator to register a dataset class in a mapping.
+
+    Parameters
+    ----------
+    mapping:
+        Mapping instance to register the dataset class to.
+    """
+
     def __init__(self, mapping: DataLoadersMap):
         self.mapping = mapping
 
     def __call__(self,
                  subclass: type[DataLoaderAbstract]
                  ) -> type[DataLoaderAbstract]:
+        """Register subclass to the mapping.
+
+        Does not change the subclass.
+        """
         self.mapping.add_dataloader(subclass)
         return subclass
 
@@ -347,14 +389,16 @@ mapping = DataLoadersMap()
 
 @register(mapping)
 class DataLoaderSST(DataLoaderAbstract):
+    """CCI-C3S SST."""
+
     ID = 'CCI-C3S SST'
     SHORTNAME = 'SST'
-    PARAMS_NAMES = ['region', 'days', 'Y', 'm', 'd']
+    PARAMS_NAMES = ['region', 'days']
     OPEN_MFDATASET_KWARGS = dict(parallel=True)
 
     DATA_ROOTDIR = '/data/chaeck/'
 
-    def _get_root_directory(self):
+    def get_root_directory(self):
         rootdir = [
             self.DATA_ROOTDIR,
             self.params['region'],
