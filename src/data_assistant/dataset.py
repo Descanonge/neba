@@ -108,9 +108,9 @@ class DataLoaderAbstract:
         if not self.exact_params:
             return
         for p in params:
-            if p not in self.PARAMS_NAMES:
-                raise KeyError(f'Parameter {p} was not expected for dataset'
-                                f' {self.SHORTNAME} {self.PARAMS_NAMES}.')
+            if p not in self.PARAMS_NAMES and p not in self.fixable_params:
+                raise KeyError(f"Parameter '{p}' was not expected for dataset {self}")
+
     @property
     def root_directory(self) -> str:
         """Root directory containing data."""
