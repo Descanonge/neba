@@ -111,6 +111,18 @@ class DataLoaderAbstract:
             if p not in self.PARAMS_NAMES:
                 raise KeyError(f'Parameter {p} was not expected for dataset'
                                 f' {self.SHORTNAME} {self.PARAMS_NAMES}.')
+    @property
+    def root_directory(self) -> str:
+        """Root directory containing data."""
+        rootdir = self.get_root_directory()
+        if not isinstance(rootdir, (str, os.PathLike)):
+            rootdir = path.join(*rootdir)
+        return rootdir
+
+    @property
+    def filename_pattern(self) -> str:
+        """Filename pattern used to find files using :mod:`filefinder`."""
+        return self.get_filename_pattern()
 
     @property
     def filefinder(self) -> Finder:
@@ -148,20 +160,13 @@ class DataLoaderAbstract:
         # remove doublons
         return list(set(groups_names))
 
-    def _get_root_directory(self) -> str | list[str]:
+    def get_root_directory(self) -> str | list[str]:
         """Return directory containing datafiles.
 
-        Returns either the directory path as a string, or a list of directories
-        that will be joined together using :func:`os.path.join`.
+        Returns either the directory path, or a list of directories that will be
+        joined together using :func:`os.path.join`.
         """
         raise NotImplementedError()
-
-    def get_root_directory(self) -> str:
-        """Return directory containing datafiles."""
-        root_dir = self._get_root_directory()
-        if not isinstance(root_dir, str):
-            root_dir = path.join(*root_dir)
-        return root_dir
 
     def get_filename_pattern(self) -> str:
         """Return the datafiles filenames pattern.
@@ -198,9 +203,6 @@ class DataLoaderAbstract:
 
         Is also used to create filenames for a specific set of parameters.
         """
-        root_dir = self.get_root_directory()
-        pattern = self.get_filename_pattern()
-        finder = Finder(root_dir, pattern)
 
         # we do not use self.fixable_params directly because it needs
         # self.get_filefinder to be defined
@@ -209,6 +211,7 @@ class DataLoaderAbstract:
             if p in fixable_params:
                 finder.fix_group(p, value)
 
+        finder = Finder(self.root_directory, self.filename_pattern)
         return finder
 
     def get_datafiles(self) -> list[str]:
