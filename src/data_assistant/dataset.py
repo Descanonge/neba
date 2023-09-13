@@ -9,8 +9,6 @@ from typing import Any
 import xarray as xr
 from filefinder import Finder
 
-PathLike = str | os.PathLike
-
 
 class DataLoaderAbstract:
     """DataLoader abstract base.
@@ -179,7 +177,7 @@ class DataLoaderAbstract:
         """
         raise NotImplementedError()
 
-    def get_filename(self, **fixes) -> PathLike:
+    def get_filename(self, **fixes) -> str:
         """Create a filename corresponding to a set of parameters values.
 
         All parameters must be defined, with this instance :attr:`params`,
