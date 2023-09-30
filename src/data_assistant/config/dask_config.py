@@ -73,33 +73,46 @@ gestionnaire de paramètres ?
 import distributed
 import dask_jobqueue as djq
 
-from traitlets.config import Configurable
 from traitlets import Bool, Enum, Float, Int, List, Unicode
 
-from .utils import make_all_configurable
+from .core import ConfigurablePlus
 
 CLUSTER_TYPES = {
     'PBS': djq.PBSCluster,
     'SLURM': djq.SLURMCluster,
 }
 
-class DaskCluster(Configurable):
+class DaskClusterConfig(ConfigurablePlus):
 
     cluster_type = Enum(CLUSTER_TYPES.keys(), default_value='SLURM',
                         help='Type of cluster to use.')
 
-    # Job specific parameters
+    # maybe more personnal parameters to setup cluster
+    # (like total memory, or per jobs)
+    # maybe use different classes depending on how user want to work
 
+    def start(self) -> tuple[distributed.Client,
+                             distributed.deploy.Cluster]:
+        params = self.config  # FIXME
+        cluster = CLUSTER_TYPES[params.cluster_type](**params)
+        client = distributed.Client(cluster)
+        return client, cluster
+
+
+# classes that reproduce jobqueue config (and nothing more)
+class DaskJobQueueCluster(ConfigurablePlus):
+
+    # Job specific parameters
     cores = Int(help='Total number of cores per job.')
     memory = Int(help='Total amount of memory per job.')
 
-    processes = Int(
+    processes = Int(None, allow_none=True,
         help=('Cut the job up into this many processes. '
               'Good for GIL workloads or for nodes with many cores. '
               'By default, process ~= sqrt(cores) so that the number of '
               'processes and the number of threads per process is roughly the same.'))
 
-    interface = Unicode(
+    interface = Unicode(None, allow_none=True,
         help=("Network interface like 'eth0' or 'ib0'. This will be used both "
               'for the Dask scheduler and the Dask workers interface. '
               'If you need a different interface for the Dask scheduler you '
@@ -109,9 +122,12 @@ class DaskCluster(Configurable):
 
     nanny = Bool(help='Whether or not to start a nanny process')
 
-    local_directory = Unicode(help='Dask worker local directory for file spilling.')
+    local_directory = Unicode(
+        None, allow_none=True,
+        help='Dask worker local directory for file spilling.')
 
     death_timeout = Float(
+        None, allow_none=True,
         help='Seconds to wait for a scheduler before closing workers.')
 
     job_directives_skip = List(
@@ -141,7 +157,8 @@ class DaskCluster(Configurable):
     asynchronous = Bool(
         help='Whether or not to run this cluster object with the async/await syntax.')
 
-class DaskClusterPBS(DaskCluster):
+class DaskClusterPBS(DaskJobQueueCluster):
+
     queue = Unicode(
         help='Destination queue for each worker job. Passed to `#PBS -q` option.')
 
@@ -160,7 +177,8 @@ class DaskClusterPBS(DaskCluster):
         help=('List of other PBS options. '
               'Each option will be prepended with the #PBS prefix.'))
 
-class DaskClusterSLURM(DaskCluster):
+class DaskClusterSLURM(DaskJobQueueCluster):
+
     queue = Unicode(
         help='Destination queue for each worker job. Passed to `#SBATCH -p` option.')
 
@@ -183,34 +201,3 @@ class DaskClusterSLURM(DaskCluster):
         Unicode,
         help=('List of other PBS options. '
               'Each option will be prepended with the #PBS prefix.'))
-
-
-make_all_configurable(DaskCluster)
-make_all_configurable(DaskClusterPBS)
-make_all_configurable(DaskClusterSLURM)
-
-
-def startup_dask(params) -> tuple[distributed.Client,
-                                  distributed.deploy.Cluster]:
-    # Here we should retain only the arguments suitable for the next calls
-    # There are some numbers to list so we may have to find something clever
-    cluster = CLUSTER_TYPES[cluster_kind.upper()](**params)
-
-    client = distributed.Client(cluster)
-
-    return client, cluster
-
-# idea: a class whose instance register all parameters and save what arguments
-# are needed for dask specicfically. it must distinguish CLI arguments
-# and jobqueue arguments (for computing by job or in total).
-# The user should be able to select the cluster, what arguments are asked
-# by the CLI (to simplify, or to specify stuff by job or in total).
-# Maybe not (preferably not ?) necessarily at runtime.
-# maybe work on an example in another file ?
-
-def setup_dask():
-    pass
-
-
-def close_dask():
-    pass

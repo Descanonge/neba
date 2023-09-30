@@ -1,44 +1,10 @@
-from collections.abc import Sequence
 
 from traitlets import Unicode
-from traitlets.config import Application
-from traitlets.config.loader import KVArgParseConfigLoader, Config, DeferredConfig
+from traitlets.config import Application, Config
 
+from .core import StrictArgParse
 from .dask_config import DaskClusterPBS, DaskClusterSLURM
 from .parameters import Parameters
-
-
-class StrictArgParse(KVArgParseConfigLoader):
-
-    def _handle_unrecognized_alias(self, arg: str):
-        self.parser.error(f'Unrecognized alias: {arg}')
-
-    def load_config(self, argv=None, aliases=None, classes=None):
-        """Parse command line arguments and return as a Config object.
-
-        Parameters
-        ----------
-        argv : optional, list
-            If given, a list with the structure of sys.argv[1:] to parse
-            arguments from. If not given, the instance's self.argv attribute
-            (given at construction time) is used.
-
-        Overwritten to raise if any kind of DeferredConfig has been
-        parsed (which means the corresponding trait has not been
-        defined yet).
-        """
-        def check_config(cfg, parentkey):
-            for key, val in cfg.items():
-                fullkey = f'{parentkey}.{key}'
-                if isinstance(val, Config):
-                    check_config(val, fullkey)
-                elif isinstance(val, DeferredConfig):
-                    self.parser.error(f"DeferredConfig not allowed / undefined trait '{fullkey}'")
-
-        config = super().load_config(argv=argv, aliases=aliases, classes=classes)
-        check_config(config, 'c')
-        return config
-
 
 class App(Application):
     classes = [Parameters, DaskClusterPBS, DaskClusterSLURM]
@@ -48,12 +14,22 @@ class App(Application):
     ).tag(config=True)
 
     def initialize(self, argv=None):
+        # Setup defaults
+        # TODO Nested config ?
+        for cls in self.classes:
+            # Create an instance
+            inst = cls(config=self.config)
+            # Get parameters back
+            self.config.setdefault(cls.__name__, Config())
+            for name, value in inst.trait_values(config=True).items():
+                self.config[cls.__name__][name] = value
+
+        # First parse CLI (for help for instance, or specify the config files)
         self.parse_command_line(argv)
+
+        # Read config files (done last but hasn't priority over CLI)
         if self.config_file:
             self.load_config_file(self.config_file)
-
-        self.parameters = Parameters(config=self.config)
-        self.daskclusterSLURM = DaskClusterSLURM(config=self.config)
 
     def _create_loader(self, argv, aliases, flags, classes):
         return StrictArgParse(
@@ -79,16 +55,6 @@ class App(Application):
                 continue
             yield c
 
-    def get_params(self, select: Sequence[str] | None = None):
-        params = self.parameters.trait_values(config=True)
-        if select is None:
-            return params
-
-        for p in select:
-            if p not in params:
-                raise KeyError(f"Trait '{p}' not found in parameters.")
-        return {p: params[p] for p in select}
-
     def write_config(self, filename: str | None = None):
         """(Over)write a configuration file.
 
@@ -106,8 +72,3 @@ class App(Application):
             filename = self.config_file
         with open(filename, 'w') as f:
             f.write('\n'.join(lines))
-
-
-if __name__ == '__main__':
-    app = Config()
-    app.initialize()
