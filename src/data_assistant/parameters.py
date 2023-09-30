@@ -26,14 +26,25 @@ class ParametersManager:
         Only :func:`new_parser` needs to be overriden to change the parser class.
     """
 
-    DEFAULT_CONFIG_FILES: list[PathLike] = ['./parameters.ini']
+    def __init__(self, config_files: Sequence[str],
+                 sections: str | Sequence[str] = 'parameters'):
+        self.config_files: Sequence[str] = config_files
 
-    def __init__(self) -> None:
-        self.parameters_args: dict[str, tuple[tuple[Any], dict]] = {}
+        if isinstance(sections, str):
+            sections = [sections]
+        self.sections: Sequence[str] = sections
+
+        self.parameters_args: dict[str, tuple[tuple[Any, ...], dict]] = {}
         self._actions: dict[str, argparse.Action] = {}
+        self._actions_group: dict[str, str | None] = {}
+        self.groups_descr: dict[str, str | None] = {}
+        self._active_group: str | None = None
         self.parser = self.new_parser()
 
-    def register_parameter(self, *args, **kwargs):
+    def register(self, *args, **kwargs):
+        self.register_parameter(*args, **kwargs)
+
+    def register_parameter(self, *args, group: str | None = None, **kwargs):
         """Register a new parameter definition.
 
         Arguments are passed to this instance argument parser (by default
@@ -44,15 +55,30 @@ class ParametersManager:
         The arguments are stored to recreate a parser with only some selected
         arguments later.
         """
+        if group is None and self._active_group is not None:
+            group = self._active_group
+        if group is not None and group not in self.groups_descr:
+            raise KeyError(f"Unknown group '{group}.")
         action = self.parser.add_argument(*args, **kwargs)
+        self._actions_group[action.dest] = group
         self.parameters_args[action.dest] = (args, kwargs)
         self._actions[action.dest] = action
 
-    @classmethod
-    def new_parser(cls) -> argparse.ArgumentParser:
+    def add_group(self, name: str, description: str | None = None):
+        self.groups_descr[name] = description
+
+    def set_active_group(self, group: str | None):
+        if group is not None and group not in self.groups_descr:
+            raise KeyError(f"Unknown group '{group}.")
+        self._active_group = group
+
+    def new_parser(self) -> argparse.ArgumentParser:
         """Return an instance of argument parser."""
-        parser = configargparse.ArgumentParser(
-            default_config_files=cls.DEFAULT_CONFIG_FILES
+        parser = configargparse.ArgParser(
+            default_config_files=self.config_files,
+            config_file_parser_class=configargparse.IniConfigParser(
+                self.sections, split_ml_text_to_list=False
+            )
         )
         return parser
 
@@ -72,10 +98,18 @@ class ParametersManager:
             select_params = list(self.parameters_args.keys())
 
         parser = self.new_parser()
+        groups = {}
 
         for param in select_params:
+            parser_or_group: argparse.ArgumentParser | argparse._ArgumentGroup
+            parser_or_group = parser
+            if (group_name := self._actions_group[param]) is not None:
+                if group_name not in groups:
+                    groups[group_name] = parser.add_argument_group(
+                        group_name, description=self.groups_descr[group_name])
+                parser_or_group = groups[group_name]
             param_args, param_kwargs = self.parameters_args[param]
-            parser.add_argument(*param_args, **param_kwargs)
+            parser_or_group.add_argument(*param_args, **param_kwargs)
 
         return parser
 
@@ -148,7 +182,7 @@ class ParametersManager:
                 print(f'{action.dest} = {action.default}', file=f)
 
 
-params_manager = ParametersManager()
+params_manager = ParametersManager(['./parameters.ini'])
 
 params_manager.register_parameter(
     '-r', '--region', type=str, default='GS',
@@ -163,7 +197,4 @@ params_manager.register_parameter(
     help='Size of the HI window in km.'
 )
 
-params_manager.write_default_config('./test_write.ini')
-
-params = params_manager.get_parameters()
-print(params)
+params = params_manager.get_parameters(['region'])

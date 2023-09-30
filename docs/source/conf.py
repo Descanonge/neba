@@ -37,6 +37,7 @@ pygments_style = 'default'
 autodoc_typehints = 'description'
 autodoc_typehints_format = 'short'
 autodoc_member_order = 'groupwise'
+autodoc_class_content = 'both'
 autodoc_type_aliases = {
     # show the full path
     'xr.DataArray': 'xarray.DataArray',
@@ -64,7 +65,8 @@ intersphinx_mapping = {
     'python': ('https://docs.python.org/3/', None),
     'numpy': ('https://numpy.org/doc/stable', None),
     'dask': ('https://docs.dask.org/en/latest', None),
-    'xarray': ('https://docs.xarray.dev/en/stable/', None)
+    'xarray': ('https://docs.xarray.dev/en/stable/', None),
+    'filefinder':  ('https://filefinder.readthedocs.io/en/latest', None),
 }
 
 
