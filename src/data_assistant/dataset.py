@@ -1,12 +1,15 @@
 """Dataset classes."""
+from __future__ import annotations
 
 import os
 from collections.abc import Hashable, Iterable, Mapping, Sequence
 from os import path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import xarray as xr
 from filefinder import Finder
+
+if TYPE_CHECKING:
+    import xarray as xr
 
 
 class DataLoaderAbstract:
@@ -298,6 +301,7 @@ class DataLoaderAbstract:
             take precedence over the class default values in
             :attr:`OPEN_MFDATASET_KWARGS`.
         """
+        import xarray as xr
         kwargs = self.OPEN_MFDATASET_KWARGS | kwargs
         ds = xr.open_mfdataset(self.datafiles, **kwargs)
         ds = self.postprocess_dataset(ds)
@@ -310,6 +314,37 @@ class DataLoaderAbstract:
         identity function).
         """
         return ds
+
+    def write(self, ds: xr.Dataset, /, *,
+              by_variables: Mapping,
+              encoding: dict, **kwargs):
+        """Write data to disk.
+
+        Eager loading of coordinates.
+        Manage 'time' coordinate appropriately.
+        """
+        # set of fixable parameters
+        fixable = set(self.fixable_params)
+
+        time_fixable = set('YBmdjHMSFxX')
+        if 'time' in ds.dims and fixable & time_fixable:
+            fixable.add('time')
+            fixable -= time_fixable
+
+        stack_vars = list(fixable)
+        stacked = ds.stack(__filename_vars__=stack_vars)
+        filename_vars = stacked.__filename_vars__
+        filenames = xr.full_like(filename_vars, '')
+
+        # for i, z in enumerate(filenames):
+        #     fixes = dict()
+        #     for dim in stack_vars:
+        #         z[dim].item()
+
+        ds.to_netcdf(
+
+        )
+        pass
 
 
 class DataLoadersMap(dict):
