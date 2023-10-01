@@ -1,10 +1,14 @@
 
+import copy
+
 from traitlets import Unicode
-from traitlets.config import Application, Config
+from traitlets.config import Application, Config, Configurable
+from traitlets.config.loader import _is_section_key
 
 from .core import StrictArgParse
 from .dask_config import DaskClusterPBS, DaskClusterSLURM
 from .parameters import Parameters
+
 
 class App(Application):
     classes = [Parameters, DaskClusterPBS, DaskClusterSLURM]
@@ -13,16 +17,28 @@ class App(Application):
         'config.py', help='Load this config file'
     ).tag(config=True)
 
-    def initialize(self, argv=None):
-        # Setup defaults
-        # TODO Nested config ?
+    def setup_defaults(self) -> None:
+        """Populate self.config recursively for registered classes."""
+        def populate(cls: type[Configurable],
+                     config: Config, key: str):
+            subconfig = config.setdefault(key, Config())
+            for name, value in cls().trait_values(config=True).items():
+                # trait name starts with capital > nested config
+                if _is_section_key(name):
+                    populate(value, subconfig, name)
+                else:
+                    subconfig[name] = value
+
+        self.config = Config()
         for cls in self.classes:
-            # Create an instance
-            inst = cls(config=self.config)
-            # Get parameters back
-            self.config.setdefault(cls.__name__, Config())
-            for name, value in inst.trait_values(config=True).items():
-                self.config[cls.__name__][name] = value
+            print(cls.__name__)
+            populate(cls, self.config, cls.__name__)
+        # save defaults
+        self.config_defaults = copy.deepcopy(self.config)
+
+    def initialize(self, argv=None):
+        # Initialize defaults defined in Configurable classes
+        self.setup_defaults()
 
         # First parse CLI (for help for instance, or specify the config files)
         self.parse_command_line(argv)
