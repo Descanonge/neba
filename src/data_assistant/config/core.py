@@ -1,6 +1,6 @@
 
-from os import path
 import copy
+from os import path
 
 from traitlets.config import Application, Configurable
 from traitlets.config.loader import (
@@ -138,14 +138,21 @@ class BaseApp(Application):
         """Subclass init hook.
 
         Any subclass will automatically run this after being defined.
+
         It adds aliases for all traits of the configurable listed
         in the add_to_aliases class attribute.
+
+        It also re-add flags defined in parent classes (unless
+        explicitely overridden).
         """
         super().__init_subclass__(**kwargs)
         for cfg in cls.add_to_aliases:
             for name, trait in cfg.class_traits(config=True).items():
                 if name not in cls.aliases:
                     cls.aliases[name] = (f'{cfg.__name__}.{name}', trait.help)
+
+        for n, f in super().flags.items():
+            cls.flags.setdefault(n, f)
 
     def initialize(self, argv=None, ignore_cli: bool = False):
         """Initialize application.
