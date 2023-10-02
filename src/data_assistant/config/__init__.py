@@ -1,9 +1,10 @@
 
 import copy
 
-from traitlets import Unicode
+from traitlets import Bool, Unicode
 from traitlets.config import Application, Config, Configurable
 from traitlets.config.loader import _is_section_key
+from traitlets.config.loader import KVArgParseConfigLoader
 
 from .core import StrictArgParse
 from .dask_config import DaskClusterPBS, DaskClusterSLURM
@@ -12,6 +13,12 @@ from .parameters import Parameters
 
 class App(Application):
     classes = [Parameters, DaskClusterPBS, DaskClusterSLURM]
+
+    strict_parsing = Bool(
+        True, help=('If true, raise errors when encountering unknown '
+                    'arguments or configuration keys. Else only prints '
+                    'a warning.')
+    ).tag(config=True)
 
     config_file = Unicode(
         'config.py', help='Load this config file'
@@ -31,24 +38,28 @@ class App(Application):
 
         self.config = Config()
         for cls in self.classes:
-            print(cls.__name__)
             populate(cls, self.config, cls.__name__)
         # save defaults
         self.config_defaults = copy.deepcopy(self.config)
 
-    def initialize(self, argv=None):
+    def initialize(self, argv=None, ignore_cli: bool = False):
         # Initialize defaults defined in Configurable classes
         self.setup_defaults()
 
         # First parse CLI (for help for instance, or specify the config files)
-        self.parse_command_line(argv)
+        if not ignore_cli:
+            self.parse_command_line(argv)
 
         # Read config files (done last but hasn't priority over CLI)
         if self.config_file:
             self.load_config_file(self.config_file)
 
     def _create_loader(self, argv, aliases, flags, classes):
-        return StrictArgParse(
+        if self.strict_parsing:
+            loader = StrictArgParse
+        else:
+            loader = KVArgParseConfigLoader
+        return loader(
             argv, aliases, flags, classes=classes,
             log=self.log, subcommands=self.subcommands
         )
