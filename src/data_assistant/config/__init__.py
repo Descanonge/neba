@@ -82,7 +82,8 @@ class App(Application):
                 continue
             yield c
 
-    def write_config(self, filename: str | None = None):
+    def write_config(self, filename: str | None = None,
+                     ask_overwrite: bool = True):
         """(Over)write a configuration file.
 
         Parameters
@@ -90,12 +91,35 @@ class App(Application):
         filename:
             Write to this file. If None, the current value of
             :attr:`config_file` is used.
+        ask_overwrite:
+            If True (default), ask for confirmation if config file
+            already exists. Else, overwrite the file without questions.
         """
+        if filename is None:
+            filename = self.config_file
+
+        filename = path.realpath(filename)
+
+        if path.exists(filename) and ask_overwrite:
+            print(f"Config file already exists '{filename}")
+            def ask():
+                prompt = 'Overwrite with new config? [y/N]'
+                try:
+                    return input(prompt).lower() or 'n'
+                except KeyboardInterrupt:
+                    print('')  # empty line
+                    return 'n'
+
+            answer = ask()
+            while not answer.startswith(('y', 'n')):
+                print("Please answer 'yes' or 'no'")
+                answer = ask()
+            if answer.startswith('n'):
+                return
+
         lines = self.generate_config_file().splitlines()
         # Remove trailing whitespace
         lines = [line.rstrip() for line in lines]
 
-        if filename is None:
-            filename = self.config_file
         with open(filename, 'w') as f:
             f.write('\n'.join(lines))
