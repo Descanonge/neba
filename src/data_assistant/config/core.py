@@ -270,20 +270,67 @@ class BaseApp(Application):
             log=self.log, subcommands=self.subcommands
         )
 
-    def _classes_inc_parents(self, classes=None):
-        """Iterate through configurable classes, including configurable parents.
+    def _filter_parent_app(self, classes):
+        cls = self.__class__
+        def to_keep(c):
+            if issubclass(c, Application):
+                # Only keep current class, no parents
+                return c == cls
+            return True
+        return [c for c in classes if to_keep(c)]
 
-        :param classes:
-            The list of classes to iterate; if not set, uses :attr:`classes`.
+    def emit_help(self, classes=False):
+        """Yield the help-lines for each Configurable class in self.classes.
 
-        Children should always be after parents, and each class should only be
-        yielded once.
+        If classes=False (the default), only flags and aliases are printed.
 
-        Overwritten to avoid having the :class:`traitlets.Application` parent
-        class documented. I don't think users should change those option
-        globally (or at least not in the context of this library).
+        Override to avoid documenting base classes of the application.
         """
-        for c in super()._classes_inc_parents(classes):
-            if c == Application:
-                continue
-            yield c
+        yield from self.emit_description()
+        yield from self.emit_subcommands_help()
+        yield from self.emit_options_help()
+
+        if classes:
+            help_classes = self._classes_with_config_traits()
+            help_classes = self._filter_parent_app(help_classes)
+
+            if help_classes:
+                yield "Class options"
+                yield "============="
+                for p in wrap_paragraphs(self.keyvalue_description):
+                    yield p
+                    yield ""
+
+            for cls in help_classes:
+                yield cls.class_get_help()
+                yield ""
+        yield from self.emit_examples()
+
+        yield from self.emit_help_epilogue(classes)
+
+    def generate_config_file(self, classes=None):
+        """Generate default config file from Configurables.
+
+        Override to avoid documenting base classes of the application.
+        """
+        lines = ["# Configuration file for %s." % self.name]
+        lines.append("")
+        lines.append("c = get_config()  #" + "noqa")
+        lines.append("")
+        classes = self.classes if classes is None else classes
+        config_classes = list(self._classes_with_config_traits(classes))
+        config_classes = self._filter_parent_app(config_classes)
+        for cls in config_classes:
+            lines.append(cls.class_config_section(config_classes))
+        return "\n".join(lines)
+
+    def document_config_options(self):
+        """Generate rST format documentation for the config options this application.
+
+        Returns a multiline string.
+
+        Override to avoid documenting base classes of the application.
+        """
+        classes = self._classes_inc_parents()
+        classes = self._filter_parent_app(classes)
+        return "\n".join(c.class_config_rst_doc() for c in classes)
