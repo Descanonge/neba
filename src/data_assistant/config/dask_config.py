@@ -75,14 +75,14 @@ import dask_jobqueue as djq
 
 from traitlets import Bool, Enum, Float, Int, List, Unicode
 
-from .core import ConfigurablePlus
+from .core import AutoConfigurable
 
 CLUSTER_TYPES = {
     'PBS': djq.PBSCluster,
     'SLURM': djq.SLURMCluster,
 }
 
-class DaskClusterConfig(ConfigurablePlus):
+class DaskClusterConfig(AutoConfigurable):
 
     cluster_type = Enum(CLUSTER_TYPES.keys(), default_value='SLURM',
                         help='Type of cluster to use.')
@@ -100,7 +100,7 @@ class DaskClusterConfig(ConfigurablePlus):
 
 
 # classes that reproduce jobqueue config (and nothing more)
-class DaskJobQueueCluster(ConfigurablePlus):
+class DaskJobQueueCluster(AutoConfigurable):
 
     # Job specific parameters
     cores = Int(help='Total number of cores per job.')

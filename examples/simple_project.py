@@ -2,11 +2,11 @@
 from traitlets import Enum, Float, Unicode
 
 from data_assistant.config import BaseApp
-from data_assistant.config import ConfigurablePlus
+from data_assistant.config import AutoConfigurable
 from data_assistant.config.dask_config import DaskClusterPBS, DaskClusterSLURM
 
 
-class Parameters(ConfigurablePlus):
+class Parameters(AutoConfigurable):
     # Your parameters definition goes here !
 
     region = Unicode('GS', help='region')
