@@ -7,7 +7,7 @@ from traitlets.config.loader import (
     KVArgParseConfigLoader, Config, DeferredConfig, _is_section_key
 )
 from traitlets.utils.text import wrap_paragraphs
-from traitlets import Bool, Unicode
+from traitlets import Bool, TraitType, Unicode
 
 
 class AutoConfigurable(Configurable):
@@ -153,6 +153,37 @@ class BaseApp(Application):
 
         for n, f in super().flags.items():
             cls.flags.setdefault(n, f)
+
+    def add_extra_parameter(self, name: str, trait: TraitType,
+                            dest: type[Configurable] | None = None,
+                            auto_alias: bool = True):
+        """Add a configurable trait to this application configuration.
+
+        Parameters
+        ----------
+        name:
+            Name of the trait.
+        trait:
+            Trait object to add. It will automatically be tagged as configurable.
+            It will be accessible in the config object, under `dest`.
+        dest:
+            Subclass of :class:`Configurable` that will host the trait (one of
+            :attr:`classes` typically). If left to None, it will default to this
+            class.
+        auto_alias:
+            If True (default), it will automatically add an alias so that the
+            trait can be set directly with ``--{name}=`` instead of
+            ``--{dest}.{name}=``.
+        """
+        if dest is None:
+            dest = self.__class__
+
+        trait.tag(config=True)
+        setattr(dest, name, trait)
+        dest.setup_class(dest.__dict__)
+
+        if auto_alias:
+            self.aliases['name'] = (f'{dest.__name__}.{name}', trait.help)
 
     def initialize(self, argv=None, ignore_cli: bool = False):
         """Initialize application.
