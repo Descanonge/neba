@@ -155,7 +155,7 @@ class BaseApp(Application):
             cls.flags.setdefault(n, f)
 
     def add_extra_parameter(self, name: str, trait: TraitType,
-                            dest: type[Configurable] | None = None,
+                            dest: type[Configurable] | str | None = None,
                             auto_alias: bool = True):
         """Add a configurable trait to this application configuration.
 
@@ -169,7 +169,8 @@ class BaseApp(Application):
         dest:
             Subclass of :class:`Configurable` that will host the trait (one of
             :attr:`classes` typically). If left to None, it will default to this
-            class.
+            class. If specified as a string, it should correspond to the name
+            of a class present in ``App.classes``.
         auto_alias:
             If True (default), it will automatically add an alias so that the
             trait can be set directly with ``--{name}=`` instead of
@@ -177,6 +178,9 @@ class BaseApp(Application):
         """
         if dest is None:
             dest = self.__class__
+        elif isinstance(dest, str):
+            idx = [cls.__name__ for cls in self.classes].index(dest)
+            dest = self.classes[idx]
 
         trait.tag(config=True)
         setattr(dest, name, trait)

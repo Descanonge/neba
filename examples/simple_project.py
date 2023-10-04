@@ -22,6 +22,11 @@ class App(BaseApp, DaskApp):
 
 if __name__ == '__main__':
     app = App()
+
+    app.add_extra_parameter('unique-param',
+                            Unicode('for this script alone'),
+                            dest='Parameters')
+
     # Initialize: this retrieves the configuration values from
     # config file or command line arguments.
     app.initialize()
