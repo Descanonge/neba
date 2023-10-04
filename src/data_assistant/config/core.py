@@ -233,6 +233,7 @@ class BaseApp(Application):
         self.config_defaults = copy.deepcopy(self.config)
 
     def write_config(self, filename: str | None = None,
+                     comment: bool = True,
                      ask_overwrite: bool = True):
         """(Over)write a configuration file.
 
@@ -241,6 +242,8 @@ class BaseApp(Application):
         filename:
             Write to this file. If None, the current value of
             :attr:`config_file` is used.
+        comment:
+            If True (default), comment configuration lines.
         ask_overwrite:
             If True (default), ask for confirmation if config file
             already exists. Else, overwrite the file without questions.
@@ -268,8 +271,14 @@ class BaseApp(Application):
                 return
 
         lines = self.generate_config_file().splitlines()
+
         # Remove trailing whitespace
         lines = [line.rstrip() for line in lines]
+
+        if not comment:
+            for i, line in enumerate(lines):
+                if line.startswith('# c.'):
+                    lines[i] = line.removeprefix('# ')
 
         with open(filename, 'w') as f:
             f.write('\n'.join(lines))
@@ -341,6 +350,7 @@ class BaseApp(Application):
         config_classes = self._filter_parent_app(config_classes)
         for cls in config_classes:
             lines.append(cls.class_config_section(config_classes))
+
         return "\n".join(lines)
 
     def document_config_options(self):
