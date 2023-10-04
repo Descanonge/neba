@@ -183,7 +183,7 @@ class BaseApp(Application):
         dest.setup_class(dest.__dict__)
 
         if auto_alias:
-            self.aliases['name'] = (f'{dest.__name__}.{name}', trait.help)
+            self.aliases[name] = (f'{dest.__name__}.{name}', trait.help)
 
     def initialize(self, argv=None, ignore_cli: bool = False):
         """Initialize application.
