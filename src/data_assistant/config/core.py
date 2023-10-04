@@ -99,10 +99,7 @@ class StrictArgParse(KVArgParseConfigLoader):
 
 
 class BaseApp(Application):
-    """Base application with some additional features.
-
-
-    """
+    """Base application with some additional features."""
     classes = []
     """List of Configurable classes to manage.
 
@@ -126,13 +123,6 @@ class BaseApp(Application):
         'config.py', help='Load this config file.'
     ).tag(config=True)
 
-    init_config = Bool(
-        False, help='If True, write configuration to file.'
-    )
-
-    flags = {
-        'init-config': ({'BaseApp': {'init_config': True}}, init_config.help)
-    }
 
     def __init_subclass__(cls, /, **kwargs) -> None:
         """Subclass init hook.
@@ -215,12 +205,6 @@ class BaseApp(Application):
         # Read config files (done last but hasn't priority over CLI)
         if self.config_file:
             self.load_config_file(self.config_file)
-
-    def start(self):
-        """Start application or subcommands."""
-        super().start()
-        if self.init_config:
-            self.write_config()
 
     def setup_defaults(self) -> None:
         """Populate self.config recursively for registered classes.
