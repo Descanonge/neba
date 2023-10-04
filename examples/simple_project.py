@@ -3,7 +3,7 @@ from traitlets import Enum, Float, Unicode
 
 from data_assistant.config import BaseApp
 from data_assistant.config import AutoConfigurable
-from data_assistant.config.dask_config import DaskClusterPBS, DaskClusterSLURM
+from data_assistant.config.dask_config import DaskApp
 
 
 class Parameters(AutoConfigurable):
@@ -15,8 +15,8 @@ class Parameters(AutoConfigurable):
                 help='kind of histogram')
 
 
-class App(BaseApp):
-    classes = [Parameters, DaskClusterPBS, DaskClusterSLURM]
+class App(BaseApp, DaskApp):
+    classes = [Parameters]
     add_to_aliases = [Parameters]
 
 
@@ -33,4 +33,3 @@ if __name__ == '__main__':
     # The configuration can be access in the form of a nested
     # dictionnary (traitlets.config.ConfigDict)
     c = app.config
-    print(c.Parameters.region)
