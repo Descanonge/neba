@@ -17,7 +17,7 @@ class Parameters(AutoConfigurable):
 
 class App(BaseApp, DaskApp):
     classes = [Parameters]
-    add_to_aliases = [Parameters]
+    auto_aliases = [Parameters]
 
 
 if __name__ == '__main__':

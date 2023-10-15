@@ -1,12 +1,15 @@
 
 import copy
+import os
 from os import path
 
 from traitlets.config import Application, Configurable
 from traitlets.config.loader import (
-    KVArgParseConfigLoader, Config, DeferredConfig, _is_section_key
+    KVArgParseConfigLoader, Config, DeferredConfig, _is_section_key,
+    ConfigFileNotFound
 )
 from traitlets.utils.text import wrap_paragraphs
+from traitlets.utils.importstring import import_item
 from traitlets import Bool, TraitType, Unicode
 
 
@@ -70,33 +73,6 @@ class StrictArgParse(KVArgParseConfigLoader):
     def _handle_unrecognized_alias(self, arg: str):
         self.parser.error(f'Unrecognized alias: {arg}')
 
-    def load_config(self, argv=None, aliases=None, classes=None):
-        """Parse command line arguments and return as a Config object.
-
-        Parameters
-        ----------
-        argv : optional, list
-            If given, a list with the structure of sys.argv[1:] to parse
-            arguments from. If not given, the instance's self.argv attribute
-            (given at construction time) is used.
-
-        Overwritten to raise if any kind of DeferredConfig has been
-        parsed (which means the corresponding trait has not been
-        defined yet).
-        """
-        def check_config(cfg, parentkey):
-            for key, val in cfg.items():
-                fullkey = f'{parentkey}.{key}'
-                if isinstance(val, Config):
-                    check_config(val, fullkey)
-                elif isinstance(val, DeferredConfig):
-                    self.parser.error('DeferredConfig not allowed '
-                                      f"/ undefined trait '{fullkey}'")
-
-        config = super().load_config(argv=argv, aliases=aliases, classes=classes)
-        check_config(config, 'c')
-        return config
-
 
 class BaseApp(Application):
     """Base application with some additional features."""
@@ -106,7 +82,7 @@ class BaseApp(Application):
     Define yours and put them here.
     """
 
-    add_to_aliases: list[type[Configurable]] = []
+    auto_aliases: list[type[Configurable]] = []
     """Automatically add aliases for traits from those Configurable.
 
     Aliases are the names of the traits. For instance
@@ -123,6 +99,16 @@ class BaseApp(Application):
         'config.py', help='Load this config file.'
     ).tag(config=True)
 
+    file_config_loaders = [
+        (['py'], 'traitlets.config.loader.PyFileConfigLoader'),
+        (['json'], 'traitlets.config.loader.JSONFileConfigLoader'),
+        (['toml'], 'data_assistant.config.loader.TomlFileConfigLoader'),
+        (['yaml', 'yml'], 'data_assistant.config.loader.YamlFileConfigLoader')
+    ]
+
+    aliases = {
+        'config-file': ('BaseApp.config_file', config_file.help)
+    }
 
     def __init_subclass__(cls, /, **kwargs) -> None:
         """Subclass init hook.
@@ -130,13 +116,13 @@ class BaseApp(Application):
         Any subclass will automatically run this after being defined.
 
         It adds aliases for all traits of the configurable listed
-        in the add_to_aliases class attribute.
+        in the auto_aliases class attribute.
 
         It also re-add flags defined in parent classes (unless
         explicitely overridden).
         """
         super().__init_subclass__(**kwargs)
-        for cfg in cls.add_to_aliases:
+        for cfg in cls.auto_aliases:
             for name, trait in cfg.class_traits(config=True).items():
                 if name not in cls.aliases:
                     cls.aliases[name] = (f'{cfg.__name__}.{name}', trait.help)
@@ -231,6 +217,31 @@ class BaseApp(Application):
             populate(cls, self.config, cls.__name__)
         # save defaults
         self.config_defaults = copy.deepcopy(self.config)
+
+    def validate_config(self, config: Config):
+        """Validate config against scheme."""
+        pass
+
+    def load_config_file(self, filename, path=None):
+        # TODO restrict to section of input file (yaml/toml/ini)
+        ext = os.path.splitext(filename)[1].removeprefix('.')
+
+        loader = None
+        for extensions, loader_loc in self.file_config_loaders:
+            if ext in extensions:
+                loader_cls = import_item(loader_loc)
+                loader = loader_cls(filename, path=path)
+                break
+        if loader is None:
+            raise ValueError("Extension '{}' not supported, must be in {}."
+                             .format(ext, [x[0] for x in self.file_config_loaders]))
+
+        try:
+            self.from_disk = loader.load_config()
+        except ConfigFileNotFound:
+            return Config()
+
+        return self.from_disk
 
     def write_config(self, filename: str | None = None,
                      comment: bool = True,
