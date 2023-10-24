@@ -1,6 +1,20 @@
 
 from traitlets.config import Config
-from traitlets.config.loader import FileConfigLoader, ConfigFileNotFound
+from traitlets.config.loader import (
+    ConfigFileNotFound, FileConfigLoader, KVArgParseConfigLoader
+    )
+
+
+class StrictArgParse(KVArgParseConfigLoader):
+    """Strict config loader for argparse.
+
+    Will raise errors on unrecognized alias or configuration key.
+    So ``--Unexisting.param=1`` will raise.
+    """
+
+    def _handle_unrecognized_alias(self, arg: str):
+        self.parser.error(f'Unrecognized alias: {arg}')
+
 
 class DictFileConfigLoader(FileConfigLoader):
 

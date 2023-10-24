@@ -1,86 +1,20 @@
 
-import copy
 import os
 from os import path
 
+from traitlets import Bool, TraitType, Unicode
 from traitlets.config import Application, Configurable
 from traitlets.config.loader import (
-    KVArgParseConfigLoader, Config, DeferredConfig, _is_section_key,
-    ConfigFileNotFound
+    Config, ConfigFileNotFound, KVArgParseConfigLoader
 )
-from traitlets.utils.text import wrap_paragraphs
 from traitlets.utils.importstring import import_item
-from traitlets import Bool, TraitType, Unicode
+
+from .loader import StrictArgParse
+from .scheme import Scheme
 
 
-class AutoConfigurable(Configurable):
-    """Automatically tag its traits as configurable.
-
-    On class definition (using the ``__init_subclass__`` hook) tag
-    all class traits as configurable, unless already tagged as False.
-    Just save you from adding ``...).tag(config=True)`` to every trait.
-
-    Also add a class method to generate the config for a single trait.
-    """
-
-    def __init_subclass__(cls, /, **kwargs):
-        """Subclass init hook."""
-        super().__init_subclass__(**kwargs)
-        # first setup class descriptors
-        cls.setup_class(cls.__dict__)
-        # tag all trait not inherited from parent
-        for trait in cls.class_own_traits().values():
-            # do not tag if metadata already set to False
-            if trait.metadata.get('config', True):
-                trait.tag(config=True)
-        # re-setup class descriptors
-        cls.setup_class(cls.__dict__)
-
-    @classmethod
-    def generate_config_single_parameter(cls, parameter: str) -> str:
-        """Generate config text for a single trait.
-
-        Useful if parameters have been added and the configuration
-        file must be changed, but only partially.
-        """
-        trait = getattr(cls, parameter)
-        # Taken from traitlets.Configurable.class_config_section()
-        def c(s):
-            s = '\n\n'.join(wrap_paragraphs(s, 78))
-            return '## ' + s.replace('\n', '\n#  ')
-
-        lines = []
-        default_repr = trait.default_value_repr()
-
-        # cls owns the trait, show full help
-        if trait.help:
-            lines.append(c(trait.help))
-        if 'Enum' in type(trait).__name__:
-            # include Enum choices
-            lines.append(f'#  Choices: {trait.info}')
-        lines.append(f'#  Default: {default_repr}')
-
-        return '\n'.join(lines)
-
-
-class StrictArgParse(KVArgParseConfigLoader):
-    """Strict config loader for argparse.
-
-    Will raise errors on unrecognized alias or configuration key.
-    So ``--Unexisting.param=1`` will raise.
-    """
-
-    def _handle_unrecognized_alias(self, arg: str):
-        self.parser.error(f'Unrecognized alias: {arg}')
-
-
-class BaseApp(Application):
+class BaseApp(Application, Scheme):
     """Base application with some additional features."""
-    classes = []
-    """List of Configurable classes to manage.
-
-    Define yours and put them here.
-    """
 
     auto_aliases: list[type[Configurable]] = []
     """Automatically add aliases for traits from those Configurable.
@@ -122,6 +56,9 @@ class BaseApp(Application):
         explicitely overridden).
         """
         super().__init_subclass__(**kwargs)
+
+        cls.classes = list(cls._subschemes.values())
+
         for cfg in cls.auto_aliases:
             for name, trait in cfg.class_traits(config=True).items():
                 if name not in cls.aliases:
@@ -165,6 +102,16 @@ class BaseApp(Application):
         if auto_alias:
             self.aliases[name] = (f'{dest.__name__}.{name}', trait.help)
 
+    def get_defaults(self) -> Config:
+        if not self.classes_inst:
+            self.classes_inst = [cls() for cls in self.classes]
+
+        defaults = Config()
+        for scheme in self.classes_inst:
+            if not isinstance(scheme, Scheme):
+                raise TypeError(f'Only Scheme type supported (received {type(scheme)})')
+            # defaults[cls.__class__.__name__] =
+
     def initialize(self, argv=None, ignore_cli: bool = False):
         """Initialize application.
 
@@ -182,7 +129,7 @@ class BaseApp(Application):
             for jupyter notebooks for instance.
         """
         # Initialize defaults defined in Configurable classes
-        self.setup_defaults()
+        self.defaults = self.scheme.defaults_recursive()
 
         # First parse CLI (for help for instance, or specify the config files)
         if not ignore_cli:
@@ -191,32 +138,6 @@ class BaseApp(Application):
         # Read config files (done last but hasn't priority over CLI)
         if self.config_file:
             self.load_config_file(self.config_file)
-
-    def setup_defaults(self) -> None:
-        """Populate self.config recursively for registered classes.
-
-        Use the defaults values of traits. Traitlets does not do
-        this by default (it implies to walk the nested tree of traits,
-        and traitlets allows to keep things lazy).
-
-        We do this to centralize the configuration, instead of
-        relying on scattered Configurable instances.
-        """
-        def populate(cls: type[Configurable],
-                     config: Config, key: str):
-            subconfig = config.setdefault(key, Config())
-            for name, value in cls().trait_values(config=True).items():
-                # trait name starts with capital > nested config
-                if _is_section_key(name):
-                    populate(value, subconfig, name)
-                else:
-                    subconfig[name] = value
-
-        self.config = Config()
-        for cls in self.classes:
-            populate(cls, self.config, cls.__name__)
-        # save defaults
-        self.config_defaults = copy.deepcopy(self.config)
 
     def validate_config(self, config: Config):
         """Validate config against scheme."""
