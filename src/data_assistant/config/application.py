@@ -4,12 +4,9 @@ from os import path
 
 from traitlets import Bool, TraitType, Unicode
 from traitlets.config import Application, Configurable
-from traitlets.config.loader import (
-    Config, ConfigFileNotFound, KVArgParseConfigLoader
-)
-from traitlets.utils.importstring import import_item
+from traitlets.config.loader import Config
+from traitlets.utils.text import wrap_paragraphs
 
-from .loader import StrictArgParse
 from .scheme import Scheme
 
 
@@ -32,13 +29,6 @@ class BaseApp(Application, Scheme):
     config_file = Unicode(
         'config.py', help='Load this config file.'
     ).tag(config=True)
-
-    file_config_loaders = [
-        (['py'], 'traitlets.config.loader.PyFileConfigLoader'),
-        (['json'], 'traitlets.config.loader.JSONFileConfigLoader'),
-        (['toml'], 'data_assistant.config.loader.TomlFileConfigLoader'),
-        (['yaml', 'yml'], 'data_assistant.config.loader.YamlFileConfigLoader')
-    ]
 
     aliases = {
         'config-file': ('BaseApp.config_file', config_file.help)
@@ -102,16 +92,6 @@ class BaseApp(Application, Scheme):
         if auto_alias:
             self.aliases[name] = (f'{dest.__name__}.{name}', trait.help)
 
-    def get_defaults(self) -> Config:
-        if not self.classes_inst:
-            self.classes_inst = [cls() for cls in self.classes]
-
-        defaults = Config()
-        for scheme in self.classes_inst:
-            if not isinstance(scheme, Scheme):
-                raise TypeError(f'Only Scheme type supported (received {type(scheme)})')
-            # defaults[cls.__class__.__name__] =
-
     def initialize(self, argv=None, ignore_cli: bool = False):
         """Initialize application.
 
@@ -129,7 +109,7 @@ class BaseApp(Application, Scheme):
             for jupyter notebooks for instance.
         """
         # Initialize defaults defined in Configurable classes
-        self.defaults = self.scheme.defaults_recursive()
+        self.defaults = self.get_defaults()
 
         # First parse CLI (for help for instance, or specify the config files)
         if not ignore_cli:
@@ -139,30 +119,12 @@ class BaseApp(Application, Scheme):
         if self.config_file:
             self.load_config_file(self.config_file)
 
+    def get_defaults(self):
+        pass
+
     def validate_config(self, config: Config):
         """Validate config against scheme."""
         pass
-
-    def load_config_file(self, filename, path=None):
-        # TODO restrict to section of input file (yaml/toml/ini)
-        ext = os.path.splitext(filename)[1].removeprefix('.')
-
-        loader = None
-        for extensions, loader_loc in self.file_config_loaders:
-            if ext in extensions:
-                loader_cls = import_item(loader_loc)
-                loader = loader_cls(filename, path=path)
-                break
-        if loader is None:
-            raise ValueError("Extension '{}' not supported, must be in {}."
-                             .format(ext, [x[0] for x in self.file_config_loaders]))
-
-        try:
-            self.from_disk = loader.load_config()
-        except ConfigFileNotFound:
-            return Config()
-
-        return self.from_disk
 
     def write_config(self, filename: str | None = None,
                      comment: bool = True,
@@ -215,29 +177,11 @@ class BaseApp(Application, Scheme):
         with open(filename, 'w') as f:
             f.write('\n'.join(lines))
 
-    def _create_loader(self, argv, aliases, flags, classes):
-        """Use a strict loader if specified.
-
-        Strict loader is :class:`StrictArgParse`, otherwise the
-        default :class:`KVArgParseConfigLoader` is used.
-        """
-        if self.strict_parsing:
-            loader = StrictArgParse
-        else:
-            loader = KVArgParseConfigLoader
-        return loader(
-            argv, aliases, flags, classes=classes,
-            log=self.log, subcommands=self.subcommands
-        )
-
     def _filter_parent_app(self, classes):
-        cls = self.__class__
-        def to_keep(c):
-            if issubclass(c, Application):
-                # Only keep current class, no parents
-                return c == cls
-            return True
-        return [c for c in classes if to_keep(c)]
+        for c in classes:
+            if issubclass(c, Application) and c != self.__class__:
+                continue
+            yield c
 
     def emit_help(self, classes=False):
         """Yield the help-lines for each Configurable class in self.classes.
