@@ -57,7 +57,7 @@ class BaseApp(Application, Scheme):
         """
         super().__init_subclass__(**kwargs)
 
-        cls.classes = list(cls._subschemes.values())
+        cls.classes = list(cls._subschemes_recursive())
 
         for cfg in cls.auto_aliases:
             for name, trait in cfg.class_traits(config=True).items():

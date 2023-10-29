@@ -22,7 +22,7 @@ class Parameters(Scheme):
 
 
 class App(BaseApp):
-    scheme = Parameters()
+    scheme = Parameters
     auto_aliases = [Parameters]
 
 

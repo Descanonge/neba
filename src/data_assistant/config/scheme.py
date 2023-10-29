@@ -37,7 +37,7 @@ class Scheme(Configurable):
                 cls._subschemes[k] = v
                 setattr(
                     cls, k,
-                    Instance(v, args=(), kw={}).tag(config=True)
+                    Instance(v, args=(), kw={})
                 )
 
         # re-setup class descriptors
@@ -72,6 +72,12 @@ class Scheme(Configurable):
             subscheme_inst = getattr(self, name)
             config[name] = subscheme_inst.defaults_recursive()
         return config
+
+    @classmethod
+    def _subschemes_recursive(cls):
+        for subscheme in cls._subschemes.values():
+            yield from subscheme._subschemes_recursive()
+        yield cls
 
 
     # @classmethod
