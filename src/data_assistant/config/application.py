@@ -98,8 +98,6 @@ class BaseApp(Application, Scheme):
     def initialize(self, argv=None, ignore_cli: bool = False):
         """Initialize application.
 
-        - Populate ``config`` attribute with defaults as defined in the
-        various Configurable objects.
         - Parse command line arguments.
         - Load configuration file.
 
@@ -111,9 +109,6 @@ class BaseApp(Application, Scheme):
             If True, do not parse command line arguments. Useful
             for jupyter notebooks for instance.
         """
-        # Initialize defaults defined in Configurable classes
-        self.defaults = self.get_defaults()
-
         # First parse CLI (for help for instance, or specify the config files)
         if not ignore_cli:
             self.parse_command_line(argv)
@@ -122,8 +117,6 @@ class BaseApp(Application, Scheme):
         if self.config_file:
             self.load_config_file(self.config_file)
 
-    def get_defaults(self):
-        pass
 
     def validate_config(self, config: Config):
         """Validate config against scheme."""
