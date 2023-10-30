@@ -117,9 +117,14 @@ class BaseApp(Application, Scheme):
         if self.config_file:
             self.load_config_file(self.config_file)
 
+    def validate(self, config: Config | None = None):
+        if config is None:
+            config = self.config
 
-    def validate_config(self, config: Config):
-        """Validate config against scheme."""
+        for cls in self.classes:
+            cls(config=config)
+
+    def get_defaults(self):
         pass
 
     def write_config(self, filename: str | None = None,
