@@ -36,6 +36,10 @@ class Scheme(Configurable):
 
         cls.setup_class(classdict)
 
+    def init_subschemes(self):
+        for k, subscheme in self._subschemes.items():
+            self.set_trait(k, subscheme(parent=self))
+            getattr(self, k).init_subschemes()
 
     @classmethod
     def class_traits_recursive(cls) -> Config:
