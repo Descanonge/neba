@@ -82,8 +82,11 @@ class BaseApp(Application, Scheme):
         if dest is None:
             dest = self.__class__
         elif isinstance(dest, str):
-            idx = [cls.__name__ for cls in self.classes].index(dest)
-            dest = self.classes[idx]
+            if dest in self._subschemes:
+                dest = self._subschemes[dest]
+            else:
+                idx = [cls.__name__ for cls in self.classes].index(dest)
+                dest = self.classes[idx]
 
         trait.tag(config=True)
         setattr(dest, name, trait)
