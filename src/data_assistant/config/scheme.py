@@ -1,7 +1,7 @@
 
 from __future__ import annotations
 
-from traitlets import Instance
+from traitlets import Instance, TraitType
 from traitlets.config import Configurable, Config
 
 
@@ -14,48 +14,28 @@ class Scheme(Configurable):
 
     Also add a class method to generate the config for a single trait.
     """
+    _subschemes: dict[str, type[Scheme]] = {}
 
-    _subschemes: dict[str, type[Scheme]]
-
-    def __init_subclass__(cls, /, **kwargs) -> None:
-        """Subclass init hook."""
+    def __init_subclass__(cls, /, **kwargs):
         super().__init_subclass__(**kwargs)
 
-        # first setup class descriptors
-        cls.setup_class(cls.__dict__)
-
-        # tag all trait not inherited from parent
-        for trait in cls.class_own_traits().values():
-            # do not tag if metadata already set to False
-            if trait.metadata.get('config', True):
-                trait.tag(config=True)
-
-        # Register nested schemes
+        classdict = cls.__dict__
         cls._subschemes = {}
-        for k, v in cls.__dict__.items():
+
+        for k, v in classdict.items():
+            # tag trait as configurable
+            if isinstance(v, TraitType):
+                if v.metadata.get('config', True):
+                    v.tag(config=True)
+
+            # register nested schemes
             if isinstance(v, type) and issubclass(v, Scheme):
                 cls._subschemes[k] = v
-                setattr(
-                    cls, k,
-                    Instance(v, args=(), kw={})
-                )
+                setattr(cls, k,
+                        Instance(v, args=(), kw={}))
 
-        # re-setup class descriptors
-        cls.setup_class(cls.__dict__)
+        cls.setup_class(classdict)
 
-    # def __init__(self, config: dict | None = None):
-    #     # Configurable subclasses should execute this first:
-    #     super(Scheme, self).__init__()  # noqa: UP008
-
-    #     # self._subschemes_instances = {}
-
-    #     # if config is None:
-    #     #     config = {}
-
-    #     # for name, subscheme in self._subschemes.items():
-    #     #     self._subschemes_instances[name] = subscheme(
-    #     #         config=config.get(name, {})
-    #     #     )
 
     @classmethod
     def class_traits_recursive(cls) -> Config:
