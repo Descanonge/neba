@@ -45,25 +45,8 @@ class Scheme(Configurable):
             config[name] = subscheme.class_traits_recursive()
         return config
 
-    def defaults_recursive(self) -> Config:
-        config = Config()
-        config.update(self.trait_defaults(config=True))
-        for name in self._subschemes.keys():
-            subscheme_inst = getattr(self, name)
-            config[name] = subscheme_inst.defaults_recursive()
-        return config
-
     @classmethod
     def _subschemes_recursive(cls):
         for subscheme in cls._subschemes.values():
             yield from subscheme._subschemes_recursive()
         yield cls
-
-
-    # @classmethod
-    # def class_values_recursive(cls) -> dict:
-    #     config = {}
-    #     config.update(cls.(config=True))
-    #     for name, subscheme in cls._subschemes.items():
-    #         config[name] = subscheme.class_traits_recursive()
-    #     return config
