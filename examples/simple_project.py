@@ -46,7 +46,7 @@ if __name__ == '__main__':
     # this instanciate all schemes with the retrieved config
     # (this might be a lot for large schemes !)
     # it (sorta) validates the config values at the same time
-    app.init_subschemes()
+    app.instanciate_subschemes()
     # Values (default or overriden) can be accessed with:
     print(app.parameters.region)
     print(app.parameters.dask.cluster)

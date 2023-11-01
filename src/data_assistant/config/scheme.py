@@ -48,7 +48,7 @@ class Scheme(Configurable):
 
         cls.setup_class(classdict)
 
-    def init_subschemes(self):
+    def instanciate_subschemes(self):
         """Recursively instanciate subschemes traits."""
         for k, subscheme in self._subschemes.items():
             self.set_trait(k, subscheme(parent=self))
