@@ -51,6 +51,24 @@ class Scheme(Configurable):
 
         cls.setup_class(classdict)
 
+    def __str__(self) -> str:
+        lines = [f'{self.__class__.__name__}:']
+        for key, trait in self.traits(config=True).items():
+            if key in self._subschemes:
+                continue
+            trait_cls = trait.__class__.__name__
+            value = trait.get(self)
+            lines.append(f'  -{key} ({trait_cls}): {value}')
+
+        lines.append('subschemes: {}'.format(
+            ', '.join([f'{k} ({subscheme.__name__})'
+                       for k, subscheme in self._subschemes.items()])
+        ))
+        return '\n'.join(lines)
+
+    def __repr__(self) -> str:
+        return str(self)
+
     def instanciate_subschemes(self):
         """Recursively instanciate subschemes traits."""
         for k, subscheme in self._subschemes.items():
