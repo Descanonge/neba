@@ -6,24 +6,36 @@ from traitlets.config import Configurable, Config
 
 
 class Scheme(Configurable):
-    """Automatically tag its traits as configurable.
+    """Configuration specification.
 
-    On class definition (using the ``__init_subclass__`` hook) tag
-    all class traits as configurable, unless already tagged as False.
-    Just save you from adding ``...).tag(config=True)`` to every trait.
-
-    Also add a class method to generate the config for a single trait.
+    A Configurable object facilitating nested Configurables.
+    All traits are automatically tagged as configurable (``.tag(config=True)``),
+    unless already tagged.
+    Any class attribute that is a subclass of Scheme will be registered as a
+    nested subscheme and replaced by a :class:`traitlets.Instance` trait.
     """
-    _subschemes: dict[str, type[Scheme]] = {}
+
+    _subschemes: dict[str, type[Scheme]]
+    """Mapping of nested Configurables classes."""
 
     def __init_subclass__(cls, /, **kwargs):
+        """Subclass initialization hook.
+
+        Any subclass will automatically run this after being defined.
+
+        Register subschemes and tag all traits as configurable (unless already
+        tagged).
+
+        It will then run the ``setup_class`` class method to trigger the
+        initialization process of traitlets
+        (:func:`traitlets.MetaHasTraits.class_setup`).
+        """
         super().__init_subclass__(**kwargs)
 
-        classdict = cls.__dict__
         cls._subschemes = {}
-
+        classdict = cls.__dict__
         for k, v in classdict.items():
-            # tag trait as configurable
+            # tag traits as configurable
             if isinstance(v, TraitType):
                 if v.metadata.get('config', True):
                     v.tag(config=True)
@@ -37,6 +49,7 @@ class Scheme(Configurable):
         cls.setup_class(classdict)
 
     def init_subschemes(self):
+        """Recursively instanciate subschemes traits."""
         for k, subscheme in self._subschemes.items():
             self.set_trait(k, subscheme(parent=self))
             getattr(self, k).init_subschemes()
@@ -44,13 +57,15 @@ class Scheme(Configurable):
     @classmethod
     def class_traits_recursive(cls) -> Config:
         config = Config()
+        """Return nested/recursive dict of all traits."""
         config.update(cls.class_own_traits(config=True))
         for name, subscheme in cls._subschemes.items():
             config[name] = subscheme.class_traits_recursive()
         return config
 
     @classmethod
-    def _subschemes_recursive(cls):
+    def _subschemes_recursive(cls) -> Iterator[type[Scheme]]:
+        """Iterate recursively over all subschemes."""
         for subscheme in cls._subschemes.values():
             yield from subscheme._subschemes_recursive()
         yield cls
