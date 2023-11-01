@@ -1,5 +1,4 @@
 
-import os
 from os import path
 
 from traitlets import Bool, TraitType, Unicode
@@ -7,16 +6,23 @@ from traitlets.config import Application, Configurable
 from traitlets.config.loader import Config
 from traitlets.utils.text import wrap_paragraphs
 
-from .scheme import Scheme
+from .scheme import Scheme, remap
 
 
 class BaseApp(Application, Scheme):
-    """Base application with some additional features."""
+    """Basic application with some additional features.
+
+    Aliases are automatically defined for all traits of the Configurables listed
+    in the :attr:`auto_aliases` class attribute.
+
+    Flags defined in parent classes are preserved (except those overridden in
+    the new class).
+    """
 
     auto_aliases: list[type[Configurable]] = []
-    """Automatically add aliases for traits from those Configurable.
+    """Automatically add aliases for traits of those Configurables.
 
-    Aliases are the names of the traits. For instance
+    Aliases are set as the names of the traits. For instance
     ``--Parameters.threshold=5`` can be set directly as ``--threshold=5``.
     """
 
@@ -39,11 +45,11 @@ class BaseApp(Application, Scheme):
 
         Any subclass will automatically run this after being defined.
 
-        It adds aliases for all traits of the configurable listed
-        in the auto_aliases class attribute.
+        It adds aliases for all traits of the configurable listed in the
+        :attr:`auto_aliases` class attribute.
 
-        It also re-add flags defined in parent classes (unless
-        explicitely overridden).
+        It also re-add flags defined in parent classes (unless explicitely
+        overridden).
         """
         super().__init_subclass__(**kwargs)
 
@@ -109,11 +115,14 @@ class BaseApp(Application, Scheme):
             If True, do not parse command line arguments. Useful
             for jupyter notebooks for instance.
         """
-        # First parse CLI (for help for instance, or specify the config files)
+        # First parse CLI
+        # needed for help, or overriding the config files)
+        # Sets self.cli_config
         if not ignore_cli:
             self.parse_command_line(argv)
 
-        # Read config files (done last but hasn't priority over CLI)
+        # Read config files
+        # Sets self.config
         if self.config_file:
             self.load_config_file(self.config_file)
 
@@ -124,8 +133,13 @@ class BaseApp(Application, Scheme):
         for cls in self.classes:
             cls(config=config)
 
-    def get_defaults(self):
-        pass
+    def get_defaults(self) -> dict:
+        """Return nested dictionnary of traits default values."""
+        def f(cfg, key, value, path):
+            cfg[key] = value.default()
+        traits = self.class_traits_recursive()
+        remap(traits, f)
+        return traits
 
     def write_config(self, filename: str | None = None,
                      comment: bool = True,
