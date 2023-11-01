@@ -55,7 +55,7 @@ class Scheme(Configurable):
         """Recursively instanciate subschemes traits."""
         for k, subscheme in self._subschemes.items():
             self.set_trait(k, subscheme(parent=self))
-            getattr(self, k).init_subschemes()
+            getattr(self, k).instanciate_subschemes()
 
     @classmethod
     def class_traits_recursive(cls) -> dict:
