@@ -37,7 +37,10 @@ class Scheme(Configurable):
         (:func:`traitlets.MetaHasTraits.class_setup`).
         """
         super().__init_subclass__(**kwargs)
+        cls._setup_scheme()
 
+    @classmethod
+    def _setup_scheme(cls):
         cls._subschemes = {}
         classdict = cls.__dict__
         for k, v in classdict.items():

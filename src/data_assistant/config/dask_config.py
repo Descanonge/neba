@@ -3,18 +3,44 @@
 from typing import Any
 
 import distributed
+from distributed.deploy.cluster import Cluster
 import dask_jobqueue as djq
 
 from traitlets import Bool, Enum, Float, Int, List, Unicode
-from traitlets.config import Application
 
-from .core import AutoConfigurable
+from .scheme import Scheme
+from .util import tag_all_traits
 
-class DaskLocalCluster(AutoConfigurable):
+
+class DaskClusterAbstract(Scheme):
+
+    cluster_class: type[Cluster]
+
+    def get_cluster(self, **kwargs) -> Cluster:
+        """Start new cluster.
+
+        Parameters
+        ----------
+        kwargs:
+            Override arguments set by configuration.
+        """
+        config = self.get_cluster_kwargs()
+        config.update(kwargs)
+        cluster = self.cluster_class(**config)
+        return cluster
+
+    def get_cluster_kwargs(self) -> dict:
+        """Return cluster __init__ keyword arguments from configuration."""
+        return self.trait_values(cluster_args=True)
+
+
+@tag_all_traits(cluster_args=True)
+class DaskLocalCluster(DaskClusterAbstract):
     pass
 
-# classes that reproduce jobqueue config (and nothing more)
-class DaskJobQueueCluster(AutoConfigurable):
+
+@tag_all_traits(cluster_args=True)
+class DaskClusterJobQueue(DaskClusterAbstract):
 
     # Job specific parameters
     cores = Int(help='Total number of cores per job.')
@@ -71,7 +97,9 @@ class DaskJobQueueCluster(AutoConfigurable):
     asynchronous = Bool(
         help='Whether or not to run this cluster object with the async/await syntax.')
 
-class DaskClusterPBS(DaskJobQueueCluster):
+
+@tag_all_traits(cluster_args=True)
+class DaskClusterPBS(DaskClusterJobQueue):
     cluster_class = djq.PBSCluster
 
     queue = Unicode(
@@ -92,7 +120,9 @@ class DaskClusterPBS(DaskJobQueueCluster):
         help=('List of other PBS options. '
               'Each option will be prepended with the #PBS prefix.'))
 
-class DaskClusterSLURM(DaskJobQueueCluster):
+
+@tag_all_traits(cluster_args=True)
+class DaskClusterSLURM(DaskClusterJobQueue):
     cluster_class = djq.SLURMCluster
 
     queue = Unicode(
@@ -119,45 +149,42 @@ class DaskClusterSLURM(DaskJobQueueCluster):
               'Each option will be prepended with the #PBS prefix.'))
 
 
-CLUSTER_CONF_CLASSES = {
-    'PBS': DaskClusterPBS,
-    'SLURM': DaskClusterSLURM
+DEFAULT_CLUSTER_NAMES = {
+    'local': DaskLocalCluster,
+    'pbs': DaskClusterPBS,
+    'slurm': DaskClusterSLURM
 }
 
 
-class DaskCluster(AutoConfigurable):
+class DaskConfig(Scheme):
+    """Scheme for Dask management."""
 
-    cluster_type = Enum(CLUSTER_CONF_CLASSES.keys(), default_value='SLURM',
-                        help='Type of cluster to use.')
+    cluster_names: dict[str, type[DaskClusterAbstract]] = DEFAULT_CLUSTER_NAMES
 
-    # maybe more personnal parameters to setup cluster
-    # (like total memory, or per jobs)
-    # maybe use different classes depending on how user want to work
+    # cannot be changed from a subclass
+    selected_clusters: list[str] = list(DEFAULT_CLUSTER_NAMES.keys())
 
-    def start(self):
-        """Start a cluster and client."""
-        self.cluster_conf = CLUSTER_CONF_CLASSES[self.cluster_type](parent=self)
-        cluster_cls = self.cluster_conf.cluster_class
-        self.cluster_kwargs = self.cluster_conf.trait_values().copy()
+    cluster_type = Enum(DEFAULT_CLUSTER_NAMES.keys(), default_value='slurm')
 
-        self.cluster = cluster_cls(**self.cluster_kwargs)
-        self.client = distributed.Client(self.cluster)
+    @classmethod
+    def _setup_scheme(cls):
+        # Add selected cluster types
+        for name in cls.selected_clusters:
+            setattr(cls, name, cls.cluster_names[name])
 
+        super()._setup_scheme()
 
-class DaskApp(Application):
-    """Application class for Dask management."""
+        # Setup cluster_type default values
+        cls.cluster_type.values = cls.selected_clusters
+        cls.cluster_type.default_value = cls.selected_clusters[0]
 
-    listed_cluster_types = ['PBS', 'SLURM']
-
-    # add 'local' cluster ? or other ways to start dask ?
-
-    def __init_subclass__(cls, /, **kwargs):
-        """Subclass init hook."""
-        cls.classes.append(DaskCluster)
-        for c in cls.listed_cluster_types:
-            cls.classes.append(CLUSTER_CONF_CLASSES[c])
-
-        super().__init_subclass__(**kwargs)
+    @classmethod
+    def set_selected_clusters(cls, select):
+        # Remove all DaskClusterAbstract attributes
+        for name in cls.selected_clusters:
+            delattr(cls, name)
+        cls.selected_clusters = select
+        cls._setup_scheme()
 
     def start_dask(self, **kwargs: Any):
         """Start Dask distributed client.
@@ -165,7 +192,7 @@ class DaskApp(Application):
         This method instanciates a :class:`DaskCluster` in ``self.dask``, which
         will start the Cluster specified by :attr:`DaskCluster.cluster_type` and
         the associated :class:`distributed.Client`. Both are accessible as
-        ``self.dask.client`` and ``self.dask.cluster``.
+        attributes :attr:`dask.client` and :attr:`dask.cluster`
 
         The cluster can either be a :class:`LocalCluster` or one of the clusters
         supported by :mod:`dask-jobqueue`. The cluster is instanciated with the
@@ -178,6 +205,8 @@ class DaskApp(Application):
             Arguments passed to the Cluster initialization. They will override
             the current configuration.
         """
-        self.dask = DaskCluster(parent=self, **kwargs)
-        self.dask.start()
-        self.log.info('Dashboard available at %s', self.dask.client.dashboard_link)
+        cluster_cls = self.cluster_names[self.cluster_type]
+        self.cluster = cluster_cls().get_cluster(**kwargs)
+
+        self.client = distributed.Client(self.cluster)
+        # self.log.info('Dashboard available at %s', self.dask.client.dashboard_link)
