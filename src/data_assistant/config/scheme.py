@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator, Hashable
+from inspect import Parameter, signature
 from typing import Any, Callable
 
 from traitlets import Bool, Instance, TraitType
@@ -179,3 +180,46 @@ class Scheme(Configurable):
                 subscheme._remap(func, subscheme, output[name], path + [name])
             else:
                 func(self, output, name, trait, path + [name])
+
+    def trait_values_from_func_signature(self, func: Callable,
+                                         trait_select: dict | None = None,
+                                         **kwargs) -> dict:
+        """Return trait values that appear in a function signature.
+
+        Only consider the function arguments that can supplied as a keyword
+        argument, and whose name is that of a configurable trait.
+        Unbound arguments (ie ``**kwargs``) are ignored.
+
+        Parameters
+        ----------
+        func:
+            The callable to guess parameters from.
+            Parameters are retrieved using :func:`inspect.signature()`.
+            From its documentation: Accepts a wide range of callables: from
+            plain functions and classes to :func:`functools.partial()` objects.
+        trait_select:
+            Passed to :meth:`trait_names`. Restrict to traits validating those
+            conditions. Default is ``dict(config=True)``.
+        kwargs:
+            Passed to :func:`inspect.signature()`.
+
+        Returns
+        -------
+        params:
+            A mapping of parameters names to their values.
+            Can be passed directly to ``func``.
+        """
+        sig = signature(func, **kwargs)
+        params = {}
+
+        if trait_select is None:
+            trait_select = dict(config=True)
+        trait_names = self.trait_names(**trait_select)
+
+        for name, p in sig.parameters.items():
+            if (p.kind in [Parameter.POSITIONAL_OR_KEYWORD, Parameter.KEYWORD_ONLY]):
+                print(name)
+                if name in trait_names:
+                    params[name] = getattr(self, name)
+
+        return params
