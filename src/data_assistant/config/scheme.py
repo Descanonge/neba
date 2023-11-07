@@ -4,8 +4,8 @@ from __future__ import annotations
 from collections.abc import Iterator, Hashable
 from typing import Any, Callable
 
-from traitlets import Instance, TraitType
-from traitlets.config import Configurable, Config
+from traitlets import Bool, Instance, TraitType
+from traitlets.config import Configurable
 
 
 class Scheme(Configurable):
@@ -20,6 +20,9 @@ class Scheme(Configurable):
 
     _subschemes: dict[str, type[Scheme]]
     """Mapping of nested Configurables classes."""
+
+    _attr_completion_only_traits = Bool(
+        False, help='Only keep configurable traits in attribute completion.')
 
     def __init_subclass__(cls, /, **kwargs):
         """Subclass initialization hook.
@@ -69,6 +72,12 @@ class Scheme(Configurable):
     def __repr__(self) -> str:
         return str(self)
 
+    def __dir__(self):
+        if not self._attr_completion_only_traits:
+            return super().__dir__()
+        configurables = set(self.trait_names(config=True))
+        subschemes = set(self._subschemes.keys())
+        return configurables | subschemes
 
     @classmethod
     def _subschemes_recursive(cls) -> Iterator[type[Scheme]]:
