@@ -3,10 +3,9 @@ from os import path
 
 from traitlets import Bool, TraitType, Unicode
 from traitlets.config import Application, Configurable
-from traitlets.config.loader import Config
 from traitlets.utils.text import wrap_paragraphs
 
-from .scheme import Scheme, remap
+from .scheme import Scheme
 
 
 class BaseApp(Application, Scheme):
@@ -106,6 +105,7 @@ class BaseApp(Application, Scheme):
 
         - Parse command line arguments.
         - Load configuration file.
+        - Instanciate schemes
 
         Parameters
         ----------
@@ -126,20 +126,7 @@ class BaseApp(Application, Scheme):
         if self.config_file:
             self.load_config_file(self.config_file)
 
-    def validate(self, config: Config | None = None):
-        if config is None:
-            config = self.config
-
-        for cls in self.classes:
-            cls(config=config)
-
-    def get_defaults(self) -> dict:
-        """Return nested dictionnary of traits default values."""
-        def f(cfg, key, value, path):
-            cfg[key] = value.default()
-        traits = self.class_traits_recursive()
-        remap(traits, f)
-        return traits
+        self.instanciate_subschemes()
 
     def write_config(self, filename: str | None = None,
                      comment: bool = True,
