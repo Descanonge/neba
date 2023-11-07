@@ -61,12 +61,16 @@ class Scheme(Configurable):
                 continue
             trait_cls = trait.__class__.__name__
             value = trait.get(self)
-            lines.append(f'  -{key} ({trait_cls}): {value}')
+            default = trait.default()
+            lines.append(f'  -{key} ({trait_cls}): {value} [default: {default}]')
 
-        lines.append('subschemes: {}'.format(
-            ', '.join([f'{k} ({subscheme.__name__})'
-                       for k, subscheme in self._subschemes.items()])
-        ))
+        # TODO: add Enum
+
+        if self._subschemes:
+            lines.append('subschemes: {}'.format(
+                ', '.join([f'{k} ({subscheme.__name__})'
+                        for k, subscheme in self._subschemes.items()])
+            ))
         return '\n'.join(lines)
 
     def __repr__(self) -> str:
