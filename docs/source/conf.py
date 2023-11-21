@@ -21,7 +21,7 @@ print(f'{project}: {version}')
 templates_path = ['_templates']
 exclude_patterns = ['_build']
 
-extensions =[
+extensions = [
     'sphinx.ext.napoleon',
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',
@@ -46,7 +46,7 @@ autodoc_type_aliases = {
     'ndarray': 'numpy.ndarray',
     'da.Array': 'dask.array.Array',
     # do not show the full path
-    'collections.abc.Sequence': '~collections.abc.Sequence'
+    'collections.abc.Sequence': '~collections.abc.Sequence',
 }
 
 # -- Autosummary config
@@ -66,7 +66,7 @@ intersphinx_mapping = {
     'numpy': ('https://numpy.org/doc/stable', None),
     'dask': ('https://docs.dask.org/en/latest', None),
     'xarray': ('https://docs.xarray.dev/en/stable/', None),
-    'filefinder':  ('https://filefinder.readthedocs.io/en/latest', None),
+    'filefinder': ('https://filefinder.readthedocs.io/en/latest', None),
 }
 
 
@@ -80,32 +80,31 @@ html_theme_options = dict(
     use_download_button=True,
     use_fullscreen_button=False,
     show_toc_level=2,
-
     # Repo links
     repository_url='https://gitlab.in2p3.fr/biofronts/data-assistant',
     use_source_button=True,
     repository_branch='main',
     path_to_docs='docs',
-
     # Social icons
     icon_links=[
-        dict(name='Repository',
-             url='https://gitlab.in2p3.fr/biofronts/data-assistant',
-             icon='fa-brands fa-square-gitlab'),
-        dict(name='Documentation',
-             url='https://data-assistant.readthedocs.io',
-             icon='fa-solid fa-book')
+        dict(
+            name='Repository',
+            url='https://gitlab.in2p3.fr/biofronts/data-assistant',
+            icon='fa-brands fa-square-gitlab',
+        ),
+        dict(
+            name='Documentation',
+            url='https://data-assistant.readthedocs.io',
+            icon='fa-solid fa-book',
+        ),
     ],
-
     # Footer
-    article_footer_items = ['prev-next'],
-    content_footer_items = [],
-    footer_start = ['footer-left'],
-    footer_end = ['footer-right'],
+    article_footer_items=['prev-next'],
+    content_footer_items=[],
+    footer_start=['footer-left'],
+    footer_end=['footer-right'],
 )
 
 html_last_updated_fmt = '%Y-%m-%d'
 
-html_sidebars = {
-    '**': ['navbar-logo.html', 'sbt-sidebar-nav.html', 'icon-links.html']
-}
+html_sidebars = {'**': ['navbar-logo.html', 'sbt-sidebar-nav.html', 'icon-links.html']}

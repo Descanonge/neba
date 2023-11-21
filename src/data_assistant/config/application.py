@@ -1,4 +1,3 @@
-
 from os import path
 
 from traitlets import Bool, TraitType, Unicode
@@ -26,18 +25,17 @@ class BaseApp(Application, Scheme):
     """
 
     strict_parsing = Bool(
-        True, help=('If true, raise errors when encountering unknown '
-                    'arguments or configuration keys. Else only prints '
-                    'a warning.')
+        True,
+        help=(
+            'If true, raise errors when encountering unknown '
+            'arguments or configuration keys. Else only prints '
+            'a warning.'
+        ),
     ).tag(config=True)
 
-    config_file = Unicode(
-        'config.py', help='Load this config file.'
-    ).tag(config=True)
+    config_file = Unicode('config.py', help='Load this config file.').tag(config=True)
 
-    aliases = {
-        'config-file': ('BaseApp.config_file', config_file.help)
-    }
+    aliases = {'config-file': ('BaseApp.config_file', config_file.help)}
 
     def __init_subclass__(cls, /, **kwargs) -> None:
         """Subclass init hook.
@@ -62,9 +60,13 @@ class BaseApp(Application, Scheme):
         for n, f in super().flags.items():
             cls.flags.setdefault(n, f)
 
-    def add_extra_parameter(self, name: str, trait: TraitType,
-                            dest: type[Configurable] | str | None = None,
-                            auto_alias: bool = True):
+    def add_extra_parameter(
+        self,
+        name: str,
+        trait: TraitType,
+        dest: type[Configurable] | str | None = None,
+        auto_alias: bool = True,
+    ):
         """Add a configurable trait to this application configuration.
 
         Parameters
@@ -128,9 +130,12 @@ class BaseApp(Application, Scheme):
 
         self.instanciate_subschemes()
 
-    def write_config(self, filename: str | None = None,
-                     comment: bool = True,
-                     ask_overwrite: bool = True):
+    def write_config(
+        self,
+        filename: str | None = None,
+        comment: bool = True,
+        ask_overwrite: bool = True,
+    ):
         """(Over)write a configuration file.
 
         Parameters
@@ -151,6 +156,7 @@ class BaseApp(Application, Scheme):
 
         if path.exists(filename) and ask_overwrite:
             print(f"Config file already exists '{filename}")
+
             def ask():
                 prompt = 'Overwrite with new config? [y/N]'
                 try:
@@ -201,15 +207,15 @@ class BaseApp(Application, Scheme):
             help_classes = self._filter_parent_app(help_classes)
 
             if help_classes:
-                yield "Class options"
-                yield "============="
+                yield 'Class options'
+                yield '============='
                 for p in wrap_paragraphs(self.keyvalue_description):
                     yield p
-                    yield ""
+                    yield ''
 
             for cls in help_classes:
                 yield cls.class_get_help()
-                yield ""
+                yield ''
         yield from self.emit_examples()
 
         yield from self.emit_help_epilogue(classes)
@@ -219,17 +225,17 @@ class BaseApp(Application, Scheme):
 
         Override to avoid documenting base classes of the application.
         """
-        lines = ["# Configuration file for %s." % self.name]
-        lines.append("")
-        lines.append("c = get_config()  #" + "noqa")
-        lines.append("")
+        lines = ['# Configuration file for %s.' % self.name]
+        lines.append('')
+        lines.append('c = get_config()  #' + 'noqa')
+        lines.append('')
         classes = self.classes if classes is None else classes
         config_classes = list(self._classes_with_config_traits(classes))
         config_classes = self._filter_parent_app(config_classes)
         for cls in config_classes:
             lines.append(cls.class_config_section(config_classes))
 
-        return "\n".join(lines)
+        return '\n'.join(lines)
 
     def document_config_options(self):
         """Generate rST format documentation for the config options this application.
@@ -240,4 +246,4 @@ class BaseApp(Application, Scheme):
         """
         classes = self._classes_inc_parents()
         classes = self._filter_parent_app(classes)
-        return "\n".join(c.class_config_rst_doc() for c in classes)
+        return '\n'.join(c.class_config_rst_doc() for c in classes)

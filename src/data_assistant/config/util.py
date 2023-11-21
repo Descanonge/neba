@@ -1,8 +1,6 @@
-
 from typing import Callable
 
 from traitlets.config import Configurable
-
 
 
 def tag_all_traits(**metadata) -> Callable:
@@ -13,6 +11,7 @@ def tag_all_traits(**metadata) -> Callable:
     metadata:
         Are passed to ``trait.tag(**metadata)``.
     """
+
     def decorator(cls: type[Configurable]):
         for trait in cls.class_own_traits().values():
             trait.tag(**metadata)

@@ -60,3 +60,6 @@ ignore = [
 
 [tool.ruff.pydocstyle]
 convention = 'numpy'
+
+[tool.ruff.format]
+quote-style = 'single'

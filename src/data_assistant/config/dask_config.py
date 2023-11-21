@@ -1,5 +1,5 @@
-"""Dask management.
-"""
+"""Dask management."""
+
 from typing import Any
 
 import distributed
@@ -114,11 +114,15 @@ class DaskClusterJobQueue(DaskClusterAbstract):
     n_workers = Int(0, help='Number of workers to start by default.')
 
     silence_logs = Unicode(
-        help=('Log level like "debug", "info", or "error" to emit here '
-              'if the scheduler is started locally.'))
+        help=(
+            'Log level like "debug", "info", or "error" to emit here '
+            'if the scheduler is started locally.'
+        )
+    )
 
     asynchronous = Bool(
-        help='Whether or not to run this cluster object with the async/await syntax.')
+        help='Whether or not to run this cluster object with the async/await syntax.'
+    )
 
 
 @tag_all_traits(cluster_args=True)
@@ -126,22 +130,29 @@ class DaskClusterPBS(DaskClusterJobQueue):
     cluster_class = 'dask_jobqueue.PBSCluster'
 
     queue = Unicode(
-        help='Destination queue for each worker job. Passed to `#PBS -q` option.')
+        help='Destination queue for each worker job. Passed to `#PBS -q` option.'
+    )
 
     account = Unicode(
-        help=('Accounting string associated with each worker job. '
-              'Passed to `#PBS -A` option.'))
+        help=(
+            'Accounting string associated with each worker job. '
+            'Passed to `#PBS -A` option.'
+        )
+    )
 
     resource_spec = Unicode(
-        help='Request resources and specify job placement. Passed to `#PBS -l` option.')
+        help='Request resources and specify job placement. Passed to `#PBS -l` option.'
+    )
 
-    walltime = Unicode(
-        help='Walltime for each worker job.')
+    walltime = Unicode(help='Walltime for each worker job.')
 
     job_extra_directives = List(
         Unicode,
-        help=('List of other PBS options. '
-              'Each option will be prepended with the #PBS prefix.'))
+        help=(
+            'List of other PBS options. '
+            'Each option will be prepended with the #PBS prefix.'
+        ),
+    )
 
 
 @tag_all_traits(cluster_args=True)
@@ -149,33 +160,45 @@ class DaskClusterSLURM(DaskClusterJobQueue):
     cluster_class = 'dask_jobqueue.SLURMCluster'
 
     queue = Unicode(
-        help='Destination queue for each worker job. Passed to `#SBATCH -p` option.')
+        help='Destination queue for each worker job. Passed to `#SBATCH -p` option.'
+    )
 
     account = Unicode(
-        help=('Accounting string associated with each worker job. '
-              'Passed to `#PBS -A` option.'))
+        help=(
+            'Accounting string associated with each worker job. '
+            'Passed to `#PBS -A` option.'
+        )
+    )
 
-    walltime = Unicode(
-        help='Walltime for each worker job.')
+    walltime = Unicode(help='Walltime for each worker job.')
 
     job_cpu = Int(
-        help=('Number of cpu to book in SLURM, if None, defaults to worker '
-              '`threads * processes`'))
+        help=(
+            'Number of cpu to book in SLURM, if None, defaults to worker '
+            '`threads * processes`'
+        )
+    )
 
     job_mem = Unicode(
-        help=('Amount of memory to request in SLURM. If None, defaults '
-              'to worker processes * memory'))
+        help=(
+            'Amount of memory to request in SLURM. If None, defaults '
+            'to worker processes * memory'
+        )
+    )
 
     job_extra_directives = List(
         Unicode,
-        help=('List of other PBS options. '
-              'Each option will be prepended with the #PBS prefix.'))
+        help=(
+            'List of other PBS options. '
+            'Each option will be prepended with the #PBS prefix.'
+        ),
+    )
 
 
 DEFAULT_CLUSTER_NAMES = {
     'local': DaskLocalCluster,
     'pbs': DaskClusterPBS,
-    'slurm': DaskClusterSLURM
+    'slurm': DaskClusterSLURM,
 }
 
 

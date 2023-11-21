@@ -13,11 +13,12 @@ dependencies:
     - sphinx == 6.2.1
     - sphinx-book-theme == 1.0.1
 
+    - dask-jobqueue
+
     - ipython
     - ipykernel
 
     - ruff
-    - black
     - mypy >= 1.5
     - pytest >= 7.4
 
@@ -25,3 +26,4 @@ dependencies:
 
     - pip:
         - filefinder >= 0.5
+        - --no-deps -e .

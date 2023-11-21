@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 from collections.abc import Iterator, Hashable
@@ -23,7 +22,8 @@ class Scheme(Configurable):
     """Mapping of nested Configurables classes."""
 
     _attr_completion_only_traits = Bool(
-        False, help='Only keep configurable traits in attribute completion.')
+        False, help='Only keep configurable traits in attribute completion.'
+    )
 
     def __init_subclass__(cls, /, **kwargs):
         """Subclass initialization hook.
@@ -53,8 +53,7 @@ class Scheme(Configurable):
             # register nested schemes
             if isinstance(v, type) and issubclass(v, Scheme):
                 cls._subschemes[k] = v
-                setattr(cls, k,
-                        Instance(v, args=(), kw={}).tag(subscheme=True))
+                setattr(cls, k, Instance(v, args=(), kw={}).tag(subscheme=True))
 
         cls.setup_class(classdict)
 
@@ -71,10 +70,16 @@ class Scheme(Configurable):
         # TODO: add Enum
 
         if self._subschemes:
-            lines.append('subschemes: {}'.format(
-                ', '.join([f'{k} ({subscheme.__name__})'
-                        for k, subscheme in self._subschemes.items()])
-            ))
+            lines.append(
+                'subschemes: {}'.format(
+                    ', '.join(
+                        [
+                            f'{k} ({subscheme.__name__})'
+                            for k, subscheme in self._subschemes.items()
+                        ]
+                    )
+                )
+            )
         return '\n'.join(lines)
 
     def __repr__(self) -> str:
@@ -122,15 +127,19 @@ class Scheme(Configurable):
 
     def defaults_recursive(self, config=True, **metadata):
         """Return nested dictionnary of default traits values."""
+
         def f(configurable, output, key, trait, path):
             output[key] = trait.default()
+
         output = self.remap(f, config=config, **metadata)
         return output
 
     def values_recursive(self, config=True, **metadata):
         """Return nested dictionnary of traits values."""
+
         def f(configurable, output, key, trait, path):
             output[key] = trait.get(configurable)
+
         output = self.remap(f, config=config, **metadata)
         return output
 
@@ -144,14 +153,14 @@ class Scheme(Configurable):
 
         # restrict to selection
         if select is not None:
-            values = {k: v for k, v in values.items()
-                      if k in select}
+            values = {k: v for k, v in values.items() if k in select}
         return values
 
-    def remap(self,
-              func: Callable[[Configurable, dict, Hashable, TraitType, list[str]],
-                             None],
-              **metadata) -> dict[Hashable, Any]:
+    def remap(
+        self,
+        func: Callable[[Configurable, dict, Hashable, TraitType, list[str]], None],
+        **metadata,
+    ) -> dict[Hashable, Any]:
         """Recursively apply function to traits.
 
         Parameters
@@ -168,12 +177,12 @@ class Scheme(Configurable):
             Select traits.
         """
         output = self.traits_recursive(**metadata)
-        self._remap(func, configurable=self,
-                    output=output, path=[])
+        self._remap(func, configurable=self, output=output, path=[])
         return output
 
-    def _remap(self, func: Callable, configurable: Configurable,
-               output: dict, path: list[str]):
+    def _remap(
+        self, func: Callable, configurable: Configurable, output: dict, path: list[str]
+    ):
         for name, trait in output.items():
             if name in self._subschemes:
                 subscheme = getattr(self, name)
@@ -181,9 +190,9 @@ class Scheme(Configurable):
             else:
                 func(self, output, name, trait, path + [name])
 
-    def trait_values_from_func_signature(self, func: Callable,
-                                         trait_select: dict | None = None,
-                                         **kwargs) -> dict:
+    def trait_values_from_func_signature(
+        self, func: Callable, trait_select: dict | None = None, **kwargs
+    ) -> dict:
         """Return trait values that appear in a function signature.
 
         Only consider the function arguments that can supplied as a keyword
@@ -217,7 +226,7 @@ class Scheme(Configurable):
         trait_names = self.trait_names(**trait_select)
 
         for name, p in sig.parameters.items():
-            if (p.kind in [Parameter.POSITIONAL_OR_KEYWORD, Parameter.KEYWORD_ONLY]):
+            if p.kind in [Parameter.POSITIONAL_OR_KEYWORD, Parameter.KEYWORD_ONLY]:
                 print(name)
                 if name in trait_names:
                     params[name] = getattr(self, name)

@@ -1,19 +1,18 @@
-
 from traitlets import Enum, Float, Int, Unicode
 
 from data_assistant.config.application import BaseApp
 from data_assistant.config.scheme import Scheme
 from data_assistant.config.dask_config import DaskConfig
 
-DaskConfig.set_selected_clusters(['local', 'slurm'])
+# DaskConfig.set_selected_clusters(['local', 'slurm'])
+
 
 class Parameters(Scheme):
     # Your parameters definition goes here !
 
     region = Unicode('GS', help='region')
-    threshold = Float(5., help='threshold for HI')
-    kind = Enum(['1thr', '2thr', '2d'], default_value='2thr',
-                help='kind of histogram')
+    threshold = Float(5.0, help='threshold for HI')
+    kind = Enum(['1thr', '2thr', '2d'], default_value='2thr', help='kind of histogram')
 
 
 class App(BaseApp):

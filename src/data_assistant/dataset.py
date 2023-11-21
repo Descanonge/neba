@@ -103,17 +103,17 @@ class DataLoaderAbstract:
         s.append(f'Root directory: {self.root_directory}')
         s.append(f'Filename pattern: {self.filename_pattern}')
 
-        cached = [p for p in self._CACHED_PROPERTIES
-                  if getattr(self, f'_{p}') is not None]
+        cached = [
+            p for p in self._CACHED_PROPERTIES if getattr(self, f'_{p}') is not None
+        ]
         if cached:
             s.append(f'Cached properties: {", ".join(cached)}')
 
         return '\n'.join(s)
 
-    def __init__(self,
-                 params: Mapping | None = None,
-                 exact_params: bool = False,
-                 **kwargs):
+    def __init__(
+        self, params: Mapping | None = None, exact_params: bool = False, **kwargs
+    ):
         self.params: dict = dict()
         """Mapping of parameters values."""
 
@@ -142,7 +142,7 @@ class DataLoaderAbstract:
             ``kwargs``, ``params``, :attr:`PARAMS_DEFAULTS`.
         """
         if params is None:
-                 params = {}
+            params = {}
         params = dict(params)  # shallow copy
         params = params | self.PARAMS_DEFAULTS
         params.update(kwargs)
@@ -153,7 +153,7 @@ class DataLoaderAbstract:
 
     def _reset_cached_properties(self) -> None:
         for prop in self._CACHED_PROPERTIES:
-            setattr(self, '_'+prop, None)
+            setattr(self, '_' + prop, None)
 
     def _check_param_known(self, params: Iterable[str]):
         """Check if the parameters are known to this dataset class.
@@ -263,8 +263,9 @@ class DataLoaderAbstract:
             if f not in self.fixable_params:
                 raise KeyError(f'Parameter {f} cannot be fixed.')
 
-        fixable_params = {p: self.params[p] for p in self.fixable_params
-                          if p in self.params}
+        fixable_params = {
+            p: self.params[p] for p in self.fixable_params if p in self.params
+        }
         fixes.update(fixable_params)
         filename = self.filefinder.make_filename(fixes)
         return filename
@@ -302,6 +303,7 @@ class DataLoaderAbstract:
             :attr:`OPEN_MFDATASET_KWARGS`.
         """
         import xarray as xr
+
         kwargs = self.OPEN_MFDATASET_KWARGS | kwargs
         ds = xr.open_mfdataset(self.datafiles, **kwargs)
         ds = self.postprocess_dataset(ds)
@@ -315,9 +317,9 @@ class DataLoaderAbstract:
         """
         return ds
 
-    def write(self, ds: xr.Dataset, /, *,
-              by_variables: Mapping,
-              encoding: dict, **kwargs):
+    def write(
+        self, ds: xr.Dataset, /, *, by_variables: Mapping, encoding: dict, **kwargs
+    ):
         """Write data to disk.
 
         Eager loading of coordinates.
@@ -341,9 +343,7 @@ class DataLoaderAbstract:
         #     for dim in stack_vars:
         #         z[dim].item()
 
-        ds.to_netcdf(
-
-        )
+        ds.to_netcdf()
         pass
 
 
@@ -408,9 +408,7 @@ class register:  # noqa: N801
     def __init__(self, mapping: DataLoadersMap):
         self.mapping = mapping
 
-    def __call__(self,
-                 subclass: type[DataLoaderAbstract]
-                 ) -> type[DataLoaderAbstract]:
+    def __call__(self, subclass: type[DataLoaderAbstract]) -> type[DataLoaderAbstract]:
         """Register subclass to the mapping.
 
         Does not change the subclass.
@@ -437,7 +435,7 @@ class DataLoaderSST(DataLoaderAbstract):
         rootdir = [
             self.DATA_ROOTDIR,
             self.params['region'],
-            '{}days'.format(self.params['days'])
+            '{}days'.format(self.params['days']),
         ]
         return rootdir
 
