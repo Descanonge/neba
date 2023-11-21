@@ -4,17 +4,22 @@ from typing import Any
 
 import distributed
 from distributed.deploy.cluster import Cluster
-import dask_jobqueue as djq
 
 from traitlets import Bool, Enum, Float, Int, List, Unicode
+from traitlets.utils.importstring import import_item
 
 from .scheme import Scheme
 from .util import tag_all_traits
 
 
 class DaskClusterAbstract(Scheme):
+    cluster_class: type[Cluster] | str
 
-    cluster_class: type[Cluster]
+    @classmethod
+    def get_cluster_class(cls) -> type[Cluster]:
+        if isinstance(cls.cluster_class, str):
+            return import_item(cls.cluster_class)
+        return cls.cluster_class
 
     def get_cluster(self, **kwargs) -> Cluster:
         """Start new cluster.
@@ -26,7 +31,7 @@ class DaskClusterAbstract(Scheme):
         """
         config = self.get_cluster_kwargs()
         config.update(kwargs)
-        cluster = self.cluster_class(**config)
+        cluster = self.get_cluster_class()(**config)
         return cluster
 
     def get_cluster_kwargs(self) -> dict:
@@ -36,54 +41,72 @@ class DaskClusterAbstract(Scheme):
 
 @tag_all_traits(cluster_args=True)
 class DaskLocalCluster(DaskClusterAbstract):
-    pass
+    cluster_class = distributed.LocalCluster
 
 
 @tag_all_traits(cluster_args=True)
 class DaskClusterJobQueue(DaskClusterAbstract):
-
     # Job specific parameters
     cores = Int(help='Total number of cores per job.')
     memory = Int(help='Total amount of memory per job.')
 
-    processes = Int(None, allow_none=True,
-        help=('Cut the job up into this many processes. '
-              'Good for GIL workloads or for nodes with many cores. '
-              'By default, process ~= sqrt(cores) so that the number of '
-              'processes and the number of threads per process is roughly the same.'))
+    processes = Int(
+        None,
+        allow_none=True,
+        help=(
+            'Cut the job up into this many processes. '
+            'Good for GIL workloads or for nodes with many cores. '
+            'By default, process ~= sqrt(cores) so that the number of '
+            'processes and the number of threads per process is roughly the same.'
+        ),
+    )
 
-    interface = Unicode(None, allow_none=True,
-        help=("Network interface like 'eth0' or 'ib0'. This will be used both "
-              'for the Dask scheduler and the Dask workers interface. '
-              'If you need a different interface for the Dask scheduler you '
-              'can pass it through the scheduler_options argument: '
-              "interface=your_worker_interface, scheduler_options={'interface': "
-              'your_scheduler_interface}.'))
+    interface = Unicode(
+        None,
+        allow_none=True,
+        help=(
+            "Network interface like 'eth0' or 'ib0'. This will be used both "
+            'for the Dask scheduler and the Dask workers interface. '
+            'If you need a different interface for the Dask scheduler you '
+            'can pass it through the scheduler_options argument: '
+            "interface=your_worker_interface, scheduler_options={'interface': "
+            'your_scheduler_interface}.'
+        ),
+    )
 
     nanny = Bool(help='Whether or not to start a nanny process')
 
     local_directory = Unicode(
-        None, allow_none=True,
-        help='Dask worker local directory for file spilling.')
+        None, allow_none=True, help='Dask worker local directory for file spilling.'
+    )
 
     death_timeout = Float(
-        None, allow_none=True,
-        help='Seconds to wait for a scheduler before closing workers.')
+        None,
+        allow_none=True,
+        help='Seconds to wait for a scheduler before closing workers.',
+    )
 
     job_directives_skip = List(
         Unicode,
-        help=('Directives to skip in the generated job script header. '
-              'Directives lines containing the specified strings will be removed. '
-              'Directives added by job_extra_directives won’t be affected.'))
+        help=(
+            'Directives to skip in the generated job script header. '
+            'Directives lines containing the specified strings will be removed. '
+            'Directives added by job_extra_directives won’t be affected.'
+        ),
+    )
 
     log_directory = Unicode(help='Directory to use for job scheduler logs.')
 
     shebang = Unicode(
-        help='Path to desired interpreter for your batch submission script.')
+        help='Path to desired interpreter for your batch submission script.'
+    )
 
     python = Unicode(
-        help=('Python executable used to launch Dask workers. '
-              'Defaults to the Python that is submitting these jobs.'))
+        help=(
+            'Python executable used to launch Dask workers. '
+            'Defaults to the Python that is submitting these jobs.'
+        )
+    )
 
     name = Unicode('dask-worker', help='Name of Dask worker.')
 
@@ -100,7 +123,7 @@ class DaskClusterJobQueue(DaskClusterAbstract):
 
 @tag_all_traits(cluster_args=True)
 class DaskClusterPBS(DaskClusterJobQueue):
-    cluster_class = djq.PBSCluster
+    cluster_class = 'dask_jobqueue.PBSCluster'
 
     queue = Unicode(
         help='Destination queue for each worker job. Passed to `#PBS -q` option.')
@@ -123,7 +146,7 @@ class DaskClusterPBS(DaskClusterJobQueue):
 
 @tag_all_traits(cluster_args=True)
 class DaskClusterSLURM(DaskClusterJobQueue):
-    cluster_class = djq.SLURMCluster
+    cluster_class = 'dask_jobqueue.SLURMCluster'
 
     queue = Unicode(
         help='Destination queue for each worker job. Passed to `#SBATCH -p` option.')
