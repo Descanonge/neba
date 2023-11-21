@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Iterator, Hashable
+from collections.abc import Hashable, Iterator
 from inspect import Parameter, signature
 from typing import Any, Callable
 

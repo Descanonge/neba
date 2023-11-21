@@ -19,6 +19,7 @@ dependencies:
     - ipykernel
 
     - ruff
+    - isort
     - mypy >= 1.5
     - pytest >= 7.4
 

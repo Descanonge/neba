@@ -6,7 +6,6 @@ from typing import Any
 
 import distributed
 from distributed.deploy.cluster import Cluster
-
 from traitlets import Bool, Enum, Float, Int, List, Unicode
 from traitlets.utils.importstring import import_item
 
