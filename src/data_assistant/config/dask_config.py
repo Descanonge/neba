@@ -1,5 +1,7 @@
 """Dask management."""
 
+from __future__ import annotations
+
 from typing import Any
 
 import distributed
@@ -87,7 +89,7 @@ class DaskClusterJobQueue(DaskClusterAbstract):
     )
 
     job_directives_skip = List(
-        Unicode,
+        Unicode,  # type: ignore
         help=(
             'Directives to skip in the generated job script header. '
             'Directives lines containing the specified strings will be removed. '
@@ -147,7 +149,7 @@ class DaskClusterPBS(DaskClusterJobQueue):
     walltime = Unicode(help='Walltime for each worker job.')
 
     job_extra_directives = List(
-        Unicode,
+        Unicode,  # type: ignore
         help=(
             'List of other PBS options. '
             'Each option will be prepended with the #PBS prefix.'
@@ -187,7 +189,7 @@ class DaskClusterSLURM(DaskClusterJobQueue):
     )
 
     job_extra_directives = List(
-        Unicode,
+        Unicode,  # type: ignore
         help=(
             'List of other PBS options. '
             'Each option will be prepended with the #PBS prefix.'
@@ -210,7 +212,7 @@ class DaskConfig(Scheme):
     # cannot be changed from a subclass
     selected_clusters: list[str] = list(DEFAULT_CLUSTER_NAMES.keys())
 
-    cluster_type = Enum(DEFAULT_CLUSTER_NAMES.keys(), default_value='slurm')
+    cluster_type = Enum(list(DEFAULT_CLUSTER_NAMES.keys()), default_value='slurm')
 
     @classmethod
     def _setup_scheme(cls):
