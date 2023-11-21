@@ -1,0 +1,27 @@
+channels:
+    - conda-forge
+    - nodefaults
+dependencies:
+    - python = 3.11
+
+    - numpy >= 1.24
+    - xarray >= 2023.7
+    - dask >= 2023.8
+
+    - traitlets >= 5.13
+
+    - sphinx == 6.2.1
+    - sphinx-book-theme == 1.0.1
+
+    - ipython
+    - ipykernel
+
+    - ruff
+    - black
+    - mypy >= 1.5
+    - pytest >= 7.4
+
+    - pip
+
+    - pip:
+        - filefinder >= 0.5
