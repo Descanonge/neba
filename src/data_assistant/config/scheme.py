@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Hashable, Iterator
+from collections.abc import Callable, Hashable, Iterator
 from inspect import Parameter, signature
-from typing import Any, Callable
+from typing import Any
 
 from traitlets import Bool, Instance, TraitType
 from traitlets.config import Configurable

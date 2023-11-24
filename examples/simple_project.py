@@ -1,8 +1,7 @@
-from traitlets import Enum, Float, Int, Unicode
-
 from data_assistant.config.application import BaseApp
 from data_assistant.config.dask_config import DaskConfig
 from data_assistant.config.scheme import Scheme
+from traitlets import Enum, Float, Unicode
 
 # DaskConfig.set_selected_clusters(['local', 'slurm'])
 

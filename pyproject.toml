@@ -63,10 +63,3 @@ convention = 'numpy'
 
 [tool.ruff.format]
 quote-style = 'single'
-
-[tool.isort]
-profile = 'black'
-py_version = 311
-line_length = 88
-skip_gitignore = true
-balanced_wrapping = true
