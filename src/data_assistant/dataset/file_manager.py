@@ -3,16 +3,52 @@ from os import path
 
 from filefinder import Finder
 
-from .util import Assistant
+from .util import AutoCachedProperty, add_auto_cached, Module
 
 
-class FileManager(Assistant):
+class FileManagerAbstract(Module):
+
+    def get_datafiles(self) -> list[str]:
+        """Get available datafiles."""
+        raise NotImplementedError('Subclass must implement this method.')
+
+    def get_filename(self, **fixes) -> str:
+        """Create a filename corresponding to a set of parameters values.
+
+        All parameters must be defined, either with the instance :attr:`params`,
+        or with the ``fixes`` arguments.
+
+        Parameters
+        ----------
+        fixes:
+            Parameters to fix to specific values. Override :attr:`params` values.
+        """
+        raise NotImplementedError('Subclass must implement this method.')
+
+
+_filefinder = AutoCachedProperty(
+    'filefinder', 'get_filefinder',
+    create_property=False  # we have custom work to do
+)
+_fixable = AutoCachedProperty(
+    'fixable_params', 'find_fixable_params',
+    help="""List of parameters that vary in the filefinder object.
+
+        Found automatically from a :attr:`filefinder` instance."""
+)
+_datafiles = AutoCachedProperty(
+    'datafiles', 'get_datafiles',
+    help='List of datafiles to open.'
+)
+
+@add_auto_cached(_filefinder, _fixable, _datafiles)
+class FileFinderManager(FileManagerAbstract):
     """Multifiles manager using Filefinder.
 
     Maybe add the signature of methods to override in rst ?
     """
 
-    METHODS_TO_DEFINE = ['get_root_directory', 'get_filename_pattern']
+    TO_DEFINE_ON_DATASET = ['get_root_directory', 'get_filename_pattern']
 
     def __str__(self):
         s = [
@@ -24,12 +60,8 @@ class FileManager(Assistant):
     def __init__(self, dataset):
         super().__init__(dataset)
 
-        self.define_auto_cache('filefinder', self.get_filefinder)
-        self.define_auto_cache('fixable_params', self.find_fixable_params)
-        self.define_auto_cache('datafiles', self.get_datafiles)
-
         # Add fixable_params to the dataset allowed_params
-        fixable = self.get_cached('fixable_params')
+        fixable = self.fixable_params
         self.dataset.allowed_params |= set(fixable)
 
     @property
@@ -72,15 +104,6 @@ class FileManager(Assistant):
         finder = Finder(self.root_directory, self.filename_pattern)
         return finder
 
-    @property
-    def fixable_params(self) -> list[str]:
-        """List of parameters that vary in the filefinder object.
-
-        Found automatically from a :attr:`filefinder` instance.
-        This property is the cached result of :func:`find_fixable_params`.
-        """
-        return self.get_cached('fixable_params')
-
     def find_fixable_params(self) -> list[str]:
         """Find parameters that vary in the filename pattern.
 
@@ -90,14 +113,6 @@ class FileManager(Assistant):
         groups_names = [g.name for g in finder.groups]
         # remove doublons
         return list(set(groups_names))
-
-    @property
-    def datafiles(self) -> list[str]:
-        """List of datafiles to open.
-
-        This property is the cached result of :func:`get_datafiles`.
-        """
-        return self.get_cached('datafiles')
 
     def get_datafiles(self) -> list[str]:
         """Scan and return files corresponding to pattern.
