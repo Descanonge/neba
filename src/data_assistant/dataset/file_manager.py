@@ -10,7 +10,8 @@ log = logging.getLogger(__name__)
 
 
 class FileManagerAbstract(Module):
-    def get_datafiles(self) -> list[str]:
+    @property
+    def datafiles(self) -> list[str]:
         """Get available datafiles."""
         raise NotImplementedError('Subclass must implement this method.')
 
