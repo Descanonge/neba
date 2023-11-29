@@ -120,7 +120,10 @@ class FileFinderManager(FileManagerAbstract):
         Use the :attr:`filefinder` object to scan for files corresponding to
         the filename pattern.
         """
-        return self.get_cached('filefinder').get_files()
+        files = self.get_cached('filefinder').get_files()
+        if len(files) == 0:
+            log.warning('%s', self.filefinder)
+        return files
 
     def get_filename(self, **fixes) -> str:
         """Create a filename corresponding to a set of parameters values.
