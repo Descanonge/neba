@@ -28,13 +28,12 @@ The Dataset can trigger a flush of all caches.
 from collections.abc import Hashable, Iterable, Mapping, Sequence
 from typing import Any
 
-from .file_manager import FileManagerAbstract
-from .loader import LoaderAbstract
-from .writer import WriterAbstract
+from .file_manager import FileFinderManager, FileManagerAbstract
+from .loader import LoaderAbstract, XarrayLoader
+from .writer import WriterAbstract, XarrayWriter
 
 
 class DatasetAbstract:
-
     SHORTNAME: str | None = None
     """Short name to refer to this dataset class."""
     ID: str | None = None
@@ -172,3 +171,12 @@ class DatasetAbstract:
             Parameters to fix to specific values. Override :attr:`params` values.
         """
         return self.file_manager.get_filename(**fixes)
+
+
+class DatasetBase(DatasetAbstract):
+    OPEN_MFDATASET_KWARGS: dict[str, Any] = {}
+    """Arguments passed to :func:`xarray.open_mfdataset`."""
+
+    FILE_MANAGER_CLASS = FileFinderManager
+    LOADER_CLASS = XarrayLoader
+    WRITER_CLASS = XarrayWriter
