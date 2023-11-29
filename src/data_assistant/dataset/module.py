@@ -14,7 +14,7 @@ log = logging.getLogger(__name__)
 class Module:
     TO_DEFINE_ON_DATASET: Sequence[str] = []
 
-    auto_cache: dict[str, Callable] = {}
+    auto_cache: dict[str, Callable[[Module], Any]] = {}
 
     def __init__(self, dataset: DatasetAbstract):
         self.dataset = dataset
@@ -87,22 +87,18 @@ class AutoCachedProperty:
     def __init__(
         self,
         name: str,
-        generator: Callable | str,
+        method: str,
         create_property: bool = True,
         help: str = '',
     ):
         self.name = name
-        self.generator: str | Callable = generator
+        self.method: str = method
         self.create_property = create_property
         self.help = help
 
     def add_to_cls(self, cls: type[Module]) -> type[Module]:
         # Add generator to the class
-        if isinstance(self.generator, str):
-            gen = getattr(cls, self.generator)
-        else:
-            gen = self.generator
-        cls.auto_cache[self.name] = gen
+        cls.auto_cache[self.name] = getattr(cls, self.method)
 
         # Add property
         if self.create_property:
@@ -121,17 +117,10 @@ class AutoCachedProperty:
         if not help:
             help = f'{self.name} auto-cached property.'
 
-        # get generator name nicely rendered
-        if isinstance(self.generator, str):
-            gen_name = f'{cls.__name__}.{self.generator}'
-        elif qname := getattr(self.generator, '__qualname__', ''):
-            gen_name = qname
-        else:
-            gen_name = str(self.generator)
-
+        gen_name = f'{cls.__name__}.{self.method}'
         footer = (
             'Auto-cached property: if not cached, its value will be '
-            f'retrieved (and cached) by {gen_name}.'
+            f'retrieved (and cached) by :method:`{gen_name}`.'
         )
 
         auto_prop.__doc__ = help + '\n\n' + footer

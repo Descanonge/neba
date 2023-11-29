@@ -38,7 +38,7 @@ _fixable = AutoCachedProperty(
     'find_fixable_params',
     help="""List of parameters that vary in the filefinder object.
 
-        Found automatically from a :attr:`filefinder` instance.""",
+Found automatically from a :class:`filefinder.Finder` instance.""",
 )
 _datafiles = AutoCachedProperty(
     'datafiles', 'get_datafiles', help='List of datafiles to open.'
@@ -51,6 +51,10 @@ class FileFinderManager(FileManagerAbstract):
 
     Maybe add the signature of methods to override in rst ?
     """
+
+    # For mypy
+    fixable_params: list[str]
+    datafiles: list[str]
 
     TO_DEFINE_ON_DATASET = ['get_root_directory', 'get_filename_pattern']
 

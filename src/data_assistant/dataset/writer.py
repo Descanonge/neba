@@ -3,8 +3,6 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import TYPE_CHECKING
 
-import xarray as xr
-
 from data_assistant.util import check_output_path
 
 from .file_manager import FileFinderManager
@@ -33,13 +31,14 @@ class XarrayWriter(WriterAbstract):
 
     def write_by_fixable(
         self,
-        ds,
+        ds: xr.Dataset,
         squeeze=False,
         **kwargs,
     ):
-        """Use fixable parameters to guess how to group.
+        """Use parameters in the filename pattern to guess how to group.
 
-        Anything fixable is 'outer', the rest of coordinates are inner.
+        Any fixable parameter is 'outer' (different values will be in different
+        files), the rest of coordinates are inner.
 
         Squeeze could be choice in {'drop', True, False}
         (remove completely, squeeze, leave coord of dim 1)
