@@ -34,8 +34,7 @@ class LoaderAbstract(Module):
 
 
 class XarrayLoader(LoaderAbstract):
-    OPEN_MFDATASET_KWARGS: dict[str, Any] = {}
-    """Arguments passed to :func:`xarray.open_mfdataset`."""
+    TO_DEFINE_ON_DATASET = ['OPEN_MFDATASET_KWARGS']
 
     def get_data(self, **kwargs) -> xr.Dataset:
         """Return a dataset object.
@@ -55,7 +54,7 @@ class XarrayLoader(LoaderAbstract):
         """
         import xarray as xr
 
-        kwargs = self.OPEN_MFDATASET_KWARGS | kwargs
+        kwargs = self.get_attr_dataset('OPEN_MFDATASET_KWARGS') | kwargs
         datafiles = self.dataset.get_datafiles()
         ds = xr.open_mfdataset(datafiles, **kwargs)
         ds = self.postprocess_dataset(ds)

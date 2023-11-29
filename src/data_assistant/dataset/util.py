@@ -32,12 +32,20 @@ class Module:
                 log.warning('Possibly missing parameters %s', str(missing))
 
             return func(*args, **kwargs)
-        else:
-            classname = self.dataset.__class__.__name__
-            msg = f"{classname} has no callable method '{method}'."
-            if method in self.TO_DEFINE_ON_DATASET:
-                msg += f" You must subclass {classname} and define '{method}'."
-            raise AttributeError(msg)
+
+        self.missing_attribute(method)
+
+    def get_attr_dataset(self, attr: str):
+        if hasattr(self.dataset, attr):
+            return getattr(self.dataset, attr)
+        self.missing_attribute(attr)
+
+    def missing_attribute(self, name: str):
+        classname = self.dataset.__class__.__name__
+        msg = f"{classname} has no attribute or method '{name}'."
+        if name in self.TO_DEFINE_ON_DATASET:
+            msg += f" You must subclass {classname} and define '{name}'."
+        raise AttributeError(msg)
 
     def _reset_cached_properties(self) -> None:
         self.cache = {}
