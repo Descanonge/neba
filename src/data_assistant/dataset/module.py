@@ -47,7 +47,7 @@ class Module:
             msg += f" You must subclass {classname} and define '{name}'."
         raise AttributeError(msg)
 
-    def _reset_cached_properties(self) -> None:
+    def clean_cache(self) -> None:
         self.cache = {}
 
     def get_cached(self, key: str) -> Any:

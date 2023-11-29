@@ -79,7 +79,7 @@ class DatasetAbstract:
         self.writer = self.WRITER_CLASS(self)
 
         # Now that everything is in place, we check our parameters
-        self._check_param_known(self.params)
+        self.check_known_param(self.params)
 
     def __str__(self) -> str:
         name = []
@@ -135,11 +135,11 @@ class DatasetAbstract:
 
         self.params = params
         if _reset:
-            self._reset_cached_properties()
+            self.clean_cache()
         if _check:
-            self._check_param_known(params)
+            self.check_known_param(params)
 
-    def _check_param_known(self, params: Iterable[str]):
+    def check_known_param(self, params: Iterable[str]):
         """Check if the parameters are known to this dataset class.
 
         A 'known parameter' is one present in :attr:`PARAMS_NAMES` or defined
@@ -153,14 +153,14 @@ class DatasetAbstract:
             if p not in self.allowed_params:
                 raise KeyError(f"Parameter '{p}' was not expected for dataset {self}")
 
-    def _reset_cached_properties(self) -> None:
-        if self.file_manager is not None:
-            self.file_manager._reset_cached_properties()
-        # do this for others
+    def clean_cache(self) -> None:
+        for mod in [self.file_manager, self.loader, self.writer]:
+            mod.clean_cache()
 
-    def get_datafiles(self) -> list[str]:
+    @property
+    def datafiles(self) -> list[str]:
         """Get available datafiles."""
-        return self.file_manager.get_datafiles()
+        return self.file_manager.datafiles
 
     def get_filename(self, **fixes) -> str:
         """Create a filename corresponding to a set of parameters values.

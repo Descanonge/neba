@@ -134,7 +134,7 @@ class FileFinderManager(FileManagerAbstract):
         finder: Finder = self.get_cached('filefinder')
         fixable: list[str] = self.get_cached('fixable_params')
 
-        self.dataset._check_param_known(fixes)
+        self.dataset.check_known_param(fixes)
         # Check they can be fixed (they exist in the pattern)
         for f in fixes:
             if f not in fixable:
