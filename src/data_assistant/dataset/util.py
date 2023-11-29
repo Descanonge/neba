@@ -58,7 +58,7 @@ class Module:
         # If AutoCachedProperty, generate it
         if key in self.auto_cache:
             func = self.auto_cache[key]
-            value = func()
+            value = func(self)
             self.cache[key] = value
             return value
 
