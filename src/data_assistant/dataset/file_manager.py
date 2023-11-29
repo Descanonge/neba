@@ -4,7 +4,7 @@ from os import path
 
 from filefinder import Finder
 
-from .module import AutoCachedProperty, Module, add_auto_cached
+from .module import Module, autocached
 
 log = logging.getLogger(__name__)
 
@@ -28,33 +28,11 @@ class FileManagerAbstract(Module):
         raise NotImplementedError('Subclass must implement this method.')
 
 
-_filefinder = AutoCachedProperty(
-    'filefinder',
-    'get_filefinder',
-    create_property=False,  # we have custom work to do
-)
-_fixable = AutoCachedProperty(
-    'fixable_params',
-    'find_fixable_params',
-    help="""List of parameters that vary in the filefinder object.
-
-Found automatically from a :class:`filefinder.Finder` instance.""",
-)
-_datafiles = AutoCachedProperty(
-    'datafiles', 'get_datafiles', help='List of datafiles to open.'
-)
-
-
-@add_auto_cached(_filefinder, _fixable, _datafiles)
 class FileFinderManager(FileManagerAbstract):
     """Multifiles manager using Filefinder.
 
     Maybe add the signature of methods to override in rst ?
     """
-
-    # For mypy
-    fixable_params: list[str]
-    datafiles: list[str]
 
     TO_DEFINE_ON_DATASET = ['get_root_directory', 'get_filename_pattern']
 
@@ -88,6 +66,7 @@ class FileFinderManager(FileManagerAbstract):
         return self.run_on_dataset('get_filename_pattern')
 
     @property
+    @autocached
     def filefinder(self) -> Finder:
         """Filefinder instance to scan for datafiles.
 
@@ -95,8 +74,11 @@ class FileFinderManager(FileManagerAbstract):
 
         This property is the cached result of :func:`get_filefinder`.
         """
-        finder: Finder = self.get_cached('filefinder')
-        fixable_params = self.get_cached('fixable_params')
+        finder = Finder(self.root_directory, self.filename_pattern)
+        # cache this temporary finder to avoid infinite recursion when
+        # getting fixable_params (which needs a Finder)
+        self.cache['filefinder'] = finder
+        fixable_params = self.fixable_params
 
         for p, value in self.dataset.params.items():
             if p in fixable_params:
@@ -109,26 +91,28 @@ class FileFinderManager(FileManagerAbstract):
 
         Is also used to create filenames for a specific set of parameters.
         """
-        finder = Finder(self.root_directory, self.filename_pattern)
-        return finder
 
-    def find_fixable_params(self) -> list[str]:
-        """Find parameters that vary in the filename pattern.
+    @property
+    @autocached
+    def fixable_params(self) -> list[str]:
+        """List of parameters that vary in the filefinder object.
 
-        Automatically find them using a :class:`Finder` instance.
+        Found automatically from a :class:`filefinder.Finder` instance.
         """
-        finder: Finder = self.get_cached('filefinder')
+        finder = self.filefinder
         groups_names = [g.name for g in finder.groups]
         # remove doublons
         return list(set(groups_names))
 
-    def get_datafiles(self) -> list[str]:
-        """Scan and return files corresponding to pattern.
+    @property
+    @autocached
+    def datafiles(self) -> list[str]:
+        """Datafiles available.
 
         Use the :attr:`filefinder` object to scan for files corresponding to
         the filename pattern.
         """
-        files = self.get_cached('filefinder').get_files()
+        files = self.filefinder.get_files()
         if len(files) == 0:
             log.warning('%s', self.filefinder)
         return files

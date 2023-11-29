@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import functools
 import logging
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -13,8 +14,6 @@ log = logging.getLogger(__name__)
 
 class Module:
     TO_DEFINE_ON_DATASET: Sequence[str] = []
-
-    auto_cache: dict[str, Callable[[Module], Any]] = {}
 
     def __init__(self, dataset: DatasetAbstract):
         self.dataset = dataset
@@ -56,74 +55,23 @@ class Module:
         if key in self.cache:
             return self.cache[key]
 
-        # If AutoCachedProperty, generate it
-        if key in self.auto_cache:
-            func = self.auto_cache[key]
-            value = func(self)
-            self.cache[key] = value
-            return value
-
-        raise KeyError(f"Key '{key}' not found in cache or auto_cache")
+        raise KeyError(f"Key '{key}' not found in cache.")
 
 
-class add_auto_cached:
-    def __init__(self, *properties: AutoCachedProperty):
-        self.properties = properties
+def autocached(func):
+    """Make a property auto-cached.
 
-    def __call__(self, cls: type[Module]) -> type[Module]:
-        for prop in self.properties:
-            prop.add_to_cls(cls)
-        return cls
-
-
-class AutoCachedProperty:
-    """Attribute that can be cached and automatically generated.
-
-    Can generate automatically a property that will retrieve the value from
-    cache (and if not in cache, will generate a new value and store it).
-    The property will have the doc string specified by 'help'.
+    If it's in the cache, return this value directly. Otherwise run the
+    code of the property and cache the return value.
     """
+    name = func.__name__
 
-    def __init__(
-        self,
-        name: str,
-        method: str,
-        create_property: bool = True,
-        help: str = '',
-    ):
-        self.name = name
-        self.method: str = method
-        self.create_property = create_property
-        self.help = help
+    @functools.wraps(func)
+    def wrapper(self):
+        if name in self.cache:
+            return self.cache[name]
+        value = func(self)
+        self.cache[name] = value
+        return value
 
-    def add_to_cls(self, cls: type[Module]) -> type[Module]:
-        # Add generator to the class
-        cls.auto_cache[self.name] = getattr(cls, self.method)
-
-        # Add property
-        if self.create_property:
-            prop = self.get_auto_property(cls)
-            setattr(cls, self.name, prop)
-
-        return cls
-
-    def get_auto_property(self, cls) -> property:
-        # property is simple cache grab
-        def auto_prop(obj):
-            return obj.get_cached(self.name)
-
-        # create documentation
-        help = self.help
-        if not help:
-            help = f'{self.name} auto-cached property.'
-
-        gen_name = f'{cls.__name__}.{self.method}'
-        footer = (
-            'Auto-cached property: if not cached, its value will be '
-            f'retrieved (and cached) by :method:`{gen_name}`.'
-        )
-
-        auto_prop.__doc__ = help + '\n\n' + footer
-
-        # Turn it into a property
-        return property(auto_prop)
+    return wrapper
