@@ -1,13 +1,15 @@
+import logging
 import os
 from os import path
 
 from filefinder import Finder
 
-from .util import AutoCachedProperty, add_auto_cached, Module
+from .util import AutoCachedProperty, Module, add_auto_cached
+
+log = logging.getLogger(__name__)
 
 
 class FileManagerAbstract(Module):
-
     def get_datafiles(self) -> list[str]:
         """Get available datafiles."""
         raise NotImplementedError('Subclass must implement this method.')
@@ -27,19 +29,21 @@ class FileManagerAbstract(Module):
 
 
 _filefinder = AutoCachedProperty(
-    'filefinder', 'get_filefinder',
-    create_property=False  # we have custom work to do
+    'filefinder',
+    'get_filefinder',
+    create_property=False,  # we have custom work to do
 )
 _fixable = AutoCachedProperty(
-    'fixable_params', 'find_fixable_params',
+    'fixable_params',
+    'find_fixable_params',
     help="""List of parameters that vary in the filefinder object.
 
-        Found automatically from a :attr:`filefinder` instance."""
+        Found automatically from a :attr:`filefinder` instance.""",
 )
 _datafiles = AutoCachedProperty(
-    'datafiles', 'get_datafiles',
-    help='List of datafiles to open.'
+    'datafiles', 'get_datafiles', help='List of datafiles to open.'
 )
+
 
 @add_auto_cached(_filefinder, _fixable, _datafiles)
 class FileFinderManager(FileManagerAbstract):

@@ -1,7 +1,6 @@
-
 from __future__ import annotations
 
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from .util import Module
 
@@ -10,7 +9,6 @@ if TYPE_CHECKING:
 
 
 class LoaderAbstract(Module):
-
     def get_data(self, **kwargs: Any) -> Any:
         """Return data.
 

@@ -26,8 +26,9 @@ class Module:
 
             # We use PARAMS_NAMES instead of allowed_params which contains
             # fixables, which can be missing in some operations
-            missing = [p for p in self.dataset.PARAMS_NAMES
-                       if p not in self.dataset.params]
+            missing = [
+                p for p in self.dataset.PARAMS_NAMES if p not in self.dataset.params
+            ]
             if missing:
                 log.warning('Possibly missing parameters %s', str(missing))
 
@@ -66,7 +67,6 @@ class Module:
 
 
 class add_auto_cached:
-
     def __init__(self, *properties: AutoCachedProperty):
         self.properties = properties
 
@@ -85,11 +85,11 @@ class AutoCachedProperty:
     """
 
     def __init__(
-            self,
-            name: str,
-            generator: Callable | str,
-            create_property: bool = True,
-            help: str = ''
+        self,
+        name: str,
+        generator: Callable | str,
+        create_property: bool = True,
+        help: str = '',
     ):
         self.name = name
         self.generator: str | Callable = generator
@@ -124,13 +124,15 @@ class AutoCachedProperty:
         # get generator name nicely rendered
         if isinstance(self.generator, str):
             gen_name = f'{cls.__name__}.{self.generator}'
-        elif (qname := getattr(self.generator, '__qualname__', '')):
+        elif qname := getattr(self.generator, '__qualname__', ''):
             gen_name = qname
         else:
             gen_name = str(self.generator)
 
-        footer = ('Auto-cached property: if not cached, its value will be '
-                  f'retrieved (and cached) by {gen_name}.')
+        footer = (
+            'Auto-cached property: if not cached, its value will be '
+            f'retrieved (and cached) by {gen_name}.'
+        )
 
         auto_prop.__doc__ = help + '\n\n' + footer
 

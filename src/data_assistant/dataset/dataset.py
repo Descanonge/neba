@@ -69,8 +69,8 @@ class DatasetAbstract:
         """
 
         # Set parameters
-        # this is initialization: we do not reset cache
-        # also no check, validity may be changed by the file_manager
+        # No reset cache (nothing cached yet)
+        # No check (validity might be affected by modules)
         self.set_params(params, **kwargs, _reset=False, _check=False)
 
         # initialize modules
@@ -80,7 +80,6 @@ class DatasetAbstract:
 
         # Now that everything is in place, we check our parameters
         self._check_param_known(self.params)
-
 
     def __str__(self) -> str:
         name = []
@@ -110,9 +109,13 @@ class DatasetAbstract:
 
         return '\n'.join(s)
 
-    def set_params(self, params: Mapping[str, Any] | None = None,
-                   _reset: bool = True, _check: bool = True,
-                   **kwargs):
+    def set_params(
+        self,
+        params: Mapping[str, Any] | None = None,
+        _reset: bool = True,
+        _check: bool = True,
+        **kwargs,
+    ):
         """Set parameters values.
 
         Parameters
