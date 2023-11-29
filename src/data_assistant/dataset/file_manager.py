@@ -4,7 +4,7 @@ from os import path
 
 from filefinder import Finder
 
-from .util import AutoCachedProperty, Module, add_auto_cached
+from .module import AutoCachedProperty, Module, add_auto_cached
 
 log = logging.getLogger(__name__)
 

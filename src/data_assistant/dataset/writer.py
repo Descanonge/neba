@@ -6,8 +6,8 @@ from typing import Any, TYPE_CHECKING
 
 import xarray as xr
 
-from .util import Module
 from .file_manager import FileFinderManager
+from .module import Module
 
 if TYPE_CHECKING:
     import xarray as xr
