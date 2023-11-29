@@ -60,7 +60,7 @@ class DatasetAbstract:
         **kwargs,
     ):
         self.exact_params: bool = exact_params
-        self.params: dict[str, Any]
+        self.params: dict[str, Any] = {}
         """Mapping of parameters values."""
         self.allowed_params = set(self.PARAMS_NAMES)
         """Mutable copy of the list of allowed parameters.
@@ -73,10 +73,10 @@ class DatasetAbstract:
         # also no check, validity may be changed by the file_manager
         self.set_params(params, **kwargs, _reset=False, _check=False)
 
-        # Now we can initialize modules
-        self.file_manager = FileManagerAbstract(self)
-        self.loader = LoaderAbstract(self)
-        self.writer = WriterAbstract(self)
+        # initialize modules
+        self.file_manager = self.FILE_MANAGER_CLASS(self)
+        self.loader = self.LOADER_CLASS(self)
+        self.writer = self.WRITER_CLASS(self)
 
         # Now that everything is in place, we check our parameters
         self._check_param_known(self.params)
