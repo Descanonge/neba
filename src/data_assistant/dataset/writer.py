@@ -1,8 +1,14 @@
 from __future__ import annotations
 
+import inspect
 import itertools
+import json
 import logging
+import socket
+import subprocess
 from collections.abc import Sequence
+from datetime import datetime
+from os import path
 from typing import TYPE_CHECKING
 
 from data_assistant.util import check_output_path
@@ -27,14 +33,83 @@ class XarrayWriter(WriterAbstract):
     time_fixable = 'YBmdjHMSFxX'
     """Parameters names we consider as time related."""
 
+    TO_DEFINE_ON_DATASET = ['TO_NETCDF_KWARGS']
+
     def write(
-        self, ds: xr.Dataset, /, *, by_variables: Mapping, encoding: dict, **kwargs
+        self,
+        ds: xr.Dataset,
+        /,
+        *,
+        encoding: dict,
+        **kwargs,
     ):
         """Write data to disk.
 
         Manage 'time' coordinate appropriately. Maybe. Hopefully.
         """
         pass
+
+    def set_metadata(
+        self,
+        ds: xr.Dataset,
+        parameters: dict | str | None = None,
+        add_commit: bool = True,
+    ) -> xr.Dataset:
+        """Set some dataset attributes with information on how it was created.
+
+        Attributes are:
+        - "created_by": hostname and filename of the python script used
+        - "created_with_params": a string representing the parameters,
+        - "created_on": date of creation
+        - "created_at_commit": if found, the current/HEAD commit hash.
+
+        Parameters
+        ----------
+        ds:
+            Dataset to add global attributes to. This is done in-place.
+
+        Parameters
+        ----------
+            A dictionnary of the parameters used, that will automatically be serialized
+            as a string. Can also be a custom string.
+            Presentely we first try a serialization using json, if that fails, `str()`.
+        add_commit:
+            If True (default), try to find the current commit hash of the directory
+            containing the script called.
+        """
+        # Get hostname and script name
+        hostname = socket.gethostname()
+        script = inspect.stack()[1].filename
+        ds.attrs['created_by'] = f'{hostname}:{script}'
+
+        # Get parameters as string
+        if parameters is not None:
+            if isinstance(parameters, str):
+                params_str = parameters
+            else:
+                try:
+                    params_str = json.dumps(parameters)
+                except TypeError:
+                    params_str = str(parameters)
+
+            ds.attrs['created_with_params'] = params_str
+
+        # Get date
+        ds.attrs['created_on'] = datetime.today().strftime('%x %X')
+
+        # Get commit hash
+        if add_commit:
+            # Use the directory of the calling script
+            gitdir = path.dirname(script)
+            cmd = ['git', '-C', gitdir, 'rev-parse', 'HEAD']
+            ret = subprocess.run(cmd, capture_output=True, text=True)
+            if ret.returncode == 0:
+                commit = ret.stdout.strip()
+                ds.attrs['created_at_commit'] = commit
+            else:
+                log.debug("'%s' not a valid git directory", gitdir)
+
+        return ds
 
     def cut_by_fixable(
         self,
