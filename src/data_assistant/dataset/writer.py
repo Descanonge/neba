@@ -6,7 +6,7 @@ import json
 import logging
 import socket
 import subprocess
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from datetime import datetime
 from os import path
 from typing import TYPE_CHECKING
@@ -130,11 +130,7 @@ class XarrayWriter(WriterAbstract):
 
         # If we have time-related fixable, we must do some work
         if "time" in ds.dims and (present_time_fix := fixable & set(self.time_fixable)):
-            # find values for those parameters
-            for param in present_time_fix:
-                values = ds.time.dt.strftime(param)
-                ds = ds.assign_coords({param: ("time", values)})
-
+            self.add_time_fixable_dimensions(ds, present_time_fix)
             # We mark time as fixable
             fixable.add("time")
             fixable -= present_time_fix
@@ -161,7 +157,7 @@ class XarrayWriter(WriterAbstract):
             check_output_path(outfile)
 
             # Remove time fixable dimensions we added
-            ds = ds.drop_dims(present_time_fix)
+            ds = self.remove_time_fixable_dimensions(ds)
 
             # Apply squeeze argument
             if squeeze:
@@ -170,6 +166,18 @@ class XarrayWriter(WriterAbstract):
             calls.append((ds_unit, outfile))
 
         return calls
+
+    def add_time_fixable_dimensions(self, ds: xr.Dataset, dims: Iterable[str]):
+        # find values for those parameters
+        for param in dims:
+            values = ds.time.dt.strftime(param)
+            ds = ds.assign_coords({param: ("time", values)})
+            ds.coords[param].attrs["__for_fixable_param"] = 1
+
+    def remove_time_fixable_dimensions(self, ds: xr.Dataset):
+        to_remove = [d for d in ds.dims
+                     if "__for_fixable_param" in ds.coords[d].attrs]
+        return ds.drop_dims(to_remove)
 
     def check_overwriting_calls(self, calls: Sequence[Call]):
         """Check if some calls have the same filename."""
