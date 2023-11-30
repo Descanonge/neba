@@ -175,6 +175,18 @@ class DatasetAbstract:
         """
         return self.file_manager.get_filename(**fixes)
 
+    def get_data(self, **kwargs) -> Any:
+        """Return data."""
+        return self.loader.get_data(**kwargs)
+
+    def postprocess_data(self, data: Any) -> Any:
+        """Apply any action on the data after opening it.
+
+        By default, just return the dataset without doing anything (*ie* the
+        identity function).
+        """
+        return data
+
 
 class DatasetBase(DatasetAbstract):
     OPEN_MFDATASET_KWARGS: dict[str, Any] = {}

@@ -22,14 +22,6 @@ class LoaderAbstract(Module):
         """
         raise NotImplementedError('Subclass must implement this method.')
 
-    def postprocess_dataset(self, data: Any) -> Any:
-        """Apply any action on the data after opening it.
-
-        By default, just return the dataset without doing anything (*ie* the
-        identity function).
-        """
-        return data
-
 
 class XarrayLoader(LoaderAbstract):
     TO_DEFINE_ON_DATASET = ['OPEN_MFDATASET_KWARGS']
@@ -53,15 +45,7 @@ class XarrayLoader(LoaderAbstract):
         import xarray as xr
 
         kwargs = self.get_attr_dataset('OPEN_MFDATASET_KWARGS') | kwargs
-        datafiles = self.dataset.get_datafiles()
+        datafiles = self.dataset.datafiles
         ds = xr.open_mfdataset(datafiles, **kwargs)
-        ds = self.postprocess_dataset(ds)
-        return ds
-
-    def postprocess_dataset(self, ds: xr.Dataset) -> xr.Dataset:
-        """Apply any action on the dataset after opening it.
-
-        By default, just return the dataset without doing anything (*ie* the
-        identity function).
-        """
+        ds = self.run_on_dataset('postprocess_data', ds)
         return ds
