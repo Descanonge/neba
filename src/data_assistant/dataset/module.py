@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import functools
 import logging
-from collections.abc import Sequence
-from typing import TYPE_CHECKING, Any
+from collections.abc import Callable, Sequence
+from typing import TYPE_CHECKING, Any, TypeVar
 
 if TYPE_CHECKING:
     from .dataset import DatasetAbstract
@@ -58,7 +58,12 @@ class Module:
         raise KeyError(f"Key '{key}' not found in cache.")
 
 
-def autocached(func):
+R = TypeVar("R")
+
+
+# The `func` argument is type as Any because technically Callable is contravariant
+# and typing it as Module would not allow subclasses.
+def autocached(func: Callable[[Any], R]) -> Callable[[Any], R]:
     """Make a property auto-cached.
 
     If it's in the cache, return this value directly. Otherwise run the
@@ -67,8 +72,9 @@ def autocached(func):
     name = func.__name__
 
     @functools.wraps(func)
-    def wrapper(self):
+    def wrapper(self: Any) -> R:
         if name in self.cache:
+            value = self.cache[name]
             return self.cache[name]
         value = func(self)
         self.cache[name] = value
