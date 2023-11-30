@@ -90,24 +90,24 @@ class DatasetAbstract:
 
         clsname = self.__class__.__name__
         if name:
-            clsname = f' ({clsname})'
+            clsname = f" ({clsname})"
 
-        return ':'.join(name) + clsname
+        return ":".join(name) + clsname
 
     def __repr__(self) -> str:
         s = []
         s.append(self.__str__())
-        s.append('Parameters:')
-        s.append(f'\tdefined: {self.PARAMS_NAMES}')
+        s.append("Parameters:")
+        s.append(f"\tdefined: {self.PARAMS_NAMES}")
         if self.PARAMS_DEFAULTS:
-            s.append(f'\tdefaults: {self.PARAMS_DEFAULTS}')
-        s.append(f'\tallowed: {self.allowed_params}')
-        s.append(f'\tset: {self.params}')
+            s.append(f"\tdefaults: {self.PARAMS_DEFAULTS}")
+        s.append(f"\tallowed: {self.allowed_params}")
+        s.append(f"\tset: {self.params}")
 
         if self.file_manager is not None:
             s += str(self.file_manager).splitlines()
 
-        return '\n'.join(s)
+        return "\n".join(s)
 
     def set_params(
         self,

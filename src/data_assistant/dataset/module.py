@@ -29,7 +29,7 @@ class Module:
                 p for p in self.dataset.PARAMS_NAMES if p not in self.dataset.params
             ]
             if missing:
-                log.warning('Possibly missing parameters %s', str(missing))
+                log.warning("Possibly missing parameters %s", str(missing))
 
             return func(*args, **kwargs)
 

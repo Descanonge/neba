@@ -7,46 +7,46 @@ import data_assistant
 
 # -- Project information -----------------------------------------------------
 
-project = 'data-assistant'
-copyright = '2023, Clément Haëck'
-author = 'Clément Haëck'
+project = "data-assistant"
+copyright = "2023, Clément Haëck"
+author = "Clément Haëck"
 
 version = data_assistant.__version__
 release = data_assistant.__version__
 
-print(f'{project}: {version}')
+print(f"{project}: {version}")
 
 # -- General configuration ---------------------------------------------------
 
-templates_path = ['_templates']
-exclude_patterns = ['_build']
+templates_path = ["_templates"]
+exclude_patterns = ["_build"]
 
 extensions = [
-    'sphinx.ext.napoleon',
-    'sphinx.ext.autodoc',
-    'sphinx.ext.autosummary',
-    'sphinx.ext.intersphinx',
+    "sphinx.ext.napoleon",
+    "sphinx.ext.autodoc",
+    "sphinx.ext.autosummary",
+    "sphinx.ext.intersphinx",
 ]
 
 add_module_names = False
-toc_object_entries_show_parents = 'hide'
+toc_object_entries_show_parents = "hide"
 
-pygments_style = 'default'
+pygments_style = "default"
 
 # -- Autodoc config
-autodoc_typehints = 'description'
-autodoc_typehints_format = 'short'
-autodoc_member_order = 'groupwise'
-autodoc_class_content = 'both'
+autodoc_typehints = "description"
+autodoc_typehints_format = "short"
+autodoc_member_order = "groupwise"
+autodoc_class_content = "both"
 autodoc_type_aliases = {
     # show the full path
-    'xr.DataArray': 'xarray.DataArray',
-    'xr.Dataset': 'xarray.Dataset',
-    'np.ndarray': 'numpy.ndarray',
-    'ndarray': 'numpy.ndarray',
-    'da.Array': 'dask.array.Array',
+    "xr.DataArray": "xarray.DataArray",
+    "xr.Dataset": "xarray.Dataset",
+    "np.ndarray": "numpy.ndarray",
+    "ndarray": "numpy.ndarray",
+    "da.Array": "dask.array.Array",
     # do not show the full path
-    'collections.abc.Sequence': '~collections.abc.Sequence',
+    "collections.abc.Sequence": "~collections.abc.Sequence",
 }
 
 # -- Autosummary config
@@ -62,18 +62,18 @@ napoleon_type_aliases = autodoc_type_aliases.copy()
 
 # -- Intersphinx config
 intersphinx_mapping = {
-    'python': ('https://docs.python.org/3/', None),
-    'numpy': ('https://numpy.org/doc/stable', None),
-    'dask': ('https://docs.dask.org/en/latest', None),
-    'xarray': ('https://docs.xarray.dev/en/stable/', None),
-    'filefinder': ('https://filefinder.readthedocs.io/en/latest', None),
+    "python": ("https://docs.python.org/3/", None),
+    "numpy": ("https://numpy.org/doc/stable", None),
+    "dask": ("https://docs.dask.org/en/latest", None),
+    "xarray": ("https://docs.xarray.dev/en/stable/", None),
+    "filefinder": ("https://filefinder.readthedocs.io/en/latest", None),
 }
 
 
 # -- Options for HTML output -------------------------------------------------
 
-html_theme = 'sphinx_book_theme'
-html_static_path = ['_static']
+html_theme = "sphinx_book_theme"
+html_static_path = ["_static"]
 html_title = project
 html_theme_options = dict(
     collapse_navigation=False,
@@ -81,30 +81,30 @@ html_theme_options = dict(
     use_fullscreen_button=False,
     show_toc_level=2,
     # Repo links
-    repository_url='https://gitlab.in2p3.fr/biofronts/data-assistant',
+    repository_url="https://gitlab.in2p3.fr/biofronts/data-assistant",
     use_source_button=True,
-    repository_branch='main',
-    path_to_docs='docs',
+    repository_branch="main",
+    path_to_docs="docs",
     # Social icons
     icon_links=[
         dict(
-            name='Repository',
-            url='https://gitlab.in2p3.fr/biofronts/data-assistant',
-            icon='fa-brands fa-square-gitlab',
+            name="Repository",
+            url="https://gitlab.in2p3.fr/biofronts/data-assistant",
+            icon="fa-brands fa-square-gitlab",
         ),
         dict(
-            name='Documentation',
-            url='https://data-assistant.readthedocs.io',
-            icon='fa-solid fa-book',
+            name="Documentation",
+            url="https://data-assistant.readthedocs.io",
+            icon="fa-solid fa-book",
         ),
     ],
     # Footer
-    article_footer_items=['prev-next'],
+    article_footer_items=["prev-next"],
     content_footer_items=[],
-    footer_start=['footer-left'],
-    footer_end=['footer-right'],
+    footer_start=["footer-left"],
+    footer_end=["footer-right"],
 )
 
-html_last_updated_fmt = '%Y-%m-%d'
+html_last_updated_fmt = "%Y-%m-%d"
 
-html_sidebars = {'**': ['navbar-logo.html', 'sbt-sidebar-nav.html', 'icon-links.html']}
+html_sidebars = {"**": ["navbar-logo.html", "sbt-sidebar-nav.html", "icon-links.html"]}

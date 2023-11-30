@@ -58,8 +58,11 @@ ignore = [
        'D417', # not all parameters need doc
 ]
 
+[tool.ruff.pycodestyle]
+max-line-length = 90
+
 [tool.ruff.pydocstyle]
 convention = 'numpy'
 
 [tool.ruff.format]
-quote-style = 'single'
+quote-style = 'double'

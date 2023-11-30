@@ -13,7 +13,7 @@ class FileManagerAbstract(Module):
     @property
     def datafiles(self) -> list[str]:
         """Get available datafiles."""
-        raise NotImplementedError('Subclass must implement this method.')
+        raise NotImplementedError("Subclass must implement this method.")
 
     def get_filename(self, **fixes) -> str:
         """Create a filename corresponding to a set of parameters values.
@@ -26,7 +26,7 @@ class FileManagerAbstract(Module):
         fixes:
             Parameters to fix to specific values. Override :attr:`params` values.
         """
-        raise NotImplementedError('Subclass must implement this method.')
+        raise NotImplementedError("Subclass must implement this method.")
 
 
 class FileFinderManager(FileManagerAbstract):
@@ -35,14 +35,14 @@ class FileFinderManager(FileManagerAbstract):
     Maybe add the signature of methods to override in rst ?
     """
 
-    TO_DEFINE_ON_DATASET = ['get_root_directory', 'get_filename_pattern']
+    TO_DEFINE_ON_DATASET = ["get_root_directory", "get_filename_pattern"]
 
     def __str__(self):
         s = [
-            f'Root directory: {self.root_directory}',
-            f'Filename pattern: {self.filename_pattern}',
+            f"Root directory: {self.root_directory}",
+            f"Filename pattern: {self.filename_pattern}",
         ]
-        return '\n'.join(s)
+        return "\n".join(s)
 
     def __init__(self, dataset):
         super().__init__(dataset)
@@ -54,7 +54,7 @@ class FileFinderManager(FileManagerAbstract):
     @property
     def root_directory(self) -> str:
         """Root directory containing data."""
-        rootdir = self.run_on_dataset('get_root_directory')
+        rootdir = self.run_on_dataset("get_root_directory")
 
         if not isinstance(rootdir, str | os.PathLike):
             rootdir = path.join(*rootdir)
@@ -64,7 +64,7 @@ class FileFinderManager(FileManagerAbstract):
     @property
     def filename_pattern(self) -> str:
         """Filename pattern used to find files using :mod:`filefinder`."""
-        return self.run_on_dataset('get_filename_pattern')
+        return self.run_on_dataset("get_filename_pattern")
 
     @property
     @autocached
@@ -78,7 +78,7 @@ class FileFinderManager(FileManagerAbstract):
         finder = Finder(self.root_directory, self.filename_pattern)
         # cache this temporary finder to avoid infinite recursion when
         # getting fixable_params (which needs a Finder)
-        self.cache['filefinder'] = finder
+        self.cache["filefinder"] = finder
         fixable_params = self.fixable_params
 
         for p, value in self.dataset.params.items():
@@ -115,7 +115,7 @@ class FileFinderManager(FileManagerAbstract):
         """
         files = self.filefinder.get_files()
         if len(files) == 0:
-            log.warning('%s', self.filefinder)
+            log.warning("%s", self.filefinder)
         return files
 
     def get_filename(self, **fixes) -> str:
@@ -131,14 +131,14 @@ class FileFinderManager(FileManagerAbstract):
             filename pattern can be fixed. Will take precedence over the
             instance :attr:`params` attribute.
         """
-        finder: Finder = self.get_cached('filefinder')
-        fixable: list[str] = self.get_cached('fixable_params')
+        finder: Finder = self.get_cached("filefinder")
+        fixable: list[str] = self.get_cached("fixable_params")
 
         self.dataset.check_known_param(fixes)
         # Check they can be fixed (they exist in the pattern)
         for f in fixes:
             if f not in fixable:
-                raise KeyError(f'Parameter {f} cannot be fixed.')
+                raise KeyError(f"Parameter {f} cannot be fixed.")
 
         # In case params were changed sneakily and the cache was not invalidated
         fixable_params = {

@@ -22,7 +22,7 @@ class Scheme(Configurable):
     """Mapping of nested Configurables classes."""
 
     _attr_completion_only_traits = Bool(
-        False, help='Only keep configurable traits in attribute completion.'
+        False, help="Only keep configurable traits in attribute completion."
     )
 
     def __init_subclass__(cls, /, **kwargs):
@@ -47,7 +47,7 @@ class Scheme(Configurable):
         for k, v in classdict.items():
             # tag traits as configurable
             if isinstance(v, TraitType):
-                if v.metadata.get('config', True):
+                if v.metadata.get("config", True):
                     v.tag(config=True)
 
             # register nested schemes
@@ -58,29 +58,29 @@ class Scheme(Configurable):
         cls.setup_class(classdict)
 
     def __str__(self) -> str:
-        lines = [f'{self.__class__.__name__}:']
+        lines = [f"{self.__class__.__name__}:"]
         for key, trait in self.traits(config=True).items():
             if key in self._subschemes:
                 continue
             trait_cls = trait.__class__.__name__
             value = trait.get(self)
             default = trait.default()
-            lines.append(f'  -{key} ({trait_cls}): {value} [default: {default}]')
+            lines.append(f"  -{key} ({trait_cls}): {value} [default: {default}]")
 
         # TODO: add Enum
 
         if self._subschemes:
             lines.append(
-                'subschemes: {}'.format(
-                    ', '.join(
+                "subschemes: {}".format(
+                    ", ".join(
                         [
-                            f'{k} ({subscheme.__name__})'
+                            f"{k} ({subscheme.__name__})"
                             for k, subscheme in self._subschemes.items()
                         ]
                     )
                 )
             )
-        return '\n'.join(lines)
+        return "\n".join(lines)
 
     def __repr__(self) -> str:
         return str(self)

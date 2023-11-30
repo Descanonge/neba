@@ -48,17 +48,17 @@ class DaskLocalCluster(DaskClusterAbstract):
 @tag_all_traits(cluster_args=True)
 class DaskClusterJobQueue(DaskClusterAbstract):
     # Job specific parameters
-    cores = Int(help='Total number of cores per job.')
-    memory = Int(help='Total amount of memory per job.')
+    cores = Int(help="Total number of cores per job.")
+    memory = Int(help="Total amount of memory per job.")
 
     processes = Int(
         None,
         allow_none=True,
         help=(
-            'Cut the job up into this many processes. '
-            'Good for GIL workloads or for nodes with many cores. '
-            'By default, process ~= sqrt(cores) so that the number of '
-            'processes and the number of threads per process is roughly the same.'
+            "Cut the job up into this many processes. "
+            "Good for GIL workloads or for nodes with many cores. "
+            "By default, process ~= sqrt(cores) so that the number of "
+            "processes and the number of threads per process is roughly the same."
         ),
     )
 
@@ -67,139 +67,139 @@ class DaskClusterJobQueue(DaskClusterAbstract):
         allow_none=True,
         help=(
             "Network interface like 'eth0' or 'ib0'. This will be used both "
-            'for the Dask scheduler and the Dask workers interface. '
-            'If you need a different interface for the Dask scheduler you '
-            'can pass it through the scheduler_options argument: '
+            "for the Dask scheduler and the Dask workers interface. "
+            "If you need a different interface for the Dask scheduler you "
+            "can pass it through the scheduler_options argument: "
             "interface=your_worker_interface, scheduler_options={'interface': "
-            'your_scheduler_interface}.'
+            "your_scheduler_interface}."
         ),
     )
 
-    nanny = Bool(help='Whether or not to start a nanny process')
+    nanny = Bool(help="Whether or not to start a nanny process")
 
     local_directory = Unicode(
-        None, allow_none=True, help='Dask worker local directory for file spilling.'
+        None, allow_none=True, help="Dask worker local directory for file spilling."
     )
 
     death_timeout = Float(
         None,
         allow_none=True,
-        help='Seconds to wait for a scheduler before closing workers.',
+        help="Seconds to wait for a scheduler before closing workers.",
     )
 
     job_directives_skip = List(
         Unicode,  # type: ignore
         help=(
-            'Directives to skip in the generated job script header. '
-            'Directives lines containing the specified strings will be removed. '
-            'Directives added by job_extra_directives won’t be affected.'
+            "Directives to skip in the generated job script header. "
+            "Directives lines containing the specified strings will be removed. "
+            "Directives added by job_extra_directives won’t be affected."
         ),
     )
 
-    log_directory = Unicode(help='Directory to use for job scheduler logs.')
+    log_directory = Unicode(help="Directory to use for job scheduler logs.")
 
     shebang = Unicode(
-        help='Path to desired interpreter for your batch submission script.'
+        help="Path to desired interpreter for your batch submission script."
     )
 
     python = Unicode(
         help=(
-            'Python executable used to launch Dask workers. '
-            'Defaults to the Python that is submitting these jobs.'
+            "Python executable used to launch Dask workers. "
+            "Defaults to the Python that is submitting these jobs."
         )
     )
 
-    name = Unicode('dask-worker', help='Name of Dask worker.')
+    name = Unicode("dask-worker", help="Name of Dask worker.")
 
     # Cluster related parameters
-    n_workers = Int(0, help='Number of workers to start by default.')
+    n_workers = Int(0, help="Number of workers to start by default.")
 
     silence_logs = Unicode(
         help=(
             'Log level like "debug", "info", or "error" to emit here '
-            'if the scheduler is started locally.'
+            "if the scheduler is started locally."
         )
     )
 
     asynchronous = Bool(
-        help='Whether or not to run this cluster object with the async/await syntax.'
+        help="Whether or not to run this cluster object with the async/await syntax."
     )
 
 
 @tag_all_traits(cluster_args=True)
 class DaskClusterPBS(DaskClusterJobQueue):
-    cluster_class = 'dask_jobqueue.PBSCluster'
+    cluster_class = "dask_jobqueue.PBSCluster"
 
     queue = Unicode(
-        help='Destination queue for each worker job. Passed to `#PBS -q` option.'
+        help="Destination queue for each worker job. Passed to `#PBS -q` option."
     )
 
     account = Unicode(
         help=(
-            'Accounting string associated with each worker job. '
-            'Passed to `#PBS -A` option.'
+            "Accounting string associated with each worker job. "
+            "Passed to `#PBS -A` option."
         )
     )
 
     resource_spec = Unicode(
-        help='Request resources and specify job placement. Passed to `#PBS -l` option.'
+        help="Request resources and specify job placement. Passed to `#PBS -l` option."
     )
 
-    walltime = Unicode(help='Walltime for each worker job.')
+    walltime = Unicode(help="Walltime for each worker job.")
 
     job_extra_directives = List(
         Unicode,  # type: ignore
         help=(
-            'List of other PBS options. '
-            'Each option will be prepended with the #PBS prefix.'
+            "List of other PBS options. "
+            "Each option will be prepended with the #PBS prefix."
         ),
     )
 
 
 @tag_all_traits(cluster_args=True)
 class DaskClusterSLURM(DaskClusterJobQueue):
-    cluster_class = 'dask_jobqueue.SLURMCluster'
+    cluster_class = "dask_jobqueue.SLURMCluster"
 
     queue = Unicode(
-        help='Destination queue for each worker job. Passed to `#SBATCH -p` option.'
+        help="Destination queue for each worker job. Passed to `#SBATCH -p` option."
     )
 
     account = Unicode(
         help=(
-            'Accounting string associated with each worker job. '
-            'Passed to `#PBS -A` option.'
+            "Accounting string associated with each worker job. "
+            "Passed to `#PBS -A` option."
         )
     )
 
-    walltime = Unicode(help='Walltime for each worker job.')
+    walltime = Unicode(help="Walltime for each worker job.")
 
     job_cpu = Int(
         help=(
-            'Number of cpu to book in SLURM, if None, defaults to worker '
-            '`threads * processes`'
+            "Number of cpu to book in SLURM, if None, defaults to worker "
+            "`threads * processes`"
         )
     )
 
     job_mem = Unicode(
         help=(
-            'Amount of memory to request in SLURM. If None, defaults '
-            'to worker processes * memory'
+            "Amount of memory to request in SLURM. If None, defaults "
+            "to worker processes * memory"
         )
     )
 
     job_extra_directives = List(
         Unicode,  # type: ignore
         help=(
-            'List of other PBS options. '
-            'Each option will be prepended with the #PBS prefix.'
+            "List of other PBS options. "
+            "Each option will be prepended with the #PBS prefix."
         ),
     )
 
 
 DEFAULT_CLUSTER_NAMES = {
-    'local': DaskLocalCluster,
-    'pbs': DaskClusterPBS,
-    'slurm': DaskClusterSLURM,
+    "local": DaskLocalCluster,
+    "pbs": DaskClusterPBS,
+    "slurm": DaskClusterSLURM,
 }
 
 
@@ -211,7 +211,7 @@ class DaskConfig(Scheme):
     # cannot be changed from a subclass
     selected_clusters: list[str] = list(DEFAULT_CLUSTER_NAMES.keys())
 
-    cluster_type = Enum(list(DEFAULT_CLUSTER_NAMES.keys()), default_value='slurm')
+    cluster_type = Enum(list(DEFAULT_CLUSTER_NAMES.keys()), default_value="slurm")
 
     @classmethod
     def _setup_scheme(cls):

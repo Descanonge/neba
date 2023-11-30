@@ -27,15 +27,15 @@ class BaseApp(Application, Scheme):
     strict_parsing = Bool(
         True,
         help=(
-            'If true, raise errors when encountering unknown '
-            'arguments or configuration keys. Else only prints '
-            'a warning.'
+            "If true, raise errors when encountering unknown "
+            "arguments or configuration keys. Else only prints "
+            "a warning."
         ),
     ).tag(config=True)
 
-    config_file = Unicode('config.py', help='Load this config file.').tag(config=True)
+    config_file = Unicode("config.py", help="Load this config file.").tag(config=True)
 
-    aliases = {'config-file': ('BaseApp.config_file', config_file.help)}
+    aliases = {"config-file": ("BaseApp.config_file", config_file.help)}
 
     def __init_subclass__(cls, /, **kwargs) -> None:
         """Subclass init hook.
@@ -55,7 +55,7 @@ class BaseApp(Application, Scheme):
         for cfg in cls.auto_aliases:
             for name, trait in cfg.class_traits(config=True).items():
                 if name not in cls.aliases:
-                    cls.aliases[name] = (f'{cfg.__name__}.{name}', trait.help)
+                    cls.aliases[name] = (f"{cfg.__name__}.{name}", trait.help)
 
         for n, f in super().flags.items():
             cls.flags.setdefault(n, f)
@@ -100,7 +100,7 @@ class BaseApp(Application, Scheme):
         dest.setup_class(dest.__dict__)
 
         if auto_alias:
-            self.aliases[name] = (f'{dest.__name__}.{name}', trait.help)
+            self.aliases[name] = (f"{dest.__name__}.{name}", trait.help)
 
     def initialize(self, argv=None, ignore_cli: bool = False):
         """Initialize application.
@@ -158,18 +158,18 @@ class BaseApp(Application, Scheme):
             print(f"Config file already exists '{filename}")
 
             def ask():
-                prompt = 'Overwrite with new config? [y/N]'
+                prompt = "Overwrite with new config? [y/N]"
                 try:
-                    return input(prompt).lower() or 'n'
+                    return input(prompt).lower() or "n"
                 except KeyboardInterrupt:
-                    print('')  # empty line
-                    return 'n'
+                    print("")  # empty line
+                    return "n"
 
             answer = ask()
-            while not answer.startswith(('y', 'n')):
+            while not answer.startswith(("y", "n")):
                 print("Please answer 'yes' or 'no'")
                 answer = ask()
-            if answer.startswith('n'):
+            if answer.startswith("n"):
                 return
 
         lines = self.generate_config_file().splitlines()
@@ -179,11 +179,11 @@ class BaseApp(Application, Scheme):
 
         if not comment:
             for i, line in enumerate(lines):
-                if line.startswith('# c.'):
-                    lines[i] = line.removeprefix('# ')
+                if line.startswith("# c."):
+                    lines[i] = line.removeprefix("# ")
 
-        with open(filename, 'w') as f:
-            f.write('\n'.join(lines))
+        with open(filename, "w") as f:
+            f.write("\n".join(lines))
 
     def _filter_parent_app(self, classes):
         for c in classes:
@@ -207,15 +207,15 @@ class BaseApp(Application, Scheme):
             help_classes = self._filter_parent_app(help_classes)
 
             if help_classes:
-                yield 'Class options'
-                yield '============='
+                yield "Class options"
+                yield "============="
                 for p in wrap_paragraphs(self.keyvalue_description):
                     yield p
-                    yield ''
+                    yield ""
 
             for cls in help_classes:
                 yield cls.class_get_help()
-                yield ''
+                yield ""
         yield from self.emit_examples()
 
         yield from self.emit_help_epilogue(classes)
@@ -225,17 +225,17 @@ class BaseApp(Application, Scheme):
 
         Override to avoid documenting base classes of the application.
         """
-        lines = ['# Configuration file for %s.' % self.name]
-        lines.append('')
-        lines.append('c = get_config()  #' + 'noqa')
-        lines.append('')
+        lines = ["# Configuration file for %s." % self.name]
+        lines.append("")
+        lines.append("c = get_config()  #" + "noqa")
+        lines.append("")
         classes = self.classes if classes is None else classes
         config_classes = list(self._classes_with_config_traits(classes))
         config_classes = self._filter_parent_app(config_classes)
         for cls in config_classes:
             lines.append(cls.class_config_section(config_classes))
 
-        return '\n'.join(lines)
+        return "\n".join(lines)
 
     def document_config_options(self):
         """Generate rST format documentation for the config options this application.
@@ -246,4 +246,4 @@ class BaseApp(Application, Scheme):
         """
         classes = self._classes_inc_parents()
         classes = self._filter_parent_app(classes)
-        return '\n'.join(c.class_config_rst_doc() for c in classes)
+        return "\n".join(c.class_config_rst_doc() for c in classes)

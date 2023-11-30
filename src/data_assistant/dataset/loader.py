@@ -20,11 +20,11 @@ class LoaderAbstract(Module):
         kwargs:
             Arguments passed to function loading data.
         """
-        raise NotImplementedError('Subclass must implement this method.')
+        raise NotImplementedError("Subclass must implement this method.")
 
 
 class XarrayLoader(LoaderAbstract):
-    TO_DEFINE_ON_DATASET = ['OPEN_MFDATASET_KWARGS']
+    TO_DEFINE_ON_DATASET = ["OPEN_MFDATASET_KWARGS"]
 
     def get_data(self, **kwargs) -> xr.Dataset:
         """Return a dataset object.
@@ -44,8 +44,8 @@ class XarrayLoader(LoaderAbstract):
         """
         import xarray as xr
 
-        kwargs = self.get_attr_dataset('OPEN_MFDATASET_KWARGS') | kwargs
+        kwargs = self.get_attr_dataset("OPEN_MFDATASET_KWARGS") | kwargs
         datafiles = self.dataset.datafiles
         ds = xr.open_mfdataset(datafiles, **kwargs)
-        ds = self.run_on_dataset('postprocess_data', ds)
+        ds = self.run_on_dataset("postprocess_data", ds)
         return ds

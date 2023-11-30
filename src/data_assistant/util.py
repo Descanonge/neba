@@ -34,10 +34,10 @@ def check_output_path(
         log = logging.getLevelNamesMapping()[log.upper()]
 
     if log:
-        logger.log(log, 'output to %s', outdir if directory else outpath)
+        logger.log(log, "output to %s", outdir if directory else outpath)
 
     # Check if directory exists
     if not path.isdir(outdir):
         if log:
-            logger.log(log, 'creating %s', outdir)
+            logger.log(log, "creating %s", outdir)
         os.makedirs(outdir)

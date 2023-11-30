@@ -30,10 +30,10 @@ class WriterAbstract(Module):
 
 
 class XarrayWriter(WriterAbstract):
-    time_fixable = 'YBmdjHMSFxX'
+    time_fixable = "YBmdjHMSFxX"
     """Parameters names we consider as time related."""
 
-    TO_DEFINE_ON_DATASET = ['TO_NETCDF_KWARGS']
+    TO_DEFINE_ON_DATASET = ["TO_NETCDF_KWARGS"]
 
     def write(
         self,
@@ -80,7 +80,7 @@ class XarrayWriter(WriterAbstract):
         # Get hostname and script name
         hostname = socket.gethostname()
         script = inspect.stack()[1].filename
-        ds.attrs['created_by'] = f'{hostname}:{script}'
+        ds.attrs["created_by"] = f"{hostname}:{script}"
 
         # Get parameters as string
         if parameters is not None:
@@ -92,20 +92,20 @@ class XarrayWriter(WriterAbstract):
                 except TypeError:
                     params_str = str(parameters)
 
-            ds.attrs['created_with_params'] = params_str
+            ds.attrs["created_with_params"] = params_str
 
         # Get date
-        ds.attrs['created_on'] = datetime.today().strftime('%x %X')
+        ds.attrs["created_on"] = datetime.today().strftime("%x %X")
 
         # Get commit hash
         if add_commit:
             # Use the directory of the calling script
             gitdir = path.dirname(script)
-            cmd = ['git', '-C', gitdir, 'rev-parse', 'HEAD']
+            cmd = ["git", "-C", gitdir, "rev-parse", "HEAD"]
             ret = subprocess.run(cmd, capture_output=True, text=True)
             if ret.returncode == 0:
                 commit = ret.stdout.strip()
-                ds.attrs['created_at_commit'] = commit
+                ds.attrs["created_at_commit"] = commit
             else:
                 log.debug("'%s' not a valid git directory", gitdir)
 
@@ -125,18 +125,18 @@ class XarrayWriter(WriterAbstract):
         (remove completely, squeeze, leave coord of dim 1)
         """
         if not isinstance(self.dataset.file_manager, FileFinderManager):
-            raise TypeError('File manager must be of type FileFinderManager')
+            raise TypeError("File manager must be of type FileFinderManager")
         fixable = set(self.dataset.file_manager.fixable_params)
 
         # If we have time-related fixable, we must do some work
-        if 'time' in ds.dims and (present_time_fix := fixable & set(self.time_fixable)):
+        if "time" in ds.dims and (present_time_fix := fixable & set(self.time_fixable)):
             # find values for those parameters
             for param in present_time_fix:
                 values = ds.time.dt.strftime(param)
-                ds = ds.assign_coords({param: ('time', values)})
+                ds = ds.assign_coords({param: ("time", values)})
 
             # We mark time as fixable
-            fixable.add('time')
+            fixable.add("time")
             fixable -= present_time_fix
 
         # Check that fixable parameters have an associated dimension
@@ -149,7 +149,7 @@ class XarrayWriter(WriterAbstract):
         stacked = ds.stack(__filename_vars__=stack_vars)
 
         calls: list[tuple[xr.Dataset, str]] = []
-        for _, ds_unit in stacked.groupby('__filename_vars__'):
+        for _, ds_unit in stacked.groupby("__filename_vars__"):
             ds_unit = ds_unit.unstack()
 
             # Find fixable parameters values. They should all be of dimension 1.
@@ -165,7 +165,7 @@ class XarrayWriter(WriterAbstract):
 
             # Apply squeeze argument
             if squeeze:
-                ds_unit = ds_unit.squeeze(stack_vars, drop=(squeeze == 'drop'))
+                ds_unit = ds_unit.squeeze(stack_vars, drop=(squeeze == "drop"))
 
             calls.append((ds_unit, outfile))
 
@@ -181,7 +181,7 @@ class XarrayWriter(WriterAbstract):
 
         if duplicates:
             raise ValueError(
-                f'Multiple writing calls to the same filename·s: {duplicates}'
+                f"Multiple writing calls to the same filename·s: {duplicates}"
             )
 
     def send_calls(self, calls: Sequence[Call], **kwargs):
@@ -205,13 +205,13 @@ class XarrayWriter(WriterAbstract):
             chop = ncalls
 
         slices = cut_slices(ncalls, chop)
-        log.info('%d total calls in %d groups.', ncalls, len(slices))
+        log.info("%d total calls in %d groups.", ncalls, len(slices))
 
         # This create delayed objects when calling function
-        kwargs['compute'] = False
+        kwargs["compute"] = False
 
         for slc in slices:
-            log.debug('\tslice %s', slc)
+            log.debug("\tslice %s", slc)
 
             # Select calls and turn it into a list of delayed objects for Dask
             grouped_calls = calls[slc]
@@ -223,7 +223,7 @@ class XarrayWriter(WriterAbstract):
             # goes out of scope). That way the data does not pile up, it is freed.
             # We only care about the side effect of writing to disk, not the result data.
             for future in distributed.as_completed(client.compute(delayed)):
-                log.debug('\t\tfuture completed: %s', future)
+                log.debug("\t\tfuture completed: %s", future)
 
     def send_single_call(self, call: Call, **kwargs):
         # To file
