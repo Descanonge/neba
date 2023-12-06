@@ -65,6 +65,13 @@ class Scheme(Configurable):
 
         cls.setup_class(classdict)
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.postinit()
+
+    def postinit(self):
+        pass
+
     def __str__(self) -> str:
         lines = [f"{self.__class__.__name__}:"]
         for key, trait in self.traits(config=True).items():
