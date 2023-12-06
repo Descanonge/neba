@@ -28,6 +28,8 @@ The Dataset can trigger a flush of all caches.
 from collections.abc import Hashable, Iterable, Mapping, Sequence
 from typing import Any
 
+from data_assistant.config import Scheme
+
 from .file_manager import FileFinderManager, FileManagerAbstract
 from .loader import LoaderAbstract, XarrayLoader
 from .writer import WriterAbstract, XarrayWriter
@@ -55,7 +57,7 @@ class DatasetAbstract:
 
     def __init__(
         self,
-        params: Mapping[str, Any] | None = None,
+        params: Mapping[str, Any] | Scheme | None = None,
         exact_params: bool = False,
         **kwargs,
     ):
@@ -111,7 +113,7 @@ class DatasetAbstract:
 
     def set_params(
         self,
-        params: Mapping[str, Any] | None = None,
+        params: Mapping[str, Any] | Scheme | None = None,
         _reset: bool = True,
         _check: bool = True,
         **kwargs,
@@ -129,11 +131,14 @@ class DatasetAbstract:
         """
         if params is None:
             params = {}
-        params = dict(params)  # shallow copy
+        elif isinstance(params, Scheme):
+            params = dict(params.values_recursive())
+        else:
+            params = dict(params)  # shallow copy
         params = params | self.PARAMS_DEFAULTS
         params.update(kwargs)
 
-        self.params = params
+        self.params.update(params)
         if _reset:
             self.clean_cache()
         if _check:
@@ -195,3 +200,9 @@ class DatasetBase(DatasetAbstract):
     FILE_MANAGER_CLASS = FileFinderManager
     LOADER_CLASS = XarrayLoader
     WRITER_CLASS = XarrayWriter
+
+    def get_root_directory(self):
+        raise NotImplementedError()
+
+    def get_filename_pattern(self):
+        raise NotImplementedError()
