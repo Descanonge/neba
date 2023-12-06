@@ -25,5 +25,4 @@ dependencies:
     - pip
 
     - pip:
-        - filefinder >= 0.5
-        - --no-deps -e .
+        - filefinder = 1.0.*
