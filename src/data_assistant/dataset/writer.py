@@ -30,8 +30,21 @@ class WriterAbstract(Module):
 
 
 class XarrayWriter(WriterAbstract):
-    time_fixable = "YBmdjHMSFxX"
-    """Parameters names we consider as time related."""
+
+    time_fixable = 'SXMHjdxFmBY'
+    time_intervals_groups = dict(
+        S='S',
+        X='S',
+        M='min',
+        H='H',
+        j='D',
+        d='D',
+        x='D',
+        F='D',
+        m='MS',
+        B='MS',
+        Y='YS',
+    )
 
     TO_DEFINE_ON_DATASET = ["TO_NETCDF_KWARGS"]
 
@@ -41,17 +54,32 @@ class XarrayWriter(WriterAbstract):
         /,
         *,
         encoding: dict,
+        time_freq: str | None = None,
+        squeeze: str = 'squeeze',  # allow config by dimensions
+        client: Client | None = None,
         **kwargs,
     ):
         """Write data to disk.
 
         Manage 'time' coordinate appropriately. Maybe. Hopefully.
         """
-        pass
+        datasets_by_fix = self.cut_by_fixable(ds)
+
+        datasets_by_all = []
+        for dataset in datasets_by_fix:
+            datasets_by_all += self.cut_by_time(dataset, time_freq=time_freq)
+
+        calls = self.to_calls(datasets_by_all, squeeze=squeeze)
+
+        if client is None:
+            self.send_calls(calls)
+        else:
+            self.send_delayed_calls(calls, client, **kwargs)
 
     def set_metadata(
         self,
         ds: xr.Dataset,
+        /,
         parameters: dict | str | None = None,
         add_commit: bool = True,
     ) -> xr.Dataset:
@@ -111,11 +139,30 @@ class XarrayWriter(WriterAbstract):
 
         return ds
 
-    def cut_by_fixable(
+    def cut_by_time(
         self,
         ds: xr.Dataset,
-        squeeze=False,
-    ) -> list[Call]:
+        time_freq: str | None,
+    ) -> list[xr.Dataset]:
+        fixable = self.get_fixable()
+        # Only keep time related fixable
+        fixable &= set(self.time_fixable)
+
+        if "time" not in ds.dims or not fixable:
+            return [ds]
+
+        if time_freq is None:
+            return [ds_unit for _, ds_unit in ds.groupby("time")]
+
+        # Guess frequency from fixables
+        # User could specify frequency also
+        resample = ds.resample(time="MS")
+
+        out = [ds_unit for _, ds_unit in resample]
+        return out
+
+
+    def cut_by_fixable(self, ds: xr.Dataset) -> list[xr.Dataset]:
         """Use parameters in the filename pattern to guess how to group.
 
         Any fixable parameter is 'outer' (different values will be in different
@@ -124,60 +171,65 @@ class XarrayWriter(WriterAbstract):
         Squeeze could be choice in {'drop', True, False}
         (remove completely, squeeze, leave coord of dim 1)
         """
-        if not isinstance(self.dataset.file_manager, FileFinderManager):
-            raise TypeError("File manager must be of type FileFinderManager")
-        fixable = set(self.dataset.file_manager.fixable_params)
-
-        # If we have time-related fixable, we must do some work
-        if "time" in ds.dims and (present_time_fix := fixable & set(self.time_fixable)):
-            self.add_time_fixable_dimensions(ds, present_time_fix)
-            # We mark time as fixable
-            fixable.add("time")
-            fixable -= present_time_fix
+        fixable = self.get_fixable()
+        # Remove time related fixables
+        fixable -= set(self.time_fixable)
 
         # Check that fixable parameters have an associated dimension
         for p in fixable:
-            if p not in ds.dims:
+            if p not in ds.coords:
                 raise KeyError(f"Parameter '{p}' has no associated dimension.")
 
         # Generate list of filenames
         stack_vars = list(fixable)
         stacked = ds.stack(__filename_vars__=stack_vars)
 
-        calls: list[tuple[xr.Dataset, str]] = []
-        for _, ds_unit in stacked.groupby("__filename_vars__"):
-            ds_unit = ds_unit.unstack()
+        out = [ds_unit.unstack() for _, ds_unit in stacked.groupby('__filename_vars__')]
 
+        return out
+
+
+    def get_fixable(self):
+        if not isinstance(self.dataset.file_manager, FileFinderManager):
+            raise TypeError("File manager must be of type FileFinderManager")
+        fixable = set(self.dataset.file_manager.fixable_params)
+        return fixable
+
+
+    def to_calls(
+        self,
+        datasets: Sequence[xr.Dataset],
+        squeeze: str = 'ye'
+    ):
+        fixable = self.get_fixable()
+        present_time_fix = fixable & set(self.time_fixable)
+        # Remove time related fixables
+        fixable -= set(self.time_fixable)
+
+        calls: list[Call] = []
+        for ds in datasets:
             # Find fixable parameters values. They should all be of dimension 1.
             # Note .values.item() to retrieve a scalar
-            fixable_values = {dim: ds_unit.coords[dim].values.item() for dim in fixable}
+            # We need some trickery for time related parameters
+            fixable_values = {}
+            for dim in fixable:
+                fixable_values[dim] = ds.coords[dim].values.item()
+
+            # If there are time values, we simply get the first one
+            if present_time_fix and "time" in ds.dims:
+                for p in present_time_fix:
+                    value = ds.time[0].dt.strftime(f"%{p}").values.item()
+                    fixable_values[p] = value
+
             outfile = self.dataset.get_filename(**fixable_values)
-
-            # Check existence of containing directory (and create it if necessary)
-            check_output_path(outfile)
-
-            # Remove time fixable dimensions we added
-            ds = self.remove_time_fixable_dimensions(ds)
 
             # Apply squeeze argument
             if squeeze:
-                ds_unit = ds_unit.squeeze(stack_vars, drop=(squeeze == "drop"))
+                ds = ds.squeeze(None, drop=(squeeze == "drop"))
 
-            calls.append((ds_unit, outfile))
+            calls.append((ds, outfile))
 
         return calls
-
-    def add_time_fixable_dimensions(self, ds: xr.Dataset, dims: Iterable[str]):
-        # find values for those parameters
-        for param in dims:
-            values = ds.time.dt.strftime(param)
-            ds = ds.assign_coords({param: ("time", values)})
-            ds.coords[param].attrs["__for_fixable_param"] = 1
-
-    def remove_time_fixable_dimensions(self, ds: xr.Dataset):
-        to_remove = [d for d in ds.dims
-                     if "__for_fixable_param" in ds.coords[d].attrs]
-        return ds.drop_dims(to_remove)
 
     def check_overwriting_calls(self, calls: Sequence[Call]):
         """Check if some calls have the same filename."""
@@ -238,6 +290,7 @@ class XarrayWriter(WriterAbstract):
         # TODO Out to deal with different files, we need different methods call :(
         # That could be a dataset attribute, like OUTPUT_FORMAT
         ds, outfile = call
+        kwargs = kwargs | self.get_attr_dataset('TO_NETCDF_KWARGS')
         return ds.to_netcdf(outfile, **kwargs)
 
 
