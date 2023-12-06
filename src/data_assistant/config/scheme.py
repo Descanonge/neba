@@ -8,6 +8,11 @@ from traitlets import Bool, Instance, TraitType
 from traitlets.config import Configurable
 
 
+def subscheme(scheme: type[Scheme]) -> Instance:
+    out = Instance(scheme, args=(), kwargs={}).tag(subscheme=True)
+    return out
+
+
 class Scheme(Configurable):
     """Configuration specification.
 
@@ -50,10 +55,13 @@ class Scheme(Configurable):
                 if v.metadata.get("config", True):
                     v.tag(config=True)
 
-            # register nested schemes
+            # transform subschemes in traits
             if isinstance(v, type) and issubclass(v, Scheme):
-                cls._subschemes[k] = v
-                setattr(cls, k, Instance(v, args=(), kw={}).tag(subscheme=True))
+                setattr(cls, k, subscheme(v))
+
+            # register subschemes
+            if isinstance(v, Instance) and issubclass(v.klass, Scheme):
+                cls._subschemes[k] = v.klass
 
         cls.setup_class(classdict)
 
@@ -102,7 +110,7 @@ class Scheme(Configurable):
     @classmethod
     def class_traits_recursive(cls) -> dict:
         """Return nested/recursive dict of all traits."""
-        config = dict()
+        config: dict[Any, Any] = dict()
         config.update(cls.class_own_traits(config=True))
         for name, subscheme in cls._subschemes.items():
             config[name] = subscheme.class_traits_recursive()
