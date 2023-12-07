@@ -215,41 +215,61 @@ class DatasetDefault(DatasetAbstract):
         raise NotImplementedError()
 
 
-def climato(
-    cls: type[DatasetAbstract], append_folder: str | None = None
-) -> type[DatasetAbstract]:
-    classdict: dict[str, Any] = dict()
 
-    # Change get_root_directory
-    if append_folder:
+class climato:  # noqa: 801
+    """Create a Dataset subclass for climatology.
 
-        def get_root_dir_wrapped(self):
-            root_dir = super(cls, self).get_root_directory()
-            if isinstance(root_dir, str | PathLike):
-                root_dir = path.join(root_dir, append_folder)
-            else:
-                root_dir.append(append_folder)
-            return root_dir
+    Generate new subclass of a dataset that correspond to its climatology.
+    Have to wrap around base class get_root and get_pattern.
+    Pattern is not easy, we have to get rid of time related groups.
 
-        classdict["get_root_directory"] = get_root_dir_wrapped
+    Parameters
+    ----------
+    append_folder:
+        If None, do not change the root directory. If is a string, append it as a
+        new directory.
+    """
 
-    # Change get_filename_pattern
-    def get_filename_pattern_wrapped(self):
-        pattern = super(cls, self).get_filename_pattern()
-        finder = Finder("", pattern)
-        new_pattern = pattern.copy()
-        for g in finder.groups:
-            # remove fixable/groups related to time
-            if g.name in TIME_GROUPS:
-                new_pattern = new_pattern.replace(g.definition, "")
-        return new_pattern
+    def __init__(self, append_folder: str | None = None):
+        self.append_folder = append_folder
 
-    if cls.ID:
-        classdict["ID"] = f"{cls.ID}_cli"
-    if cls.SHORTNAME:
-        classdict["SHORTNAME"] = f"{cls.SHORTNAME}_cli"
+    def __call__(self, cls: type[DatasetAbstract]):
+        # Change get_root_directory
+        if self.append_folder:
 
-    subcls_name = f"{cls.__name__}Cli"
-    subcls = type(subcls_name, (cls,), classdict)
+            def get_root_dir_wrapped(obj):
+                root_dir = super(cls, obj).get_root_directory()
+                if isinstance(root_dir, str | PathLike):
+                    root_dir = path.join(root_dir, self.append_folder)
+                else:
+                    root_dir.append(self.append_folder)
+                return root_dir
 
-    return subcls
+            setattr(cls, "get_root_directory", get_root_dir_wrapped)
+
+        # Change get_filename_pattern
+        def get_filename_pattern_wrapped(obj):
+            pattern = super(cls, obj).get_filename_pattern()
+            finder = Finder("", pattern)
+            for g in finder.groups:
+                # remove fixable/groups related to time
+                if g.name in TIME_GROUPS:
+                    pattern = pattern.replace(f"%({g.definition})", "")
+
+            infile, ext = path.splitext(pattern)
+            # Clean pattern
+            infile = infile.strip('/_-')
+            # Add climatology group
+            infile += r'_%(climatology:fmt=s:rgx=\s+)'
+
+            pattern = infile + ext
+            return pattern
+
+        setattr(cls, "get_filename_pattern", get_filename_pattern_wrapped)
+
+        if cls.ID:
+            cls.ID = f"{cls.ID}_cli"
+        if cls.SHORTNAME:
+            cls.SHORTNAME = f"{cls.SHORTNAME}_cli"
+
+        return cls
