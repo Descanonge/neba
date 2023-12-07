@@ -4,6 +4,7 @@ import inspect
 import itertools
 import json
 import logging
+import os
 import socket
 import subprocess
 from collections.abc import Hashable, Mapping, Sequence
@@ -333,8 +334,23 @@ class XarrayWriter(WriterAbstract):
                 f"Multiple writing calls to the same filename·s: {duplicates}"
             )
 
+    def check_directories(self, calls: Sequence[Call]):
+        """Check if directories are missing, and create them if necessary."""
+        files = [f for _, f in calls]
+
+        # Keep only the containing directories, with no duplicate
+        directories = set()
+        for f in files:
+            directories.add(path.dirname(f))
+
+        for d in directories:
+            if not path.isdir(d):
+                log.debug("Creating output directory %s", d)
+                os.makedirs(d)
+
     def send_calls(self, calls: Sequence[Call], **kwargs):
         self.check_overwriting_calls(calls)
+        self.check_directories(calls)
 
         for call in calls:
             self.send_single_call(call, **kwargs)
@@ -349,6 +365,7 @@ class XarrayWriter(WriterAbstract):
         import distributed
 
         self.check_overwriting_calls(calls)
+        self.check_directories(calls)
         ncalls = len(calls)
         if chop is None:
             chop = ncalls
