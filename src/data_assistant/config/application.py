@@ -97,7 +97,7 @@ class BaseApp(Application, Scheme):
 
         trait.tag(config=True)
         setattr(dest, name, trait)
-        dest.setup_class(dest.__dict__)
+        dest.setup_class(dest.__dict__)  # type: ignore
 
         if auto_alias:
             self.aliases[name] = (f"{dest.__name__}.{name}", trait.help)

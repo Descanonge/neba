@@ -26,7 +26,11 @@ The Dataset can trigger a flush of all caches.
 """
 
 from collections.abc import Hashable, Iterable, Mapping, Sequence
+from os import PathLike, path
 from typing import Any
+
+from filefinder import Finder
+from filefinder.group import TIME_GROUPS
 
 from data_assistant.config import Scheme
 
@@ -193,16 +197,59 @@ class DatasetAbstract:
         return data
 
 
-class DatasetBase(DatasetAbstract):
+class DatasetDefault(DatasetAbstract):
     OPEN_MFDATASET_KWARGS: dict[str, Any] = {}
     """Arguments passed to :func:`xarray.open_mfdataset`."""
 
     FILE_MANAGER_CLASS = FileFinderManager
     LOADER_CLASS = XarrayLoader
     WRITER_CLASS = XarrayWriter
+    file_manager: FileFinderManager
+    loader: XarrayLoader
+    writer: XarrayWriter
 
     def get_root_directory(self):
         raise NotImplementedError()
 
     def get_filename_pattern(self):
         raise NotImplementedError()
+
+
+def climato(
+    cls: type[DatasetAbstract], append_folder: str | None = None
+) -> type[DatasetAbstract]:
+    classdict: dict[str, Any] = dict()
+
+    # Change get_root_directory
+    if append_folder:
+
+        def get_root_dir_wrapped(self):
+            root_dir = super(cls, self).get_root_directory()
+            if isinstance(root_dir, str | PathLike):
+                root_dir = path.join(root_dir, append_folder)
+            else:
+                root_dir.append(append_folder)
+            return root_dir
+
+        classdict["get_root_directory"] = get_root_dir_wrapped
+
+    # Change get_filename_pattern
+    def get_filename_pattern_wrapped(self):
+        pattern = super(cls, self).get_filename_pattern()
+        finder = Finder("", pattern)
+        new_pattern = pattern.copy()
+        for g in finder.groups:
+            # remove fixable/groups related to time
+            if g.name in TIME_GROUPS:
+                new_pattern = new_pattern.replace(g.definition, "")
+        return new_pattern
+
+    if cls.ID:
+        classdict["ID"] = f"{cls.ID}_cli"
+    if cls.SHORTNAME:
+        classdict["SHORTNAME"] = f"{cls.SHORTNAME}_cli"
+
+    subcls_name = f"{cls.__name__}Cli"
+    subcls = type(subcls_name, (cls,), classdict)
+
+    return subcls

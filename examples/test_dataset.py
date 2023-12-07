@@ -1,7 +1,7 @@
-from data_assistant.dataset.dataset import DatasetBase
+from data_assistant.dataset.dataset import DatasetDefault
 
 
-class DatasetSST(DatasetBase):
+class DatasetSST(DatasetDefault):
     PARAMS_NAMES = ["days", "region"]
 
     PARAMS_DEFAULTS = dict(days=5)
