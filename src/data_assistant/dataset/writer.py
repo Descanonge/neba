@@ -119,6 +119,7 @@ class XarrayWriter(WriterAbstract):
         """Set some dataset attributes with information on how it was created.
 
         Attributes are:
+        - "written_as_dataset:" name of dataset class.
         - "created_by": hostname and filename of the python script used
         - "created_with_params": a string representing the parameters,
         - "created_on": date of creation
@@ -138,6 +139,9 @@ class XarrayWriter(WriterAbstract):
             If True (default), try to find the current commit hash of the directory
             containing the script called.
         """
+        # Name of class
+        ds.attrs["written_as_dataset"] = self.__class__.__name__
+
         # Get hostname and script name
         hostname = socket.gethostname()
         script = inspect.stack()[1].filename
