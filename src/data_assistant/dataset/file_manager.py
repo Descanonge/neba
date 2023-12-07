@@ -87,12 +87,6 @@ class FileFinderManager(FileManagerAbstract):
 
         return finder
 
-    def get_filefinder(self) -> Finder:
-        """Return a filefinder instance to scan for datafiles.
-
-        Is also used to create filenames for a specific set of parameters.
-        """
-
     @property
     @autocached
     def fixable_params(self) -> list[str]:
