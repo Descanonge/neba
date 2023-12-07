@@ -239,12 +239,16 @@ class XarrayWriter(WriterAbstract):
         # Remove time related fixables
         fixable -= set(TIME_GROUPS)
 
-        # Check that fixable parameters have an associated dimension
-        for p in fixable:
-            if p not in ds.coords:
-                raise KeyError(f"Parameter '{p}' has no associated dimension.")
+        # Remove fixable not associated to a coordinate
+        fixable -= set(f for f in fixable if f not in ds.coords)
 
-        # Generate list of filenames
+        # We could check here if there are associated dimensions or parameters to
+        # each fixable
+
+        # No parameter to split
+        if not fixable:
+            return [ds]
+
         stack_vars = list(fixable)
         stacked = ds.stack(__filename_vars__=stack_vars)
 
@@ -289,7 +293,11 @@ class XarrayWriter(WriterAbstract):
             # We need some trickery for time related parameters
             fixable_values = {}
             for dim in fixable:
-                fixable_values[dim] = ds.coords[dim].values.item()
+                if dim in ds.coords:
+                    val = ds.coords[dim].values.item()
+                else:
+                    val = self.dataset.params[dim]
+                fixable_values[dim] = val
 
             # If there are time values, we simply get the first one
             if present_time_fix and "time" in ds.dims:
