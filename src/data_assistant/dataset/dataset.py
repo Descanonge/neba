@@ -215,7 +215,6 @@ class DatasetDefault(DatasetAbstract):
         raise NotImplementedError()
 
 
-
 class climato:  # noqa: 801
     """Create a Dataset subclass for climatology.
 
@@ -245,7 +244,7 @@ class climato:  # noqa: 801
                     root_dir.append(self.append_folder)
                 return root_dir
 
-            setattr(cls, "get_root_directory", get_root_dir_wrapped)
+            cls.get_root_directory = get_root_dir_wrapped  # type: ignore
 
         # Change get_filename_pattern
         def get_filename_pattern_wrapped(obj):
@@ -258,14 +257,14 @@ class climato:  # noqa: 801
 
             infile, ext = path.splitext(pattern)
             # Clean pattern
-            infile = infile.strip('/_-')
+            infile = infile.strip("/_-")
             # Add climatology group
-            infile += r'_%(climatology:fmt=s:rgx=\s+)'
+            infile += r"_%(climatology:fmt=s:rgx=\s+)"
 
             pattern = infile + ext
             return pattern
 
-        setattr(cls, "get_filename_pattern", get_filename_pattern_wrapped)
+        cls.get_filename_pattern = get_filename_pattern_wrapped  # type: ignore
 
         if cls.ID:
             cls.ID = f"{cls.ID}_cli"

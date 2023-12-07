@@ -53,7 +53,13 @@ class DatasetStore(dict[_K, _V]):
                 raise KeyError(f"More than one Dataset with SHORTNAME: {key}")
             idx = self.shortnames.index(key)
             key = cast(_K, self.ids[idx])
-        return super().__getitem__(key)
+        try:
+            return super().__getitem__(key)
+        except KeyError as e:
+            raise KeyError(
+                f"Dataset {key} not found. I have in store: "
+                f"{list(self.keys())} and shortnames: {self.shortnames}"
+            ) from e
 
 
 class register:  # noqa: N801
