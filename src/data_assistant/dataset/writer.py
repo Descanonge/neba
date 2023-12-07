@@ -6,12 +6,12 @@ import json
 import logging
 import socket
 import subprocess
-from collections.abc import Iterable, Sequence
+from collections.abc import Hashable, Mapping, Sequence
 from datetime import datetime
 from os import path
 from typing import TYPE_CHECKING
 
-from data_assistant.util import check_output_path
+from filefinder.group import TIME_GROUPS
 
 from .file_manager import FileFinderManager
 from .module import Module
@@ -30,20 +30,18 @@ class WriterAbstract(Module):
 
 
 class XarrayWriter(WriterAbstract):
-
-    time_fixable = 'SXMHjdxFmBY'
     time_intervals_groups = dict(
-        S='S',
-        X='S',
-        M='min',
-        H='H',
-        j='D',
-        d='D',
-        x='D',
-        F='D',
-        m='MS',
-        B='MS',
-        Y='YS',
+        S="S",
+        X="S",
+        M="min",
+        H="H",
+        j="D",
+        d="D",
+        x="D",
+        F="D",
+        m="MS",
+        B="MS",
+        Y="YS",
     )
 
     TO_DEFINE_ON_DATASET = ["TO_NETCDF_KWARGS"]
@@ -53,28 +51,63 @@ class XarrayWriter(WriterAbstract):
         ds: xr.Dataset,
         /,
         *,
-        encoding: dict,
-        time_freq: str | None = None,
-        squeeze: str = 'squeeze',  # allow config by dimensions
+        encoding: Mapping,
+        time_freq: str | bool = True,
+        squeeze: bool | str | Mapping[Hashable, bool | str] = True,
         client: Client | None = None,
+        chop: int | None = None,
         **kwargs,
     ):
         """Write data to disk.
 
-        Manage 'time' coordinate appropriately. Maybe. Hopefully.
+        First split datasets by the parameters that vary in the filename pattern.
+        Then split all datasets obtained along the time dimension (if present), and
+        according to the ``time_freq`` argument.
+        The dimensions left of size one are squeezed.
+
+        Each cut dataset is written to its corresponding filename. Directories will
+        automatically be created if necessary.
+
+        Parameters
+        ----------
+        encoding:
+            Mapping of encoding parameters.
+        time_freq:
+            If it is a string, use it as a frequency/period for
+            :func:`xarray.Dataset.resample`. For example ``M`` will return datasets
+            grouped by month. See this page
+            `https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#period-aliases`
+            for details on period strings.
+
+            If False: do not resample, just return a list with one dataset for each time
+            index. If True the frequency will be guessed from the filename pattern. The
+            smallest period present will be used.
+        squeeze:
+            How to squeeze dimensions of size one. If False, dimensions are left as is.
+            If True, squeeze. If equal to "drop", the squeezed coordinate is dropped
+            instead of being kept as a scalar.
+
+            This can be configured by dimensions with a mapping of dimensions to
+            a squeeze argument.
+        client:
+            Dask :class:`distributed.Client` instance. If present multiple write calls
+            will be send at once. See :method:`send_calls_together` for details.
+            If left to None, the write calls will be sent serially.
+        kwargs:
+            Passed to the function that writes to disk. :func:`xr.Dataset.to_netcdf`.
         """
-        datasets_by_fix = self.cut_by_fixable(ds)
+        datasets_by_fix = self.split_by_fixable(ds)
 
         datasets_by_all = []
         for dataset in datasets_by_fix:
-            datasets_by_all += self.cut_by_time(dataset, time_freq=time_freq)
+            datasets_by_all += self.split_by_time(dataset, time_freq=time_freq)
 
         calls = self.to_calls(datasets_by_all, squeeze=squeeze)
 
         if client is None:
             self.send_calls(calls)
         else:
-            self.send_delayed_calls(calls, client, **kwargs)
+            self.send_calls_together(calls, client, chop=chop, **kwargs)
 
     def set_metadata(
         self,
@@ -139,30 +172,57 @@ class XarrayWriter(WriterAbstract):
 
         return ds
 
-    def cut_by_time(
+    def split_by_time(
         self,
         ds: xr.Dataset,
-        time_freq: str | None,
+        time_freq: str | bool = True,
     ) -> list[xr.Dataset]:
+        """Split dataset in time groups.
+
+        Parameters
+        ----------
+        time_freq:
+            If it is a string, use it as a frequency/period for
+            :func:`xarray.Dataset.resample`. For example ``M`` will return datasets
+            grouped by month. See this page
+            `https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#period-aliases`
+            for details on period strings.
+
+            If False: do not resample, just return a list with one dataset for each time
+            index. If True the frequency will be guessed from the filename pattern. The
+            smallest period present will be used.
+
+        Returns
+        -------
+        List of datasets
+        """
         fixable = self.get_fixable()
         # Only keep time related fixable
-        fixable &= set(self.time_fixable)
+        fixable &= set(TIME_GROUPS)
 
         if "time" not in ds.dims or not fixable:
             return [ds]
 
-        if time_freq is None:
+        if not time_freq:
             return [ds_unit for _, ds_unit in ds.groupby("time")]
 
-        # Guess frequency from fixables
-        # User could specify frequency also
-        resample = ds.resample(time="MS")
+        if isinstance(time_freq, str):
+            # User defined
+            freq = time_freq
+        else:
+            # we guess from pattern
+            # TIME_GROUPS is sorted by period, first hit is smallest period
+            for t in TIME_GROUPS:
+                if t in fixable:
+                    freq = self.time_intervals_groups[t]
+                    break
+
+        resample = ds.resample(time=freq)
 
         out = [ds_unit for _, ds_unit in resample]
         return out
 
-
-    def cut_by_fixable(self, ds: xr.Dataset) -> list[xr.Dataset]:
+    def split_by_fixable(self, ds: xr.Dataset) -> list[xr.Dataset]:
         """Use parameters in the filename pattern to guess how to group.
 
         Any fixable parameter is 'outer' (different values will be in different
@@ -173,7 +233,7 @@ class XarrayWriter(WriterAbstract):
         """
         fixable = self.get_fixable()
         # Remove time related fixables
-        fixable -= set(self.time_fixable)
+        fixable -= set(TIME_GROUPS)
 
         # Check that fixable parameters have an associated dimension
         for p in fixable:
@@ -184,10 +244,9 @@ class XarrayWriter(WriterAbstract):
         stack_vars = list(fixable)
         stacked = ds.stack(__filename_vars__=stack_vars)
 
-        out = [ds_unit.unstack() for _, ds_unit in stacked.groupby('__filename_vars__')]
+        out = [ds_unit.unstack() for _, ds_unit in stacked.groupby("__filename_vars__")]
 
         return out
-
 
     def get_fixable(self):
         if not isinstance(self.dataset.file_manager, FileFinderManager):
@@ -195,16 +254,29 @@ class XarrayWriter(WriterAbstract):
         fixable = set(self.dataset.file_manager.fixable_params)
         return fixable
 
-
     def to_calls(
         self,
         datasets: Sequence[xr.Dataset],
-        squeeze: str = 'ye'
-    ):
+        squeeze: bool | str | Mapping[Hashable, bool | str] = True,
+    ) -> list[Call]:
+        """Transform sequence of datasets into writing calls.
+
+        A writing call being a tuple of a dataset and the filename to write it to.
+
+        Parameters
+        ----------
+        squeeze:
+            How to squeeze dimensions of size one. If False, dimensions are left as is.
+            If True, squeeze. If equal to "drop", the squeezed coordinate is dropped
+            instead of being kept as a scalar.
+
+            This can be configured by dimensions with a mapping of dimensions to
+            a squeeze argument.
+        """
         fixable = self.get_fixable()
-        present_time_fix = fixable & set(self.time_fixable)
+        present_time_fix = fixable & set(TIME_GROUPS)
         # Remove time related fixables
-        fixable -= set(self.time_fixable)
+        fixable -= set(TIME_GROUPS)
 
         calls: list[Call] = []
         for ds in datasets:
@@ -224,8 +296,13 @@ class XarrayWriter(WriterAbstract):
             outfile = self.dataset.get_filename(**fixable_values)
 
             # Apply squeeze argument
-            if squeeze:
-                ds = ds.squeeze(None, drop=(squeeze == "drop"))
+            if isinstance(squeeze, Mapping):
+                for dim, sq in squeeze.items():
+                    if sq:
+                        ds = ds.squeeze(dim, drop=(sq == "drop"))
+            else:
+                if squeeze:
+                    ds = ds.squeeze(None, drop=(squeeze == "drop"))
 
             calls.append((ds, outfile))
 
@@ -250,7 +327,7 @@ class XarrayWriter(WriterAbstract):
         for call in calls:
             self.send_single_call(call, **kwargs)
 
-    def send_delayed_calls(
+    def send_calls_together(
         self,
         calls: Sequence[Call],
         client: Client,
@@ -290,7 +367,7 @@ class XarrayWriter(WriterAbstract):
         # TODO Out to deal with different files, we need different methods call :(
         # That could be a dataset attribute, like OUTPUT_FORMAT
         ds, outfile = call
-        kwargs = kwargs | self.get_attr_dataset('TO_NETCDF_KWARGS')
+        kwargs = kwargs | self.get_attr_dataset("TO_NETCDF_KWARGS")
         return ds.to_netcdf(outfile, **kwargs)
 
 
