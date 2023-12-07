@@ -1,7 +1,13 @@
+from collections.abc import Hashable
+from typing import TypeVar, cast
+
 from .dataset import DatasetAbstract
 
+_K = TypeVar("_K", bound=Hashable)
+_V = TypeVar("_V", bound=type[DatasetAbstract])
 
-class DatasetStore(dict):
+
+class DatasetStore(dict[_K, _V]):
     """Mapping of registered Datasets.
 
     Maps ID and/or SHORTNAME to a :class:`DatasetAbstract` subclass.
@@ -10,17 +16,17 @@ class DatasetStore(dict):
     defined. They can be retrieved using ID or SHORTNAME, as preferred.
     """
 
-    def __init__(self, *args: type[DatasetAbstract]):
+    def __init__(self, *args: _V):
         # create empty dict
         super().__init__()
 
-        self.shortnames: list[str] = []
-        self.ids_for_shortnames: list[str] = []
+        self.shortnames: list[Hashable] = []
+        self.ids: list[Hashable] = []
 
         for ds in args:
             self.add_dataset(ds)
 
-    def add_dataset(self, ds: type[DatasetAbstract]):
+    def add_dataset(self, ds: _V):
         """Register a DatasetAbstract subclass."""
         if ds.ID is not None:
             key = ds.ID
@@ -36,17 +42,17 @@ class DatasetStore(dict):
 
         if ds.SHORTNAME is not None:
             self.shortnames.append(ds.SHORTNAME)
-            self.ids_for_shortnames.append(key)
+            self.ids.append(key)
 
-        super().__setitem__(key, ds)
+        super().__setitem__(cast(_K, key), ds)
 
-    def __getitem__(self, key: str) -> type[DatasetAbstract]:
+    def __getitem__(self, key: _K) -> _V:
         """Return DatasetAbstract subclass with this ID or SHORTNAME."""
         if key in self.shortnames:
             if self.shortnames.count(key) > 1:
                 raise KeyError(f"More than one Dataset with SHORTNAME: {key}")
             idx = self.shortnames.index(key)
-            key = self.ids_for_shortnames[idx]
+            key = cast(_K, self.ids[idx])
         return super().__getitem__(key)
 
 
