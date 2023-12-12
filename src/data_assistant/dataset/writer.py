@@ -230,11 +230,16 @@ class XarrayWriter(WriterAbstract):
     def split_by_fixable(self, ds: xr.Dataset) -> list[xr.Dataset]:
         """Use parameters in the filename pattern to guess how to group.
 
-        Any fixable parameter is 'outer' (different values will be in different
-        files), the rest of coordinates are inner.
+        The dataset is split in sub-datasets such that each sub-dataset correspond
+        to a unique combinaison of fixable parameter values which will give a
+        unique filename.
 
-        Squeeze could be choice in {'drop', True, False}
-        (remove completely, squeeze, leave coord of dim 1)
+        Coordinates whose name does not correspond to a fixable group in the filename
+        pattern will be written entirely in each file.
+
+        Note that we use 'fixable' for clarity, but any fixable group whose value
+        is already fixed (by a set parameter in the parent Dataset class) will not
+        be taken into account.
         """
         fixable = self.get_fixable()
         # Remove time related fixables
@@ -260,7 +265,8 @@ class XarrayWriter(WriterAbstract):
     def get_fixable(self):
         if not isinstance(self.dataset.file_manager, FileFinderManager):
             raise TypeError("File manager must be of type FileFinderManager")
-        fixable = set(self.dataset.file_manager.fixable_params)
+        # We use 'fixable' but any fixed parameter is not of use here
+        fixable = set(self.dataset.file_manager.unfixed)
         return fixable
 
     def to_calls(

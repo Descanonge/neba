@@ -76,28 +76,51 @@ class FileFinderManager(FileManagerAbstract):
         This property is the cached result of :func:`get_filefinder`.
         """
         finder = Finder(self.root_directory, self.filename_pattern)
-        # cache this temporary finder to avoid infinite recursion when
-        # getting fixable_params (which needs a Finder)
-        self.cache["filefinder"] = finder
-        fixable_params = self.fixable_params
+
+        # We now fix the parameters present in the filename whose value is specified
+        # in the parent dataset (we don't have to worry about them after that).
+        # We cache this temporary finder to avoid infinite recursion when
+        # getting varying parameters.
+        self.set_in_cache("filefinder", finder)
+        varying = self.fixable
 
         for p, value in self.dataset.params.items():
-            if p in fixable_params:
+            if p in varying and value is not None:
                 finder.fix_group(p, value)
 
+        # All operations above were in-place, so this is not needed but just in case, we
+        # clean the cache. The @autocached will take care of caching.
+        self.cache.pop("filefinder")
         return finder
 
     @property
     @autocached
-    def fixable_params(self) -> list[str]:
-        """List of parameters that vary in the filefinder object.
+    def fixable(self) -> list[str]:
+        """List of parameters that can vary in the filename.
 
         Found automatically from a :class:`filefinder.Finder` instance.
+        This correspond to the list of the group names in the Finder (without
+        duplicates).
         """
-        finder = self.filefinder
-        groups_names = [g.name for g in finder.groups]
-        # remove doublons
-        return list(set(groups_names))
+        fixable = [g.name for g in self.filefinder.groups]
+        # remove duplicates
+        return list(set(fixable))
+
+    @property
+    @autocached
+    def unfixed(self) -> list[str]:
+        """List of varying parameters whose value is not fixed.
+
+        Considering the current set of parameters of the dataset.
+        Parameters set to ``None`` are left unfixed.
+        """
+        unfixed = [
+            g.name for g in self.filefinder.groups
+            if g.fixed_value is not None
+        ]
+        # remove duplicates
+        return list(set(unfixed))
+
 
     @property
     @autocached
@@ -125,8 +148,8 @@ class FileFinderManager(FileManagerAbstract):
             filename pattern can be fixed. Will take precedence over the
             instance :attr:`params` attribute.
         """
-        finder: Finder = self.get_cached("filefinder")
-        fixable: list[str] = self.get_cached("fixable_params")
+        finder = self.filefinder
+        fixable = self.fixable
 
         self.dataset.check_known_param(fixes)
         # Check they can be fixed (they exist in the pattern)
