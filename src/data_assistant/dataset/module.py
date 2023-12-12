@@ -47,6 +47,9 @@ class Module:
             msg += f" You must subclass {classname} and define '{name}'."
         raise AttributeError(msg)
 
+    def set_in_cache(self, name: str, value: Any):
+        self.cache[name] = value
+
     def clean_cache(self) -> None:
         self.cache = {}
 
@@ -55,7 +58,8 @@ class Module:
         if key in self.cache:
             return self.cache[key]
 
-        raise KeyError(f"Key '{key}' not found in cache.")
+        name = self.__class__.__name__
+        raise KeyError(f"Key '{key}' not found in cache of module '{name}'.")
 
 
 R = TypeVar("R")
@@ -74,10 +78,9 @@ def autocached(func: Callable[[Any], R]) -> Callable[[Any], R]:
     @functools.wraps(func)
     def wrapper(self: Any) -> R:
         if name in self.cache:
-            value = self.cache[name]
-            return self.cache[name]
+            return self.get_cached(name)
         value = func(self)
-        self.cache[name] = value
+        self.set_in_cache(name, value)
         return value
 
     return wrapper
