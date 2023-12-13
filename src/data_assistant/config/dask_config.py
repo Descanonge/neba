@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 import sys
 from typing import Any
 
 import distributed
 from distributed.deploy.cluster import Cluster
 from distributed.security import Security
-from traitlets import Bool, Enum, Float, Instance, Int, List, Unicode, Union
+from distributed.worker import Worker
+from traitlets import Bool, Dict, Enum, Float, Instance, Int, List, Type, Unicode, Union
 from traitlets.utils.importstring import import_item
 
 from .scheme import Scheme
@@ -39,12 +41,170 @@ class DaskClusterAbstract(Scheme):
 
     def get_cluster_kwargs(self) -> dict:
         """Return cluster __init__ keyword arguments from configuration."""
-        return self.trait_values(cluster_args=True)
+        args = self.trait_values(cluster_args=True)
+        for t in self.trait_names(cluster_kwargs=True):
+            kwargs = args.pop(t)
+            args.update(kwargs)
+        return args
 
 
 @tag_all_traits(cluster_args=True)
 class DaskLocalCluster(DaskClusterAbstract):
     cluster_class = distributed.LocalCluster
+
+    n_workers = Int(None, allow_none=True, help="Number of workers to start.")
+
+    memory_limit = Union(
+        [Unicode(), Float(), Int()],
+        default_value="auto",
+        allow_none=True,
+        help="""\
+            Sets the memory limit *per worker*.
+
+            Notes regarding argument data type:
+            * If None or 0, no limit is applied.
+            * If "auto", the total system memory is split evenly between the workers.
+            * If a float, that fraction of the system memory is used *per worker*.
+            * If a string giving a number of bytes (like ``"1GiB"``),
+              that amount is used *per worker*.
+            * If an int, that number of bytes is used *per worker*.
+
+            Note that the limit will only be enforced when ``processes=True``, and the
+            limit is only enforced on a best-effort basis — it's still possible for
+            workers to exceed this limit.""",
+    )
+
+    processes = Bool(
+        None,
+        allow_none=True,
+        help=(
+            "Whether to use processes (True) or threads (False). "
+            "Defaults to True, unless ``worker_class=Worker``, "
+            "in which case it defaults to False."
+        ),
+    )
+
+    threads_per_worker = Int(
+        None, allow_none=True, help=("Number of threads per each worker.")
+    )
+
+    scheduler_port = Int(
+        0,
+        help=(
+            "Port of the scheduler. Use 0 to choose a random port (default). "
+            "8786 is a common choice."
+        ),
+    )
+
+    silence_logs = Union(
+        [Int(), Bool()],
+        default_value=logging.WARN,
+        allow_none=True,
+        help=(
+            "Level of logs to print out to stdout.  ``logging.WARN`` by default."
+            "Use a falsey value like False or None for no change."
+        ),
+    )
+
+    host = Unicode(
+        None,
+        allow_none=True,
+        help=(
+            "Host address on which the scheduler will listen, "
+            "defaults to only localhost."
+        ),
+    )
+
+    dashboard_address = Unicode(
+        ":8787",
+        allow_none=True,
+        help=(
+            "Address on which to listen for the Bokeh diagnostics server like "
+            "'localhost:8787' or '0.0.0.0:8787'.  Defaults to ':8787'. "
+            "Set to ``None`` to disable the dashboard. "
+            "Use ':0' for a random port."
+        ),
+    )
+
+    worker_dashboard_address = Unicode(
+        None,
+        allow_none=True,
+        help=(
+            "Address on which to listen for the Bokeh worker diagnostics server like "
+            "'localhost:8787' or '0.0.0.0:8787'.  Defaults to None which disables "
+            "the dashboard. Use ':0' for a random port."
+        ),
+    )
+
+    asynchronous = Bool(
+        False,
+        help=(
+            "Set to True if using this cluster within async/await functions or within"
+            "Tornado gen.coroutines.  This should remain False for normal use."
+        ),
+    )
+
+    blocked_handlers = List(
+        Unicode(),
+        default_value=None,
+        allow_none=True,
+        help=(
+            "A list of strings specifying a blocklist of handlers to disallow on the "
+            "Scheduler, like ``['feed', 'run_function']``"
+        ),
+    )
+
+    service_kwargs = Dict(
+        key_trait=Unicode(),
+        default_value=None,
+        allow_none=True,
+        help="Extra keywords to hand to the running services.",
+    )
+
+    security = Union(
+        [Instance(klass=Security), Bool()],
+        default_value=None,
+        allow_none=True,
+        help=(
+            "Configures communication security in this cluster. Can be a security "
+            "object, or True. If True, temporary self-signed credentials will "
+            "be created automatically."
+        ),
+    )
+
+    protocol = Unicode(
+        None,
+        allow_none=True,
+        help=(
+            "Protocol to use like ``tcp://``, ``tls://``, ``inproc://``. "
+            "This defaults to sensible choice given other keyword arguments like "
+            "``processes`` and ``security``."
+        ),
+    )
+
+    interface = Unicode(
+        None,
+        allow_none=True,
+        help="Network interface to use.  Defaults to lo/localhost.",
+    )
+
+    worker_class = Type(
+        klass=Worker,
+        default_value=None,
+        allow_none=True,
+        help=(
+            "Worker class used to instantiate workers from. Defaults to ``Worker`` if "
+            "``processes=False`` and Nanny if ``processes=True`` or omitted."
+        ),
+    )
+
+    worker_kwargs = Dict(
+        default_value={},
+        help=(
+            "Extra worker arguments. Any additional keyword arguments will be passed "
+            "to the ``Worker`` class constructor."
+        ),
+    ).tag(cluster_kwargs=True)
 
 
 @tag_all_traits(cluster_args=True)
