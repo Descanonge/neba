@@ -114,13 +114,9 @@ class FileFinderManager(FileManagerAbstract):
         Considering the current set of parameters of the dataset.
         Parameters set to ``None`` are left unfixed.
         """
-        unfixed = [
-            g.name for g in self.filefinder.groups
-            if g.fixed_value is not None
-        ]
+        unfixed = [g.name for g in self.filefinder.groups if g.fixed_value is not None]
         # remove duplicates
         return list(set(unfixed))
-
 
     @property
     @autocached
