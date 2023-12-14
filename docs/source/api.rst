@@ -7,12 +7,6 @@ API Reference
 Content
 -------
 
-.. currentmodule:: data_assistant
-.. autosummary::
-   :nosignatures:
-
-    ~dataset.DataLoaderAbstract
-    ~parameters.ParametersManager
 
 Modules
 -------
@@ -24,4 +18,4 @@ Modules
    :recursive:
 
    dataset
-   parameters
+   config

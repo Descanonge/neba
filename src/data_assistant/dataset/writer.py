@@ -75,7 +75,7 @@ class XarrayWriter(WriterAbstract):
             Mapping of encoding parameters.
         time_freq:
             If it is a string, use it as a frequency/period for
-            :func:`xarray.Dataset.resample`. For example ``M`` will return datasets
+            :meth:`xarray.Dataset.resample`. For example ``M`` will return datasets
             grouped by month. See this page
             `https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#period-aliases`
             for details on period strings.
@@ -92,7 +92,7 @@ class XarrayWriter(WriterAbstract):
             a squeeze argument.
         client:
             Dask :class:`distributed.Client` instance. If present multiple write calls
-            will be send at once. See :method:`send_calls_together` for details.
+            will be send at once. See :meth:`send_calls_together` for details.
             If left to None, the write calls will be sent serially.
         kwargs:
             Passed to the function that writes to disk. :func:`xr.Dataset.to_netcdf`.
@@ -120,23 +120,22 @@ class XarrayWriter(WriterAbstract):
         """Set some dataset attributes with information on how it was created.
 
         Attributes are:
-        - "written_as_dataset:" name of dataset class.
-        - "created_by": hostname and filename of the python script used
-        - "created_with_params": a string representing the parameters,
-        - "created_on": date of creation
-        - "created_at_commit": if found, the current/HEAD commit hash.
+
+        * ``written_as_dataset:`` name of dataset class.
+        * ``created_by``: hostname and filename of the python script used
+        * ``created_with_params``: a string representing the parameters,
+        * ``created_on``: date of creation
+        * ``created_at_commit``: if found, the current/HEAD commit hash.
 
         Parameters
         ----------
-        ds:
+        ds
             Dataset to add global attributes to. This is done in-place.
-
-        Parameters
-        ----------
+        parameters  # noqa
             A dictionnary of the parameters used, that will automatically be serialized
             as a string. Can also be a custom string.
             Presentely we first try a serialization using json, if that fails, `str()`.
-        add_commit:
+        add_commit
             If True (default), try to find the current commit hash of the directory
             containing the script called.
         """
@@ -188,9 +187,9 @@ class XarrayWriter(WriterAbstract):
         ----------
         time_freq:
             If it is a string, use it as a frequency/period for
-            :func:`xarray.Dataset.resample`. For example ``M`` will return datasets
-            grouped by month. See this page
-            `https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#period-aliases`
+            :meth:`xarray.Dataset.resample`. For example ``M`` will return datasets
+            grouped by month. See `this page
+            <https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#period-aliases>`_
             for details on period strings.
 
             If False: do not resample, just return a list with one dataset for each time

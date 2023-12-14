@@ -36,6 +36,7 @@ pygments_style = "default"
 # -- Autodoc config
 autodoc_typehints = "description"
 autodoc_typehints_format = "short"
+autodoc_typehints_description_target = "all"
 autodoc_member_order = "groupwise"
 autodoc_class_content = "both"
 autodoc_type_aliases = {
@@ -48,6 +49,8 @@ autodoc_type_aliases = {
     # do not show the full path
     "collections.abc.Sequence": "~collections.abc.Sequence",
 }
+
+autodoc_default_options = {"show-inheritance": True, "inherited-members": False}
 
 # -- Autosummary config
 autosummary_generate = True
@@ -67,6 +70,7 @@ intersphinx_mapping = {
     "dask": ("https://docs.dask.org/en/latest", None),
     "xarray": ("https://docs.xarray.dev/en/stable/", None),
     "filefinder": ("https://filefinder.readthedocs.io/en/latest", None),
+    "traitlets": ("https://traitlets.readthedocs.io/en/stable", None),
 }
 
 
