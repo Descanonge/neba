@@ -113,7 +113,7 @@ class FileFinderManager(FileManagerAbstract):
         Considering the current set of parameters of the dataset.
         Parameters set to ``None`` are left unfixed.
         """
-        unfixed = [g.name for g in self.filefinder.groups if g.fixed_value is not None]
+        unfixed = [g.name for g in self.filefinder.groups if g.fixed_value is None]
         # remove duplicates
         return list(set(unfixed))
 
@@ -156,6 +156,10 @@ class FileFinderManager(FileManagerAbstract):
         fixable_params = {
             p: value for p, value in self.dataset.params.items() if p in fixable
         }
-        fixes.update(fixable_params)
+        fixes = fixable_params | fixes
+
+        # Remove parameters set to None, FileFinder is not equipped for that
+        fixes = {p: value for p, value in fixes.items() if value is not None}
+
         filename = finder.make_filename(fixes)
         return filename
