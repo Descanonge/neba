@@ -10,7 +10,7 @@ import subprocess
 from collections.abc import Hashable, Mapping, Sequence
 from datetime import datetime
 from os import path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from filefinder.group import TIME_GROUPS
 
@@ -27,7 +27,72 @@ log = logging.getLogger(__name__)
 
 
 class WriterAbstract(Module):
-    pass
+    def get_metadata(
+        self,
+        parameters: dict | str | None = None,
+        add_commit: bool = True,
+    ) -> dict[str, Any]:
+        """Set some dataset attributes with information on how it was created.
+
+        Attributes are:
+
+        * ``written_as_dataset:`` name of dataset class.
+        * ``created_by``: hostname and filename of the python script used
+        * ``created_with_params``: a string representing the parameters,
+        * ``created_on``: date of creation
+        * ``created_at_commit``: if found, the current/HEAD commit hash.
+
+        Parameters
+        ----------
+        parameters  # noqa
+            A dictionnary of the parameters used, that will automatically be serialized
+            as a string. Can also be a custom string.
+            Presentely we first try a serialization using json, if that fails, `str()`.
+        add_commit
+            If True (default), try to find the current commit hash of the directory
+            containing the script called.
+        """
+        meta = {}
+
+        # Name of class
+        cls_name = self.dataset.__class__.__name__
+        if self.dataset.ID:
+            cls_name += f":{self.dataset.ID}"
+        meta["written_as_dataset"] = cls_name
+
+        # Get hostname and script name
+        hostname = socket.gethostname()
+        script = inspect.stack()[1].filename
+        meta["created_by"] = f"{hostname}:{script}"
+
+        # Get parameters as string
+        if parameters is not None:
+            if isinstance(parameters, str):
+                params_str = parameters
+            else:
+                try:
+                    params_str = json.dumps(parameters)
+                except TypeError:
+                    params_str = str(parameters)
+
+            meta["created_with_params"] = params_str
+
+        # Get date
+        meta["created_on"] = datetime.today().strftime("%x %X")
+
+        # Get commit hash
+        if add_commit:
+            # Use the directory of the calling script
+            gitdir = path.dirname(script)
+            cmd = ["git", "-C", gitdir, "rev-parse", "HEAD"]
+            ret = subprocess.run(cmd, capture_output=True, text=True)
+            if ret.returncode == 0:
+                commit = ret.stdout.strip()
+                meta["created_at_commit"] = commit
+            else:
+                log.debug("'%s' not a valid git directory", gitdir)
+
+        return meta
 
 
 class XarrayWriter(WriterAbstract):
@@ -122,13 +187,7 @@ class XarrayWriter(WriterAbstract):
     ) -> xr.Dataset:
         """Set some dataset attributes with information on how it was created.
 
-        Attributes are:
-
-        * ``written_as_dataset:`` name of dataset class.
-        * ``created_by``: hostname and filename of the python script used
-        * ``created_with_params``: a string representing the parameters,
-        * ``created_on``: date of creation
-        * ``created_at_commit``: if found, the current/HEAD commit hash.
+        Wrapper around :method:`get_metadata`.
 
         Parameters
         ----------
@@ -142,44 +201,8 @@ class XarrayWriter(WriterAbstract):
             If True (default), try to find the current commit hash of the directory
             containing the script called.
         """
-        # Name of class
-        cls_name = self.dataset.__class__.__name__
-        if self.dataset.ID:
-            cls_name += f":{self.dataset.ID}"
-        ds.attrs["written_as_dataset"] = cls_name
-
-        # Get hostname and script name
-        hostname = socket.gethostname()
-        script = inspect.stack()[1].filename
-        ds.attrs["created_by"] = f"{hostname}:{script}"
-
-        # Get parameters as string
-        if parameters is not None:
-            if isinstance(parameters, str):
-                params_str = parameters
-            else:
-                try:
-                    params_str = json.dumps(parameters)
-                except TypeError:
-                    params_str = str(parameters)
-
-            ds.attrs["created_with_params"] = params_str
-
-        # Get date
-        ds.attrs["created_on"] = datetime.today().strftime("%x %X")
-
-        # Get commit hash
-        if add_commit:
-            # Use the directory of the calling script
-            gitdir = path.dirname(script)
-            cmd = ["git", "-C", gitdir, "rev-parse", "HEAD"]
-            ret = subprocess.run(cmd, capture_output=True, text=True)
-            if ret.returncode == 0:
-                commit = ret.stdout.strip()
-                ds.attrs["created_at_commit"] = commit
-            else:
-                log.debug("'%s' not a valid git directory", gitdir)
-
+        meta = self.get_metadata(parameters=parameters, add_commit=add_commit)
+        ds.attrs.update(meta)
         return ds
 
     def split_by_time(
