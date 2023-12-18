@@ -48,8 +48,7 @@ class FileFinderManager(FileManagerAbstract):
         super().__init__(dataset)
 
         # Add fixable_params to the dataset allowed_params
-        fixable = self.fixable_params
-        self.dataset.allowed_params |= set(fixable)
+        self.dataset.allowed_params |= set(self.fixable)
 
     @property
     def root_directory(self) -> str:
