@@ -184,9 +184,88 @@ class DatasetAbstract:
         """
         return self.file_manager.get_filename(**fixes)
 
-    def get_data(self, **kwargs) -> Any:
-        """Return data."""
-        return self.loader.get_data(**kwargs)
+    def get_data(self, ignore_postprocess: bool = False, **kwargs: Any) -> Any:
+        """Return data.
+
+        Gather all files corresponding to set parameters and load that data through
+        :method:`load_data`.
+
+        If the :method:`Dataset.postprocess_dataset` is defined and ``ignore_postprocess``
+        is True, the method is applied to data.
+
+        Parameters
+        ----------
+        ignore_postprocess
+            If True, do not apply postprocess function. Defaults to False.
+        kwargs:
+            Arguments passed to function loading data.
+        """
+        return self.loader._get_data(
+            self.datafiles, ignore_postprocess=ignore_postprocess, **kwargs
+        )
+
+    def get_data_sets(
+        self,
+        params_maps: Sequence[Mapping[str, Any]] | None = None,
+        params_sets: Sequence[Sequence] | None = None,
+        ignore_postprocess: bool = False,
+        **kwargs,
+    ) -> Any:
+        """Return data for specific sets of parameters.
+
+        Each set of parameter will specify one filename. Parameters that do not change
+        from one set to the next do not need to be specified if they are fixed (by
+        setting them in the Dataset). The sets can be specified with either one of
+        `params_maps` or `params_sets`.
+
+        Parameters
+        ----------
+        params_maps
+            Each set is specified by a mapping of parameters names to a value.
+            ```
+            [{'Y': 2020, 'm': 1, 'd': 15},
+             {'Y': 2021, 'm': 2, 'd': 24},
+             {'Y': 2022, 'm', 6, 'd': 2}]
+            ```
+            This will give 3 filenames for 3 different dates. Note that here, the
+            parameters do not need to be the same for all sets, for example in a fourth
+            set we could have ``{'Y': 2023, 'm': 1, 'd': 10, 'depth': 50}`` to override
+            the value of 'depth' set in the Dataset parameters.
+        params_sets
+            Here each set is specified by sequence of parameters values. This first row
+            gives the order of parameters. The same input as before can be written as:
+            ```
+            [['Y', 'm', 'd'],
+             [2020, 1, 15],
+             [2021, 2, 24],
+             [2022, 6, 2]]
+            ```
+            Here the changing parameters must remain the same for the whole sequence.
+        ignore_postprocess
+            If True, do not apply postprocess function. Defaults to False.
+        kwargs
+            Arguments passed to function loading data.
+        """
+        if params_sets is not None and params_maps is not None:
+            raise KeyError("Cannot specify both params_sets and params_maps")
+        if params_sets is None and params_maps is None:
+            raise KeyError("Must at least specify one of params_sets or params_maps")
+
+        if params_sets is not None:
+            dims = params_sets[0]
+            if not all(isinstance(x, str) for x in dims):
+                raise TypeError(f"Dimensions names must be strings, got: {dims}")
+
+            params_maps = []
+            for p_set in params_sets[1:]:
+                params_maps.append(dict(zip(dims, p_set, strict=True)))
+
+        assert params_maps is not None
+        datafiles = [self.get_filename(**p_map) for p_map in params_maps]
+
+        return self.loader._get_data(
+            datafiles, ignore_postprocess=ignore_postprocess, **kwargs
+        )
 
     def postprocess_data(self, data: Any) -> Any:
         """Apply any action on the data after opening it.
@@ -194,7 +273,7 @@ class DatasetAbstract:
         By default, just return the dataset without doing anything (*ie* the
         identity function).
         """
-        return data
+        raise NotImplementedError()
 
 
 class DatasetDefault(DatasetAbstract):
@@ -215,7 +294,7 @@ class DatasetDefault(DatasetAbstract):
         raise NotImplementedError()
 
 
-class climato:  # noqa: 801
+class climato:  # noqa: N801
     """Create a Dataset subclass for climatology.
 
     Generate new subclass of a dataset that correspond to its climatology.

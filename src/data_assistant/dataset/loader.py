@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
 from .module import Module
@@ -9,31 +10,32 @@ if TYPE_CHECKING:
 
 
 class LoaderAbstract(Module):
-    def get_data(self, **kwargs: Any) -> Any:
-        """Return data.
+    def _get_data(
+        self, datafiles: Sequence[str], ignore_postprocess: bool = False, **kwargs
+    ) -> Any:
+        data = self.load_data(datafiles, **kwargs)
 
-        The function :func:`postprocess_dataset` is then applied to the dataset.
-        (By default, this function does nothing).
+        if ignore_postprocess:
+            return data
 
-        Parameters
-        ----------
-        kwargs:
-            Arguments passed to function loading data.
-        """
-        raise NotImplementedError("Subclass must implement this method.")
+        try:
+            data = self.run_on_dataset("postprocess_data", data)
+        except NotImplementedError:
+            pass
+        return data
+
+    def load_data(self, datafiles: Sequence[str], **kwargs) -> Any:
+        """Load the data from datafiles."""
+        return NotImplementedError("Subclasses must override this method.")
 
 
 class XarrayLoader(LoaderAbstract):
-    TO_DEFINE_ON_DATASET = ["OPEN_MFDATASET_KWARGS"]
+    TO_DEFINE_ON_DATASET = ["OPEN_MFDATASET_KWARGS", "preprocess_data"]
 
-    def get_data(self, **kwargs) -> xr.Dataset:
+    def load_data(self, datafiles: Sequence[str], **kwargs) -> xr.Dataset:
         """Return a dataset object.
 
-        The dataset is obtained from :func:`xarray.open_mfdataset` applied to
-        the files found using :func:`get_datafiles`.
-
-        The function :func:`postprocess_dataset` is then applied to the dataset.
-        (By default, this function does nothing).
+        The dataset is obtained from :func:`xarray.open_mfdataset`.
 
         Parameters
         ----------
@@ -45,7 +47,5 @@ class XarrayLoader(LoaderAbstract):
         import xarray as xr
 
         kwargs = self.get_attr_dataset("OPEN_MFDATASET_KWARGS") | kwargs
-        datafiles = self.dataset.datafiles
         ds = xr.open_mfdataset(datafiles, **kwargs)
-        ds = self.run_on_dataset("postprocess_data", ds)
         return ds
