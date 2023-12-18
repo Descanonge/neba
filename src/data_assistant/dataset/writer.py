@@ -140,7 +140,10 @@ class XarrayWriter(WriterAbstract):
             containing the script called.
         """
         # Name of class
-        ds.attrs["written_as_dataset"] = self.__class__.__name__
+        cls_name = self.dataset.__class__.__name__
+        if self.dataset.ID:
+            cls_name += f":{self.dataset.ID}"
+        ds.attrs["written_as_dataset"] = cls_name
 
         # Get hostname and script name
         hostname = socket.gethostname()
