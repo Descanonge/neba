@@ -473,7 +473,7 @@ class DaskConfig(Scheme):
         cls.selected_clusters = select
         cls._setup_scheme()
 
-    def start_dask(self, **kwargs: Any):
+    def start(self, **kwargs: Any):
         """Start Dask distributed client.
 
         This method instanciates a :class:`DaskCluster` in ``self.dask``, which
