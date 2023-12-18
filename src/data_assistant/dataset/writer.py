@@ -54,7 +54,7 @@ class XarrayWriter(WriterAbstract):
         *,
         encoding: Mapping,
         time_freq: str | bool = True,
-        squeeze: bool | str | Mapping[Hashable, bool | str] = True,
+        squeeze: bool | str | Mapping[Hashable, bool | str] = False,
         client: Client | None = None,
         chop: int | None = None,
         **kwargs,
@@ -208,7 +208,7 @@ class XarrayWriter(WriterAbstract):
             return [ds]
 
         if not time_freq:
-            return [ds_unit for _, ds_unit in ds.groupby("time")]
+            return [ds_unit for _, ds_unit in ds.groupby("time", squeeze=False)]
 
         if isinstance(time_freq, str):
             # User defined
@@ -271,7 +271,7 @@ class XarrayWriter(WriterAbstract):
     def to_calls(
         self,
         datasets: Sequence[xr.Dataset],
-        squeeze: bool | str | Mapping[Hashable, bool | str] = True,
+        squeeze: bool | str | Mapping[Hashable, bool | str] = False,
     ) -> list[Call]:
         """Transform sequence of datasets into writing calls.
 
