@@ -78,7 +78,10 @@ class XarrayWriter(WriterAbstract):
             :meth:`xarray.Dataset.resample`. For example ``M`` will return datasets
             grouped by month. See this page
             `https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#period-aliases`
-            for details on period strings.
+            for details on period strings. If the frequency of the dataset is the same
+            as the target one, it will not be resampled to avoid unecessary work.
+            There might be false positives (offsets maybe ?). In which case resample
+            before manually, and set `time_freq` to false.
 
             If False: do not resample, just return a list with one dataset for each time
             index. If True the frequency will be guessed from the filename pattern. The
@@ -186,6 +189,10 @@ class XarrayWriter(WriterAbstract):
     ) -> list[xr.Dataset]:
         """Split dataset in time groups.
 
+        If the frequency of the dataset is the same as the target one, it will not be
+        resampled to avoid unecessary work. There might be false positives (offsets
+        maybe ?). In which case resample before manually, and set `time_freq` to false.
+
         Parameters
         ----------
         time_freq:
@@ -203,6 +210,8 @@ class XarrayWriter(WriterAbstract):
         -------
         List of datasets
         """
+        import xarray as xr
+
         fixable = self.get_fixable()
         # Only keep time related fixable
         fixable &= set(TIME_GROUPS)
@@ -224,10 +233,17 @@ class XarrayWriter(WriterAbstract):
                     freq = self.time_intervals_groups[t]
                     break
 
-        resample = ds.resample(time=freq)
+        infreq = xr.infer_freq(ds.time)
+        if infreq is not None and infreq == freq:
+            log.info(
+                "Resampling frequency is equal to that of dataset (%s). "
+                "Will not resample.",
+                freq,
+            )
+            return [ds_unit for _, ds_unit in ds.groupby("time", squeeze=False)]
 
-        out = [ds_unit for _, ds_unit in resample]
-        return out
+        resample = ds.resample(time=freq)
+        return [ds_unit for _, ds_unit in resample]
 
     def split_by_fixable(self, ds: xr.Dataset) -> list[xr.Dataset]:
         """Use parameters in the filename pattern to guess how to group.
