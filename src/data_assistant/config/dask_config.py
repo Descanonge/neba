@@ -8,6 +8,7 @@ from typing import Any
 
 import distributed
 from distributed.deploy.cluster import Cluster
+from distributed.scheduler import Scheduler
 from distributed.security import Security
 from distributed.worker import Worker
 from traitlets import Bool, Dict, Enum, Float, Instance, Int, List, Type, Unicode, Union
@@ -328,7 +329,36 @@ class DaskClusterJobQueue(DaskClusterAbstract):
         ),
     )
 
-    # Still some missing
+    scheduler_options = Dict(
+        key_trait=Unicode(),
+        default_value=None,
+        allow_none=True,
+        help=(
+            "Used to pass additional arguments to Dask Scheduler. For example use "
+            "``scheduler_options={'dashboard_address': ':12435'}`` to specify which "
+            "port the web dashboard should use or "
+            "``scheduler_options={'host': 'your-host'}`` to specify the host the "
+            "Dask scheduler should run on. "
+            "See :class:`distributed.Scheduler` for more details."
+        ),
+    )
+
+    scheduler_cls = Type(
+        klass=Scheduler,
+        help=(
+            "Changes the class of the used Dask Scheduler. Defaults to  Dask's"
+            ":class:`distributed.Scheduler`."
+        ),
+    )
+
+    shared_temp_directory = Unicode(
+        None,
+        allow_none=True,
+        help=(
+            "Shared directory between scheduler and worker (used for example by temporary"
+            "security certificates) defaults to current working directory if not set."
+        ),
+    )
 
 
 @tag_all_traits(cluster_args=True)
