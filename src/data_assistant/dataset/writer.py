@@ -1,3 +1,5 @@
+"""Writer module."""
+
 from __future__ import annotations
 
 import inspect
@@ -14,6 +16,7 @@ from typing import TYPE_CHECKING, Any
 
 from filefinder.group import TIME_GROUPS
 
+from data_assistant.util import check_output_path
 from .file_manager import FileFinderManager
 from .module import Module
 
@@ -27,9 +30,12 @@ log = logging.getLogger(__name__)
 
 
 class WriterAbstract(Module):
+    """Abstract class of Writer module."""
+
     def get_metadata(
         self,
         parameters: dict | str | None = None,
+        add_dataset_params: bool = True,
         add_commit: bool = True,
     ) -> dict[str, Any]:
         """Set some dataset attributes with information on how it was created.
@@ -48,6 +54,10 @@ class WriterAbstract(Module):
             A dictionnary of the parameters used, that will automatically be serialized
             as a string. Can also be a custom string.
             Presentely we first try a serialization using json, if that fails, `str()`.
+        add_dataset_params
+            Add the parent dataset parameters values to serialization if True (default)
+            and if ``parameters`` is not a string. The parent parameters won't overwrite
+            the values of ``parameters``.
         add_commit
             If True (default), try to find the current commit hash of the directory
             containing the script called.
@@ -70,6 +80,8 @@ class WriterAbstract(Module):
             if isinstance(parameters, str):
                 params_str = parameters
             else:
+                if add_dataset_params:
+                    parameters = self.dataset.params | parameters
                 try:
                     params_str = json.dumps(parameters)
                 except TypeError:
@@ -96,6 +108,105 @@ class WriterAbstract(Module):
 
 
 class XarrayWriter(WriterAbstract):
+    """Writer for Xarray datasets.
+
+    For simple unique calls.
+    """
+
+    TO_DEFINE_ON_DATASET = ["TO_NETCDF_KWARGS"]
+
+    def set_metadata(
+        self,
+        ds: xr.Dataset,
+        /,
+        parameters: dict | str | None = None,
+        add_dataset_parameters: bool = True,
+        add_commit: bool = True,
+    ) -> xr.Dataset:
+        """Set some dataset attributes with information on how it was created.
+
+        Wrapper around :method:`get_metadata`.
+
+        Parameters
+        ----------
+        ds
+            Dataset to add global attributes to. This is done in-place.
+        parameters  # noqa
+            A dictionnary of the parameters used, that will automatically be serialized
+            as a string. Can also be a custom string.
+            Presentely we first try a serialization using json, if that fails, `str()`.
+        add_dataset_params
+            Add the parent dataset parameters values to serialization if True (default)
+            and if ``parameters`` is not a string. The parent parameters won't overwrite
+            the values of ``parameters``.
+        add_commit
+            If True (default), try to find the current commit hash of the directory
+            containing the script called.
+        """
+        meta = self.get_metadata(
+            parameters=parameters,
+            add_dataset_params=add_dataset_parameters,
+            add_commit=add_commit,
+        )
+        ds.attrs.update(meta)
+        return ds
+
+    def write(
+        self,
+        ds: xr.Dataset,
+        /,
+        *,
+        parameters: dict,
+        encoding: Mapping,
+        **kwargs,
+    ):
+        """Write to netcdf file.
+
+        File is obtained from parent dataset. Directories are created as needed.
+        Metadata is added to the dataset.
+
+        Parameters
+        ----------
+        parameters:  # noqa
+            Mapping of parameters to obtain filename.
+        encoding:
+            Mapping of encoding parameters.
+        kwargs:
+            Passed to the function that writes to disk. :func:`xr.Dataset.to_netcdf`.
+        """
+        outfile = self.dataset.get_filename(**parameters)
+        check_output_path(outfile, directory=False)
+
+        ds = self.set_metadata(ds, parameters=parameters)
+
+        call_kw = self.get_attr_dataset("TO_NETCDF_KWARGS") | kwargs
+        call_kw["encoding"] = encoding
+
+        return ds.to_netcdf(outfile, **call_kw)
+
+
+class XarraySplitWriter(WriterAbstract):
+    """Writer for Xarray datasets in multifiles.
+
+    Can automatically split a dataset to the corresponding files by communicating
+    directory with a :class:`FileFinderManager`.
+
+    The time dimension is treated on its own because of its complexity and because
+    the user can manually specify the desired time resolution of the files (otherwise
+    we will try to guess using the filename pattern). Resampling will be avoided if we
+    can simply loop over the time dimension (desired frequency equals data frequency).
+
+    The dimensions names must correspond to pattern parameters.
+
+    All the resulting writing operations, the 'calls', can be executed serially
+    (default behavior) or be submitted in parallel using Dask. They can all be sent
+    all at once (``chop=None``, default) or limited to parallels groups of smaller
+    size that will run serially.
+
+    Both parts (of splitting the xarray dataset and sending calls) can be used
+    separately, if there is a need for more flexibility or missing features.
+    """
+
     time_intervals_groups = dict(
         S="S",
         X="S",
@@ -109,8 +220,7 @@ class XarrayWriter(WriterAbstract):
         B="MS",
         Y="YS",
     )
-
-    TO_DEFINE_ON_DATASET = ["TO_NETCDF_KWARGS"]
+    """List of correspondance between pattern names and pandas frequencies."""
 
     def write(
         self,
@@ -126,10 +236,10 @@ class XarrayWriter(WriterAbstract):
     ):
         """Write data to disk.
 
-        First split datasets by the parameters that vary in the filename pattern.
+        First split datasets following the parameters that vary in the filename pattern.
         Then split all datasets obtained along the time dimension (if present), and
         according to the ``time_freq`` argument.
-        The dimensions left of size one are squeezed.
+        The dimensions left of size one are squeezed according to the argument value.
 
         Each cut dataset is written to its corresponding filename. Directories will
         automatically be created if necessary.
@@ -145,27 +255,33 @@ class XarrayWriter(WriterAbstract):
             `https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#period-aliases`
             for details on period strings. If the frequency of the dataset is the same
             as the target one, it will not be resampled to avoid unecessary work.
-            There might be false positives (offsets maybe ?). In which case resample
-            before manually, and set `time_freq` to false.
+            There might be false positives (offsets maybe ?). In which case you should
+            resample before manually, and set `time_freq` to false.
 
             If False: do not resample, just return a list with one dataset for each time
-            index. If True the frequency will be guessed from the filename pattern. The
+            index.
+
+            If True the frequency will be guessed from the filename pattern. The
             smallest period present will be used.
         squeeze:
             How to squeeze dimensions of size one. If False, dimensions are left as is.
             If True, squeeze. If equal to "drop", the squeezed coordinate is dropped
             instead of being kept as a scalar.
 
-            This can be configured by dimensions with a mapping of dimensions to
-            a squeeze argument.
+            This can be configured by dimension with a mapping of each dimension to a
+            squeeze argument.
         client:
             Dask :class:`distributed.Client` instance. If present multiple write calls
-            will be send at once. See :meth:`send_calls_together` for details.
+            will be send in parallel. See :meth:`send_calls_together` for details.
             If left to None, the write calls will be sent serially.
+        chop
+            If None (default), all calls are sent together. If chop is an integer,
+            groups of calls of size ``chop`` (at most) will be sent one after the other,
+            calls within each group being run in parallel.
         kwargs:
             Passed to the function that writes to disk. :func:`xr.Dataset.to_netcdf`.
         """
-        datasets_by_fix = self.split_by_fixable(ds)
+        datasets_by_fix = self.split_by_unfixed(ds)
 
         datasets_by_all = []
         for dataset in datasets_by_fix:
@@ -178,33 +294,6 @@ class XarrayWriter(WriterAbstract):
         else:
             self.send_calls_together(calls, client, chop=chop, **kwargs)
 
-    def set_metadata(
-        self,
-        ds: xr.Dataset,
-        /,
-        parameters: dict | str | None = None,
-        add_commit: bool = True,
-    ) -> xr.Dataset:
-        """Set some dataset attributes with information on how it was created.
-
-        Wrapper around :method:`get_metadata`.
-
-        Parameters
-        ----------
-        ds
-            Dataset to add global attributes to. This is done in-place.
-        parameters  # noqa
-            A dictionnary of the parameters used, that will automatically be serialized
-            as a string. Can also be a custom string.
-            Presentely we first try a serialization using json, if that fails, `str()`.
-        add_commit
-            If True (default), try to find the current commit hash of the directory
-            containing the script called.
-        """
-        meta = self.get_metadata(parameters=parameters, add_commit=add_commit)
-        ds.attrs.update(meta)
-        return ds
-
     def split_by_time(
         self,
         ds: xr.Dataset,
@@ -214,7 +303,8 @@ class XarrayWriter(WriterAbstract):
 
         If the frequency of the dataset is the same as the target one, it will not be
         resampled to avoid unecessary work. There might be false positives (offsets
-        maybe ?). In which case resample before manually, and set `time_freq` to false.
+        maybe ?). In which case you should resample before manually, and set `time_freq`
+        to false.
 
         Parameters
         ----------
@@ -226,22 +316,27 @@ class XarrayWriter(WriterAbstract):
             for details on period strings.
 
             If False: do not resample, just return a list with one dataset for each time
-            index. If True the frequency will be guessed from the filename pattern. The
+            index.
+
+            If True the frequency will be guessed from the filename pattern. The
             smallest period present will be used.
 
         Returns
         -------
         List of datasets
+
         """
         import xarray as xr
 
-        fixable = self.get_fixable()
-        # Only keep time related fixable
-        fixable &= set(TIME_GROUPS)
+        unfixed = self.get_unfixed()
+        # Only keep time related unfixed
+        unfixed &= set(TIME_GROUPS)
 
-        if "time" not in ds.dims or not fixable:
+        # not time dimension or no unfixed params in filename pattern
+        if "time" not in ds.dims or not unfixed:
             return [ds]
 
+        # user asked to not resample
         if not time_freq:
             return [ds_unit for _, ds_unit in ds.groupby("time", squeeze=False)]
 
@@ -252,13 +347,13 @@ class XarrayWriter(WriterAbstract):
             # we guess from pattern
             # TIME_GROUPS is sorted by period, first hit is smallest period
             for t in TIME_GROUPS:
-                if t in fixable:
+                if t in unfixed:
                     freq = self.time_intervals_groups[t]
                     break
 
         infreq = xr.infer_freq(ds.time)
         if infreq is not None and infreq == freq:
-            log.info(
+            log.debug(
                 "Resampling frequency is equal to that of dataset (%s). "
                 "Will not resample.",
                 freq,
@@ -268,47 +363,43 @@ class XarrayWriter(WriterAbstract):
         resample = ds.resample(time=freq)
         return [ds_unit for _, ds_unit in resample]
 
-    def split_by_fixable(self, ds: xr.Dataset) -> list[xr.Dataset]:
+    def split_by_unfixed(self, ds: xr.Dataset) -> list[xr.Dataset]:
         """Use parameters in the filename pattern to guess how to group.
 
         The dataset is split in sub-datasets such that each sub-dataset correspond
-        to a unique combinaison of fixable parameter values which will give a
+        to a unique combinaison of unfixed parameter values which will give a
         unique filename.
 
-        Coordinates whose name does not correspond to a fixable group in the filename
+        Coordinates whose name does not correspond to an unfixed group in the filename
         pattern will be written entirely in each file.
-
-        Note that we use 'fixable' for clarity, but any fixable group whose value
-        is already fixed (by a set parameter in the parent Dataset class) will not
-        be taken into account.
         """
-        fixable = self.get_fixable()
-        # Remove time related fixables
-        fixable -= set(TIME_GROUPS)
+        unfixed = self.get_unfixed()
+        # Remove time related unfixeds
+        unfixed -= set(TIME_GROUPS)
 
-        # Remove fixable not associated to a coordinate
-        fixable -= set(f for f in fixable if f not in ds.coords)
+        # Remove unfixed not associated to a coordinate
+        unfixed -= set(f for f in unfixed if f not in ds.coords)
 
         # We could check here if there are associated dimensions or parameters to
-        # each fixable
+        # each unfixed
 
         # No parameter to split
-        if not fixable:
+        if not unfixed:
             return [ds]
 
-        stack_vars = list(fixable)
+        stack_vars = list(unfixed)
         stacked = ds.stack(__filename_vars__=stack_vars)
 
         out = [ds_unit.unstack() for _, ds_unit in stacked.groupby("__filename_vars__")]
 
         return out
 
-    def get_fixable(self):
+    def get_unfixed(self) -> set[str]:
+        """Return set of unfixed parameters in the pattern."""
         if not isinstance(self.dataset.file_manager, FileFinderManager):
             raise TypeError("File manager must be of type FileFinderManager")
-        # We use 'fixable' but any fixed parameter is not of use here
-        fixable = set(self.dataset.file_manager.unfixed)
-        return fixable
+        unfixed = set(self.dataset.file_manager.unfixed)
+        return unfixed
 
     def to_calls(
         self,
@@ -329,37 +420,37 @@ class XarrayWriter(WriterAbstract):
             This can be configured by dimensions with a mapping of dimensions to
             a squeeze argument.
         """
-        fixable = self.get_fixable()
-        present_time_fix = fixable & set(TIME_GROUPS)
-        # Remove time related fixables
-        fixable -= set(TIME_GROUPS)
+        unfixed = self.get_unfixed()
+        # Set time fixes apart
+        present_time_fix = unfixed & set(TIME_GROUPS)
+        unfixed -= set(TIME_GROUPS)
 
         calls: list[Call] = []
         for ds in datasets:
-            # Find fixable parameters values. They should all be of dimension 1.
+            # Find unfixed parameters values. They should all be of dimension 1.
             # Note .values.item() to retrieve a scalar
             # We need some trickery for time related parameters
-            fixable_values = {}
-            for dim in fixable:
+            unfixed_values = {}
+            for dim in unfixed:
                 if dim in ds.coords:
                     val = ds.coords[dim].values.item()
                 else:
                     val = self.dataset.params[dim]
-                fixable_values[dim] = val
+                unfixed_values[dim] = val
 
             # If there are time values, we simply get the first one
             if present_time_fix and "time" in ds.dims:
                 for p in present_time_fix:
                     value = ds.time[0].dt.strftime(f"%{p}").values.item()
-                    fixable_values[p] = value
+                    unfixed_values[p] = value
 
-            outfile = self.dataset.get_filename(**fixable_values)
+            outfile = self.dataset.get_filename(**unfixed_values)
 
             # Apply squeeze argument
             if isinstance(squeeze, Mapping):
-                for dim, sq in squeeze.items():
+                for d, sq in squeeze.items():
                     if sq:
-                        ds = ds.squeeze(dim, drop=(sq == "drop"))
+                        ds = ds.squeeze(d, drop=(sq == "drop"))
             else:
                 if squeeze:
                     ds = ds.squeeze(None, drop=(squeeze == "drop"))
@@ -396,6 +487,13 @@ class XarrayWriter(WriterAbstract):
                 os.makedirs(d)
 
     def send_calls(self, calls: Sequence[Call], **kwargs):
+        """Send multiple calls serially.
+
+        Parameters
+        ----------
+        kwargs
+            Passed to writing function.
+        """
         self.check_overwriting_calls(calls)
         self.check_directories(calls)
 
@@ -409,6 +507,31 @@ class XarrayWriter(WriterAbstract):
         chop: int | None = None,
         **kwargs,
     ):
+        """Send multiple calls together.
+
+        If Dask is correctly configured, the writing calls will be executed in parallel.
+
+        For all calls within a group, a list of delayed writing calls is constructed.
+        It is then computed all at once using ``client.compute(delayed)``, however to
+        avoid lingering results (because we only care about the side-effect of writing
+        to file, not the computed result), we get rid of 'futures' as soon as completed.
+        This avoid a blow up in memory::
+
+            for future in distributed.as_completed(client.compute(delayed)):
+                log.debug("\t\tfuture completed: %s", future)
+
+        Parameters
+        ----------
+        client
+            Dask :class:`Client` instance.
+        chop
+            If None (default), all calls are sent together. If chop is an integer,
+            groups of calls of size ``chop`` (at most) will be sent one after the other,
+            calls within each group being run in parallel.
+        kwargs
+            Passed to writing function.
+
+        """
         import distributed
 
         self.check_overwriting_calls(calls)
@@ -439,6 +562,13 @@ class XarrayWriter(WriterAbstract):
                 log.debug("\t\tfuture completed: %s", future)
 
     def send_single_call(self, call: Call, **kwargs):
+        """Execute a single call.
+
+        Parameters
+        ----------
+        kwargs
+            Passed to the writing function.
+        """
         # To file
         # TODO Out to deal with different files, we need different methods call :(
         # That could be a dataset attribute, like OUTPUT_FORMAT
@@ -448,6 +578,7 @@ class XarrayWriter(WriterAbstract):
 
 
 def cut_slices(total_size: int, slice_size: int) -> list[slice]:
+    """Return list of slices of size at most ``slice_size``."""
     slices = itertools.starmap(
         slice,
         itertools.pairwise(itertools.chain(range(0, total_size, slice_size), [None])),
