@@ -1,3 +1,5 @@
+"""Registering datasets."""
+
 from collections.abc import Hashable
 from typing import TypeVar, cast
 

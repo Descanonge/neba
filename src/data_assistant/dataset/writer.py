@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any
 from filefinder.group import TIME_GROUPS
 
 from data_assistant.util import check_output_path
+
 from .file_manager import FileFinderManager
 from .module import Module
 
@@ -518,7 +519,7 @@ class XarraySplitWriter(WriterAbstract):
         This avoid a blow up in memory::
 
             for future in distributed.as_completed(client.compute(delayed)):
-                log.debug("\t\tfuture completed: %s", future)
+                log.debug("future completed: %s", future)
 
         Parameters
         ----------

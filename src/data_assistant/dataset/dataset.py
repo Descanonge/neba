@@ -5,22 +5,22 @@ they can adapt it to their data quickly.
 
 If we want to retain the ability to define a new dataset just by subclassing
 the main class, this makes splitting features into different classes challenging.
-I still tried to use composition and delegate some work by modules: FileManager,
+I still tried to use composition and delegate some work by "modules": FileManager,
 Loader, and Writer. These retain a reference to the Dataset and can invoke
 attributes and methods from it, which can be user-defined in a subclass.
 
-I tried to stay agnostic to how a module may work to possibility accomodate for
-different data formats, sources, etc. A minimal API is written in each abstract
-class.
-It may still be quite geared towards multifiles-netcdf, since this is what I use.
-But hopefully it should be easy to swap modules without breaking everything.
+I tried to stay agnostic to how a module may work to possibly accomodate for different
+data formats, sources, etc. A minimal API is written in each abstract class.
+It may still be quite geared towards multifiles-netcdf, since this is what I had in mind
+when writing it. But hopefully it should be easy to swap modules without breaking
+everything.
 
 The parameters management is kept in the Dataset object for simplicity, maybe it
 could be done by a module of its own, if this is necessary.
 
-Modules all inherit from .util.Module, which features a caching system, with
+Modules all inherit from :class:`module.Module`, which features a caching system, with
 even some attribute that can generate a new value on the fly in case of a cache
-miss (see AutoCachedProperty). This was done to avoid numerous repetitions when
+miss (see AutoCachedProperty). This was done to avoid numerous computations when
 dealing with multi-files scanners.
 The Dataset can trigger a flush of all caches.
 """
@@ -40,13 +40,48 @@ from .writer import WriterAbstract, XarrayWriter
 
 
 class DatasetAbstract:
+    """Abstract class for a Dataset.
+
+    This class defines the minimal dataset API, especially when communicating with
+    the modules.
+    It must be subclassed by the user, choosing appropriate module classes.
+
+    * The FileManager module deals with managing the location of the datafiles.
+      It is tasked to return the filename·s for a set of parameters. It could also
+      deal with more general URI or data stores.
+    * The Loader module loads the data into Python. Typically, the dataset provides the
+      source·s obtained by the FileManager.
+    * The Writer module write data to file. The Dataset can provide an output
+      destination. But variations can handle complicated cases and split the data into
+      multiple files by communicating directly with the FileManager.
+
+    Each **subclass** can represent a dataset: where are the files, how to access the
+    data, how to write it, etc. This dataset can depend on any number of *parameters*.
+    Each **instance** of this subclass is expected to correspond to a set of (some) of
+    those parameters. With those parameters the user can now access the data.
+
+    Parameters
+    ----------
+    params
+        Mapping of the parameters names to their values.
+    exact_params
+        If True, only known parameters are accepted. Initially those defined in the
+        class attribute :attr:`PARAMS_NAMES`, but others can be added dynamically in
+        :attr:`allowed_parameters`. Other parameters will raise exceptions. Default is
+        False.
+    kwargs
+        Other parameters values in the form ``name=value``.
+        Parameters will be taken in order of first available in:
+        ``kwargs``, ``params``, :attr:`PARAMS_DEFAULTS`.
+    """
+
     SHORTNAME: str | None = None
     """Short name to refer to this dataset class."""
     ID: str | None = None
     """Long name to identify uniquely this dataset class."""
 
     PARAMS_NAMES: Sequence[Hashable] = []
-    """List of parameters names."""
+    """List of known parameters names."""
     PARAMS_DEFAULTS: dict = {}
     """Default values of parameters.
 
@@ -66,12 +101,17 @@ class DatasetAbstract:
         **kwargs,
     ):
         self.exact_params: bool = exact_params
+        """Only known parameters are accepted if true."""
         self.params: dict[str, Any] = {}
-        """Mapping of parameters values."""
-        self.allowed_params = set(self.PARAMS_NAMES)
-        """Mutable copy of the list of allowed parameters.
+        """Mapping of current parameters values.
 
-        We may add to it from parameters found in the filename structure.
+        They should be changed by using :method:`set_params` to void the cached values
+        appropriately.
+        """
+        self.allowed_params = set(self.PARAMS_NAMES)
+        """Mutable set of allowed parameters.
+
+        We may add to it from parameters found in the filename structure for instance.
         """
 
         # Set parameters
@@ -88,6 +128,7 @@ class DatasetAbstract:
         self.check_known_param(self.params)
 
     def __str__(self) -> str:
+        """Return a string representation."""
         name = []
         if self.SHORTNAME is not None:
             name.append(self.SHORTNAME)
@@ -101,6 +142,7 @@ class DatasetAbstract:
         return ":".join(name) + clsname
 
     def __repr__(self) -> str:
+        """Return a human readable representation."""
         s = []
         s.append(self.__str__())
         s.append("Parameters:")
@@ -127,9 +169,13 @@ class DatasetAbstract:
         Parameters
         ----------
         params:
-            Mapping of parameters values.
+            Mapping of the parameters names to their values.
+        _reset
+            Desactivate cleaning the cache if False.
+        _check
+            Desactivate checking parameters if False.
         kwargs:
-            Parameters values. Will take precedence over ``params``.
+            Other parameters values in the form ``name=value``.
             Parameters will be taken in order of first available in:
             ``kwargs``, ``params``, :attr:`PARAMS_DEFAULTS`.
         """
@@ -163,6 +209,7 @@ class DatasetAbstract:
                 raise KeyError(f"Parameter '{p}' was not expected for dataset {self}")
 
     def clean_cache(self) -> None:
+        """Clean the cache of all modules."""
         for mod in [self.file_manager, self.loader, self.writer]:
             mod.clean_cache()
 
@@ -190,17 +237,17 @@ class DatasetAbstract:
         Gather all files corresponding to set parameters and load that data through
         :method:`load_data`.
 
-        If the :method:`Dataset.postprocess_dataset` is defined and ``ignore_postprocess``
-        is True, the method is applied to data.
+        If the :method:`Dataset.postprocess_dataset` is defined and
+        ``ignore_postprocess`` is not True, the method is applied to data.
 
         Parameters
         ----------
         ignore_postprocess
-            If True, do not apply postprocess function. Defaults to False.
+            If True, do not apply postprocess function. Default is False.
         kwargs:
             Arguments passed to function loading data.
         """
-        return self.loader._get_data(
+        return self.loader.get_data(
             self.datafiles, ignore_postprocess=ignore_postprocess, **kwargs
         )
 
@@ -263,34 +310,46 @@ class DatasetAbstract:
         assert params_maps is not None
         datafiles = [self.get_filename(**p_map) for p_map in params_maps]
 
-        return self.loader._get_data(
+        return self.loader.get_data(
             datafiles, ignore_postprocess=ignore_postprocess, **kwargs
         )
 
     def postprocess_data(self, data: Any) -> Any:
         """Apply any action on the data after opening it.
 
-        By default, just return the dataset without doing anything (*ie* the
-        identity function).
+        By default, raises NotImplementedError and thus the postprocess will be ignored.
         """
         raise NotImplementedError()
 
 
 class DatasetDefault(DatasetAbstract):
+    """Multi-file dataset to open/write with Xarray."""
+
     OPEN_MFDATASET_KWARGS: dict[str, Any] = {}
     """Arguments passed to :func:`xarray.open_mfdataset`."""
 
     FILE_MANAGER_CLASS = FileFinderManager
     LOADER_CLASS = XarrayLoader
     WRITER_CLASS = XarrayWriter
+    # vv this is for typechecking vv
     file_manager: FileFinderManager
     loader: XarrayLoader
     writer: XarrayWriter
 
-    def get_root_directory(self):
+    def get_root_directory(self) -> str | PathLike | Iterable[str]:
+        """Return the directory containing all datafiles.
+
+        Can return a path, or an iterable of directories that will automatically be
+        joined.
+        """
         raise NotImplementedError()
 
-    def get_filename_pattern(self):
+    def get_filename_pattern(self) -> str:
+        """Return the filename pattern.
+
+        See the Filefinder documentation on the syntax:
+        `https://filefinder.readthedocs.io/en/latest/find_files.html`.
+        """
         raise NotImplementedError()
 
 
@@ -312,6 +371,7 @@ class climato:  # noqa: N801
         self.append_folder = append_folder
 
     def __call__(self, cls: type[DatasetAbstract]):
+        """Apply decorator."""
         # Change get_root_directory
         if self.append_folder:
 
