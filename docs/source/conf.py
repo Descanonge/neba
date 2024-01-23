@@ -37,7 +37,7 @@ pygments_style = "default"
 autodoc_typehints = "description"
 autodoc_typehints_format = "short"
 autodoc_typehints_description_target = "all"
-autodoc_member_order = "groupwise"
+# autodoc_member_order = "groupwise"
 autodoc_class_content = "both"
 autodoc_type_aliases = {
     # show the full path

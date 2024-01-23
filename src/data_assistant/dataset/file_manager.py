@@ -53,8 +53,8 @@ class FileFinderManager(FileManagerAbstract):
     Written for datasets comprising of many datafiles, either because of the have long
     time series, or many parameters.
     The user has to define two methods. One returning the root directory containing
-    all the datafiles (:method:`get_root_directory`). And another one returning the
-    filename pattern (:method:`get_filename_pattern`). Using methods allows to return
+    all the datafiles (:meth:`get_root_directory`). And another one returning the
+    filename pattern (:meth:`get_filename_pattern`). Using methods allows to return
     a different directory or pattern depending on the parameters.
 
     The filename pattern specify the parts of the datafiles that vary from file to file

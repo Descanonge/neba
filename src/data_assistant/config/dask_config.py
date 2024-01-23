@@ -59,10 +59,10 @@ class DaskLocalCluster(DaskClusterAbstract):
         [Unicode(), Float(), Int()],
         default_value="auto",
         allow_none=True,
-        help="""\
-            Sets the memory limit *per worker*.
+        help="""Sets the memory limit *per worker*.
 
             Notes regarding argument data type:
+
             * If None or 0, no limit is applied.
             * If "auto", the total system memory is split evenly between the workers.
             * If a float, that fraction of the system memory is used *per worker*.
@@ -72,8 +72,7 @@ class DaskLocalCluster(DaskClusterAbstract):
 
             Note that the limit will only be enforced when ``processes=True``, and the
             limit is only enforced on a best-effort basis — it's still possible for
-            workers to exceed this limit.
-        """,
+            workers to exceed this limit.""",
     )
 
     processes = Bool(
@@ -122,9 +121,9 @@ class DaskLocalCluster(DaskClusterAbstract):
         allow_none=True,
         help=(
             "Address on which to listen for the Bokeh diagnostics server like "
-            "'localhost:8787' or '0.0.0.0:8787'.  Defaults to ':8787'. "
+            "``localhost:8787`` or ``0.0.0.0:8787``. Defaults to ``:8787``. "
             "Set to ``None`` to disable the dashboard. "
-            "Use ':0' for a random port."
+            "Use ``:0`` for a random port."
         ),
     )
 
@@ -133,8 +132,8 @@ class DaskLocalCluster(DaskClusterAbstract):
         allow_none=True,
         help=(
             "Address on which to listen for the Bokeh worker diagnostics server like "
-            "'localhost:8787' or '0.0.0.0:8787'.  Defaults to None which disables "
-            "the dashboard. Use ':0' for a random port."
+            "``localhost:8787`` or ``0.0.0.0:8787``. Defaults to None which disables "
+            "the dashboard. Use ``:0`` for a random port."
         ),
     )
 

@@ -24,7 +24,7 @@ class LoaderAbstract(Module):
     def get_data(self, source: Any, ignore_postprocess: bool = False, **kwargs) -> Any:
         """Load data and run post-processing.
 
-        Uses :method:`load_data` that can be overwritten by subclasses.
+        Uses :meth:`load_data` that can be overwritten by subclasses.
 
         Tries to run the method ``postprocess_data`` of the parent dataset. If it raises
         NotImplementedError, postprocess will be ignored.

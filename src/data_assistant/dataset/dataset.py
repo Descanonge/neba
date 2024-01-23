@@ -105,7 +105,7 @@ class DatasetAbstract:
         self.params: dict[str, Any] = {}
         """Mapping of current parameters values.
 
-        They should be changed by using :method:`set_params` to void the cached values
+        They should be changed by using :meth:`set_params` to void the cached values
         appropriately.
         """
         self.allowed_params = set(self.PARAMS_NAMES)
@@ -235,9 +235,9 @@ class DatasetAbstract:
         """Return data.
 
         Gather all files corresponding to set parameters and load that data through
-        :method:`load_data`.
+        :meth:`load_data`.
 
-        If the :method:`Dataset.postprocess_dataset` is defined and
+        If the :meth:`Dataset.postprocess_dataset` is defined and
         ``ignore_postprocess`` is not True, the method is applied to data.
 
         Parameters
@@ -268,25 +268,25 @@ class DatasetAbstract:
         Parameters
         ----------
         params_maps
-            Each set is specified by a mapping of parameters names to a value.
-            ```
-            [{'Y': 2020, 'm': 1, 'd': 15},
-             {'Y': 2021, 'm': 2, 'd': 24},
-             {'Y': 2022, 'm', 6, 'd': 2}]
-            ```
+            Each set is specified by a mapping of parameters names to a value::
+
+                [{'Y': 2020, 'm': 1, 'd': 15},
+                 {'Y': 2021, 'm': 2, 'd': 24},
+                 {'Y': 2022, 'm', 6, 'd': 2}]
+
             This will give 3 filenames for 3 different dates. Note that here, the
             parameters do not need to be the same for all sets, for example in a fourth
             set we could have ``{'Y': 2023, 'm': 1, 'd': 10, 'depth': 50}`` to override
             the value of 'depth' set in the Dataset parameters.
         params_sets
             Here each set is specified by sequence of parameters values. This first row
-            gives the order of parameters. The same input as before can be written as:
-            ```
-            [['Y', 'm', 'd'],
-             [2020, 1, 15],
-             [2021, 2, 24],
-             [2022, 6, 2]]
-            ```
+            gives the order of parameters. The same input as before can be written as::
+
+                [['Y', 'm', 'd'],
+                 [2020, 1, 15],
+                 [2021, 2, 24],
+                 [2022, 6, 2]]
+
             Here the changing parameters must remain the same for the whole sequence.
         ignore_postprocess
             If True, do not apply postprocess function. Defaults to False.

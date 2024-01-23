@@ -126,7 +126,7 @@ class XarrayWriter(WriterAbstract):
     ) -> xr.Dataset:
         """Set some dataset attributes with information on how it was created.
 
-        Wrapper around :method:`get_metadata`.
+        Wrapper around :meth:`get_metadata`.
 
         Parameters
         ----------
@@ -186,7 +186,7 @@ class XarrayWriter(WriterAbstract):
         return ds.to_netcdf(outfile, **call_kw)
 
 
-class XarraySplitWriter(WriterAbstract):
+class XarraySplitWriter(XarrayWriter):
     """Writer for Xarray datasets in multifiles.
 
     Can automatically split a dataset to the corresponding files by communicating
