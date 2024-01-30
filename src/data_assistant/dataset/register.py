@@ -1,6 +1,50 @@
-"""Registering datasets."""
+"""Registering datasets.
 
-from collections.abc import Hashable
+Various possible architectures.
+
+## Single file
+All of your DatasetManager classes are defined in a single file/module.
+You can then import any one of them from that module or the store. No special issue.
+
+## Separated files, no store
+You can separate different datasets in different modules for any number of reason.
+This is efficient since you import module only as you need them.
+
+But if you want to use the store, it might get more complicated since you may quickly
+run in circular imports. Also each module needs te be imported for the store to register
+the datasets in them.
+
+## Separated files, with store
+To avoid these problems, I propose a three part structure:
+
+- A first module, let's call it ``data``. It will define the store variable, and
+  eventually some project wide stuff, like a project-default Dataset class so all
+  datasets will have common functions.
+
+- Any number of other modules that will define all the datasets needed. They can be
+  placed anywhere, in submodules, even outside the project if you're feeling daring.
+  They import anything they need from ``data``, and the store object, which they use
+  to register.
+
+- Now if we want to use the store, we need to actually import those modules to
+  register the datasets inside. Otherwise the store will not know about them.
+  One way to do it is to define a third module that will import all the datasets, as
+  well as the store, let's call it ``datalist``. It can written like so::
+
+      import sst
+      import histogram.dataset
+      from data import store
+      ...
+
+Once this structure is in place, you can simply import the store from ``datalist``.
+
+Note that this has the disadvantage of importing all module data, which might add some
+overhead in some cases for datasets that might not be used.
+The store also "hides" the type of the DatasetManager you get, which can be annoying
+when using static type checking.
+"""
+
+from collections.abc import Callable, Hashable
 from typing import TypeVar, cast
 
 from .dataset import DatasetAbstract
@@ -28,9 +72,12 @@ class DatasetStore(dict[_K, _V]):
         for ds in args:
             self.add_dataset(ds)
 
-    def add_dataset(self, ds: _V):
+    def add_dataset(self, ds: _V, name: str | None = None):
         """Register a DatasetAbstract subclass."""
-        if ds.ID is not None:
+        if name is not None:
+            key = name
+            key_type = "USER"
+        elif ds.ID is not None:
             key = ds.ID
             key_type = "ID"
         elif ds.SHORTNAME is not None:
@@ -40,7 +87,7 @@ class DatasetStore(dict[_K, _V]):
             raise TypeError(f"No ID or SHORTNAME defined in class {ds}")
 
         if key in self:
-            raise KeyError(f"Dataset key {key_type}:{key} already exists.")
+            raise KeyError(f"Dataset key {key} ({key_type}) already exists.")
 
         if ds.SHORTNAME is not None:
             self.shortnames.append(ds.SHORTNAME)
@@ -63,23 +110,11 @@ class DatasetStore(dict[_K, _V]):
                 f"{list(self.keys())} and shortnames: {self.shortnames}"
             ) from e
 
+    def register(self, name: str | None = None) -> Callable[[_V], _V]:
+        """Register a dataset with a decorator."""
 
-class register:  # noqa: N801
-    """Decorator to register a dataset class in a mapping.
+        def decorator(ds: _V) -> _V:
+            self.add_dataset(ds, name=name)
+            return ds
 
-    Parameters
-    ----------
-    mapping:
-        Mapping instance to register the dataset class to.
-    """
-
-    def __init__(self, mapping: DatasetStore):
-        self.mapping = mapping
-
-    def __call__(self, subclass: type[DatasetAbstract]) -> type[DatasetAbstract]:
-        """Register subclass to the mapping.
-
-        Does not change the subclass.
-        """
-        self.mapping.add_dataset(subclass)
-        return subclass
+        return decorator

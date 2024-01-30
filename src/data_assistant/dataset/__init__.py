@@ -1,4 +1,4 @@
 from .dataset import DatasetAbstract, DatasetDefault, climato
-from .register import DatasetStore, register
+from .register import DatasetStore
 
-__all__ = ["DatasetAbstract", "DatasetDefault", "DatasetStore", "register", "climato"]
+__all__ = ["DatasetAbstract", "DatasetDefault", "DatasetStore", "climato"]
