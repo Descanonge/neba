@@ -232,9 +232,9 @@ class DaskClusterJobQueue(DaskClusterAbstract):
             "Network interface like 'eth0' or 'ib0'. This will be used both "
             "for the Dask scheduler and the Dask workers interface. "
             "If you need a different interface for the Dask scheduler you "
-            "can pass it through the scheduler_options argument: "
-            "interface=your_worker_interface, scheduler_options={'interface': "
-            "your_scheduler_interface}."
+            "can pass it through the ``scheduler_options`` argument "
+            "``interface=your_worker_interface, scheduler_options={'interface': "
+            "your_scheduler_interface}``."
         ),
     )
 
@@ -345,7 +345,7 @@ class DaskClusterJobQueue(DaskClusterAbstract):
     scheduler_cls = Type(
         klass=Scheduler,
         help=(
-            "Changes the class of the used Dask Scheduler. Defaults to  Dask's"
+            "Changes the class of the used Dask Scheduler. Defaults to  Dask's "
             ":class:`distributed.Scheduler`."
         ),
     )
