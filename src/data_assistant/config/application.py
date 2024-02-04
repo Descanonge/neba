@@ -37,6 +37,8 @@ class BaseApp(Application, Scheme):
 
     aliases = {"config-file": ("BaseApp.config_file", config_file.help)}
 
+    trait_paths: dict[str, TraitType] = {}
+
     def __init_subclass__(cls, /, **kwargs) -> None:
         """Subclass init hook.
 
@@ -47,6 +49,7 @@ class BaseApp(Application, Scheme):
 
         It also re-add flags defined in parent classes (unless explicitely
         overridden).
+
         """
         super().__init_subclass__(**kwargs)
 
@@ -59,6 +62,25 @@ class BaseApp(Application, Scheme):
 
         for n, f in super().flags.items():
             cls.flags.setdefault(n, f)
+
+        cls._tag_trait_config_path()
+
+    @classmethod
+    def _tag_trait_config_path(cls):
+        """Tag traits with their config path.
+
+        TODO Aliases not taken into account.
+        """
+
+        def tag_recursive(scheme: type[Scheme], path_parts: list[str]) -> None:
+            for name, trait in scheme.class_traits(config=True).items():
+                fullname = ".".join(path_parts + [name])
+                trait.tag(paths=[fullname])
+                cls.trait_paths[fullname] = trait
+            for name, subscheme in scheme._subschemes.items():
+                tag_recursive(subscheme, path_parts + [name])
+
+        tag_recursive(cls, [])
 
     def add_extra_parameter(
         self,
