@@ -91,18 +91,44 @@ class TraitDocumenter(AttributeDocumenter):
         return can_super and isinstance(member, TraitType)
 
     def get_doc(self) -> list[list[str]]:
+        indent = 4 * " "
         lines = []
 
-        indent = 4 * " "
+        # blocked quote for trait metadata
+        lines += [r"\ ", ""]
+
+        # default value
+        defval = self.object.default_value
+        if isinstance(defval, str):
+            defval = f'"{defval}"'
+        lines += [indent + f"* **Default value:** ``{defval}``"]
+
+        # Enum possible values
+        if isinstance(self.object, Enum):
+            values = self.object.values
+            lines += [indent + f"* **Accepted values:** ``{values}``"]
+
+        # Config path(s)
+        paths = self.object.get_metadata("paths")
+        if paths is not None:
+            if len(paths) == 1:
+                lines += [indent + f"* **Path:** ``{paths[0]}``"]
+            else:
+                lines += [indent + r"* **Paths:**\ "]
+                lines += [indent * 2 + f"* ``{path}``" for path in paths]
+
+        # not configurable
+        if not self.object.get_metadata("config"):
+            lines += [indent + "* **Not configurable**"]
+
+        # read-only
+        if self.object.read_only:
+            lines += [indent + "* **Read-only**"]
+
+        lines += [""]
 
         if help := self.object.help:
             lines += help.splitlines()
-
-        lines += [""]
-        defval = self.object.default_value
-        if defval is not Undefined:
-            lines += ["- default: " + str(defval)]
-            lines += ["- nom: " + self.object.name]
 
         return [lines]  # type: ignore
 
@@ -144,9 +170,32 @@ class TraitDocumenter(AttributeDocumenter):
         self.add_line("   :type: " + objrepr, sourcename)
 
 
+def skip_trait_member(app, what, name, obj, skip, options) -> bool:
+    """Decide wether to skip trait autodoc.
+
+    By default, autodoc will skip traits without any 'help' attribute. But we can
+    add information without docstring (default value, config path, etc.). So we
+    implement simple custom logic here.
+    """
+    if not isinstance(obj, TraitType):
+        return skip
+
+    skip = False
+    # Check if private (only from name, no docstring analysis)
+    if name.startswith("_"):
+        if options.get("private_members", None) is None:
+            skip = True
+        else:
+            skip = name not in options["private_members"]
+
+    # unless private, do not skip
+    return skip
+
+
 def setup(app: Sphinx):
     app.setup_extension("sphinx.ext.autodoc")
     app.add_autodocumenter(TraitDocumenter)
+    app.connect("autodoc-skip-member", skip_trait_member)
 
     return dict(
         version="0.1",
