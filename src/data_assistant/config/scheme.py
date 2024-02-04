@@ -59,6 +59,7 @@ class Scheme(Configurable):
             if isinstance(v, type) and issubclass(v, Scheme):
                 setattr(cls, k, subscheme(v))
 
+        for k, v in classdict.items():
             # register subschemes
             if isinstance(v, Instance) and issubclass(v.klass, Scheme):
                 cls._subschemes[k] = v.klass
