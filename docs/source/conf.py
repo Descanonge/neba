@@ -5,6 +5,7 @@
 
 import os
 import sys
+
 import data_assistant
 
 sys.path.append(os.path.abspath("./_ext"))

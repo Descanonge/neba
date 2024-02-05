@@ -5,6 +5,7 @@ from traitlets.config import Application, Configurable
 from traitlets.utils.text import wrap_paragraphs
 
 from .scheme import Scheme
+from .loader import SuperConfigLoader
 
 
 class BaseApp(Application, Scheme):
@@ -75,12 +76,21 @@ class BaseApp(Application, Scheme):
         def tag_recursive(scheme: type[Scheme], path_parts: list[str]) -> None:
             for name, trait in scheme.class_traits(config=True).items():
                 fullname = ".".join(path_parts + [name])
+                classname = f"{scheme.__name__}.{name}"
                 trait.tag(paths=[fullname])
                 cls.trait_paths[fullname] = trait
+                cls.trait_paths[classname] = trait
             for name, subscheme in scheme._subschemes.items():
                 tag_recursive(subscheme, path_parts + [name])
 
         tag_recursive(cls, [])
+
+    def _create_loader(
+        self, argv: list[str] | None, aliases, flags, classes
+    ) -> SuperConfigLoader:
+        return SuperConfigLoader(
+            self.trait_paths, argv, aliases, flags, classes=classes, log=self.log
+        )
 
     def add_extra_parameter(
         self,
