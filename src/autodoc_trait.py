@@ -1,0 +1,337 @@
+"""Autodoc extension for automatic documentation of Traits.
+
+Add a specific Documenter for TraitType and member filter for traits.
+"""
+from __future__ import annotations
+
+import sys
+from typing import Any
+
+from sphinx.application import Sphinx
+from sphinx.ext.autodoc import SUPPRESS, AttributeDocumenter, Documenter
+from traitlets import (
+    Container,
+    Dict,
+    Enum,
+    Instance,
+    List,
+    Set,
+    TraitType,
+    Tuple,
+    Type,
+    Union,
+)
+
+
+def get_trait_typehint(trait: Any, mode: str = "short") -> str:
+    """Return the typehint corresponding to a trait object.
+
+    Parameters
+    ----------
+    trait:
+        Trait instance. Also accept any other type of object.
+    mode:
+        If "short", add a ~ in front of the full typehint to only print the type name
+        but still have a link.
+    """
+
+    def serialize(obj: Any) -> str:
+        """Return the full import name of any object or type."""
+        if isinstance(obj, type):
+            cls = obj
+        else:
+            cls = obj.__class__
+        name = cls.__name__
+        module = cls.__module__
+        out = "~" if mode == "short" else ""
+        out += f"{module}.{name}"
+        return out
+
+    def recurse(obj):
+        """Recurse this function, keeping optional arguments."""
+        return get_trait_typehint(obj, mode)
+
+    # If simply an object, nothing specific to do:
+    if not isinstance(trait, TraitType):
+        return serialize(trait)
+
+    # Get the typehint of the trait itself
+    typehint = serialize(trait)
+    # ... but it may be a container of some sort
+
+    if isinstance(trait, Union):
+        interior = " | ".join(recurse(subtrait) for subtrait in trait.trait_types)
+        return interior
+
+    # Dict can have either its keys or values TraitType defined (or both).
+    # If missing, automatically set to Any, which we ignore in typehint.
+    # Except if value is defined, then we print Dict[Any, SomeType]
+    if isinstance(trait, Dict):
+        key_val = [""]
+        has_key = trait._key_trait is not None
+        has_val = trait._value_trait is not None
+
+        if has_key:
+            key_val[0] = recurse(trait._key_trait)
+        if has_val:
+            key_val.append(recurse(trait._value_trait))
+            if not has_key:
+                key_val[0] = "~typing.Any"
+
+        if any(key_val):
+            interior = f"[{', '.join(key_val)}]"
+        else:
+            interior = ""
+
+        return f"{typehint}{interior}"
+
+    # Tuple might have any number of traits defined from 0 (Any, not printed)
+    if isinstance(trait, Tuple):
+        interior = ", ".join(recurse(t) for t in trait._traits)
+        if interior:
+            interior = f"[{interior}]"
+        return f"{typehint}{interior}"
+
+    # List and Set
+    if isinstance(trait, Container):
+        interior = recurse(trait._trait)
+        return f"{typehint}[{interior}]"
+
+    if isinstance(trait, Type | Instance):
+        if isinstance(trait.klass, str):
+            interior = trait.klass
+        else:
+            interior = recurse(trait.klass)
+        return f"{typehint}[{interior}]"
+
+    return typehint
+
+
+def stringify(obj) -> str:
+    """Return a string representation of object.
+
+    To put in trait metadata in the documentation.
+    """
+    if isinstance(obj, str):
+        # Add ""s to be clear (especially when we have an empty string)
+        return f'``"{obj}"``'
+
+    # Try to have a nice link for types/classes
+    if isinstance(obj, type):
+        try:
+            fullname = f"{obj.__module__}.{obj.__name__}"
+        except AttributeError:
+            fullname = str(obj)
+        return f":class:`~{fullname}`"
+
+    return f"``{str(obj)}``"
+
+
+class TraitDocumenter(AttributeDocumenter):
+    """Documenter for Trait objects."""
+
+    priority = AttributeDocumenter.priority + 10
+
+    metadata_properties = [
+        "default_value",
+        "accepted_values",
+        "per_key_traits",
+        "min_length",
+        "max_length",
+        "config_paths",
+        "configurable",
+        "read_only",
+    ]
+    """Metadata properties in the order they should appear in doc.
+
+    All properties should return a tuple of the name of the property, and a list of
+    lines that document this property. It can return None if the property should be
+    skipped. Formatting will be done elsewhere.
+    """
+
+    @property
+    def default_value(self) -> tuple[str, list[str]] | None:
+        """Default value of trait. Nicely rendered."""
+        return ("Default value", [stringify(self.object.default_value)])
+
+    @property
+    def accepted_values(self) -> tuple[str, list[str]] | None:
+        """List of accepted values in an Enum."""
+        if isinstance(self.object, Enum):
+            values = self.object.values
+            return ("Accepted values", [f"``{values}``"])
+        return None
+
+    @property
+    def per_key_traits(self) -> tuple[str, list[str]] | None:
+        """List of per key traits in a Dict."""
+        if isinstance(self.object, Dict):
+            if self.object._per_key_traits is not None:
+                lines = [""]
+                for key, trait in self.object._per_key_traits.items():
+                    lines += [f"   * *{key}*: {stringify(type(trait))}"]
+                return ("Per key traits", lines)
+        return None
+
+    @property
+    def min_length(self) -> tuple[str, list[str]] | None:
+        """Minimum length of a list/set, if greater than 0 (default)."""
+        if isinstance(self.object, List | Set):
+            if self.object._minlen > 0:
+                return ("Minimum length", [stringify(self.object._minlen)])
+            pass
+        return None
+
+    @property
+    def max_length(self) -> tuple[str, list[str]] | None:
+        """Maximum length of a list/set, if less than sys.maxsize (default)."""
+        if isinstance(self.object, List | Set):
+            if self.object._maxlen < sys.maxsize:
+                return ("Maximum length", [stringify(self.object._maxlen)])
+            pass
+        return None
+
+    @property
+    def config_paths(self) -> tuple[str, list[str]] | None:
+        """List of configuration paths to access this trait."""
+        paths = self.object.get_metadata("paths")
+        if paths is None:
+            return None
+
+        if len(paths) == 1:
+            return ("Path", [f"``{paths[0]}``"])
+
+        lines = [""]
+        lines += [f"    * ``{path}``" for path in paths]
+        return ("Paths", lines)
+
+    @property
+    def configurable(self) -> tuple[str, list[str]] | None:
+        """If trait is configurable."""
+        if not self.object.get_metadata("config"):
+            return ("Not configurable", [])
+        return None
+
+    @property
+    def read_only(self) -> tuple[str, list[str]] | None:
+        """If trait is read-only."""
+        if self.object.read_only:
+            return ("Read-only", [])
+        return None
+
+    @classmethod
+    def can_document_member(
+        cls, member: Any, membername: str, isattr: bool, parent: Any
+    ) -> bool:
+        """Can this class document this member.
+
+        '_subschemes' attribute is not documented.
+        """
+        if membername == "_subschemes":
+            return False
+
+        can_super = super().can_document_member(member, membername, isattr, parent)
+        return can_super and isinstance(member, TraitType)
+
+    def get_doc(self) -> list[list[str]]:
+        """Return documentation paragraphs.
+
+        This overwrite gets the documentation from the help attribute of traits, and
+        add metadata/information about the trait (default value, etc.).
+
+        The metadata is dictated by the properties listed in
+        :attr:`metadata_properties`.
+        """
+        indent = 4 * " "
+        lines = []
+
+        # we need at least one not empty line to have a block quote
+        lines += [r"\ ", ""]
+
+        metalines = []
+        for prop in self.metadata_properties:
+            res = getattr(self, prop)
+            if res is None:
+                continue
+
+            name, proplines = res
+            name = f"* **{name}**"
+            if proplines:
+                proplines[0] = f"{name}: {proplines[0]}"
+                metalines += proplines
+            else:
+                metalines += [name]
+
+        # indent metadata
+        metalines = [indent + line for line in metalines]
+        lines += metalines
+        # end of blocked quote
+        lines += [""]
+
+        if help := self.object.help:
+            lines += help.splitlines()
+
+        return [lines]  # type: ignore
+
+    def add_directive_header(self, sig: str) -> None:
+        """Add directives to the object header.
+
+        Overwrite completely implementation from AttributeDocumenter to obtain the
+        typehint from the trait itself, and remove the value directive (default
+        value is documented elsewhere).
+        """
+        Documenter.add_directive_header(self, sig)
+        sourcename = self.get_sourcename()
+
+        if (
+            self.options.annotation is SUPPRESS
+            or self.should_suppress_directive_header()
+        ):
+            return
+
+        if self.options.annotation:
+            self.add_line("   :annotation: %s" % self.options.annotation, sourcename)
+            return
+
+        if self.config.autodoc_typehints == "none":
+            return
+
+        objrepr = get_trait_typehint(self.object, self.config.autodoc_typehints_format)
+        alias_key = objrepr.lstrip("~")
+        if (alias := self.config.autodoc_type_aliases.get(alias_key, None)) is not None:
+            objrepr = alias
+        self.add_line("   :type: " + objrepr, sourcename)
+
+
+def skip_trait_member(app, what, name, obj, skip, options) -> bool:
+    """Decide wether to skip trait autodoc.
+
+    By default, autodoc will skip traits without any 'help' attribute. But we can
+    add information without docstring (default value, config path, etc.). So we
+    implement simple custom logic here.
+    """
+    if not isinstance(obj, TraitType):
+        return skip
+
+    skip = False
+    # Check if private (only from name, no docstring analysis)
+    if name.startswith("_"):
+        if options.get("private_members", None) is None:
+            skip = True
+        else:
+            skip = name not in options["private_members"]
+
+    # unless private, do not skip
+    return skip
+
+
+def setup(app: Sphinx):
+    app.setup_extension("sphinx.ext.autodoc")
+    app.add_autodocumenter(TraitDocumenter)
+    app.connect("autodoc-skip-member", skip_trait_member)
+
+    return dict(
+        version="0.1",
+        parallel_read_safe=True,
+        parallel_write_safe=True,
+    )
