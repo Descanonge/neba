@@ -152,7 +152,7 @@ class TraitDocumenter(AttributeDocumenter):
     @property
     def default_value(self) -> tuple[str, list[str]] | None:
         """Default value of trait. Nicely rendered."""
-        return ("Default value", [stringify(self.object.default_value)])
+        return ("Default value", [stringify(self.object.default())])
 
     @property
     def accepted_values(self) -> tuple[str, list[str]] | None:
