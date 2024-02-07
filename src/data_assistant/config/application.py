@@ -4,8 +4,8 @@ from traitlets import Bool, TraitType, Unicode
 from traitlets.config import Application, Configurable
 from traitlets.utils.text import wrap_paragraphs
 
-from .scheme import Scheme
 from .loader import SuperConfigLoader
+from .scheme import Scheme
 
 
 class BaseApp(Application, Scheme):

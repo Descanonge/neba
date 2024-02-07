@@ -173,7 +173,8 @@ class XarrayWriter(WriterAbstract):
         encoding:
             Mapping of encoding parameters.
         kwargs:
-            Passed to the function that writes to disk. :func:`xr.Dataset.to_netcdf`.
+            Passed to the function that writes to disk
+            (:meth:`xarray.Dataset.to_netcdf`).
         """
         outfile = self.dataset.get_filename(**parameters)
         check_output_path(outfile, directory=False)
@@ -280,7 +281,8 @@ class XarraySplitWriter(XarrayWriter):
             groups of calls of size ``chop`` (at most) will be sent one after the other,
             calls within each group being run in parallel.
         kwargs:
-            Passed to the function that writes to disk. :func:`xr.Dataset.to_netcdf`.
+            Passed to the function that writes to disk
+            (:meth:`xarray.Dataset.to_netcdf`).
         """
         datasets_by_fix = self.split_by_unfixed(ds)
 

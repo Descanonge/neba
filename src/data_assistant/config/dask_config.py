@@ -11,7 +11,18 @@ from distributed.deploy.cluster import Cluster
 from distributed.scheduler import Scheduler
 from distributed.security import Security
 from distributed.worker import Worker
-from traitlets import Bool, Dict, Enum, Float, Instance, Int, List, Type, Unicode, Union
+from traitlets import (
+    Bool,
+    Dict,
+    Enum,
+    Float,
+    Instance,
+    Int,
+    List,
+    Type,
+    Unicode,
+    Union,
+)
 from traitlets.utils.importstring import import_item
 
 from .scheme import Scheme
@@ -419,10 +430,12 @@ class DaskClusterSLURM(DaskClusterJobQueue):
     )
 
     job_mem = Unicode(
+        None,
+        allow_none=True,
         help=(
             "Amount of memory to request in SLURM. If None, defaults "
             "to worker processes * memory"
-        )
+        ),
     )
 
     job_extra_directives = List(
@@ -450,7 +463,11 @@ class DaskConfig(Scheme):
     # cannot be changed from a subclass
     selected_clusters: list[str] = list(DEFAULT_CLUSTER_NAMES.keys())
 
-    cluster_type = Enum(list(DEFAULT_CLUSTER_NAMES.keys()), default_value="slurm")
+    cluster_type = Enum(
+        list(DEFAULT_CLUSTER_NAMES.keys()),
+        default_alue="slurm",
+        help="Cluster type to use.",
+    )
 
     @classmethod
     def _setup_scheme(cls):

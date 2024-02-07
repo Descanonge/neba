@@ -7,6 +7,7 @@ from __future__ import annotations
 import sys
 from typing import Any
 
+from data_assistant.config.scheme import FixableTrait
 from sphinx.application import Sphinx
 from sphinx.ext.autodoc import (
     SUPPRESS,
@@ -25,8 +26,6 @@ from traitlets import (
     Type,
     Union,
 )
-
-from data_assistant.config.scheme import FixableTrait
 
 
 def get_trait_typehint(trait: Any, mode: str = "short") -> str:
