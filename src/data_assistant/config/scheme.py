@@ -4,13 +4,56 @@ from collections.abc import Callable, Hashable, Iterator
 from inspect import Parameter, signature
 from typing import Any
 
-from traitlets import Bool, Instance, TraitType
+from traitlets import Bool, Instance, List, TraitType, Unicode, Union
 from traitlets.config import Configurable
 
 
+
+class FixableTrait(Union):
+    """Fixable parameter, specified in a filename pattern.
+
+    A fixable parameter (ie specified in a filename pattern) can take:
+    * a value of the appropriate type (int, float, bool, or str depending on the format),
+    * a string (then the filename part must match that string, which
+    can be a regular expression),
+    * a list of values (see 1) or strings (see 2), (then any value of
+    the list will be accepted in the filenames).
+
+    Parameters
+    ----------
+    trait
+        The trait corresponding to the fixable parameter format. Some properties are
+        kept: ``default_value``, ``allow_none``, ``help``. The metadata is not kept.
+    kwargs
+        Arguments passed to the Union trait created.
+    """
+
+    info_text = "a fixable"
+
+    def __init__(self, trait: TraitType, **kwargs) -> None:
+        self.trait = trait
+        traits = [
+            trait,
+            Unicode(),
+            List([Union([trait, Unicode()])]),
+        ]
+        for arg in ["default_value", "help", "allow_none"]:
+            value = getattr(trait, arg, None)
+            if value is not None:
+                kwargs.setdefault(arg, value)
+        super().__init__(traits, **kwargs)
+
+    # def from_string()
+    #     # manage int ranges ?
+
+
 def subscheme(scheme: type[Scheme]) -> Instance:
-    out = Instance(scheme, args=(), kwargs={}).tag(subscheme=True)
-    return out
+    """Transform a subscheme into a proper trait.
+
+    This is done automatically even without this function, but it can help static
+    type checkers.
+    """
+    return Instance(scheme, args=(), kwargs={}).tag(subscheme=True)
 
 
 class Scheme(Configurable):

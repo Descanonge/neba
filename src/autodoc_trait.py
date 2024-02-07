@@ -8,7 +8,11 @@ import sys
 from typing import Any
 
 from sphinx.application import Sphinx
-from sphinx.ext.autodoc import SUPPRESS, AttributeDocumenter, Documenter
+from sphinx.ext.autodoc import (
+    SUPPRESS,
+    AttributeDocumenter,
+    Documenter,
+)
 from traitlets import (
     Container,
     Dict,
@@ -21,6 +25,8 @@ from traitlets import (
     Type,
     Union,
 )
+
+from data_assistant.config.scheme import FixableTrait
 
 
 def get_trait_typehint(trait: Any, mode: str = "short") -> str:
@@ -141,6 +147,7 @@ class TraitDocumenter(AttributeDocumenter):
         "config_paths",
         "configurable",
         "read_only",
+        "fixable",
     ]
     """Metadata properties in the order they should appear in doc.
 
@@ -217,6 +224,16 @@ class TraitDocumenter(AttributeDocumenter):
         """If trait is read-only."""
         if self.object.read_only:
             return ("Read-only", [])
+        return None
+
+    @property
+    def fixable(self) -> tuple[str, list[str]] | None:
+        """If trait correspond to a fixable parameter.
+
+        ie a parameter defined in a filename pattern from :mod:`filefinder`.
+        """
+        if isinstance(self.object, FixableTrait):
+            return ("Filename pattern parameter ('fixable')", [])
         return None
 
     @classmethod
