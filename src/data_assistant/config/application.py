@@ -1,28 +1,19 @@
 from os import path
 
-from traitlets import Bool, TraitType, Unicode
+from collections.abc import Callable, Generator
+
+from traitlets import Bool, TraitType, Unicode, Instance
 from traitlets.config import Application, Configurable
 from traitlets.utils.text import wrap_paragraphs
 
-from .loader import SuperConfigLoader
+from .loader import ConfigLoader, CLILoader, ConfigKey, FlatConfigType
 from .scheme import Scheme
 
 
-class BaseApp(Application, Scheme):
-    """Basic application with some additional features.
+class ApplicationBase(Scheme):
+    """Base application class.
 
-    Aliases are automatically defined for all traits of the Configurables listed
-    in the :attr:`auto_aliases` class attribute.
-
-    Flags defined in parent classes are preserved (except those overridden in
-    the new class).
-    """
-
-    auto_aliases: list[type[Configurable]] = []
-    """Automatically add aliases for traits of those Configurables.
-
-    Aliases are set as the names of the traits. For instance
-    ``--Parameters.threshold=5`` can be set directly as ``--threshold=5``.
+    Manages loading config from files and CLI.
     """
 
     strict_parsing = Bool(
@@ -36,61 +27,62 @@ class BaseApp(Application, Scheme):
 
     config_file = Unicode("config.py", help="Load this config file.").tag(config=True)
 
-    aliases = {"config-file": ("BaseApp.config_file", config_file.help)}
-
-    trait_paths: dict[str, TraitType] = {}
-
-    def __init_subclass__(cls, /, **kwargs) -> None:
-        """Subclass init hook.
-
-        Any subclass will automatically run this after being defined.
-
-        It adds aliases for all traits of the configurable listed in the
-        :attr:`auto_aliases` class attribute.
-
-        It also re-add flags defined in parent classes (unless explicitely
-        overridden).
-
-        """
+    def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
+        # Add subschemes to list of managed classes
+        for sub in cls._subschemes.values():
+            if sub not in cls.classes:
+                cls.classes.append(sub)
 
-        cls.classes = list(cls._subschemes_recursive())
+    # Lifted from traitlets.config.application.Application
+    def _classes_inc_parents(
+        self, classes: list[type[Scheme]] | None = None
+    ) -> Generator[type[Configurable], None, None]:
+        """Iterate through configurable classes, including configurable parents.
 
-        for cfg in cls.auto_aliases:
-            for name, trait in cfg.class_traits(config=True).items():
-                if name not in cls.aliases:
-                    cls.aliases[name] = (f"{cfg.__name__}.{name}", trait.help)
+        :param classes:
+            The list of classes to iterate; if not set, uses subschemes.
 
-        for n, f in super().flags.items():
-            cls.flags.setdefault(n, f)
+        Children should always be after parents, and each class should only be
+        yielded once.
+        """
+        if classes is None:
+            classes = list(self._subschemes_recursive())
 
-        cls._tag_trait_config_path()
+        seen = set()
+        for c in classes:
+            # We want to sort parents before children, so we reverse the MRO
+            for parent in reversed(c.mro()):
+                if issubclass(parent, Configurable) and (parent not in seen):
+                    seen.add(parent)
+                    yield parent
+
+    def __init__(self, *args, **kwargs) -> None:
+        self.cli_config: FlatConfigType = {}
+        self.file_config: FlatConfigType = {}
+        self.config_norm: FlatConfigType = {}
 
     @classmethod
-    def _tag_trait_config_path(cls):
-        """Tag traits with their config path.
+    def add_scheme(cls) -> Callable[[type[Configurable]], type[Configurable]]:
+        """Decorate a Configurable to make it available to configuration.
 
-        TODO Aliases not taken into account.
+        Useful for schemes that are not explicitely specified in the configuration
+        structure.
+        They will be set as an Instance trait to the application, accessible with the
+        name of the class.
         """
 
-        def tag_recursive(scheme: type[Scheme], path_parts: list[str]) -> None:
-            for name, trait in scheme.class_traits(config=True).items():
-                fullname = ".".join(path_parts + [name])
-                classname = f"{scheme.__name__}.{name}"
-                trait.tag(paths=[fullname])
-                cls.trait_paths[fullname] = trait
-                cls.trait_paths[classname] = trait
-            for name, subscheme in scheme._subschemes.items():
-                tag_recursive(subscheme, path_parts + [name])
+        def decorator(conf: type[Configurable]) -> type[Configurable]:
+            trait = Instance(klass=conf, args=(), kwargs={}).tag(config=True)
+            setattr(cls, conf.__name__, trait)
+            return conf
 
-        tag_recursive(cls, [])
+        return decorator
 
-    def _create_loader(
+    def _create_cli_loader(
         self, argv: list[str] | None, aliases, flags, classes
-    ) -> SuperConfigLoader:
-        return SuperConfigLoader(
-            self.trait_paths, argv, aliases, flags, classes=classes, log=self.log
-        )
+    ) -> ConfigLoader:
+        return CLILoader(self, log=self.log)
 
     def add_extra_parameter(
         self,
@@ -159,8 +151,42 @@ class BaseApp(Application, Scheme):
         # Sets self.config
         if self.config_file:
             self.load_config_file(self.config_file)
+        # rewrite this to manage new nested keys
+
+        self.config_raw = self.file_config | self.cli_config
+
+        # self.config_norm = self.normalize_keys(self.config_raw)
 
         self.instanciate_subschemes()
+
+    # def parse_command_line(self, argv=None) -> None:
+    #     assert not isinstance(argv, str)
+    #     if argv is None:
+    #         argv = self._get_sys_argv(check_argcomplete=bool(self.subcommands))[1:]
+    #     self.argv = [cast_unicode(arg) for arg in argv]
+
+    #     # flatten flags&aliases, so cl-args get appropriate priority:
+    #     flags, aliases = self.flatten_flags()
+    #     classes = list(self._classes_with_config_traits())
+    #     loader = self._create_loader(argv, aliases, flags, classes=classes)
+    #     try:
+    #         self.cli_config = deepcopy(loader.load_config())
+    #     except SystemExit:
+    #         # traitlets 5: no longer print help output on error
+    #         # help output is huge, and comes after the error
+    #         raise
+    #     self.update_config(self.cli_config)
+    #     # store unparsed args in extra_args
+    #     self.extra_args = loader.extra_args
+
+    def load_config_files(self) -> None:
+        # For each file:
+        #   Find appropriate loader
+        #   Instanciate and load_config
+        #   Output should be flat
+        #   Put in self.config_from_files[path]
+        # Merge output of different config files into self.files_config
+        pass
 
     def write_config(
         self,
