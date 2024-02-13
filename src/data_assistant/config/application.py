@@ -1,12 +1,20 @@
+import logging
+from collections.abc import Callable
 from os import path
 
-from collections.abc import Callable, Generator
-
-from traitlets import Bool, TraitType, Unicode, Instance
+from traitlets import Bool, Instance, List, TraitType, Unicode, Union
 from traitlets.config import Application, Configurable
-from traitlets.utils.text import wrap_paragraphs
 
-from .loader import ConfigLoader, CLILoader, ConfigKey, FlatConfigType
+from .loader import (
+    CLILoader,
+    ConfigKV,
+    ConfigLoader,
+    FileLoader,
+    NestedKVType,
+    PyLoader,
+    TomlLoader,
+    YamlLoader,
+)
 from .scheme import Scheme
 
 
@@ -23,44 +31,21 @@ class ApplicationBase(Scheme):
             "arguments or configuration keys. Else only prints "
             "a warning."
         ),
-    ).tag(config=True)
+    )
 
-    config_file = Unicode("config.py", help="Load this config file.").tag(config=True)
+    config_files = Union(
+        [Unicode(), List(Unicode())],
+        default_value="config.py",
+        help="Load those config files.",
+    )
 
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
-        # Add subschemes to list of managed classes
-        for sub in cls._subschemes.values():
-            if sub not in cls.classes:
-                cls.classes.append(sub)
-
-    # Lifted from traitlets.config.application.Application
-    def _classes_inc_parents(
-        self, classes: list[type[Scheme]] | None = None
-    ) -> Generator[type[Configurable], None, None]:
-        """Iterate through configurable classes, including configurable parents.
-
-        :param classes:
-            The list of classes to iterate; if not set, uses subschemes.
-
-        Children should always be after parents, and each class should only be
-        yielded once.
-        """
-        if classes is None:
-            classes = list(self._subschemes_recursive())
-
-        seen = set()
-        for c in classes:
-            # We want to sort parents before children, so we reverse the MRO
-            for parent in reversed(c.mro()):
-                if issubclass(parent, Configurable) and (parent not in seen):
-                    seen.add(parent)
-                    yield parent
+    file_loaders: list[type[FileLoader]] = [TomlLoader, YamlLoader, PyLoader]
 
     def __init__(self, *args, **kwargs) -> None:
-        self.cli_config: FlatConfigType = {}
-        self.file_config: FlatConfigType = {}
-        self.config_norm: FlatConfigType = {}
+        self.cli_conf: NestedKVType = {}
+        self.file_conf: NestedKVType = {}
+
+        self.log = logging.getLogger(__name__)
 
     @classmethod
     def add_scheme(cls) -> Callable[[type[Configurable]], type[Configurable]]:
@@ -79,10 +64,80 @@ class ApplicationBase(Scheme):
 
         return decorator
 
+    @property
+    def classes(self):
+        return self._classes_inc_parents()
+
+    def initialize(self, argv=None, ignore_cli: bool = False, instanciate: bool = True):
+        """Initialize application.
+
+        - Parse command line arguments.
+        - Load configuration file.
+        - Instanciate schemes
+
+        Parameters
+        ----------
+        argv:
+            If not None override command line arguments.
+        ignore_cli:
+            If True, do not parse command line arguments. Useful
+            for jupyter notebooks for instance.
+        """
+        # First parse CLI
+        # needed for help, or overriding the config files)
+        # Sets self.cli_conf
+        if not ignore_cli:
+            self.parse_command_line(argv)
+
+        # Read config files
+        # Sets self.config
+        if self.config_files:
+            self.load_config_files()
+
+        self.conf = self.file_conf | self.cli_conf
+
+        self.instanciate_subschemes()
+
     def _create_cli_loader(
-        self, argv: list[str] | None, aliases, flags, classes
+        self,
+        argv: list[str] | None,
+        log: logging.Logger | None = None,
     ) -> ConfigLoader:
-        return CLILoader(self, log=self.log)
+        if log is None:
+            log = self.log
+        return CLILoader(self, log=log)
+
+    def parse_command_line(
+        self, argv=None, log: logging.Logger | None = None, **kwargs
+    ):
+        loader = self._create_cli_loader(argv, log=log, **kwargs)
+        self.cli_conf = loader.load_config()
+
+    def load_config_files(self, log: logging.Logger | None = None) -> NestedKVType:
+        if log is None:
+            log = self.log
+        if isinstance(self.config_files, str):
+            self.config_files = [self.config_files]
+
+        file_confs: dict[str, NestedKVType] = {}
+        for filepath in self.config_files:
+            _, ext = path.splitext(filepath)
+
+            found_loader = False
+            for loader_cls in self.file_loaders:
+                if ext.lstrip(".") in loader_cls.extensions:
+                    found_loader = True
+                    loader = loader_cls(filepath, self, log=log)
+                    file_confs[filepath] = loader.load_config()
+                    break
+
+            if not found_loader:
+                raise KeyError(
+                    f"Did not find loader for config file {filepath}. "
+                    f" Supported loaders are {self.file_loaders}"
+                )
+
+        return self.merge_configs(*file_confs.values())
 
     def add_extra_parameter(
         self,
@@ -122,71 +177,6 @@ class ApplicationBase(Scheme):
         trait.tag(config=True)
         setattr(dest, name, trait)
         dest.setup_class(dest.__dict__)  # type: ignore
-
-        if auto_alias:
-            self.aliases[name] = (f"{dest.__name__}.{name}", trait.help)
-
-    def initialize(self, argv=None, ignore_cli: bool = False):
-        """Initialize application.
-
-        - Parse command line arguments.
-        - Load configuration file.
-        - Instanciate schemes
-
-        Parameters
-        ----------
-        argv:
-            If not None override command line arguments.
-        ignore_cli:
-            If True, do not parse command line arguments. Useful
-            for jupyter notebooks for instance.
-        """
-        # First parse CLI
-        # needed for help, or overriding the config files)
-        # Sets self.cli_config
-        if not ignore_cli:
-            self.parse_command_line(argv)
-
-        # Read config files
-        # Sets self.config
-        if self.config_file:
-            self.load_config_file(self.config_file)
-        # rewrite this to manage new nested keys
-
-        self.config_raw = self.file_config | self.cli_config
-
-        # self.config_norm = self.normalize_keys(self.config_raw)
-
-        self.instanciate_subschemes()
-
-    # def parse_command_line(self, argv=None) -> None:
-    #     assert not isinstance(argv, str)
-    #     if argv is None:
-    #         argv = self._get_sys_argv(check_argcomplete=bool(self.subcommands))[1:]
-    #     self.argv = [cast_unicode(arg) for arg in argv]
-
-    #     # flatten flags&aliases, so cl-args get appropriate priority:
-    #     flags, aliases = self.flatten_flags()
-    #     classes = list(self._classes_with_config_traits())
-    #     loader = self._create_loader(argv, aliases, flags, classes=classes)
-    #     try:
-    #         self.cli_config = deepcopy(loader.load_config())
-    #     except SystemExit:
-    #         # traitlets 5: no longer print help output on error
-    #         # help output is huge, and comes after the error
-    #         raise
-    #     self.update_config(self.cli_config)
-    #     # store unparsed args in extra_args
-    #     self.extra_args = loader.extra_args
-
-    def load_config_files(self) -> None:
-        # For each file:
-        #   Find appropriate loader
-        #   Instanciate and load_config
-        #   Output should be flat
-        #   Put in self.config_from_files[path]
-        # Merge output of different config files into self.files_config
-        pass
 
     def write_config(
         self,
@@ -243,40 +233,28 @@ class ApplicationBase(Scheme):
         with open(filename, "w") as f:
             f.write("\n".join(lines))
 
+    def merge_configs(
+        self,
+        *configs: NestedKVType,
+    ) -> NestedKVType:
+        out: NestedKVType = {}
+        for c in configs:
+            for k, v in c.items():
+                if isinstance(v, ConfigKV):
+                    if k in out:
+                        self.log.debug("overwrite")
+                    out[k] = v
+                else:
+                    configs_lower = [c[k] for c in configs]
+                    out[k] = self.merge_configs(*configs_lower)  # type:ignore
+
+        return out
+
     def _filter_parent_app(self, classes):
         for c in classes:
             if issubclass(c, Application) and c != self.__class__:
                 continue
             yield c
-
-    def emit_help(self, classes=False):
-        """Yield the help-lines for each Configurable class in self.classes.
-
-        If classes=False (the default), only flags and aliases are printed.
-
-        Override to avoid documenting base classes of the application.
-        """
-        yield from self.emit_description()
-        yield from self.emit_subcommands_help()
-        yield from self.emit_options_help()
-
-        if classes:
-            help_classes = self._classes_with_config_traits()
-            help_classes = self._filter_parent_app(help_classes)
-
-            if help_classes:
-                yield "Class options"
-                yield "============="
-                for p in wrap_paragraphs(self.keyvalue_description):
-                    yield p
-                    yield ""
-
-            for cls in help_classes:
-                yield cls.class_get_help()
-                yield ""
-        yield from self.emit_examples()
-
-        yield from self.emit_help_epilogue(classes)
 
     def generate_config_file(self, classes=None):
         """Generate default config file from Configurables.
@@ -294,14 +272,3 @@ class ApplicationBase(Scheme):
             lines.append(cls.class_config_section(config_classes))
 
         return "\n".join(lines)
-
-    def document_config_options(self):
-        """Generate rST format documentation for the config options this application.
-
-        Returns a multiline string.
-
-        Override to avoid documenting base classes of the application.
-        """
-        classes = self._classes_inc_parents()
-        classes = self._filter_parent_app(classes)
-        return "\n".join(c.class_config_rst_doc() for c in classes)

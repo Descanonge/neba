@@ -1,4 +1,4 @@
-from data_assistant.config.application import BaseApp
+from data_assistant.config.application import ApplicationBase
 from data_assistant.config.dask_config import DaskConfig
 from data_assistant.config.scheme import Scheme
 from traitlets import Enum, Float, Unicode
@@ -14,7 +14,7 @@ class Parameters(Scheme):
     kind = Enum(["1thr", "2thr", "2d"], default_value="2thr", help="kind of histogram")
 
 
-class App(BaseApp):
+class App(ApplicationBase):
     parameters = Parameters
     dask = DaskConfig
     auto_aliases = [Parameters]

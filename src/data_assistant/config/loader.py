@@ -2,24 +2,29 @@
 
 Extend loaders defined by traitlets for our needs (mainly nested configuration).
 """
-import re
-import logging
-from collections.abc import Sequence
-from typing import Any
+from __future__ import annotations
+
 import argparse
-from argparse import Action, _StoreAction, ArgumentParser
+import logging
+import re
+from argparse import Action, ArgumentParser, _StoreAction
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any
 
 from .scheme import Scheme
+
+if TYPE_CHECKING:
+    from .application import ApplicationBase
 
 from traitlets.traitlets import TraitType
 
 _DOT = "__DOT__"
 
-FlatConfigType = dict[str, str | list[str] | ConfigKey]
+ConfigValueType = str | list[str]
 
 
-class ConfigKey:
-    def __init__(self, key: str, input: str | list[str]):
+class ConfigKV:
+    def __init__(self, key: str, input: ConfigValueType, origin: str | None = None):
         if isinstance(input, list):
             if len(input) == 1:
                 input = input[0]
@@ -29,6 +34,7 @@ class ConfigKey:
         self.input = input
         self.value: Any | None = None
         self.trait: TraitType | None = None
+        self.origin = origin
 
     @property
     def path(self) -> list[str]:
@@ -54,16 +60,71 @@ class ConfigKey:
             ) from err
 
 
+NestedKVType = dict[str, ConfigKV | dict[str, "NestedKVType"]]
+
+
 class ConfigLoader:
-    def __init__(self, app: Scheme, log: logging.Logger | None = None):
+    def __init__(self, app: ApplicationBase, log: logging.Logger | None = None):
         self.app = app
         if log is None:
             log = logging.getLogger(__name__)
         self.log = log
-        self.config: FlatConfigType = {}
+        self.config: NestedKVType = {}
 
     def clear(self) -> None:
         self.config.clear()
+
+    def load_config(self) -> NestedKVType:
+        raise NotImplementedError
+
+    def normalize_keys(self, config: Sequence[ConfigKV]) -> NestedKVType:
+        """Normalize keys path and parse its value."""
+        class_keys: dict[str, ConfigKV] = {}
+        keys: list[ConfigKV] = []
+
+        classes_by_name = {cls.__name__: cls for cls in self.app.classes}
+
+        for key in config:
+            # Place class keys appart
+            if (cls := classes_by_name.get(key.prefix, None)) is not None:
+                if len(key.path) > 2:
+                    raise KeyError(
+                        f"A parameter --Class.trait cannot be nested ({key.key_init})."
+                    )
+                key.trait = cls.class_traits()[key.path[1]]
+                key.parse()
+                class_keys[key.prefix] = key
+                continue
+            keys.append(key)
+
+        # Generate output skeleton, and fill --Class.trait parameters
+        def recurse(scheme: type[Scheme]) -> NestedKVType:
+            out: NestedKVType = {}
+            for name, subscheme in scheme._subschemes.items():
+                out[name] = recurse(subscheme)  # type: ignore[assignment]
+            if (key := class_keys.get(scheme.__name__, None)) is not None:
+                out[key.path[1]] = key
+            return out
+
+        output = recurse(self.app.__class__)
+
+        outsec = output
+        for key in keys:
+            scheme: type[Scheme] = self.app.__class__
+            for subkey in key.path:
+                # TODO: Aliases/shortcuts
+                if subkey in scheme._subschemes:
+                    scheme = scheme._subschemes[subkey]
+                elif (
+                    trait := scheme.class_own_traits(config=True).get(subkey, None)
+                ) is not None:
+                    key.trait = trait
+                    key.parse()
+                    outsec[subkey] = key
+                else:
+                    raise KeyError(f"Key '{key.key_init}' not found in specification.")
+
+        return output
 
 
 class _GreedyDefaultOptionDict(dict[str, Action]):
@@ -75,7 +136,6 @@ class _GreedyDefaultOptionDict(dict[str, Action]):
             dest=key.lstrip("-").replace(".", _DOT),
             nargs="+",
         )
-        print("gros naze")
 
     def __contains__(self, key) -> bool:
         if super().__contains__(key):
@@ -120,66 +180,42 @@ class GreedyArgumentParser(ArgumentParser):
 class CLILoader(ConfigLoader):
     parser_class: type[ArgumentParser] = GreedyArgumentParser
 
-    def __init__(self, app: Scheme, **kwargs):
+    def __init__(self, app: ApplicationBase, **kwargs):
         super().__init__(app, **kwargs)
         self.parser: ArgumentParser = self.create_parser()
 
     def create_parser(self, **kwargs) -> ArgumentParser:
         return self.parser_class(**kwargs)
 
-    def load_config(self, argv=None, raiseerror: bool = True) -> FlatConfigType:
+    def load_config(self, argv=None, raiseerror: bool = True) -> NestedKVType:
         self.clear()
-        keys = vars(self.parser.parse_args())
-        self.config = self.normalize_keys(keys)
+        config = vars(self.parser.parse_args())
+        keyvals = [
+            ConfigKV(name.replace(_DOT, "."), value, origin="CLI")
+            for name, value in config.items()
+        ]
+        self.config = self.normalize_keys(keyvals)
         return self.config
 
-    def normalize_keys(self, config: dict[str, str | list[str]]) -> dict:
-        """Normalize keys path and parse its value."""
-        class_keys: dict[str, ConfigKey] = {}
-        keys: list[ConfigKey] = []
 
-        # TODO: app.classes undefined
-        classes_by_name = {cls.__name__: cls for cls in self.app.classes}
+# --- File loaders
 
-        for name, value in config.items():
-            key = ConfigKey(name, value)
-            # Place class keys appart
-            if (cls := classes_by_name.get(key.prefix, None)) is not None:
-                if len(key.path) > 2:
-                    raise KeyError(
-                        f"A parameter --Class.trait cannot be nested ({key.key_init})."
-                    )
-                key.trait = cls.traits()[key.path[1]]
-                key.parse()
-                class_keys[key.prefix] = key
-                continue
-            keys.append(key)
 
-        # Generate output skeleton, and fill --Class.trait parameters
-        def recurse(scheme: type[Scheme]) -> dict[str, ConfigKey | dict]:
-            out: dict[str, ConfigKey | dict] = {}
-            for name, subscheme in scheme._subschemes.items():
-                out[name] = recurse(subscheme)
-            if (key := class_keys.get(scheme.__name__, None)) is not None:
-                out[key.path[1]] = key
-            return out
+class FileLoader(ConfigLoader):
+    extensions: list[str]
 
-        output = recurse(self.app.__class__)
+    def __init__(self, filepath: str, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.filepath = filepath
 
-        outsec = output
-        for key in keys:
-            scheme: type[Scheme] = self.app.__class__
-            for subkey in key.path:
-                # TODO: Aliases/shortcuts
-                if subkey in scheme._subschemes:
-                    scheme = scheme._subschemes[subkey]
-                elif (
-                    trait := scheme.class_own_traits(config=True).get(subkey, None)
-                ) is not None:
-                    key.trait = trait
-                    key.parse()
-                    outsec[subkey] = key
-                else:
-                    raise KeyError(f"Key '{key.key_init}' not found in specification.")
 
-        return output
+class TomlLoader(FileLoader):
+    extensions = ["toml"]
+
+
+class YamlLoader(FileLoader):
+    extensions = ["yaml", "yml"]
+
+
+class PyLoader(FileLoader):
+    extensions = ["py", "ipy"]

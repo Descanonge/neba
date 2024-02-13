@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Hashable, Iterator
+from collections.abc import Callable, Generator, Hashable, Iterator
 from inspect import Parameter, signature
 from typing import Any
 
 from traitlets import Bool, Instance, List, TraitType, Unicode, Union
 from traitlets.config import Configurable
-
 
 
 class FixableTrait(Union):
@@ -166,6 +165,29 @@ class Scheme(Configurable):
         for name, subscheme in cls._subschemes.items():
             config[name] = subscheme.class_traits_recursive()
         return config
+
+    # Lifted from traitlets.config.application.Application
+    def _classes_inc_parents(
+        self, classes: list[type[Scheme]] | None = None
+    ) -> Generator[type[Configurable], None, None]:
+        """Iterate through configurable classes, including configurable parents.
+
+        :param classes:
+            The list of classes to iterate; if not set, uses subschemes.
+
+        Children should always be after parents, and each class should only be
+        yielded once.
+        """
+        if classes is None:
+            classes = list(self._subschemes_recursive())
+
+        seen = set()
+        for c in classes:
+            # We want to sort parents before children, so we reverse the MRO
+            for parent in reversed(c.mro()):
+                if issubclass(parent, Configurable) and (parent not in seen):
+                    seen.add(parent)
+                    yield parent
 
     def instanciate_subschemes(self):
         """Recursively instanciate subschemes traits."""
