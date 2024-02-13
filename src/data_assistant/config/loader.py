@@ -36,6 +36,19 @@ class ConfigKV:
         self.trait: TraitType | None = None
         self.origin = origin
 
+    def __str__(self) -> str:
+        s = [f"{self.key_init}:"]
+        if self.value is not None:
+            s.append(str(self.value))
+        else:
+            s.append(str(self.input))
+        if self.origin is not None:
+            s.append(f"({self.origin})")
+        return " ".join(s)
+
+    def __repr__(self) -> str:
+        return "\n".join([super().__repr__(), str(self)])
+
     @property
     def path(self) -> list[str]:
         return self.key.split(".")
