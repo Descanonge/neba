@@ -121,15 +121,15 @@ class ConfigLoader:
 
         output = recurse(self.app.__class__)
 
-        outsec = output
         for key in keys:
+            outsec = output
             scheme: type[Scheme] = self.app.__class__
             for subkey in key.path:
-                # TODO: Aliases/shortcuts
                 if subkey in scheme._subschemes:
                     scheme = scheme._subschemes[subkey]
+                    outsec = outsec[subkey]  # type: ignore[assignment]
                 elif (
-                    trait := scheme.class_own_traits(config=True).get(subkey, None)
+                    trait := scheme.class_traits(config=True).get(subkey, None)
                 ) is not None:
                     key.trait = trait
                     key.parse()
