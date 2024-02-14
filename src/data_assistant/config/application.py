@@ -89,12 +89,14 @@ class ApplicationBase(Scheme):
         if not ignore_cli:
             self.parse_command_line(argv)
 
+        # TODO Assign every trait of self from CLI args
+
         # Read config files
         # Sets self.config
         if self.config_files:
             self.load_config_files()
 
-        self.conf = self.file_conf | self.cli_conf
+        self.conf = self.merge_configs(self.file_conf, self.cli_conf)
 
         self.instanciate_subschemes()
 
@@ -113,7 +115,7 @@ class ApplicationBase(Scheme):
         loader = self._create_cli_loader(argv, log=log, **kwargs)
         self.cli_conf = loader.load_config()
 
-    def load_config_files(self, log: logging.Logger | None = None) -> NestedKVType:
+    def load_config_files(self, log: logging.Logger | None = None):
         if log is None:
             log = self.log
         if isinstance(self.config_files, str):
@@ -137,7 +139,7 @@ class ApplicationBase(Scheme):
                     f" Supported loaders are {self.file_loaders}"
                 )
 
-        return self.merge_configs(*file_confs.values())
+        self.file_conf = self.merge_configs(*file_confs.values())
 
     def add_extra_parameter(
         self,
@@ -245,6 +247,8 @@ class ApplicationBase(Scheme):
                         self.log.debug("overwrite")
                     out[k] = v
                 else:
+                    for c in configs:
+                        c.setdefault(k, {})
                     configs_lower = [c[k] for c in configs]
                     out[k] = self.merge_configs(*configs_lower)  # type:ignore
 
