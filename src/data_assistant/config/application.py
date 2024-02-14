@@ -10,9 +10,8 @@ from .loader import (
     ConfigKV,
     ConfigLoader,
     FileLoader,
-    NestedKVType,
     PyLoader,
-    TomlLoader,
+    TomlKitLoader,
     YamlLoader,
 )
 from .scheme import Scheme
@@ -35,15 +34,15 @@ class ApplicationBase(Scheme):
 
     config_files = Union(
         [Unicode(), List(Unicode())],
-        default_value="config.py",
+        default_value="config.toml",
         help="Load those config files.",
     )
 
-    file_loaders: list[type[FileLoader]] = [TomlLoader, YamlLoader, PyLoader]
+    file_loaders: list[type[FileLoader]] = [TomlKitLoader, YamlLoader, PyLoader]
 
     def __init__(self, *args, **kwargs) -> None:
-        self.cli_conf: NestedKVType = {}
-        self.file_conf: NestedKVType = {}
+        self.cli_conf: dict[str, ConfigKV] = {}
+        self.file_conf: dict[str, ConfigKV] = {}
 
         self.log = logging.getLogger(__name__)
 
@@ -89,10 +88,10 @@ class ApplicationBase(Scheme):
         if not ignore_cli:
             self.parse_command_line(argv)
 
-        # TODO Assign every trait of self from CLI args
+        self.apply_cli_config()
 
         # Read config files
-        # Sets self.config
+        # Sets self.file_conf
         if self.config_files:
             self.load_config_files()
 
@@ -113,7 +112,12 @@ class ApplicationBase(Scheme):
         self, argv=None, log: logging.Logger | None = None, **kwargs
     ):
         loader = self._create_cli_loader(argv, log=log, **kwargs)
-        self.cli_conf = loader.load_config()
+        self.cli_conf = loader.get_config()
+
+    def apply_cli_config(self) -> None:
+        for kv in self.cli_conf.values():
+            if kv.container_cls is not None and isinstance(self, kv.container_cls):
+                setattr(self, kv.lastname, kv.value)
 
     def load_config_files(self, log: logging.Logger | None = None):
         if log is None:
@@ -121,7 +125,7 @@ class ApplicationBase(Scheme):
         if isinstance(self.config_files, str):
             self.config_files = [self.config_files]
 
-        file_confs: dict[str, NestedKVType] = {}
+        file_confs: dict[str, dict[str, ConfigKV]] = {}
         for filepath in self.config_files:
             _, ext = path.splitext(filepath)
 
@@ -130,7 +134,7 @@ class ApplicationBase(Scheme):
                 if ext.lstrip(".") in loader_cls.extensions:
                     found_loader = True
                     loader = loader_cls(filepath, self, log=log)
-                    file_confs[filepath] = loader.load_config()
+                    file_confs[filepath] = loader.get_config()
                     break
 
             if not found_loader:
@@ -140,6 +144,28 @@ class ApplicationBase(Scheme):
                 )
 
         self.file_conf = self.merge_configs(*file_confs.values())
+
+    def resolve_config(self, config: dict[str, ConfigKV]) -> dict[str, ConfigKV]:
+        config_classes = [cls.__name__ for cls in self.classes]
+
+        no_class_key = {}
+        for key, kv in config.items():
+            # Set the priority of class traits lower and duplicate them
+            if kv.prefix in config_classes:
+                kv.priority = 100
+                for fullkey in self.resolve_class_key(kv.path):
+                    no_class_key[fullkey] = kv.copy(key=fullkey)
+            else:
+                no_class_key[key] = kv
+
+        output = {}
+        for kv in no_class_key.values():
+            fullkey, container_cls, trait = self.class_get(kv.key)
+            kv.container_cls = container_cls
+            kv.trait = trait
+            output[fullkey] = kv
+
+        return output
 
     def add_extra_parameter(
         self,
@@ -200,7 +226,7 @@ class ApplicationBase(Scheme):
             already exists. Else, overwrite the file without questions.
         """
         if filename is None:
-            filename = self.config_file
+            filename = self.config_files
 
         filename = path.realpath(filename)
 
@@ -237,13 +263,15 @@ class ApplicationBase(Scheme):
 
     def merge_configs(
         self,
-        *configs: NestedKVType,
-    ) -> NestedKVType:
-        out: NestedKVType = {}
+        *configs: dict[str, ConfigKV],
+    ) -> dict[str, ConfigKV]:
+        out: dict[str, ConfigKV] = {}
         for c in configs:
             for k, v in c.items():
                 if isinstance(v, ConfigKV):
                     if k in out:
+                        if out[k].priority < v.priority:
+                            continue
                         self.log.debug("overwrite")
                     out[k] = v
                 else:

@@ -7,6 +7,8 @@ from typing import Any
 from traitlets import Bool, Instance, List, TraitType, Unicode, Union
 from traitlets.config import Configurable
 
+from .loader import ConfigKV
+
 
 class FixableTrait(Union):
     """Fixable parameter, specified in a filename pattern.
@@ -71,6 +73,8 @@ class Scheme(Configurable):
     _attr_completion_only_traits = Bool(
         False, help="Only keep configurable traits in attribute completion."
     )
+
+    aliases: dict[str, str] = {}
 
     def __init_subclass__(cls, /, **kwargs):
         """Subclass initialization hook.
@@ -149,6 +153,80 @@ class Scheme(Configurable):
         configurables = set(self.trait_names(config=True))
         subschemes = set(self._subschemes.keys())
         return configurables | subschemes
+
+    @classmethod
+    def resolve_key(cls, key: str | list[str]) -> str:
+        fullkey, *_ = cls.class_get(key)
+        return fullkey
+
+    @classmethod
+    def class_get(
+        cls, key: str | list[str]
+    ) -> tuple[str, type[Scheme], TraitType | None]:
+        if isinstance(key, str):
+            key = key.split(".")
+
+        fullkey = []
+
+        subscheme = cls
+        for subkey in key[:-1]:
+            if subkey in subscheme._subschemes:
+                subscheme = subscheme._subschemes[subkey]
+                fullkey.append(subkey)
+            elif subkey in cls.aliases:
+                alias = cls.aliases[subkey].split(".")
+                fullkey += alias
+                for alias_subkey in alias:
+                    subscheme = subscheme._subschemes[alias_subkey]
+            else:
+                raise KeyError(f"No subscheme '{subkey}' in class {subscheme}")
+
+        trait = getattr(subscheme, key[-1])
+
+        return ".".join(fullkey), subscheme, trait
+
+    def get(self, key: str | list[str]) -> tuple[str, Scheme, TraitType | None]:
+        if isinstance(key, str):
+            key = key.split(".")
+
+        fullkey = []
+
+        subscheme = self
+        for subkey in key[:-1]:
+            if subkey in subscheme._subschemes:
+                subscheme = getattr(subscheme, subkey)
+                fullkey.append(subkey)
+            elif subkey in self.aliases:
+                alias = self.aliases[subkey].split(".")
+                fullkey += alias
+                for alias_subkey in alias:
+                    subscheme = getattr(subscheme, alias_subkey)
+            else:
+                raise KeyError(f"No subscheme '{subkey}' in class {subscheme}")
+
+        trait = subscheme.traits()[key[-1]]
+
+        return ".".join(fullkey), subscheme, trait
+
+    @classmethod
+    def resolve_class_key(cls, key: str | list[str]) -> list[str]:
+        if isinstance(key, str):
+            key = key.split(".")
+        if len(key) > 2:
+            raise KeyError(
+                f"A parameter --Class.trait cannot be nested ({'.'.join(key)})."
+            )
+
+        clsname, traitname = key
+
+        def recurse(scheme: type[Scheme], fullpath: list[str]) -> Iterator[str]:
+            for name, subscheme in scheme._subschemes.items():
+                newpath = fullpath + [name]
+                if subscheme.__name__ == clsname:
+                    yield ".".join(newpath + [traitname])
+                yield from recurse(subscheme, newpath)
+
+        return list(recurse(cls, []))
 
     @classmethod
     def _subschemes_recursive(cls) -> Iterator[type[Scheme]]:

@@ -5,13 +5,13 @@ Extend loaders defined by traitlets for our needs (mainly nested configuration).
 from __future__ import annotations
 
 import argparse
+import importlib
 import logging
 import re
 from argparse import Action, ArgumentParser, _StoreAction
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
-
-from .scheme import Scheme
+from traitlets.traitlets import HasTraits
 
 if TYPE_CHECKING:
     from .application import ApplicationBase
@@ -20,11 +20,9 @@ from traitlets.traitlets import TraitType
 
 _DOT = "__DOT__"
 
-ConfigValueType = str | list[str]
-
 
 class ConfigKV:
-    def __init__(self, key: str, input: ConfigValueType, origin: str | None = None):
+    def __init__(self, key: str, input: Any, origin: str | None = None):
         if isinstance(input, list):
             if len(input) == 1:
                 input = input[0]
@@ -32,9 +30,12 @@ class ConfigKV:
         self.key = key
         self.key_init = key
         self.input = input
+        self.origin = origin
+
         self.value: Any | None = None
         self.trait: TraitType | None = None
-        self.origin = origin
+        self.container_cls: type[HasTraits] | None = None
+        self.priority: int = 0
 
     def __str__(self) -> str:
         s = [f"{self.key_init}:"]
@@ -49,6 +50,26 @@ class ConfigKV:
     def __repr__(self) -> str:
         return "\n".join([super().__repr__(), str(self)])
 
+    def copy(self, **kwargs) -> ConfigKV:
+        data = {
+            attr: getattr(self, attr)
+            for attr in [
+                "key",
+                "origin",
+                "value",
+                "trait",
+                "trait",
+                "container_cls",
+                "priority",
+            ]
+        }
+        data |= kwargs
+
+        out = self.__class__(key=self.key_init, input=self.input)
+        for attr, value in data.items():
+            setattr(out, attr, value)
+        return out
+
     @property
     def path(self) -> list[str]:
         return self.key.split(".")
@@ -56,6 +77,10 @@ class ConfigKV:
     @property
     def prefix(self) -> str:
         return self.path[0]
+
+    @property
+    def lastname(self) -> str:
+        return self.path[-1]
 
     def parse(self) -> None:
         if self.trait is None:
@@ -72,8 +97,10 @@ class ConfigKV:
                 "`from_string_list()`."
             ) from err
 
-
-NestedKVType = dict[str, ConfigKV | dict[str, "NestedKVType"]]
+    # def apply(self) -> None:
+    #     if self.container is None:
+    #         raise RuntimeError(f"No container for key '{self.key_init}'")
+    #     setattr(self.container, self.lastname, self.value)
 
 
 class ConfigLoader:
@@ -82,62 +109,13 @@ class ConfigLoader:
         if log is None:
             log = logging.getLogger(__name__)
         self.log = log
-        self.config: NestedKVType = {}
+        self.config: dict[str, ConfigKV] = {}
 
     def clear(self) -> None:
         self.config.clear()
 
-    def load_config(self) -> NestedKVType:
+    def get_config(self) -> dict[str, ConfigKV]:
         raise NotImplementedError
-
-    def normalize_keys(self, config: Sequence[ConfigKV]) -> NestedKVType:
-        """Normalize keys path and parse its value."""
-        class_keys: dict[str, ConfigKV] = {}
-        keys: list[ConfigKV] = []
-
-        classes_by_name = {cls.__name__: cls for cls in self.app.classes}
-
-        for key in config:
-            # Place class keys appart
-            if (cls := classes_by_name.get(key.prefix, None)) is not None:
-                if len(key.path) > 2:
-                    raise KeyError(
-                        f"A parameter --Class.trait cannot be nested ({key.key_init})."
-                    )
-                key.trait = cls.class_traits()[key.path[1]]
-                key.parse()
-                class_keys[key.prefix] = key
-                continue
-            keys.append(key)
-
-        # Generate output skeleton, and fill --Class.trait parameters
-        def recurse(scheme: type[Scheme]) -> NestedKVType:
-            out: NestedKVType = {}
-            for name, subscheme in scheme._subschemes.items():
-                out[name] = recurse(subscheme)  # type: ignore[assignment]
-            if (key := class_keys.get(scheme.__name__, None)) is not None:
-                out[key.path[1]] = key
-            return out
-
-        output = recurse(self.app.__class__)
-
-        for key in keys:
-            outsec = output
-            scheme: type[Scheme] = self.app.__class__
-            for subkey in key.path:
-                if subkey in scheme._subschemes:
-                    scheme = scheme._subschemes[subkey]
-                    outsec = outsec[subkey]  # type: ignore[assignment]
-                elif (
-                    trait := scheme.class_traits(config=True).get(subkey, None)
-                ) is not None:
-                    key.trait = trait
-                    key.parse()
-                    outsec[subkey] = key
-                else:
-                    raise KeyError(f"Key '{key.key_init}' not found in specification.")
-
-        return output
 
 
 class _GreedyDefaultOptionDict(dict[str, Action]):
@@ -200,14 +178,23 @@ class CLILoader(ConfigLoader):
     def create_parser(self, **kwargs) -> ArgumentParser:
         return self.parser_class(**kwargs)
 
-    def load_config(self, argv=None, raiseerror: bool = True) -> NestedKVType:
+    # TODO use a catch error decorator
+    def get_config(self, argv=None) -> dict[str, ConfigKV]:
+        # if argv is None ?
         self.clear()
-        config = vars(self.parser.parse_args())
+        args = vars(self.parser.parse_args(argv))
+        # convert to ConfigKV objects
         keyvals = [
             ConfigKV(name.replace(_DOT, "."), value, origin="CLI")
-            for name, value in config.items()
+            for name, value in args.items()
         ]
-        self.config = self.normalize_keys(keyvals)
+        config = {kv.key: kv for kv in keyvals}
+        # resolve paths
+        config = self.app.resolve_config(config)
+        # Parse using the traits
+        for kv in config.values():
+            kv.parse()
+        self.config = config
         return self.config
 
 
@@ -222,8 +209,46 @@ class FileLoader(ConfigLoader):
         self.filepath = filepath
 
 
-class TomlLoader(FileLoader):
+class TomlKitLoader(FileLoader):
     extensions = ["toml"]
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        import tomlkit
+
+        self.backend = tomlkit
+
+    # TODO use a catch error decorator
+    # so that any error is raise as a ConfigLoadingError, easy to catch in App
+    def get_config(self, filepath: str | None = None) -> dict[str, ConfigKV]:
+        # TODO Check file exist ?
+        if filepath is None:
+            filepath = self.filepath
+        self.clear()
+        with open(filepath) as fp:
+            root_table = self.backend.load(fp)
+
+        # flatten the dict
+        keyvals = []
+
+        def recurse(table, key):
+            for k, v in table.items():
+                newkey = key + [k]
+                if isinstance(v, self.backend.api.Table):
+                    recurse(v, newkey)
+                else:
+                    keyvals.append(ConfigKV(".".join(newkey), v.unwrap()))
+
+        recurse(root_table, [])
+
+        # no parsing, directly to values
+        for kv in keyvals:
+            kv.value = kv.input
+
+        config = {kv.key: kv for kv in keyvals}
+        config = self.app.resolve_config(config)
+        self.config = config
+        return self.config
 
 
 class YamlLoader(FileLoader):
