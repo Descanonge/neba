@@ -103,6 +103,21 @@ class ConfigKV:
     #     setattr(self.container, self.lastname, self.value)
 
 
+def to_value_dict(config: dict[str, ConfigKV]) -> dict[str, Any]:
+    output = {key: kv.value for key, kv in config.items()}
+    return output
+
+
+def to_nested_dict(config: dict[str, ConfigKV]) -> dict:
+    nested_conf: dict[str, Any] = {}
+    for kv in config.values():
+        subconf = nested_conf
+        for subkey in kv.path[:-1]:
+            subconf = subconf.setdefault(subkey, {})
+        subconf[kv.lastname] = kv
+    return nested_conf
+
+
 class ConfigLoader:
     def __init__(self, app: ApplicationBase, log: logging.Logger | None = None):
         self.app = app

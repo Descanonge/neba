@@ -13,6 +13,7 @@ from .loader import (
     PyLoader,
     TomlKitLoader,
     YamlLoader,
+    to_nested_dict,
 )
 from .scheme import Scheme
 
@@ -63,10 +64,6 @@ class ApplicationBase(Scheme):
 
         return decorator
 
-    @property
-    def classes(self):
-        return self._classes_inc_parents()
-
     def initialize(self, argv=None, ignore_cli: bool = False, instanciate: bool = True):
         """Initialize application.
 
@@ -97,7 +94,7 @@ class ApplicationBase(Scheme):
 
         self.conf = self.merge_configs(self.file_conf, self.cli_conf)
 
-        self.instanciate_subschemes()
+        self.instanciate_subschemes(to_nested_dict(self.conf))
 
     def _create_cli_loader(
         self,
@@ -145,28 +142,6 @@ class ApplicationBase(Scheme):
 
         self.file_conf = self.merge_configs(*file_confs.values())
 
-    def resolve_config(self, config: dict[str, ConfigKV]) -> dict[str, ConfigKV]:
-        config_classes = [cls.__name__ for cls in self.classes]
-
-        no_class_key = {}
-        for key, kv in config.items():
-            # Set the priority of class traits lower and duplicate them
-            if kv.prefix in config_classes:
-                kv.priority = 100
-                for fullkey in self.resolve_class_key(kv.path):
-                    no_class_key[fullkey] = kv.copy(key=fullkey)
-            else:
-                no_class_key[key] = kv
-
-        output = {}
-        for kv in no_class_key.values():
-            fullkey, container_cls, trait = self.class_get(kv.key)
-            kv.container_cls = container_cls
-            kv.trait = trait
-            output[fullkey] = kv
-
-        return output
-
     def add_extra_parameter(
         self,
         name: str,
@@ -199,8 +174,8 @@ class ApplicationBase(Scheme):
             if dest in self._subschemes:
                 dest = self._subschemes[dest]
             else:
-                idx = [cls.__name__ for cls in self.classes].index(dest)
-                dest = self.classes[idx]
+                classes = {cls.__name__: cls for cls in self._classes_inc_parents()}
+                dest = classes[dest]
 
         trait.tag(config=True)
         setattr(dest, name, trait)
@@ -226,7 +201,10 @@ class ApplicationBase(Scheme):
             already exists. Else, overwrite the file without questions.
         """
         if filename is None:
-            filename = self.config_files
+            if isinstance(self.config_files, list | tuple):
+                filename = self.config_files[0]
+            else:
+                filename = self.config_files
 
         filename = path.realpath(filename)
 
@@ -260,27 +238,6 @@ class ApplicationBase(Scheme):
 
         with open(filename, "w") as f:
             f.write("\n".join(lines))
-
-    def merge_configs(
-        self,
-        *configs: dict[str, ConfigKV],
-    ) -> dict[str, ConfigKV]:
-        out: dict[str, ConfigKV] = {}
-        for c in configs:
-            for k, v in c.items():
-                if isinstance(v, ConfigKV):
-                    if k in out:
-                        if out[k].priority < v.priority:
-                            continue
-                        self.log.debug("overwrite")
-                    out[k] = v
-                else:
-                    for c in configs:
-                        c.setdefault(k, {})
-                    configs_lower = [c[k] for c in configs]
-                    out[k] = self.merge_configs(*configs_lower)  # type:ignore
-
-        return out
 
     def _filter_parent_app(self, classes):
         for c in classes:

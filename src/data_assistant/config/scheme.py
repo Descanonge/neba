@@ -155,12 +155,140 @@ class Scheme(Configurable):
         return configurables | subschemes
 
     @classmethod
-    def resolve_key(cls, key: str | list[str]) -> str:
-        fullkey, *_ = cls.class_get(key)
-        return fullkey
+    def _subschemes_recursive(cls) -> Iterator[type[Scheme]]:
+        """Iterate recursively over all subschemes."""
+        for subscheme in cls._subschemes.values():
+            yield from subscheme._subschemes_recursive()
+        yield cls
 
     @classmethod
-    def class_get(
+    def class_traits_recursive(cls) -> dict:
+        """Return nested/recursive dict of all traits."""
+        config: dict[Any, Any] = dict()
+        config.update(cls.class_own_traits(config=True))
+        for name, subscheme in cls._subschemes.items():
+            config[name] = subscheme.class_traits_recursive()
+        return config
+
+    # Lifted from traitlets.config.application.Application
+    @classmethod
+    def _classes_inc_parents(
+        cls, classes: list[type[Scheme]] | None = None
+    ) -> Generator[type[Configurable], None, None]:
+        """Iterate through configurable classes, including configurable parents.
+
+        :param classes:
+            The list of classes to iterate; if not set, uses subschemes.
+
+        Children should always be after parents, and each class should only be
+        yielded once.
+        """
+        if classes is None:
+            classes = list(cls._subschemes_recursive())
+
+        seen = set()
+        for c in classes:
+            # We want to sort parents before children, so we reverse the MRO
+            for parent in reversed(c.mro()):
+                if issubclass(parent, Configurable) and (parent not in seen):
+                    seen.add(parent)
+                    yield parent
+
+    def instanciate_subschemes(self, config: dict):
+        """Recursively instanciate subschemes."""
+        for name, subscheme in self._subschemes.items():
+            subconf = config.get(name, {})
+            # discard subsubconfs using the scheme
+            kwargs = {
+                t: subconf[t]
+                for t in subscheme.class_trait_names(subscheme=None)
+                if t in subconf
+            }
+            # Transform from ConfigKV to a value
+            for key, kv in kwargs.items():
+                if isinstance(kv, ConfigKV):
+                    kwargs[key] = kv.value
+            # set trait to a new instance
+            self.set_trait(name, subscheme(parent=self, **kwargs))
+            # recursive on this new instance
+            getattr(self, name).instanciate_subschemes(subconf)
+
+    def remap(
+        self,
+        func: Callable[[Configurable, dict, Hashable, TraitType, list[str]], None],
+        **metadata,
+    ) -> dict[Hashable, Any]:
+        """Recursively apply function to traits.
+
+        Parameters
+        ----------
+        func:
+            Function to apply. Must take as argument: the current configurable,
+            a dictionnary of traits for the current configurable, the current
+            trait name, the current trait, and the current path (the list of
+            keys used to get to this configurable).
+
+            It needs not return any value. It should directly act on the
+            dictionnary.
+        metadata:
+            Select traits.
+        """
+        output = self.traits_recursive(**metadata)
+        self._remap(func, configurable=self, output=output, path=[])
+        return output
+
+    def _remap(
+        self, func: Callable, configurable: Configurable, output: dict, path: list[str]
+    ):
+        for name, trait in output.items():
+            if name in self._subschemes:
+                subscheme = getattr(self, name)
+                subscheme._remap(func, subscheme, output[name], path + [name])
+            else:
+                func(self, output, name, trait, path + [name])
+
+    def traits_recursive(self, **metadata) -> dict:
+        """Return nested dictionnary of traits."""
+        traits = dict()
+        for name, trait in self.traits(**metadata, subscheme=None).items():
+            traits[name] = trait
+        for name in self._subschemes:
+            traits[name] = getattr(self, name).traits_recursive(**metadata)
+        return traits
+
+    def defaults_recursive(self, config=True, **metadata):
+        """Return nested dictionnary of default traits values."""
+
+        def f(configurable, output, key, trait, path):
+            output[key] = trait.default()
+
+        output = self.remap(f, config=config, **metadata)
+        return output
+
+    def values_recursive(self, config=True, **metadata):
+        """Return nested dictionnary of traits values."""
+
+        def f(configurable, output, key, trait, path):
+            output[key] = trait.get(configurable)
+
+        output = self.remap(f, config=config, **metadata)
+        return output
+
+    def values(self, select: list[str] | None = None) -> dict:
+        """Return selection of parameters.
+
+        Only direct traits. Subschemes are ignored.
+        """
+        # get configurable, not subscheme traits
+        values = self.trait_values(config=True, subscheme=None)
+
+        # restrict to selection
+        if select is not None:
+            values = {k: v for k, v in values.items() if k in select}
+        return values
+
+    @classmethod
+    def class_resolve_key(
         cls, key: str | list[str]
     ) -> tuple[str, type[Scheme], TraitType | None]:
         if isinstance(key, str):
@@ -185,7 +313,7 @@ class Scheme(Configurable):
 
         return ".".join(fullkey), subscheme, trait
 
-    def get(self, key: str | list[str]) -> tuple[str, Scheme, TraitType | None]:
+    def resolve_key(self, key: str | list[str]) -> tuple[str, Scheme, TraitType | None]:
         if isinstance(key, str):
             key = key.split(".")
 
@@ -229,125 +357,48 @@ class Scheme(Configurable):
         return list(recurse(cls, []))
 
     @classmethod
-    def _subschemes_recursive(cls) -> Iterator[type[Scheme]]:
-        """Iterate recursively over all subschemes."""
-        for subscheme in cls._subschemes.values():
-            yield from subscheme._subschemes_recursive()
-        yield cls
+    def resolve_config(cls, config: dict[str, ConfigKV]) -> dict[str, ConfigKV]:
+        config_classes = [cls.__name__ for cls in cls._classes_inc_parents()]
 
-    @classmethod
-    def class_traits_recursive(cls) -> dict:
-        """Return nested/recursive dict of all traits."""
-        config: dict[Any, Any] = dict()
-        config.update(cls.class_own_traits(config=True))
-        for name, subscheme in cls._subschemes.items():
-            config[name] = subscheme.class_traits_recursive()
-        return config
-
-    # Lifted from traitlets.config.application.Application
-    def _classes_inc_parents(
-        self, classes: list[type[Scheme]] | None = None
-    ) -> Generator[type[Configurable], None, None]:
-        """Iterate through configurable classes, including configurable parents.
-
-        :param classes:
-            The list of classes to iterate; if not set, uses subschemes.
-
-        Children should always be after parents, and each class should only be
-        yielded once.
-        """
-        if classes is None:
-            classes = list(self._subschemes_recursive())
-
-        seen = set()
-        for c in classes:
-            # We want to sort parents before children, so we reverse the MRO
-            for parent in reversed(c.mro()):
-                if issubclass(parent, Configurable) and (parent not in seen):
-                    seen.add(parent)
-                    yield parent
-
-    def instanciate_subschemes(self):
-        """Recursively instanciate subschemes traits."""
-        for name, subscheme in self._subschemes.items():
-            # set trait to a new instance
-            self.set_trait(name, subscheme(parent=self))
-            # recursive on this new instance
-            getattr(self, name).instanciate_subschemes()
-
-    def traits_recursive(self, **metadata) -> dict:
-        """Return nested dictionnary of traits."""
-        traits = dict()
-        for name, trait in self.traits(**metadata, subscheme=None).items():
-            traits[name] = trait
-        for name in self._subschemes:
-            traits[name] = getattr(self, name).traits_recursive(**metadata)
-        return traits
-
-    def defaults_recursive(self, config=True, **metadata):
-        """Return nested dictionnary of default traits values."""
-
-        def f(configurable, output, key, trait, path):
-            output[key] = trait.default()
-
-        output = self.remap(f, config=config, **metadata)
-        return output
-
-    def values_recursive(self, config=True, **metadata):
-        """Return nested dictionnary of traits values."""
-
-        def f(configurable, output, key, trait, path):
-            output[key] = trait.get(configurable)
-
-        output = self.remap(f, config=config, **metadata)
-        return output
-
-    def values(self, select: list[str] | None = None) -> dict:
-        """Return selection of parameters.
-
-        Only direct traits. Subschemes are ignored.
-        """
-        # get configurable, not subscheme traits
-        values = self.trait_values(config=True, subscheme=None)
-
-        # restrict to selection
-        if select is not None:
-            values = {k: v for k, v in values.items() if k in select}
-        return values
-
-    def remap(
-        self,
-        func: Callable[[Configurable, dict, Hashable, TraitType, list[str]], None],
-        **metadata,
-    ) -> dict[Hashable, Any]:
-        """Recursively apply function to traits.
-
-        Parameters
-        ----------
-        func:
-            Function to apply. Must take as argument: the current configurable,
-            a dictionnary of traits for the current configurable, the current
-            trait name, the current trait, and the current path (the list of
-            keys used to get to this configurable).
-
-            It needs not return any value. It should directly act on the
-            dictionnary.
-        metadata:
-            Select traits.
-        """
-        output = self.traits_recursive(**metadata)
-        self._remap(func, configurable=self, output=output, path=[])
-        return output
-
-    def _remap(
-        self, func: Callable, configurable: Configurable, output: dict, path: list[str]
-    ):
-        for name, trait in output.items():
-            if name in self._subschemes:
-                subscheme = getattr(self, name)
-                subscheme._remap(func, subscheme, output[name], path + [name])
+        no_class_key = {}
+        for key, kv in config.items():
+            # Set the priority of class traits lower and duplicate them
+            if kv.prefix in config_classes:
+                kv.priority = 100
+                for fullkey in cls.resolve_class_key(kv.path):
+                    no_class_key[fullkey] = kv.copy(key=fullkey)
             else:
-                func(self, output, name, trait, path + [name])
+                no_class_key[key] = kv
+
+        output = {}
+        for kv in no_class_key.values():
+            fullkey, container_cls, trait = cls.class_resolve_key(kv.key)
+            kv.container_cls = container_cls
+            kv.trait = trait
+            output[fullkey] = kv
+
+        return output
+
+    def merge_configs(
+        self,
+        *configs: dict[str, ConfigKV],
+    ) -> dict[str, ConfigKV]:
+        out: dict[str, ConfigKV] = {}
+        for c in configs:
+            for k, v in c.items():
+                if isinstance(v, ConfigKV):
+                    if k in out:
+                        if out[k].priority < v.priority:
+                            continue
+                        # TODO log debug overwrite
+                    out[k] = v
+                else:
+                    for c in configs:
+                        c.setdefault(k, {})
+                    configs_lower = [c[k] for c in configs]
+                    out[k] = self.merge_configs(*configs_lower)  # type:ignore
+
+        return out
 
     def trait_values_from_func_signature(
         self, func: Callable, trait_select: dict | None = None, **kwargs
