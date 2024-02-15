@@ -48,6 +48,7 @@ class ConfigKV:
         return " ".join(s)
 
     def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({str(self)})"
         return "\n".join([super().__repr__(), str(self)])
 
     def copy(self, **kwargs) -> ConfigKV:
