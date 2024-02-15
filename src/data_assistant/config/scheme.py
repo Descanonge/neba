@@ -379,8 +379,9 @@ class Scheme(Configurable):
 
         return output
 
+    @classmethod
     def merge_configs(
-        self,
+        cls,
         *configs: dict[str, ConfigKV],
     ) -> dict[str, ConfigKV]:
         out: dict[str, ConfigKV] = {}
@@ -396,7 +397,7 @@ class Scheme(Configurable):
                     for c in configs:
                         c.setdefault(k, {})
                     configs_lower = [c[k] for c in configs]
-                    out[k] = self.merge_configs(*configs_lower)  # type:ignore
+                    out[k] = cls.merge_configs(*configs_lower)  # type:ignore
 
         return out
 
