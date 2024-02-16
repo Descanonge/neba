@@ -11,7 +11,7 @@ import re
 import sys
 from argparse import Action, ArgumentParser, _StoreAction
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 from traitlets.traitlets import HasTraits
 
 if TYPE_CHECKING:
@@ -135,15 +135,25 @@ class ConfigLoader:
         raise NotImplementedError
 
 
-class _GreedyDefaultOptionDict(dict[str, Action]):
+class _DefaultOptionDict(dict[str, Action]):
     option_pattern = re.compile(r"^--?[A-Za-z_]\w*(\.\w+)*$")
 
     def _add_action(self, key: str) -> None:
-        self[key] = _StoreAction(
+        self[key] = self._create_action(key)
+
+    @staticmethod
+    def _create_action(key: str) -> Action:
+        action = _StoreAction(
             option_strings=[key],
             dest=key.lstrip("-").replace(".", _DOT),
-            nargs="+",
+            type=str,
+            nargs="*",
         )
+        return action
+
+    @classmethod
+    def _set_action_creation(cls, func: Callable[[str], Action]) -> None:
+        cls._create_action = staticmethod(func)  # type: ignore
 
     def __contains__(self, key) -> bool:
         if super().__contains__(key):
@@ -169,7 +179,10 @@ class _GreedyDefaultOptionDict(dict[str, Action]):
 class GreedyArgumentParser(ArgumentParser):
     """Subclass of ArgumentParser that accepts any option."""
 
-    defaultdict_class: type[dict] = _GreedyDefaultOptionDict
+    _action_creation_func: Callable[[str], Action] | None = None
+
+    def set_action_creation(self, func: Callable[[str], Action]) -> None:
+        self._action_creation_func = func
 
     def parse_known_args(  # type:ignore[override]
         self,
@@ -178,8 +191,14 @@ class GreedyArgumentParser(ArgumentParser):
     ) -> tuple[argparse.Namespace | None, list[str]]:
         # must be done immediately prior to parsing because if we do it in init,
         # registration of explicit actions via parser.add_option will fail during setup
+
+        # Setup defaultdict
+        defaultdict_class = _DefaultOptionDict
+        if self._action_creation_func is not None:
+            defaultdict_class._set_action_creation(self._action_creation_func)
+
         for container in (self, self._optionals):
-            container._option_string_actions = self.defaultdict_class(
+            container._option_string_actions = defaultdict_class(
                 container._option_string_actions
             )
         return super().parse_known_args(args, namespace)
@@ -190,10 +209,14 @@ class CLILoader(ConfigLoader):
 
     def __init__(self, app: ApplicationBase, **kwargs):
         super().__init__(app, **kwargs)
-        self.parser: ArgumentParser = self.create_parser()
+        self.parser = self.create_parser()
 
     def create_parser(self, **kwargs) -> ArgumentParser:
-        return self.parser_class(**kwargs)
+        kwargs.setdefault("add_help", False)
+        parser = self.parser_class(**kwargs)
+        # The default action can be changed here if needed
+        # parser.set_action_creation(func)
+        return parser
 
     # TODO use a catch error decorator
     def get_config(self, argv: list[str] | None = None) -> dict[str, ConfigKV]:
