@@ -8,6 +8,7 @@ import argparse
 import importlib
 import logging
 import re
+import sys
 from argparse import Action, ArgumentParser, _StoreAction
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
@@ -195,16 +196,24 @@ class CLILoader(ConfigLoader):
         return self.parser_class(**kwargs)
 
     # TODO use a catch error decorator
-    def get_config(self, argv=None) -> dict[str, ConfigKV]:
-        # if argv is None ?
+    def get_config(self, argv: list[str] | None = None) -> dict[str, ConfigKV]:
         self.clear()
+
+        # ArgumentParser does its job
         args = vars(self.parser.parse_args(argv))
+
         # convert to ConfigKV objects
         keyvals = [
             ConfigKV(name.replace(_DOT, "."), value, origin="CLI")
             for name, value in args.items()
         ]
         config = {kv.key: kv for kv in keyvals}
+
+        # check if there are any help flags
+        if "help" in config:
+            print("\n".join(self.app.emit_help()))
+            self.app.exit()
+
         # resolve paths
         config = self.app.resolve_config(config)
         # Parse using the traits

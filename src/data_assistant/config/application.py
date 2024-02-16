@@ -1,5 +1,6 @@
 import logging
-from collections.abc import Callable
+import sys
+from collections.abc import Callable, Iterator
 from os import path
 
 from traitlets import Bool, Instance, List, TraitType, Unicode, Union
@@ -108,6 +109,8 @@ class ApplicationBase(Scheme):
     def parse_command_line(
         self, argv=None, log: logging.Logger | None = None, **kwargs
     ):
+        # argv handling should go here in case we want something fancier
+        # At the moment we pass None down to ArgumentParser
         loader = self._create_cli_loader(argv, log=log, **kwargs)
         self.cli_conf = loader.get_config()
 
@@ -244,6 +247,12 @@ class ApplicationBase(Scheme):
             if issubclass(c, Application) and c != self.__class__:
                 continue
             yield c
+
+    def emit_help(self) -> Iterator[str]:
+        yield "lol"
+
+    def exit(self, exit_status: int | str = 0):
+        sys.exit(exit_status)
 
     def generate_config_file(self, classes=None):
         """Generate default config file from Configurables.

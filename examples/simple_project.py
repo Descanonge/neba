@@ -31,21 +31,5 @@ if __name__ == "__main__":
     # config file or command line arguments.
     app.initialize()
 
-    # Eventually, execute some actions if prompted like printing
-    # the configuration or overwritting the config file.
-    app.start()
-
-    # Eventually initialize all subschemes/traits:
-    # this instanciate all schemes with the retrieved config
-    # (this might be a lot for large schemes !)
-    # it (sorta) validates the config values at the same time
-    # app.instanciate_subschemes()
     # Values (default or overriden) can be accessed with:
     print(app.parameters.region)
-    # At the moment, they cannot be set like this.
-    # All config key-values are still Class.attribute=stuff.
-    # Maybe in the future we can allow parameters.dask.cluster=stuff ?
-
-    # The configuration can be access in the form of a nested
-    # dictionnary (traitlets.config.ConfigDict)
-    c = app.config
