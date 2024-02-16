@@ -233,19 +233,19 @@ class Scheme(Configurable):
         metadata:
             Select traits.
         """
-        output = self.traits_recursive(**metadata)
-        self._remap(func, configurable=self, output=output, path=[])
-        return output
 
-    def _remap(
-        self, func: Callable, configurable: Configurable, output: dict, path: list[str]
-    ):
-        for name, trait in output.items():
-            if name in self._subschemes:
-                subscheme = getattr(self, name)
-                subscheme._remap(func, subscheme, output[name], path + [name])
-            else:
-                func(self, output, name, trait, path + [name])
+        def recurse(scheme: Scheme, outsec: dict, path: list[str]):
+            for name, trait in outsec.items():
+                newpath = path + [name]
+                if name in scheme._subschemes:
+                    subscheme = getattr(scheme, name)
+                    recurse(subscheme, outsec[name], newpath)
+                else:
+                    func(scheme, outsec, name, trait, newpath)
+
+        output = self.traits_recursive(**metadata)
+        recurse(self, output, [])
+        return output
 
     def traits_recursive(self, **metadata) -> dict:
         """Return nested dictionnary of traits."""
