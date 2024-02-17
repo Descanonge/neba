@@ -143,7 +143,10 @@ class ApplicationBase(Scheme):
                     f" Supported loaders are {self.file_loaders}"
                 )
 
-        self.file_conf = self.merge_configs(*file_confs.values())
+        if len(file_confs) > 1:
+            self.file_conf = self.merge_configs(*file_confs.values())
+        else:
+            self.file_conf = list(file_confs.values())[0]
 
     def add_extra_parameter(
         self,

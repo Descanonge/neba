@@ -292,6 +292,7 @@ class TomlKitLoader(FileLoader):
         # no parsing, directly to values
         for kv in keyvals:
             kv.value = kv.input
+            kv.origin = filepath
 
         config = {kv.key: kv for kv in keyvals}
         config = self.app.resolve_config(config)
