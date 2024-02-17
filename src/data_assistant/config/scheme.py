@@ -294,10 +294,10 @@ class Scheme(Configurable):
         if isinstance(key, str):
             key = key.split(".")
 
+        *prefix, lastname = key
         fullkey = []
-
         subscheme = cls
-        for subkey in key[:-1]:
+        for subkey in prefix:
             if subkey in subscheme._subschemes:
                 subscheme = subscheme._subschemes[subkey]
                 fullkey.append(subkey)
@@ -309,18 +309,18 @@ class Scheme(Configurable):
             else:
                 raise KeyError(f"No subscheme '{subkey}' in class {subscheme}")
 
-        trait = getattr(subscheme, key[-1])
+        trait = getattr(subscheme, lastname)
 
-        return ".".join(fullkey), subscheme, trait
+        return ".".join(fullkey + [lastname]), subscheme, trait
 
     def resolve_key(self, key: str | list[str]) -> tuple[str, Scheme, TraitType | None]:
         if isinstance(key, str):
             key = key.split(".")
 
+        *prefix, lastname = key
         fullkey = []
-
         subscheme = self
-        for subkey in key[:-1]:
+        for subkey in prefix:
             if subkey in subscheme._subschemes:
                 subscheme = getattr(subscheme, subkey)
                 fullkey.append(subkey)
@@ -332,9 +332,9 @@ class Scheme(Configurable):
             else:
                 raise KeyError(f"No subscheme '{subkey}' in class {subscheme}")
 
-        trait = subscheme.traits()[key[-1]]
+        trait = subscheme.traits()[lastname]
 
-        return ".".join(fullkey), subscheme, trait
+        return ".".join(fullkey + [lastname]), subscheme, trait
 
     @classmethod
     def resolve_class_key(cls, key: str | list[str]) -> list[str]:
