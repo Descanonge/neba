@@ -13,6 +13,7 @@ from argparse import Action, ArgumentParser, _StoreAction
 from collections.abc import Sequence, MutableMapping, Iterator
 from typing import TYPE_CHECKING, Any, Callable, TypeVar
 from traitlets.traitlets import HasTraits
+from traitlets.utils.sentinel import Sentinel
 
 if TYPE_CHECKING:
     from .application import ApplicationBase
@@ -20,6 +21,11 @@ if TYPE_CHECKING:
 from traitlets.traitlets import TraitType
 
 _DOT = "__DOT__"
+
+
+Undefined = Sentinel(
+    "Undefined", "data-assistant", "Configuration value not (yet) set or parsed."
+)
 
 
 class ConfigKV:
@@ -33,17 +39,14 @@ class ConfigKV:
         self.input = input
         self.origin = origin
 
-        self.value: Any | None = None
+        self.value: Any = Undefined
         self.trait: TraitType | None = None
         self.container_cls: type[HasTraits] | None = None
         self.priority: int = 0
 
     def __str__(self) -> str:
         s = [f"{self.key_init}:"]
-        if self.value is not None:
-            s.append(str(self.value))
-        else:
-            s.append(str(self.input))
+        s.append(str(self.get_value()))
         if self.origin is not None:
             s.append(f"({self.origin})")
         return " ".join(s)
@@ -82,6 +85,11 @@ class ConfigKV:
     @property
     def lastname(self) -> str:
         return self.path[-1]
+
+    def get_value(self) -> Any:
+        if self.value is not Undefined:
+            return self.value
+        return self.input
 
     def parse(self) -> None:
         if self.trait is None:

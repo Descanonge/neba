@@ -207,7 +207,7 @@ class Scheme(Configurable):
             # Transform from ConfigKV to a value
             for key, kv in kwargs.items():
                 if isinstance(kv, ConfigKV):
-                    kwargs[key] = kv.value
+                    kwargs[key] = kv.get_value()
             # set trait to a new instance
             self.set_trait(name, subscheme(parent=self, **kwargs))
             # recursive on this new instance
