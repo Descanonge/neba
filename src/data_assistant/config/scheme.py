@@ -7,7 +7,7 @@ from typing import Any
 from traitlets import Bool, Instance, List, TraitType, Unicode, Union
 from traitlets.config import Configurable
 
-from .loader import ConfigKV
+from .loader import ConfigKV, ConfigDict
 
 
 class FixableTrait(Union):
@@ -357,10 +357,10 @@ class Scheme(Configurable):
         return list(recurse(cls, []))
 
     @classmethod
-    def resolve_config(cls, config: dict[str, ConfigKV]) -> dict[str, ConfigKV]:
+    def resolve_config(cls, config: ConfigDict) -> ConfigDict:
         config_classes = [cls.__name__ for cls in cls._classes_inc_parents()]
 
-        no_class_key = {}
+        no_class_key = ConfigDict()
         for key, kv in config.items():
             # Set the priority of class traits lower and duplicate them
             if kv.prefix in config_classes:
@@ -370,7 +370,7 @@ class Scheme(Configurable):
             else:
                 no_class_key[key] = kv
 
-        output = {}
+        output = ConfigDict()
         for kv in no_class_key.values():
             fullkey, container_cls, trait = cls.class_resolve_key(kv.key)
             kv.container_cls = container_cls
@@ -382,9 +382,9 @@ class Scheme(Configurable):
     @classmethod
     def merge_configs(
         cls,
-        *configs: dict[str, ConfigKV],
-    ) -> dict[str, ConfigKV]:
-        out: dict[str, ConfigKV] = {}
+        *configs: ConfigDict,
+    ) -> ConfigDict:
+        out = ConfigDict()
         for c in configs:
             for k, v in c.items():
                 if isinstance(v, ConfigKV):

@@ -10,8 +10,8 @@ import logging
 import re
 import sys
 from argparse import Action, ArgumentParser, _StoreAction
-from collections.abc import Sequence
-from typing import TYPE_CHECKING, Any, Callable
+from collections.abc import Sequence, MutableMapping, Iterator
+from typing import TYPE_CHECKING, Any, Callable, TypeVar
 from traitlets.traitlets import HasTraits
 
 if TYPE_CHECKING:
@@ -50,7 +50,6 @@ class ConfigKV:
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({str(self)})"
-        return "\n".join([super().__repr__(), str(self)])
 
     def copy(self, **kwargs) -> ConfigKV:
         data = {
@@ -105,19 +104,59 @@ class ConfigKV:
     #     setattr(self.container, self.lastname, self.value)
 
 
-def to_value_dict(config: dict[str, ConfigKV]) -> dict[str, Any]:
-    output = {key: kv.value for key, kv in config.items()}
-    return output
+_KT = str
+_VT = ConfigKV
 
 
-def to_nested_dict(config: dict[str, ConfigKV]) -> dict:
-    nested_conf: dict[str, Any] = {}
-    for kv in config.values():
-        subconf = nested_conf
-        for subkey in kv.path[:-1]:
-            subconf = subconf.setdefault(subkey, {})
-        subconf[kv.lastname] = kv
-    return nested_conf
+class ConfigDict(MutableMapping[_KT, _VT]):
+    """Mapping of keys to ConfigKVs.
+
+    It maintains equality between the mapping key, and the value ``ConfigKV.key``.
+    """
+
+    def __init__(self, *args, **kwargs: _VT) -> None:
+        self.config: dict[_KT, _VT] = dict()
+        self.update(dict(*args, **kwargs))
+
+    def __str__(self) -> str:
+        out = [f"{self.__class__.__name__}{{"]
+        for kv in self.config.values():
+            out.append(f"{kv.key}: {kv.get_value()} ({kv.origin})")
+        out[-1] += "}"
+        return "\n".join(out)
+
+    def __repr__(self) -> str:
+        return self.__str__()
+
+    def __getitem__(self, key: _KT) -> _VT:
+        return self.config[key]
+
+    def __setitem__(self, key: _KT, value: _VT) -> None:
+        if isinstance(value, ConfigKV):
+            value.key = key
+        self.config[key] = value
+
+    def __delitem__(self, key: _KT) -> None:
+        self.config.__delitem__(key)
+
+    def __iter__(self) -> Iterator[_KT]:
+        return iter(self.config)
+
+    def __len__(self) -> int:
+        return len(self.config)
+
+    def to_value_dict(self) -> dict[_KT, Any]:
+        output = {key: kv.value for key, kv in self.config.items()}
+        return output
+
+    def to_nested_dict(self) -> dict:
+        nested_conf: dict[str, Any] = {}
+        for kv in self.config.values():
+            subconf = nested_conf
+            for subkey in kv.path[:-1]:
+                subconf = subconf.setdefault(subkey, {})
+            subconf[kv.lastname] = kv
+        return nested_conf
 
 
 class ConfigLoader:
@@ -126,12 +165,12 @@ class ConfigLoader:
         if log is None:
             log = logging.getLogger(__name__)
         self.log = log
-        self.config: dict[str, ConfigKV] = {}
+        self.config = ConfigDict()
 
     def clear(self) -> None:
         self.config.clear()
 
-    def get_config(self) -> dict[str, ConfigKV]:
+    def get_config(self) -> ConfigDict:
         raise NotImplementedError
 
 
@@ -219,7 +258,7 @@ class CLILoader(ConfigLoader):
         return parser
 
     # TODO use a catch error decorator
-    def get_config(self, argv: list[str] | None = None) -> dict[str, ConfigKV]:
+    def get_config(self, argv: list[str] | None = None) -> ConfigDict:
         self.clear()
 
         # ArgumentParser does its job
@@ -230,7 +269,7 @@ class CLILoader(ConfigLoader):
             ConfigKV(name.replace(_DOT, "."), value, origin="CLI")
             for name, value in args.items()
         ]
-        config = {kv.key: kv for kv in keyvals}
+        config = ConfigDict({kv.key: kv for kv in keyvals})
 
         # check if there are any help flags
         if "help" in config:
@@ -268,7 +307,7 @@ class TomlKitLoader(FileLoader):
 
     # TODO use a catch error decorator
     # so that any error is raise as a ConfigLoadingError, easy to catch in App
-    def get_config(self, filepath: str | None = None) -> dict[str, ConfigKV]:
+    def get_config(self, filepath: str | None = None) -> ConfigDict:
         # TODO Check file exist ?
         if filepath is None:
             filepath = self.filepath
@@ -294,7 +333,7 @@ class TomlKitLoader(FileLoader):
             kv.value = kv.input
             kv.origin = filepath
 
-        config = {kv.key: kv for kv in keyvals}
+        config = ConfigDict({kv.key: kv for kv in keyvals})
         config = self.app.resolve_config(config)
         self.config = config
         return self.config
