@@ -7,7 +7,7 @@ from typing import Any
 from traitlets import Bool, Instance, List, TraitType, Unicode, Union
 from traitlets.config import Configurable
 
-from .loader import ConfigKey, ConfigValue
+from .loader import ConfigValue
 
 
 class FixableTrait(Union):
@@ -356,9 +356,7 @@ class Scheme(Configurable):
         return list(recurse(cls, []))
 
     @classmethod
-    def resolve_config(
-        cls, config: dict[ConfigKey, ConfigValue]
-    ) -> dict[ConfigKey, ConfigValue]:
+    def resolve_config(cls, config: dict[str, ConfigValue]) -> dict[str, ConfigValue]:
         config_classes = [cls.__name__ for cls in cls._classes_inc_parents()]
 
         # Transform Class.trait keys into fullkeys
@@ -366,29 +364,29 @@ class Scheme(Configurable):
         for key, val in config.items():
             # Set the priority of class traits lower and duplicate them
             # for each instance of their class in the config tree
-            if key.root in config_classes:
+            if key.split(".")[0] in config_classes:
                 val.priority = 100
-                for fullkey in cls.resolve_class_key(key.path):
+                for fullkey in cls.resolve_class_key(key):
                     no_class_key[fullkey] = val.copy(key=fullkey)
             else:
-                no_class_key[key.key] = val
+                no_class_key[key] = val
 
         # Resolve fullpath for all keys
         output = {}
-        for key_str, val in no_class_key.items():
-            fullkey, container_cls, trait = cls.class_resolve_key(key_str)
+        for key, val in no_class_key.items():
+            fullkey, container_cls, trait = cls.class_resolve_key(key)
             val.container_cls = container_cls
             val.trait = trait
-            output[ConfigKey(fullkey)] = val
+            output[fullkey] = val
 
         return output
 
     @classmethod
     def merge_configs(
         cls,
-        *configs: dict[ConfigKey, ConfigValue],
-    ) -> dict[ConfigKey, ConfigValue]:
-        out: dict[ConfigKey, ConfigValue] = {}
+        *configs: dict[str, ConfigValue],
+    ) -> dict[str, ConfigValue]:
+        out: dict[str, ConfigValue] = {}
         for c in configs:
             for k, v in c.items():
                 if isinstance(v, ConfigValue):

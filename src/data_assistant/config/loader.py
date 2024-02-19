@@ -10,8 +10,8 @@ import logging
 import re
 import sys
 from argparse import Action, ArgumentParser, _StoreAction
-from collections.abc import Sequence, MutableMapping, Iterator
-from typing import TYPE_CHECKING, Any, Callable, TypeVar
+from collections.abc import Sequence, Callable
+from typing import TYPE_CHECKING, Any
 from traitlets.traitlets import HasTraits
 from traitlets.utils.sentinel import Sentinel
 
@@ -26,36 +26,6 @@ _DOT = "__DOT__"
 Undefined = Sentinel(
     "Undefined", "data-assistant", "Configuration value not (yet) set or parsed."
 )
-
-
-class ConfigKey:
-    def __init__(self, key: str) -> None:
-        self.key_init = key
-        self.key = key
-
-    def __repr__(self) -> str:
-        return self.key
-
-    def __str__(self) -> str:
-        return self.key
-
-    def __eq__(self, other) -> bool:
-        return self.key == other.key
-
-    def __hash__(self):
-        return hash(self.key)
-
-    @property
-    def path(self) -> list[str]:
-        return self.key.split(".")
-
-    @property
-    def root(self) -> str:
-        return self.path[0]
-
-    @property
-    def lastname(self) -> str:
-        return self.path[-1]
 
 
 class ConfigValue:
@@ -128,18 +98,18 @@ class ConfigValue:
     #     setattr(self.container, self.lastname, self.value)
 
 
-def to_dict(config: dict[ConfigKey, ConfigValue]) -> dict[str, Any]:
+def to_dict(config: dict[str, ConfigValue]) -> dict[str, Any]:
     output = {str(key): val.get_value() for key, val in config.items()}
     return output
 
 
-def to_nested_dict(config: dict[ConfigKey, ConfigValue]) -> dict[str, Any]:
+def to_nested_dict(config: dict[str, ConfigValue]) -> dict[str, Any]:
     nested_conf: dict[str, Any] = {}
     for key, val in config.items():
         subconf = nested_conf
-        for subkey in key.path[:-1]:
+        for subkey in key.split(".")[:-1]:
             subconf = subconf.setdefault(subkey, {})
-        subconf[key.lastname] = val
+        subconf[key.split(".")[-1]] = val
     return nested_conf
 
 
@@ -149,12 +119,12 @@ class ConfigLoader:
         if log is None:
             log = logging.getLogger(__name__)
         self.log = log
-        self.config: dict[ConfigKey, ConfigValue] = {}
+        self.config: dict[str, ConfigValue] = {}
 
     def clear(self) -> None:
         self.config.clear()
 
-    def get_config(self) -> dict[ConfigKey, ConfigValue]:
+    def get_config(self) -> dict[str, ConfigValue]:
         raise NotImplementedError
 
 
@@ -242,7 +212,7 @@ class CLILoader(ConfigLoader):
         return parser
 
     # TODO use a catch error decorator
-    def get_config(self, argv: list[str] | None = None) -> dict[ConfigKey, ConfigValue]:
+    def get_config(self, argv: list[str] | None = None) -> dict[str, ConfigValue]:
         self.clear()
 
         # ArgumentParser does its job
@@ -252,7 +222,7 @@ class CLILoader(ConfigLoader):
         config = {}
         for name, value in args.items():
             key = name.replace(_DOT, ".")
-            config[ConfigKey(key)] = ConfigValue(value, key, origin="CLI")
+            config[key] = ConfigValue(value, key, origin="CLI")
 
         # check if there are any help flags
         if "help" in config:
@@ -290,7 +260,7 @@ class TomlKitLoader(FileLoader):
 
     # TODO use a catch error decorator
     # so that any error is raise as a ConfigLoadingError, easy to catch in App
-    def get_config(self, filepath: str | None = None) -> dict[ConfigKey, ConfigValue]:
+    def get_config(self, filepath: str | None = None) -> dict[str, ConfigValue]:
         # TODO Check file exist ?
         if filepath is None:
             filepath = self.filepath
@@ -311,7 +281,7 @@ class TomlKitLoader(FileLoader):
                     value = ConfigValue(v.unwrap(), fullkey, origin=filepath)
                     # no parsing, directly to values
                     value.value = value.input
-                    config[ConfigKey(fullkey)] = value
+                    config[fullkey] = value
 
         recurse(root_table, [])
 

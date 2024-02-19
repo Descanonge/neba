@@ -9,7 +9,6 @@ from traitlets.config import Application, Configurable
 from .loader import (
     to_nested_dict,
     CLILoader,
-    ConfigKey,
     ConfigValue,
     ConfigLoader,
     FileLoader,
@@ -44,8 +43,8 @@ class ApplicationBase(Scheme):
     file_loaders: list[type[FileLoader]] = [TomlKitLoader, YamlLoader, PyLoader]
 
     def __init__(self, *args, **kwargs) -> None:
-        self.cli_conf: dict[ConfigKey, ConfigValue] = {}
-        self.file_conf: dict[ConfigKey, ConfigValue] = {}
+        self.cli_conf: dict[str, ConfigValue] = {}
+        self.file_conf: dict[str, ConfigValue] = {}
 
         self.log = logging.getLogger(__name__)
 
@@ -118,7 +117,7 @@ class ApplicationBase(Scheme):
     def apply_cli_config(self) -> None:
         for key, val in self.cli_conf.items():
             if val.container_cls is not None and isinstance(self, val.container_cls):
-                setattr(self, key.lastname, val.value)
+                setattr(self, key.split(".")[-1], val.value)
 
     def load_config_files(self, log: logging.Logger | None = None):
         if log is None:
@@ -126,7 +125,7 @@ class ApplicationBase(Scheme):
         if isinstance(self.config_files, str):
             self.config_files = [self.config_files]
 
-        file_confs: dict[str, dict[ConfigKey, ConfigValue]] = {}
+        file_confs: dict[str, dict[str, ConfigValue]] = {}
         for filepath in self.config_files:
             _, ext = path.splitext(filepath)
 
