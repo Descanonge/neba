@@ -7,7 +7,7 @@ from typing import Any
 from traitlets import Bool, Instance, List, TraitType, Unicode, Union
 from traitlets.config import Configurable
 
-from .loader import ConfigKV, ConfigDict
+from .loader import ConfigKey, ConfigValue
 
 
 class FixableTrait(Union):
@@ -194,7 +194,7 @@ class Scheme(Configurable):
                     seen.add(parent)
                     yield parent
 
-    def instanciate_subschemes(self, config: dict):
+    def instanciate_subschemes(self, config: dict[str, Any]):
         """Recursively instanciate subschemes."""
         for name, subscheme in self._subschemes.items():
             subconf = config.get(name, {})
@@ -204,10 +204,9 @@ class Scheme(Configurable):
                 for t in subscheme.class_trait_names(subscheme=None)
                 if t in subconf
             }
-            # Transform from ConfigKV to a value
-            for key, kv in kwargs.items():
-                if isinstance(kv, ConfigKV):
-                    kwargs[key] = kv.get_value()
+            # Transform from ConfigValue to a value
+            for key, val in kwargs.items():
+                kwargs[key] = val.get_value()
             # set trait to a new instance
             self.set_trait(name, subscheme(parent=self, **kwargs))
             # recursive on this new instance
@@ -357,37 +356,42 @@ class Scheme(Configurable):
         return list(recurse(cls, []))
 
     @classmethod
-    def resolve_config(cls, config: ConfigDict) -> ConfigDict:
+    def resolve_config(
+        cls, config: dict[ConfigKey, ConfigValue]
+    ) -> dict[ConfigKey, ConfigValue]:
         config_classes = [cls.__name__ for cls in cls._classes_inc_parents()]
 
-        no_class_key = ConfigDict()
-        for key, kv in config.items():
+        # Transform Class.trait keys into fullkeys
+        no_class_key: dict[str, ConfigValue] = {}
+        for key, val in config.items():
             # Set the priority of class traits lower and duplicate them
-            if kv.prefix in config_classes:
-                kv.priority = 100
-                for fullkey in cls.resolve_class_key(kv.path):
-                    no_class_key[fullkey] = kv.copy(key=fullkey)
+            # for each instance of their class in the config tree
+            if key.root in config_classes:
+                val.priority = 100
+                for fullkey in cls.resolve_class_key(key.path):
+                    no_class_key[fullkey] = val.copy(key=fullkey)
             else:
-                no_class_key[key] = kv
+                no_class_key[key.key] = val
 
-        output = ConfigDict()
-        for kv in no_class_key.values():
-            fullkey, container_cls, trait = cls.class_resolve_key(kv.key)
-            kv.container_cls = container_cls
-            kv.trait = trait
-            output[fullkey] = kv
+        # Resolve fullpath for all keys
+        output = {}
+        for key_str, val in no_class_key.items():
+            fullkey, container_cls, trait = cls.class_resolve_key(key_str)
+            val.container_cls = container_cls
+            val.trait = trait
+            output[ConfigKey(fullkey)] = val
 
         return output
 
     @classmethod
     def merge_configs(
         cls,
-        *configs: ConfigDict,
-    ) -> ConfigDict:
-        out = ConfigDict()
+        *configs: dict[ConfigKey, ConfigValue],
+    ) -> dict[ConfigKey, ConfigValue]:
+        out: dict[ConfigKey, ConfigValue] = {}
         for c in configs:
             for k, v in c.items():
-                if isinstance(v, ConfigKV):
+                if isinstance(v, ConfigValue):
                     if k in out:
                         if out[k].priority < v.priority:
                             continue

@@ -7,8 +7,10 @@ from traitlets import Bool, Instance, List, TraitType, Unicode, Union
 from traitlets.config import Application, Configurable
 
 from .loader import (
+    to_nested_dict,
     CLILoader,
-    ConfigDict,
+    ConfigKey,
+    ConfigValue,
     ConfigLoader,
     FileLoader,
     PyLoader,
@@ -42,8 +44,8 @@ class ApplicationBase(Scheme):
     file_loaders: list[type[FileLoader]] = [TomlKitLoader, YamlLoader, PyLoader]
 
     def __init__(self, *args, **kwargs) -> None:
-        self.cli_conf = ConfigDict()
-        self.file_conf = ConfigDict()
+        self.cli_conf: dict[ConfigKey, ConfigValue] = {}
+        self.file_conf: dict[ConfigKey, ConfigValue] = {}
 
         self.log = logging.getLogger(__name__)
 
@@ -94,7 +96,7 @@ class ApplicationBase(Scheme):
 
         self.conf = self.merge_configs(self.file_conf, self.cli_conf)
 
-        self.instanciate_subschemes(self.conf.to_nested_dict())
+        self.instanciate_subschemes(to_nested_dict(self.conf))
 
     def _create_cli_loader(
         self,
@@ -114,9 +116,9 @@ class ApplicationBase(Scheme):
         self.cli_conf = loader.get_config()
 
     def apply_cli_config(self) -> None:
-        for kv in self.cli_conf.values():
-            if kv.container_cls is not None and isinstance(self, kv.container_cls):
-                setattr(self, kv.lastname, kv.value)
+        for key, val in self.cli_conf.items():
+            if val.container_cls is not None and isinstance(self, val.container_cls):
+                setattr(self, key.lastname, val.value)
 
     def load_config_files(self, log: logging.Logger | None = None):
         if log is None:
@@ -124,7 +126,7 @@ class ApplicationBase(Scheme):
         if isinstance(self.config_files, str):
             self.config_files = [self.config_files]
 
-        file_confs: dict[str, ConfigDict] = {}
+        file_confs: dict[str, dict[ConfigKey, ConfigValue]] = {}
         for filepath in self.config_files:
             _, ext = path.splitext(filepath)
 

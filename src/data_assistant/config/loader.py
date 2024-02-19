@@ -28,14 +28,43 @@ Undefined = Sentinel(
 )
 
 
-class ConfigKV:
-    def __init__(self, key: str, input: Any, origin: str | None = None):
+class ConfigKey:
+    def __init__(self, key: str) -> None:
+        self.key_init = key
+        self.key = key
+
+    def __repr__(self) -> str:
+        return self.key
+
+    def __str__(self) -> str:
+        return self.key
+
+    def __eq__(self, other) -> bool:
+        return self.key == other.key
+
+    def __hash__(self):
+        return hash(self.key)
+
+    @property
+    def path(self) -> list[str]:
+        return self.key.split(".")
+
+    @property
+    def root(self) -> str:
+        return self.path[0]
+
+    @property
+    def lastname(self) -> str:
+        return self.path[-1]
+
+
+class ConfigValue:
+    def __init__(self, input: Any, key: str, origin: str | None = None):
         if isinstance(input, list):
             if len(input) == 1:
                 input = input[0]
 
         self.key = key
-        self.key_init = key
         self.input = input
         self.origin = origin
 
@@ -45,8 +74,7 @@ class ConfigKV:
         self.priority: int = 0
 
     def __str__(self) -> str:
-        s = [f"{self.key_init}:"]
-        s.append(str(self.get_value()))
+        s = [str(self.get_value())]
         if self.origin is not None:
             s.append(f"({self.origin})")
         return " ".join(s)
@@ -54,7 +82,7 @@ class ConfigKV:
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({str(self)})"
 
-    def copy(self, **kwargs) -> ConfigKV:
+    def copy(self, **kwargs) -> ConfigValue:
         data = {
             attr: getattr(self, attr)
             for attr in [
@@ -69,22 +97,10 @@ class ConfigKV:
         }
         data |= kwargs
 
-        out = self.__class__(key=self.key_init, input=self.input)
+        out = self.__class__(self.input, self.key)
         for attr, value in data.items():
             setattr(out, attr, value)
         return out
-
-    @property
-    def path(self) -> list[str]:
-        return self.key.split(".")
-
-    @property
-    def prefix(self) -> str:
-        return self.path[0]
-
-    @property
-    def lastname(self) -> str:
-        return self.path[-1]
 
     def get_value(self) -> Any:
         if self.value is not Undefined:
@@ -93,7 +109,7 @@ class ConfigKV:
 
     def parse(self) -> None:
         if self.trait is None:
-            raise RuntimeError(f"Cannot parse key {self.key_init}, has not trait.")
+            raise RuntimeError(f"Cannot parse key {self.key}, has not trait.")
         if isinstance(self.input, str):
             self.value = self.trait.from_string(self.input)
             return
@@ -102,7 +118,7 @@ class ConfigKV:
         except AttributeError as err:
             raise AttributeError(
                 f"Expecting Trait {self.trait.__class__} "
-                f"for key {self.key_init} to be able to parse lists with "
+                f"for key {self.key} to be able to parse lists with "
                 "`from_string_list()`."
             ) from err
 
@@ -112,59 +128,19 @@ class ConfigKV:
     #     setattr(self.container, self.lastname, self.value)
 
 
-_KT = str
-_VT = ConfigKV
+def to_dict(config: dict[ConfigKey, ConfigValue]) -> dict[str, Any]:
+    output = {str(key): val.get_value() for key, val in config.items()}
+    return output
 
 
-class ConfigDict(MutableMapping[_KT, _VT]):
-    """Mapping of keys to ConfigKVs.
-
-    It maintains equality between the mapping key, and the value ``ConfigKV.key``.
-    """
-
-    def __init__(self, *args, **kwargs: _VT) -> None:
-        self.config: dict[_KT, _VT] = dict()
-        self.update(dict(*args, **kwargs))
-
-    def __str__(self) -> str:
-        out = [f"{self.__class__.__name__}{{"]
-        for kv in self.config.values():
-            out.append(f"{kv.key}: {kv.get_value()} ({kv.origin})")
-        out[-1] += "}"
-        return "\n".join(out)
-
-    def __repr__(self) -> str:
-        return self.__str__()
-
-    def __getitem__(self, key: _KT) -> _VT:
-        return self.config[key]
-
-    def __setitem__(self, key: _KT, value: _VT) -> None:
-        if isinstance(value, ConfigKV):
-            value.key = key
-        self.config[key] = value
-
-    def __delitem__(self, key: _KT) -> None:
-        self.config.__delitem__(key)
-
-    def __iter__(self) -> Iterator[_KT]:
-        return iter(self.config)
-
-    def __len__(self) -> int:
-        return len(self.config)
-
-    def to_value_dict(self) -> dict[_KT, Any]:
-        output = {key: kv.value for key, kv in self.config.items()}
-        return output
-
-    def to_nested_dict(self) -> dict:
-        nested_conf: dict[str, Any] = {}
-        for kv in self.config.values():
-            subconf = nested_conf
-            for subkey in kv.path[:-1]:
-                subconf = subconf.setdefault(subkey, {})
-            subconf[kv.lastname] = kv
-        return nested_conf
+def to_nested_dict(config: dict[ConfigKey, ConfigValue]) -> dict[str, Any]:
+    nested_conf: dict[str, Any] = {}
+    for key, val in config.items():
+        subconf = nested_conf
+        for subkey in key.path[:-1]:
+            subconf = subconf.setdefault(subkey, {})
+        subconf[key.lastname] = val
+    return nested_conf
 
 
 class ConfigLoader:
@@ -173,12 +149,12 @@ class ConfigLoader:
         if log is None:
             log = logging.getLogger(__name__)
         self.log = log
-        self.config = ConfigDict()
+        self.config: dict[ConfigKey, ConfigValue] = {}
 
     def clear(self) -> None:
         self.config.clear()
 
-    def get_config(self) -> ConfigDict:
+    def get_config(self) -> dict[ConfigKey, ConfigValue]:
         raise NotImplementedError
 
 
@@ -266,18 +242,17 @@ class CLILoader(ConfigLoader):
         return parser
 
     # TODO use a catch error decorator
-    def get_config(self, argv: list[str] | None = None) -> ConfigDict:
+    def get_config(self, argv: list[str] | None = None) -> dict[ConfigKey, ConfigValue]:
         self.clear()
 
         # ArgumentParser does its job
         args = vars(self.parser.parse_args(argv))
 
-        # convert to ConfigKV objects
-        keyvals = [
-            ConfigKV(name.replace(_DOT, "."), value, origin="CLI")
-            for name, value in args.items()
-        ]
-        config = ConfigDict({kv.key: kv for kv in keyvals})
+        # convert to ConfigKey/Value objects
+        config = {}
+        for name, value in args.items():
+            key = name.replace(_DOT, ".")
+            config[ConfigKey(key)] = ConfigValue(value, key, origin="CLI")
 
         # check if there are any help flags
         if "help" in config:
@@ -287,8 +262,8 @@ class CLILoader(ConfigLoader):
         # resolve paths
         config = self.app.resolve_config(config)
         # Parse using the traits
-        for kv in config.values():
-            kv.parse()
+        for val in config.values():
+            val.parse()
         self.config = config
         return self.config
 
@@ -315,7 +290,7 @@ class TomlKitLoader(FileLoader):
 
     # TODO use a catch error decorator
     # so that any error is raise as a ConfigLoadingError, easy to catch in App
-    def get_config(self, filepath: str | None = None) -> ConfigDict:
+    def get_config(self, filepath: str | None = None) -> dict[ConfigKey, ConfigValue]:
         # TODO Check file exist ?
         if filepath is None:
             filepath = self.filepath
@@ -324,7 +299,7 @@ class TomlKitLoader(FileLoader):
             root_table = self.backend.load(fp)
 
         # flatten the dict
-        keyvals = []
+        config = {}
 
         def recurse(table, key):
             for k, v in table.items():
@@ -332,16 +307,14 @@ class TomlKitLoader(FileLoader):
                 if isinstance(v, self.backend.api.Table):
                     recurse(v, newkey)
                 else:
-                    keyvals.append(ConfigKV(".".join(newkey), v.unwrap()))
+                    fullkey = ".".join(newkey)
+                    value = ConfigValue(v.unwrap(), fullkey, origin=filepath)
+                    # no parsing, directly to values
+                    value.value = value.input
+                    config[ConfigKey(fullkey)] = value
 
         recurse(root_table, [])
 
-        # no parsing, directly to values
-        for kv in keyvals:
-            kv.value = kv.input
-            kv.origin = filepath
-
-        config = ConfigDict({kv.key: kv for kv in keyvals})
         config = self.app.resolve_config(config)
         self.config = config
         return self.config
