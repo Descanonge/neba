@@ -130,13 +130,33 @@ class ConfigLoader:
 
 
 class _DefaultOptionDict(dict[str, Action]):
+    """Dictionnary that create missing actions on the fly.
+
+    Meant to replace :attr:`argparse.ArgumentParser._option_string_actions`. Any
+    argument not already recognized, and that match the regular expression
+    :attr:`option_pattern`, will automatically be assigned an action on the fly by
+    :meth:`_create_action` (this static method can be replaced using
+    :meth:`_set_action_create`).
+    """
+
     option_pattern = re.compile(r"^--?[A-Za-z_]\w*(\.\w+)*$")
+    """Regular expression that unknown argument must match.
+
+    By default, starts with one or two hyphens followed by any number of dot-separated
+    words (ie letters, numbers, hyphens, underscores).
+    """
 
     def _add_action(self, key: str) -> None:
         self[key] = self._create_action(key)
 
     @staticmethod
     def _create_action(key: str) -> Action:
+        """Creation an action for the argument ``key``.
+
+        Default action is "store", of type ``str``, with ``nargs=*`` (any number of
+        arguments). The destination is the argument name, stripped of leading hyphens,
+        and with dots "." replaced by :any:`_DOT` (``__DOT__``).
+        """
         action = _StoreAction(
             option_strings=[key],
             dest=key.lstrip("-").replace(".", _DOT),
@@ -176,6 +196,12 @@ class GreedyArgumentParser(ArgumentParser):
     _action_creation_func: Callable[[str], Action] | None = None
 
     def set_action_creation(self, func: Callable[[str], Action]) -> None:
+        """Change the default action creation function.
+
+        By using :class:`_DefaultOptionDict` unknown arguments will create actions on
+        the fly. Replace the default function by ``func``, which must be an unbound
+        method or simple function that takes the argument and return an action.
+        """
         self._action_creation_func = func
 
     def parse_known_args(  # type:ignore[override]
@@ -199,6 +225,34 @@ class GreedyArgumentParser(ArgumentParser):
 
 
 class CLILoader(ConfigLoader):
+    """Load config from command line.
+
+    This uses the standard module :mod:`argparse`. However, rather than specifying
+    each and every possible argument we use some trickery to allow any parameter.
+    Any parameter received can be of the form:
+    * SchemeClassName.parameter
+    * group.subgroup.parameter (with as much nesting as needed)
+    * alias.parameter
+    followed by one or more arguments.
+
+    Each parameter will be associated to its corresponding trait and parsed (using the
+    trait). Parameters that do not conform to the specified schemes and traits will
+    raise exceptions.
+
+    .. rubric:: On the trickery
+
+    To allow for any parameter to be accepter by the parser, we have to do some
+    trickery. This is all lifted from traitlets, with some supplements to make it more
+    flexible. The parser (:class:`argparse.ArgumentParser`) will find first try to
+    recognize optional arguments using a dictionnary.
+    We use a subclass :class:`GreedyArgumentParser` that change the class of that
+    dictionnary just before parsing. We use a custom :class:`_DefaultOptionDict` that
+    will automatically create an action when asked about an unknown argument.
+
+    The function that create the action from the argument name can be changed with
+    :meth:`GreedyArgumentParser.set_action_creation` any time after the parser creation.
+    """
+
     parser_class: type[ArgumentParser] = GreedyArgumentParser
 
     def __init__(self, app: ApplicationBase, **kwargs):
@@ -243,6 +297,11 @@ class CLILoader(ConfigLoader):
 
 
 class FileLoader(ConfigLoader):
+    """Load config from a file.
+
+    Common logic goes here.
+    """
+
     extensions: list[str]
 
     def __init__(self, filename: str, *args, **kwargs) -> None:
@@ -252,6 +311,18 @@ class FileLoader(ConfigLoader):
 
 
 class TomlKitLoader(FileLoader):
+    """Load config from TOML files using tomlkit library.
+
+    The :mod:`tomlkit` library is the default for data-assistant, as it allows precise
+    creation of toml files (including comments) which is useful for creating fully
+    documented config files.
+
+    Another backend could be used instead. A sibling class would have to be created.
+
+    The library is imported lazily on instanciation, so users that do not use TOML do
+    not need to install it.
+    """
+
     extensions = ["toml"]
 
     def __init__(self, *args, **kwargs) -> None:
@@ -291,6 +362,20 @@ class YamlLoader(FileLoader):
 
 
 class _ReadConfig:
+    """Object that can define attributes recursively on the fly.
+
+    Allows the config file syntax:
+
+        c.group.subgroup.parameter = 3
+        c.another_group.parameter = True
+
+    It patches ``__getattribute__`` to allow this. Any unknown attribute is
+    automatically created and assigned a new instance of _ReadConfig. The attributes
+    values can be explored (recursively) in the ``__dict__`` attribute.
+
+    This is a very minimalist approach and caution should be applied if this class is to
+    be expanded.
+    """
 
     def __getattribute__(self, key: str) -> Any:
         try:
@@ -302,6 +387,24 @@ class _ReadConfig:
 
 
 class PyLoader(FileLoader):
+    """Load config from a python file.
+
+    Follows the syntax of traitlets python config files:
+
+        c.ClassName.parameter = 1
+
+    but now also:
+
+        c.group.subgroup.parameter = True
+
+    Arbitrary schemes and sub-schemes can be specified. The object ``c`` is already
+    defined. It is a simple object only meant to allow for this syntax
+    (:class:`_ReadConfig`). Any code will be run, so some logic can be used in the
+    config files directly (changing a value depending on OS or hostname for instance).
+
+    Sub-configs are not supported (but could be if necessary).
+    """
+
     extensions = ["py", "ipy"]
 
     def get_config(self) -> dict[str, ConfigValue]:
