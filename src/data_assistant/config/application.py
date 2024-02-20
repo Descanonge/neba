@@ -36,7 +36,7 @@ class ApplicationBase(Scheme):
 
     config_files = Union(
         [Unicode(), List(Unicode())],
-        default_value="config.toml",
+        default_value=["config.toml", "config.py"],
         help="Load those config files.",
     )
 

@@ -11,6 +11,7 @@ import re
 import sys
 from argparse import Action, ArgumentParser, _StoreAction
 from collections.abc import Sequence, Callable
+from os import path
 from typing import TYPE_CHECKING, Any
 from traitlets.traitlets import HasTraits
 from traitlets.utils.sentinel import Sentinel
@@ -244,9 +245,10 @@ class CLILoader(ConfigLoader):
 class FileLoader(ConfigLoader):
     extensions: list[str]
 
-    def __init__(self, filepath: str, *args, **kwargs) -> None:
+    def __init__(self, filename: str, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self.filepath = filepath
+        self.filename = filename
+        self.full_filename = path.abspath(filename)
 
 
 class TomlKitLoader(FileLoader):
@@ -260,17 +262,12 @@ class TomlKitLoader(FileLoader):
 
     # TODO use a catch error decorator
     # so that any error is raise as a ConfigLoadingError, easy to catch in App
-    def get_config(self, filepath: str | None = None) -> dict[str, ConfigValue]:
-        # TODO Check file exist ?
-        if filepath is None:
-            filepath = self.filepath
+    def get_config(self) -> dict[str, ConfigValue]:
         self.clear()
-        with open(filepath) as fp:
+        with open(self.full_filename) as fp:
             root_table = self.backend.load(fp)
 
-        # flatten the dict
-        config = {}
-
+        # flatten tables
         def recurse(table, key):
             for k, v in table.items():
                 newkey = key + [k]
@@ -278,15 +275,14 @@ class TomlKitLoader(FileLoader):
                     recurse(v, newkey)
                 else:
                     fullkey = ".".join(newkey)
-                    value = ConfigValue(v.unwrap(), fullkey, origin=filepath)
+                    value = ConfigValue(v.unwrap(), fullkey, origin=self.filename)
                     # no parsing, directly to values
                     value.value = value.input
-                    config[fullkey] = value
+                    self.config[fullkey] = value
 
         recurse(root_table, [])
-
-        config = self.app.resolve_config(config)
-        self.config = config
+        # Resolve and return
+        self.config = self.app.resolve_config(self.config)
         return self.config
 
 
@@ -294,5 +290,48 @@ class YamlLoader(FileLoader):
     extensions = ["yaml", "yml"]
 
 
+class _ReadConfig:
+
+    def __getattribute__(self, key: str) -> Any:
+        try:
+            return super().__getattribute__(key)
+        except AttributeError:
+            obj = _ReadConfig()
+            self.__setattr__(key, obj)
+            return obj
+
+
 class PyLoader(FileLoader):
     extensions = ["py", "ipy"]
+
+    def get_config(self) -> dict[str, ConfigValue]:
+        self.clear()
+
+        read_config = _ReadConfig()
+
+        # from traitlets.config.loader.PyFileConfigLoader
+        namespace = dict(c=read_config, __file__=self.full_filename)
+        with open(self.full_filename, "rb") as fp:
+            exec(
+                compile(source=fp.read(), filename=self.full_filename, mode="exec"),
+                namespace,  # globals and locals
+                namespace,
+            )
+
+        # flatten config
+        def recurse(cfg: _ReadConfig, key: list[str]):
+            for k, v in cfg.__dict__.items():
+                newkey = key + [k]
+                if isinstance(v, _ReadConfig):
+                    recurse(v, newkey)
+                else:
+                    fullkey = ".".join(newkey)
+                    value = ConfigValue(v, fullkey, origin=self.filename)
+                    # no parsing, directly to values
+                    value.value = value.input
+                    self.config[fullkey] = value
+
+        recurse(read_config, [])
+        # Resolve and return
+        self.config = self.app.resolve_config(self.config)
+        return self.config
