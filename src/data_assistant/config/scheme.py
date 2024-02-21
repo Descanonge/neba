@@ -4,10 +4,12 @@ from collections.abc import Callable, Generator, Hashable, Iterator
 from inspect import Parameter, signature
 from typing import Any
 
-from traitlets import Bool, Instance, List, TraitType, Unicode, Union
+from traitlets import Bool, Instance, List, TraitType, Unicode, Union, Undefined, Enum
 from traitlets.config import Configurable
+from traitlets.utils.text import wrap_paragraphs
 
 from .loader import ConfigValue
+from .util import add_spacer, underline, get_trait_typehint, indent
 
 
 class FixableTrait(Union):
@@ -402,6 +404,62 @@ class Scheme(Configurable):
                     out[k] = cls.merge_configs(*configs_lower)  # type:ignore
 
         return out
+
+    def help(self) -> None:
+        print("\n".join(self.emit_help()))
+
+    def emit_help(self, fullpath: list[str] | None = None) -> list[str]:
+        if fullpath is None:
+            fullpath = []
+
+        title = self.__class__.__name__
+        if fullpath:  # we are not at root
+            title = f"{'.'.join(fullpath)} ({title})"
+        lines = [title]
+        underline(lines)
+
+        lines += self.emit_description()
+
+        # aliases
+        if self.aliases:
+            add_spacer(lines)
+            lines.append("Aliases:")
+            underline(lines)
+            for short, long in self.aliases.items():
+                lines.append(f"{short}: {long}")
+
+        for name, trait in sorted(self.traits(config=True).items()):
+            fullname = f"--{'.'.join(fullpath + [name])}"
+            typehint = get_trait_typehint(trait, mode="minimal")
+            lines.append(f"{fullname} ({typehint})")
+            lines += indent(self.emit_trait_help(trait))
+
+        for name in self._subschemes:
+            add_spacer(lines)
+            lines += getattr(self, name).emit_help(fullpath + [name])
+
+        return lines
+
+    def emit_description(self) -> list[str]:
+        doc = self.__doc__
+        if doc:
+            return doc.rstrip(" \n").splitlines()
+        return []
+
+    def emit_trait_help(self, trait: TraitType) -> list[str]:
+        lines: list[str] = []
+        if trait.default_value is not Undefined:
+            lines.append("* Default value: " + repr(trait.default()))
+
+        if isinstance(trait, Enum):
+            lines.append("* Accepted values: " + repr(trait.values))
+
+        if trait.help:
+            for line in wrap_paragraphs(trait.help):
+                # some lines can contain \n after wrap_paragraphs
+                lines += line.splitlines()
+
+        return lines
 
     def trait_values_from_func_signature(
         self, func: Callable, trait_select: dict | None = None, **kwargs

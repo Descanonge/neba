@@ -5,14 +5,13 @@ Extend loaders defined by traitlets for our needs (mainly nested configuration).
 from __future__ import annotations
 
 import argparse
-import importlib
 import logging
 import re
-import sys
 from argparse import Action, ArgumentParser, _StoreAction
-from collections.abc import Sequence, Callable
+from collections.abc import Callable, Sequence
 from os import path
 from typing import TYPE_CHECKING, Any
+
 from traitlets.traitlets import HasTraits
 from traitlets.utils.sentinel import Sentinel
 
@@ -281,7 +280,7 @@ class CLILoader(ConfigLoader):
 
         # check if there are any help flags
         if "help" in config:
-            print("\n".join(self.app.emit_help()))
+            self.app.help()
             self.app.exit()
 
         # resolve paths

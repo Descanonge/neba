@@ -7,14 +7,14 @@ from traitlets import Bool, Instance, List, TraitType, Unicode, Union
 from traitlets.config import Application, Configurable
 
 from .loader import (
-    to_nested_dict,
     CLILoader,
-    ConfigValue,
     ConfigLoader,
+    ConfigValue,
     FileLoader,
     PyLoader,
     TomlKitLoader,
     YamlLoader,
+    to_nested_dict,
 )
 from .scheme import Scheme
 
@@ -250,9 +250,6 @@ class ApplicationBase(Scheme):
             if issubclass(c, Application) and c != self.__class__:
                 continue
             yield c
-
-    def emit_help(self) -> Iterator[str]:
-        yield "lol"
 
     def exit(self, exit_status: int | str = 0):
         sys.exit(exit_status)

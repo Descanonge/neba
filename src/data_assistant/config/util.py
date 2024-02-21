@@ -23,6 +23,23 @@ def tag_all_traits(**metadata) -> Callable:
     return decorator
 
 
+def add_spacer(lines: list[str]) -> list[str]:
+    if not lines[-1].endswith("\n"):
+        lines.append("\n")
+    return lines
+
+
+def underline(lines: list[str], char: str = "=") -> list[str]:
+    lines.append(char * len(lines[-1]))
+    return lines
+
+
+def indent(lines: list[str], num: int = 4) -> list[str]:
+    for i, line in enumerate(lines):
+        lines[i] = " " * num + line
+    return lines
+
+
 def get_trait_typehint(trait: Any, mode: str = "short") -> str:
     """Return the typehint corresponding to a trait object.
 
