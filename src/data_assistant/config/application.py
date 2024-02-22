@@ -40,6 +40,20 @@ class ApplicationBase(Scheme):
         help="Load those config files.",
     )
 
+    auto_instanciate = Bool(
+        True,
+        help=(
+            """
+            Instanciate all schemes in the configuration tree at application start.
+
+            Instanciation is necessary to fully validate the values of the configuration
+            parameters, but in case systematic instanciation is unwanted this can be
+            disabled (for example in case of costly instanciations)."""
+        ),
+    )
+
+    ignore_cli = Bool(False, help="If True, do not parse command line arguments.")
+
     file_loaders: list[type[FileLoader]] = [TomlKitLoader, YamlLoader, PyLoader]
 
     def __init__(self, *args, **kwargs) -> None:
@@ -47,6 +61,8 @@ class ApplicationBase(Scheme):
         self.file_conf: dict[str, ConfigValue] = {}
 
         self.log = logging.getLogger(__name__)
+
+        self.start()
 
     @classmethod
     def add_scheme(cls) -> Callable[[type[Configurable]], type[Configurable]]:
@@ -65,25 +81,24 @@ class ApplicationBase(Scheme):
 
         return decorator
 
-    def initialize(self, argv=None, ignore_cli: bool = False, instanciate: bool = True):
-        """Initialize application.
+    def start(self, argv: list[str] | None = None) -> None:
+        """Initialize and start application.
 
-        - Parse command line arguments.
-        - Load configuration file.
-        - Instanciate schemes
+        - Parse command line arguments
+        - Load configuration file(s).
+        - Merge configurations
+        - Instanciate schemes objects
 
         Parameters
         ----------
         argv:
-            If not None override command line arguments.
-        ignore_cli:
-            If True, do not parse command line arguments. Useful
-            for jupyter notebooks for instance.
+            Override command line arguments to parse. If left to None, arguments are
+            obtained from system.
         """
         # First parse CLI
         # needed for help, or overriding the config files)
         # Sets self.cli_conf
-        if not ignore_cli:
+        if not self.ignore_cli:
             self.parse_command_line(argv)
 
         self.apply_cli_config()
@@ -95,7 +110,8 @@ class ApplicationBase(Scheme):
 
         self.conf = self.merge_configs(self.file_conf, self.cli_conf)
 
-        self.instanciate_subschemes(to_nested_dict(self.conf))
+        if self.auto_instanciate:
+            self.instanciate_subschemes(to_nested_dict(self.conf))
 
     def _create_cli_loader(
         self,
