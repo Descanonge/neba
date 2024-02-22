@@ -70,20 +70,21 @@ class DaskLocalCluster(DaskClusterAbstract):
         [Unicode(), Float(), Int()],
         default_value="auto",
         allow_none=True,
-        help="""Sets the memory limit *per worker*.
+        help="""\
+        Sets the memory limit *per worker*.
 
-            Notes regarding argument data type:
+        Notes regarding argument data type:
 
-            * If None or 0, no limit is applied.
-            * If "auto", the total system memory is split evenly between the workers.
-            * If a float, that fraction of the system memory is used *per worker*.
-            * If a string giving a number of bytes (like ``"1GiB"``),
-              that amount is used *per worker*.
-            * If an int, that number of bytes is used *per worker*.
+        * If None or 0, no limit is applied.
+        * If "auto", the total system memory is split evenly between the workers.
+        * If a float, that fraction of the system memory is used *per worker*.
+        * If a string giving a number of bytes (like ``"1GiB"``),
+          that amount is used *per worker*.
+        * If an int, that number of bytes is used *per worker*.
 
-            Note that the limit will only be enforced when ``processes=True``, and the
-            limit is only enforced on a best-effort basis — it's still possible for
-            workers to exceed this limit.""",
+        Note that the limit will only be enforced when ``processes=True``, and the
+        limit is only enforced on a best-effort basis — it's still possible for
+        workers to exceed this limit.""",
     )
 
     processes = Bool(
@@ -113,7 +114,7 @@ class DaskLocalCluster(DaskClusterAbstract):
         default_value=logging.WARN,
         allow_none=True,
         help=(
-            "Level of logs to print out to stdout.  ``logging.WARN`` by default."
+            "Level of logs to print out to stdout. ``logging.WARN`` by default."
             "Use a falsey value like False or None for no change."
         ),
     )
