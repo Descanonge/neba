@@ -28,9 +28,8 @@ class ApplicationBase(Scheme):
     strict_parsing = Bool(
         True,
         help=(
-            "If true, raise errors when encountering unknown "
-            "arguments or configuration keys. Else only prints "
-            "a warning."
+            """If true, raise errors when encountering unknown arguments or
+            configuration keys. Else only prints a warning."""
         ),
     )
 

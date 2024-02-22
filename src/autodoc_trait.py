@@ -21,6 +21,7 @@ from traitlets import (
     Set,
     TraitType,
 )
+from traitlets.utils.text import wrap_paragraphs
 
 from data_assistant.config.util import get_trait_typehint
 
@@ -206,7 +207,8 @@ class TraitDocumenter(AttributeDocumenter):
         lines += [""]
 
         if help := self.object.help:
-            lines += help.splitlines()
+            paragraphs = "\n\n".join(wrap_paragraphs(help))
+            lines += paragraphs.splitlines()
 
         return [lines]  # type: ignore
 

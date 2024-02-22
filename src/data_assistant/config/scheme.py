@@ -455,9 +455,9 @@ class Scheme(Configurable):
             lines.append("* Accepted values: " + repr(trait.values))
 
         if trait.help:
-            for line in wrap_paragraphs(trait.help):
-                # some lines can contain \n after wrap_paragraphs
-                lines += line.splitlines()
+            # separate paragraphs by linebreaks
+            paragraphs = "\n\n".join(wrap_paragraphs(trait.help))
+            lines += paragraphs.splitlines()
 
         return lines
 
