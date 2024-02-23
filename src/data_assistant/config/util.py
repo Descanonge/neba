@@ -1,9 +1,8 @@
 from collections.abc import Callable
+from typing import Any
 
 from traitlets.config import Configurable
-from traitlets.traitlets import TraitType, Union, Dict, Tuple, Container, Type, Instance
-
-from typing import Any
+from traitlets.traitlets import Container, Dict, Instance, TraitType, Tuple, Type, Union
 
 
 def tag_all_traits(**metadata) -> Callable:

@@ -47,16 +47,16 @@ when using static type checking.
 from collections.abc import Callable, Hashable
 from typing import TypeVar, cast
 
-from .dataset import DatasetAbstract
+from .dataset import DatasetBase
 
 _K = TypeVar("_K", bound=Hashable)
-_V = TypeVar("_V", bound=type[DatasetAbstract])
+_V = TypeVar("_V", bound=type[DatasetBase])
 
 
 class DatasetStore(dict[_K, _V]):
     """Mapping of registered Datasets.
 
-    Maps ID and/or SHORTNAME to a :class:`DatasetAbstract` subclass.
+    Maps ID and/or SHORTNAME to a :class:`DatasetBase` subclass.
 
     Datasets classes are stored using their unique ID, or SHORTNAME if not
     defined. They can be retrieved using ID or SHORTNAME, as preferred.
@@ -73,7 +73,7 @@ class DatasetStore(dict[_K, _V]):
             self.add_dataset(ds)
 
     def add_dataset(self, ds: _V, name: str | None = None):
-        """Register a DatasetAbstract subclass."""
+        """Register a DatasetBase subclass."""
         if name is not None:
             key = name
             key_type = "USER"
@@ -96,7 +96,7 @@ class DatasetStore(dict[_K, _V]):
         super().__setitem__(cast(_K, key), ds)
 
     def __getitem__(self, key: _K) -> _V:
-        """Return DatasetAbstract subclass with this ID or SHORTNAME."""
+        """Return DatasetBase subclass with this ID or SHORTNAME."""
         if key in self.shortnames:
             if self.shortnames.count(key) > 1:
                 raise KeyError(f"More than one Dataset with SHORTNAME: {key}")

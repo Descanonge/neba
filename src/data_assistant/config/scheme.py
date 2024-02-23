@@ -4,12 +4,12 @@ from collections.abc import Callable, Generator, Hashable, Iterator
 from inspect import Parameter, signature
 from typing import Any
 
-from traitlets import Bool, Instance, List, TraitType, Unicode, Union, Undefined, Enum
+from traitlets import Bool, Enum, Instance, List, TraitType, Undefined, Unicode, Union
 from traitlets.config import Configurable
 from traitlets.utils.text import wrap_paragraphs
 
 from .loader import ConfigValue
-from .util import add_spacer, underline, get_trait_typehint, indent
+from .util import add_spacer, get_trait_typehint, indent, underline
 
 
 class FixableTrait(Union):

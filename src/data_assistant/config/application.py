@@ -1,6 +1,6 @@
 import logging
 import sys
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 from os import path
 
 from traitlets import Bool, Instance, List, TraitType, Unicode, Union

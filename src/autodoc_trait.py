@@ -8,6 +8,7 @@ import sys
 from typing import Any
 
 from data_assistant.config.scheme import FixableTrait
+from data_assistant.config.util import get_trait_typehint
 from sphinx.application import Sphinx
 from sphinx.ext.autodoc import (
     SUPPRESS,
@@ -22,8 +23,6 @@ from traitlets import (
     TraitType,
 )
 from traitlets.utils.text import wrap_paragraphs
-
-from data_assistant.config.util import get_trait_typehint
 
 
 def stringify(obj) -> str:

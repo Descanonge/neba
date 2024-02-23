@@ -18,19 +18,23 @@ from filefinder.group import TIME_GROUPS
 
 from data_assistant.util import check_output_path
 
-from .file_manager import FileFinderManager
-from .module import Module
+from .file_manager import FileFinderMixin
 
 if TYPE_CHECKING:
     import xarray as xr
     from distributed import Client
 
+    from .dataset import DatasetBase
+
     Call = tuple[xr.Dataset, str]
+    _DB = DatasetBase
+else:
+    _DB = object
 
 log = logging.getLogger(__name__)
 
 
-class WriterAbstract(Module):
+class WriterMixin(_DB):
     """Abstract class of Writer module."""
 
     def get_metadata(
@@ -66,9 +70,9 @@ class WriterAbstract(Module):
         meta = {}
 
         # Name of class
-        cls_name = self.dataset.__class__.__name__
-        if self.dataset.ID:
-            cls_name += f":{self.dataset.ID}"
+        cls_name = self.__class__.__name__
+        if self.ID:
+            cls_name += f":{self.ID}"
         meta["written_as_dataset"] = cls_name
 
         # Get hostname and script name
@@ -82,7 +86,7 @@ class WriterAbstract(Module):
                 params_str = parameters
             else:
                 if add_dataset_params:
-                    parameters = self.dataset.params | parameters
+                    parameters = self.params | parameters
                 try:
                     params_str = json.dumps(parameters)
                 except TypeError:
@@ -108,13 +112,14 @@ class WriterAbstract(Module):
         return meta
 
 
-class XarrayWriter(WriterAbstract):
+class XarrayWriter(WriterMixin):
     """Writer for Xarray datasets.
 
     For simple unique calls.
+    The source should be compatible with a unique ``to_netcdf`` call.
     """
 
-    TO_DEFINE_ON_DATASET = ["TO_NETCDF_KWARGS"]
+    TO_NETCDF_KWARGS: dict[str, Any] = {}
 
     def set_metadata(
         self,
@@ -176,18 +181,23 @@ class XarrayWriter(WriterAbstract):
             Passed to the function that writes to disk
             (:meth:`xarray.Dataset.to_netcdf`).
         """
-        outfile = self.dataset.get_filename(**parameters)
+        outfile = self.get_source(**parameters)
         check_output_path(outfile, directory=False)
 
         ds = self.set_metadata(ds, parameters=parameters)
 
-        call_kw = self.get_attr_dataset("TO_NETCDF_KWARGS") | kwargs
+        call_kw = self.TO_NETCDF_KWARGS | kwargs
         call_kw["encoding"] = encoding
 
         return ds.to_netcdf(outfile, **call_kw)
 
 
-class XarraySplitWriter(XarrayWriter):
+# Note that we inherit from FileFinderMixin, but it could be changed to any
+# MultiFileMixin that has an attribute `unfixed: list[str]`.
+# Can't be bothered to deal with mypy antics now though.
+
+
+class XarraySplitWriter(XarrayWriter, FileFinderMixin):
     """Writer for Xarray datasets in multifiles.
 
     Can automatically split a dataset to the corresponding files by communicating
@@ -331,7 +341,7 @@ class XarraySplitWriter(XarrayWriter):
         """
         import xarray as xr
 
-        unfixed = self.get_unfixed()
+        unfixed = set(self.unfixed)
         # Only keep time related unfixed
         unfixed &= set(TIME_GROUPS)
 
@@ -376,7 +386,7 @@ class XarraySplitWriter(XarrayWriter):
         Coordinates whose name does not correspond to an unfixed group in the filename
         pattern will be written entirely in each file.
         """
-        unfixed = self.get_unfixed()
+        unfixed = set(self.unfixed)
         # Remove time related unfixeds
         unfixed -= set(TIME_GROUPS)
 
@@ -397,13 +407,6 @@ class XarraySplitWriter(XarrayWriter):
 
         return out
 
-    def get_unfixed(self) -> set[str]:
-        """Return set of unfixed parameters in the pattern."""
-        if not isinstance(self.dataset.file_manager, FileFinderManager):
-            raise TypeError("File manager must be of type FileFinderManager")
-        unfixed = set(self.dataset.file_manager.unfixed)
-        return unfixed
-
     def to_calls(
         self,
         datasets: Sequence[xr.Dataset],
@@ -423,7 +426,7 @@ class XarraySplitWriter(XarrayWriter):
             This can be configured by dimensions with a mapping of dimensions to
             a squeeze argument.
         """
-        unfixed = self.get_unfixed()
+        unfixed = set(self.unfixed)
         # Set time fixes apart
         present_time_fix = unfixed & set(TIME_GROUPS)
         unfixed -= set(TIME_GROUPS)
@@ -438,7 +441,7 @@ class XarraySplitWriter(XarrayWriter):
                 if dim in ds.coords:
                     val = ds.coords[dim].values.item()
                 else:
-                    val = self.dataset.params[dim]
+                    val = self.params[dim]
                 unfixed_values[dim] = val
 
             # If there are time values, we simply get the first one
@@ -447,7 +450,7 @@ class XarraySplitWriter(XarrayWriter):
                     value = ds.time[0].dt.strftime(f"%{p}").values.item()
                     unfixed_values[p] = value
 
-            outfile = self.dataset.get_filename(**unfixed_values)
+            outfile = self.get_filename(**unfixed_values)
 
             # Apply squeeze argument
             if isinstance(squeeze, Mapping):
@@ -576,7 +579,7 @@ class XarraySplitWriter(XarrayWriter):
         # TODO Out to deal with different files, we need different methods call :(
         # That could be a dataset attribute, like OUTPUT_FORMAT
         ds, outfile = call
-        kwargs = kwargs | self.get_attr_dataset("TO_NETCDF_KWARGS")
+        kwargs = kwargs | self.TO_NETCDF_KWARGS
         return ds.to_netcdf(outfile, **kwargs)
 
 

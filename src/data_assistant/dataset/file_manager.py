@@ -2,52 +2,35 @@
 from __future__ import annotations
 
 import logging
-import os
-from collections.abc import Iterable
-from os import PathLike, path
-from typing import TYPE_CHECKING
+from os import path
+from typing import TYPE_CHECKING, Generic, TypeVar
 
 from filefinder import Finder
 
-from .module import Module, autocached
+from .cache import CacheMixin, autocached
 
 if TYPE_CHECKING:
-    from .dataset import DatasetAbstract
+    from .dataset import DatasetBase
+
+    _DB = DatasetBase
+else:
+    _DB = object
 
 log = logging.getLogger(__name__)
 
 
-class FileManagerAbstract(Module):
-    """Abstract class of FileManager.
-
-    Defines the minimal API to communicate with the parent :class:`DatasetAbstract` and
-    other modules.
-
-    The FileManager deals with returning the the files containing the data to the
-    parent Dataset. It is currently oriented to filenames, but could be used for
-    more general URI or data stores.
-    """
-
-    @property
-    def datafiles(self) -> list[str]:
-        """Get available datafiles."""
-        raise NotImplementedError("Subclass must implement this method.")
-
-    def get_filename(self, **fixes) -> str:
-        """Create a filename corresponding to a set of parameters values.
-
-        All parameters must be defined, either with the instance :attr:`params`,
-        or with the ``fixes`` arguments.
-
-        Parameters
-        ----------
-        fixes:
-            Parameters to fix to specific values. Override :attr:`params` values.
-        """
-        raise NotImplementedError("Subclass must implement this method.")
+_FileT = TypeVar("_FileT")
 
 
-class FileFinderManager(FileManagerAbstract):
+class MultiFilesAbstract(Generic[_FileT], _DB):
+    def get_filename(self, **fixes) -> _FileT:
+        raise NotImplementedError()
+
+    def get_source(self) -> list[_FileT]:
+        raise NotImplementedError()
+
+
+class FileFinderMixin(MultiFilesAbstract, CacheMixin, _DB):
     """Multifiles manager using Filefinder.
 
     Written for datasets comprising of many datafiles, either because of the have long
@@ -72,10 +55,9 @@ class FileFinderManager(FileManagerAbstract):
     initialization, which is important if parameters checking is enabled.
     """
 
-    TO_DEFINE_ON_DATASET = ["get_root_directory", "get_filename_pattern"]
+    # Methods to be overwritten by user
 
-    @staticmethod
-    def get_root_directory(dataset: DatasetAbstract) -> str | PathLike | Iterable[str]:
+    def get_root_directory(self) -> str | list[str]:
         """Return the directory containing all datafiles.
 
         Can return a path, or an iterable of directories that will automatically be
@@ -84,11 +66,10 @@ class FileFinderManager(FileManagerAbstract):
         Define this method on the parent :class:`DatasetAbstract`.
         """
         raise NotImplementedError(
-            "This method should be implemented in the parent Dataset class."
+            "This method should be implemented in your Dataset class."
         )
 
-    @staticmethod
-    def get_filename_pattern(dataset: DatasetAbstract) -> str:
+    def get_filename_pattern(self) -> str:
         """Return the filename pattern.
 
         See the Filefinder documentation on the syntax:
@@ -97,29 +78,58 @@ class FileFinderManager(FileManagerAbstract):
         Define this method on the parent :class:`DatasetAbstract`.
         """
         raise NotImplementedError(
-            "This method should be implemented in the parent Dataset class."
+            "This method should be implemented in your Dataset class."
         )
 
-    def __str__(self) -> str:
-        """Return string representation."""
-        s = [
-            f"Root directory: {self.root_directory}",
-            f"Filename pattern: {self.filename_pattern}",
-        ]
-        return "\n".join(s)
+    # Method overwritting DatasetBase
 
-    def __init__(self, dataset):
-        super().__init__(dataset)
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
 
         # Add fixable_params to the dataset allowed_params
-        self.dataset.allowed_params |= set(self.fixable)
+        # self.allowed_params |= set(self.fixable)
+
+    def get_source(self) -> list[str]:
+        return self.datafiles
+
+    def get_filename(self, **fixes) -> str:
+        """Create a filename corresponding to a set of parameters values.
+
+        All parameters must be defined, either by the parent
+        :attr:`DatasetAbstract.params`, or by the ``fixes`` arguments.
+
+        Parameters
+        ----------
+        fixes:
+            Parameters to fix to specific values. Only parameters defined in the
+            filename pattern can be fixed. Will take precedence over the
+            parent ``params`` attribute.
+        """
+        # Check they can be fixed (they exist in the pattern)
+        for f in fixes:
+            if f not in self.fixable:
+                raise KeyError(f"Parameter {f} cannot be fixed.")
+
+        # In case params were changed sneakily and the cache was not invalidated
+        fixable_params = {
+            p: value for p, value in self.params.items() if p in self.fixable
+        }
+        fixes = fixable_params | fixes
+
+        # Remove parameters set to None, FileFinder is not equipped for that
+        fixes = {p: value for p, value in fixes.items() if value is not None}
+
+        filename = self.filefinder.make_filename(fixes)
+        return filename
+
+    # --
 
     @property
     def root_directory(self) -> str:
         """Root directory containing data."""
-        rootdir = self.run_on_dataset("get_root_directory")
+        rootdir = self.get_root_directory()
 
-        if not isinstance(rootdir, str | os.PathLike):
+        if isinstance(rootdir, list | tuple):
             rootdir = path.join(*rootdir)
 
         return rootdir
@@ -127,7 +137,7 @@ class FileFinderManager(FileManagerAbstract):
     @property
     def filename_pattern(self) -> str:
         """Filename pattern used to find files using :mod:`filefinder`."""
-        return self.run_on_dataset("get_filename_pattern")
+        return self.get_filename_pattern()
 
     @property
     @autocached
@@ -145,7 +155,7 @@ class FileFinderManager(FileManagerAbstract):
         self.set_in_cache("filefinder", finder)
         varying = self.fixable
 
-        for p, value in self.dataset.params.items():
+        for p, value in self.params.items():
             if p in varying and value is not None:
                 finder.fix_group(p, value)
 
@@ -191,34 +201,3 @@ class FileFinderManager(FileManagerAbstract):
         if len(files) == 0:
             log.warning("%s", self.filefinder)
         return files
-
-    def get_filename(self, **fixes) -> str:
-        """Create a filename corresponding to a set of parameters values.
-
-        All parameters must be defined, either by the parent
-        :attr:`DatasetAbstract.params`, or by the ``fixes`` arguments.
-
-        Parameters
-        ----------
-        fixes:
-            Parameters to fix to specific values. Only parameters defined in the
-            filename pattern can be fixed. Will take precedence over the
-            parent ``params`` attribute.
-        """
-        self.dataset.check_known_param(fixes)
-        # Check they can be fixed (they exist in the pattern)
-        for f in fixes:
-            if f not in self.fixable:
-                raise KeyError(f"Parameter {f} cannot be fixed.")
-
-        # In case params were changed sneakily and the cache was not invalidated
-        fixable_params = {
-            p: value for p, value in self.dataset.params.items() if p in self.fixable
-        }
-        fixes = fixable_params | fixes
-
-        # Remove parameters set to None, FileFinder is not equipped for that
-        fixes = {p: value for p, value in fixes.items() if value is not None}
-
-        filename = self.filefinder.make_filename(fixes)
-        return filename

@@ -1,4 +1,4 @@
-from data_assistant.dataset.dataset import DatasetDefault
+from data_assistant.dataset import DatasetDefault
 
 
 class DatasetSST(DatasetDefault):
