@@ -27,13 +27,9 @@ The Dataset can trigger a flush of all caches.
 from __future__ import annotations
 
 from collections.abc import Hashable, Iterable, Mapping, Sequence
-from os import PathLike, path
-from typing import Any, Generic, TypeVar, TYPE_CHECKING
+from typing import Any, Generic, TypeVar
 
 from data_assistant.config import Scheme
-
-if TYPE_CHECKING:
-    from .file_manager import FileFinderMixin
 
 _DataT = TypeVar("_DataT")
 _SourceT = TypeVar("_SourceT")
@@ -156,66 +152,3 @@ class DatasetBase(Generic[_DataT, _SourceT]):
     #     for p in params:
     #         if p not in self.allowed_params:
     #             raise KeyError(f"Parameter '{p}' was not expected for dataset {self}")
-
-
-class climato:  # noqa: N801
-    """Create a Dataset subclass for climatology.
-
-    Generate new subclass of a dataset that correspond to its climatology.
-    Have to wrap around base class get_root and get_pattern.
-    Pattern is not easy, we have to get rid of time related groups.
-
-    Parameters
-    ----------
-    append_folder:
-        If None, do not change the root directory. If is a string, append it as a
-        new directory.
-    """
-
-    def __init__(self, append_folder: str | None = None):
-        self.append_folder = append_folder
-
-    def __call__(self, cls: FileFinderMixin):
-        """Apply decorator."""
-        from filefinder import Finder
-        from filefinder.group import TIME_GROUPS
-
-        # Change get_root_directory
-        if self.append_folder:
-
-            def get_root_dir_wrapped(obj):
-                root_dir = super(cls, obj).get_root_directory()
-                if isinstance(root_dir, str | PathLike):
-                    root_dir = path.join(root_dir, self.append_folder)
-                else:
-                    root_dir.append(self.append_folder)
-                return root_dir
-
-            cls.get_root_directory = get_root_dir_wrapped  # type: ignore
-
-        # Change get_filename_pattern
-        def get_filename_pattern_wrapped(obj):
-            pattern = super(cls, obj).get_filename_pattern()
-            finder = Finder("", pattern)
-            for g in finder.groups:
-                # remove fixable/groups related to time
-                if g.name in TIME_GROUPS:
-                    pattern = pattern.replace(f"%({g.definition})", "")
-
-            infile, ext = path.splitext(pattern)
-            # Clean pattern
-            infile = infile.strip("/_-")
-            # Add climatology group
-            infile += r"_%(climatology:fmt=s:rgx=\s+)"
-
-            pattern = infile + ext
-            return pattern
-
-        cls.get_filename_pattern = get_filename_pattern_wrapped  # type: ignore
-
-        if cls.ID:
-            cls.ID = f"{cls.ID}_cli"
-        if cls.SHORTNAME:
-            cls.SHORTNAME = f"{cls.SHORTNAME}_cli"
-
-        return cls
