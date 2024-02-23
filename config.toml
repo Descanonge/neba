@@ -1,0 +1,11 @@
+
+
+[parameters]
+
+region = "aie"
+
+
+[dask.slurm]
+queue = "lol"
+cores = 2
+worker_command = ["lol", "bob"]
