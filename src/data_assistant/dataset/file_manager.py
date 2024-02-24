@@ -2,13 +2,13 @@
 from __future__ import annotations
 
 import logging
-from os import path, PathLike
+from os import PathLike, path
 from typing import Generic, TypeVar
 
 from filefinder import Finder
 
-from .cache import CacheModule, autocached
 from .dataset import Module
+from .module import CacheModule, autocached
 
 log = logging.getLogger(__name__)
 
@@ -77,8 +77,8 @@ class FileFinderModule(MultiFileModuleAbstract, CacheModule):
 
     # Method overwritting DatasetBase
 
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
+    def _init_module(self) -> None:
+        super()._init_module()
 
         # Add fixable_params to the dataset allowed_params
         # self.allowed_params |= set(self.fixable)

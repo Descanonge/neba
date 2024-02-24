@@ -27,23 +27,11 @@ The Dataset can trigger a flush of all caches.
 from __future__ import annotations
 
 from collections.abc import Hashable, Iterable, Mapping, Sequence
-from typing import Any, Generic, TypeVar, TypeAlias
-
+from typing import Any, Generic, TypeVar
 
 from data_assistant.config import Scheme
-from typing import TYPE_CHECKING
 
-
-if TYPE_CHECKING:
-    _DB: TypeAlias = "DatasetBase"
-else:
-    _DB = object
-
-
-class Module(_DB):
-    def _init_module(self) -> None:
-        pass
-
+from .module import HasCache, Module
 
 _DataT = TypeVar("_DataT")
 _SourceT = TypeVar("_SourceT")
@@ -75,12 +63,12 @@ class DatasetBase(Generic[_DataT, _SourceT]):
         appropriately.
         """
 
-        self.set_params(params, **kwargs)
-
         # Initianlize modules in base classes
         for cls in self.__class__.__bases__:
             if issubclass(cls, Module):
                 cls._init_module(self)  # type: ignore
+
+        self.set_params(params, **kwargs)
 
     def set_params(
         self,
@@ -108,8 +96,10 @@ class DatasetBase(Generic[_DataT, _SourceT]):
         params.update(kwargs)
 
         self.params.update(params)
-        # TODO Check if features are present (use protocol ?)
-        # self.clean_cache()
+
+        # can also be done via a faster hasattr check
+        if isinstance(self, HasCache):
+            self.clean_cache()
         # self.check_known_param(params)
 
     def __str__(self) -> str:

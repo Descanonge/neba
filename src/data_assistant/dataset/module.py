@@ -1,37 +1,45 @@
-"""Dataset modules objects."""
-
 from __future__ import annotations
 
 import functools
 import logging
 from collections.abc import Callable
-from typing import Any, TypeVar
-
-from .dataset import Module
+from typing import TYPE_CHECKING, Any, Protocol, TypeVar, runtime_checkable
 
 log = logging.getLogger(__name__)
 
 
-class CacheModule(Module):
+if TYPE_CHECKING:
+    from .dataset import DatasetBase
+
+    _DB = DatasetBase
+else:
+    _DB = object
+
+
+class Module(_DB):
     def _init_module(self) -> None:
-        super()._init_module()
-        self.cache: dict[str, Any] = {}
+        pass
 
-    def set_in_cache(self, name: str, value: Any):
-        """Add variable to the module cache.
 
-        Parameters
-        ----------
-        name
-            Name of the variable.
-        value
-            Value to cache.
-        """
-        self.cache[name] = value
+@runtime_checkable
+class HasCache(Protocol):
+    cache: dict[str, Any]
 
     def clean_cache(self) -> None:
         """Clean the cache of all variables."""
         self.cache.clear()
+
+    def set_in_cache(self, key: str, value: Any):
+        """Add variable to the module cache.
+
+        Parameters
+        ----------
+        key
+            Name of the variable.
+        value
+            Value to cache.
+        """
+        self.cache[key] = value
 
     def get_cached(self, key: str) -> Any:
         """Get value from the cache.
@@ -41,10 +49,26 @@ class CacheModule(Module):
         key
             Name of the variable we want the value from.
         """
-        # If in cache, easy
+        return self.cache[key]
+
+
+class CacheModule(HasCache, Module):
+    def _init_module(self) -> None:
+        super()._init_module()
+        self.cache: dict[str, Any] = {}
+
+    def get_cached(self, key: str) -> Any:
+        """Get value from the cache.
+
+        Parameters
+        ----------
+        key
+            Name of the variable we want the value from.
+        """
         if key in self.cache:
             return self.cache[key]
 
+        # More informative error message
         name = self.ID or self.SHORTNAME or self.__class__.__name__
         raise KeyError(f"Key '{key}' not found in cache of dataset '{name}'.")
 

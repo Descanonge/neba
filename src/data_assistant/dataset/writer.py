@@ -16,8 +16,8 @@ from typing import TYPE_CHECKING, Any
 
 from filefinder.group import TIME_GROUPS
 
-from .file_manager import FileFinderModule
 from .dataset import Module
+from .file_manager import FileFinderModule
 
 if TYPE_CHECKING:
     import xarray as xr

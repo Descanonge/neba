@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Generic
+
 from .dataset import Module, _DataT, _SourceT
 
 if TYPE_CHECKING:
