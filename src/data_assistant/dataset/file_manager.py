@@ -142,20 +142,14 @@ class FileFinderModule(MultiFileModuleAbstract, CacheModule):
         """
         finder = Finder(self.root_directory, self.filename_pattern)
 
-        # We now fix the parameters present in the filename whose value is specified
-        # in the parent dataset (we don't have to worry about them after that).
-        # We cache this temporary finder to avoid infinite recursion when
-        # getting the names of the varying parameters.
-        self.set_in_cache("filefinder", finder)
-        varying = self.fixable
+        # We now fix the parameters present in the filename (we don't have to worry
+        # about them after that). We re-use code from self.fixable to avoid
+        # infinite recursion
+        fixable = [g.name for g in finder.groups]
 
         for p, value in self.params.items():
-            if p in varying and value is not None:
+            if p in fixable and value is not None:
                 finder.fix_group(p, value)
-
-        # All operations above were in-place, so this is not needed but just in case, we
-        # clean the cache. The @autocached will take care of caching.
-        self.cache.pop("filefinder")
         return finder
 
     @property

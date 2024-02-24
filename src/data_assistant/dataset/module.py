@@ -55,7 +55,10 @@ class HasCache(Protocol):
 class CacheModule(HasCache, Module):
     def _init_module(self) -> None:
         super()._init_module()
-        self.cache: dict[str, Any] = {}
+        # Multiple modules might have a cache
+        # The cache is in common. Dangerous.
+        if not hasattr(self, "cache"):
+            self.cache: dict[str, Any] = {}
 
     def get_cached(self, key: str) -> Any:
         """Get value from the cache.
@@ -85,7 +88,7 @@ def autocached(func: Callable[[Any], R]) -> Callable[[Any], R]:
     If the variable of the same name is in the cache, return its cached value
     immediately. Otherwise run the code of the property and cache the return value.
     """
-    name = func.__name__
+    name = f"{func.__qualname__}::{func.__name__}"
 
     @functools.wraps(func)
     def wrapper(self: Any) -> R:
