@@ -27,9 +27,23 @@ The Dataset can trigger a flush of all caches.
 from __future__ import annotations
 
 from collections.abc import Hashable, Iterable, Mapping, Sequence
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, TypeVar, TypeAlias
+
 
 from data_assistant.config import Scheme
+from typing import TYPE_CHECKING
+
+
+if TYPE_CHECKING:
+    _DB: TypeAlias = "DatasetBase"
+else:
+    _DB = object
+
+
+class Module(_DB):
+    def _init_module(self) -> None:
+        pass
+
 
 _DataT = TypeVar("_DataT")
 _SourceT = TypeVar("_SourceT")
@@ -62,6 +76,11 @@ class DatasetBase(Generic[_DataT, _SourceT]):
         """
 
         self.set_params(params, **kwargs)
+
+        # Initianlize modules in base classes
+        for cls in self.__class__.__bases__:
+            if issubclass(cls, Module):
+                cls._init_module(self)  # type: ignore
 
     def set_params(
         self,

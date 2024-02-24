@@ -5,23 +5,16 @@ from __future__ import annotations
 import functools
 import logging
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import Any, TypeVar
 
-if TYPE_CHECKING:
-    from .dataset import DatasetBase
-
-    _DB = DatasetBase
-else:
-    _DB = object
+from .dataset import Module
 
 log = logging.getLogger(__name__)
 
 
-class CacheMixin(_DB):
-    # TODO find a way to add attribute or launch init
-    def __init__(self, *args, **kwargs) -> None:
-        # initialize cache first in case other mixins need it
-        super().__init__(*args, **kwargs)
+class CacheModule(Module):
+    def _init_module(self) -> None:
+        super()._init_module()
         self.cache: dict[str, Any] = {}
 
     def set_in_cache(self, name: str, value: Any):

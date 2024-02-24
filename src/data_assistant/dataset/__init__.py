@@ -1,15 +1,15 @@
-from .dataset import DatasetBase, climato
+from .dataset import DatasetBase
 from .register import DatasetStore
 
-from .file_manager import FileFinderMixin
-from .loader import XarrayMultiFileMixin
-from .writer import XarraySplitWriter
+from .file_manager import FileFinderModule, climato
+from .loader import XarrayMultiFileLoaderModule
+from .writer import XarraySplitWriterModule
 
 
 __all__ = ["DatasetBase", "DatasetDefault", "DatasetStore", "climato"]
 
 
 class DatasetDefault(
-    XarrayMultiFileMixin, XarraySplitWriter, FileFinderMixin, DatasetBase
+    XarrayMultiFileLoaderModule, XarraySplitWriterModule, FileFinderModule, DatasetBase
 ):
     pass

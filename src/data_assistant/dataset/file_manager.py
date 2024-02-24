@@ -3,18 +3,12 @@ from __future__ import annotations
 
 import logging
 from os import path, PathLike
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import Generic, TypeVar
 
 from filefinder import Finder
 
-from .cache import CacheMixin, autocached
-
-if TYPE_CHECKING:
-    from .dataset import DatasetBase
-
-    _DB = DatasetBase
-else:
-    _DB = object
+from .cache import CacheModule, autocached
+from .dataset import Module
 
 log = logging.getLogger(__name__)
 
@@ -22,7 +16,7 @@ log = logging.getLogger(__name__)
 _FileT = TypeVar("_FileT")
 
 
-class MultiFilesAbstract(Generic[_FileT], _DB):
+class MultiFileModuleAbstract(Generic[_FileT], Module):
     def get_filename(self, **fixes) -> _FileT:
         raise NotImplementedError()
 
@@ -30,7 +24,7 @@ class MultiFilesAbstract(Generic[_FileT], _DB):
         raise NotImplementedError()
 
 
-class FileFinderMixin(MultiFilesAbstract, CacheMixin, _DB):
+class FileFinderModule(MultiFileModuleAbstract, CacheModule):
     """Multifiles manager using Filefinder.
 
     Written for datasets comprising of many datafiles, either because of the have long
@@ -220,7 +214,7 @@ class climato:  # noqa: N801
     def __init__(self, append_folder: str | None = None):
         self.append_folder = append_folder
 
-    def __call__(self, cls: FileFinderMixin):
+    def __call__(self, cls: FileFinderModule):
         """Apply decorator."""
         from filefinder import Finder
         from filefinder.group import TIME_GROUPS

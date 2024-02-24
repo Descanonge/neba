@@ -3,19 +3,13 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Generic
-from .dataset import _DataT, _SourceT
+from .dataset import Module, _DataT, _SourceT
 
 if TYPE_CHECKING:
     import xarray as xr
 
-    from .dataset import DatasetBase
 
-    _DB = DatasetBase
-else:
-    _DB = object
-
-
-class LoaderMixinAbstract(Generic[_DataT, _SourceT], _DB):
+class LoaderModuleAbstract(Generic[_DataT, _SourceT], Module):
     """Abstract class of Loader module.
 
     Defines the minimal API to communicate with the parent :class:`DatasetAbstract` and
@@ -64,7 +58,7 @@ class LoaderMixinAbstract(Generic[_DataT, _SourceT], _DB):
         return NotImplementedError("Implement in Mixin subclass.")
 
 
-class XarrayMultiFileMixin(LoaderMixinAbstract):
+class XarrayMultiFileLoaderModule(LoaderModuleAbstract):
     """Loader for Multifile Xarray.
 
     Uses :func:`xarray.open_mfdataset` to open data.

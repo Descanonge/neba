@@ -16,25 +16,18 @@ from typing import TYPE_CHECKING, Any
 
 from filefinder.group import TIME_GROUPS
 
-from data_assistant.util import check_output_path
-
-from .file_manager import FileFinderMixin
+from .file_manager import FileFinderModule
+from .dataset import Module
 
 if TYPE_CHECKING:
     import xarray as xr
     from distributed import Client
 
-    from .dataset import DatasetBase
-
     Call = tuple[xr.Dataset, str]
-    _DB = DatasetBase
-else:
-    _DB = object
-
 log = logging.getLogger(__name__)
 
 
-class WriterMixin(_DB):
+class WriterModuleAbstract(Module):
     """Abstract class of Writer module."""
 
     def get_metadata(
@@ -112,7 +105,7 @@ class WriterMixin(_DB):
         return meta
 
 
-class XarrayWriter(WriterMixin):
+class XarrayWriterModule(WriterModuleAbstract):
     """Writer for Xarray datasets.
 
     For simple unique calls.
@@ -163,7 +156,6 @@ class XarrayWriter(WriterMixin):
         /,
         *,
         parameters: dict,
-        encoding: Mapping,
         **kwargs,
     ):
         """Write to netcdf file.
@@ -175,21 +167,134 @@ class XarrayWriter(WriterMixin):
         ----------
         parameters:  # noqa
             Mapping of parameters to obtain filename.
-        encoding:
-            Mapping of encoding parameters.
         kwargs:
             Passed to the function that writes to disk
             (:meth:`xarray.Dataset.to_netcdf`).
         """
         outfile = self.get_source(**parameters)
-        check_output_path(outfile, directory=False)
-
         ds = self.set_metadata(ds, parameters=parameters)
+        call = ds, outfile
+        self.check_directories([call])
+        return self.send_single_call(call, **kwargs)
 
-        call_kw = self.TO_NETCDF_KWARGS | kwargs
-        call_kw["encoding"] = encoding
+    def send_single_call(self, call: Call, **kwargs):
+        """Execute a single call.
 
-        return ds.to_netcdf(outfile, **call_kw)
+        Parameters
+        ----------
+        kwargs
+            Passed to the writing function.
+        """
+        # To file
+        # TODO Out to deal with different files, we need different methods call :(
+        # That could be a dataset attribute, like OUTPUT_FORMAT
+        ds, outfile = call
+        kwargs = kwargs | self.TO_NETCDF_KWARGS
+        return ds.to_netcdf(outfile, **kwargs)
+
+    def check_directories(self, calls: Sequence[Call]):
+        """Check if directories are missing, and create them if necessary."""
+        files = [f for _, f in calls]
+
+        # Keep only the containing directories, with no duplicate
+        directories = set()
+        for f in files:
+            directories.add(path.dirname(f))
+
+        for d in directories:
+            if not path.isdir(d):
+                log.debug("Creating output directory %s", d)
+                os.makedirs(d)
+
+
+class XarrayMultifileWriterModule(XarrayWriterModule):
+    def check_overwriting_calls(self, calls: Sequence[Call]):
+        """Check if some calls have the same filename."""
+        outfiles = [f for _, f in calls]
+        duplicates = []
+        for f in set(outfiles):
+            if outfiles.count(f) > 1:
+                duplicates.append(f)
+
+        if duplicates:
+            raise ValueError(
+                f"Multiple writing calls to the same filename·s: {duplicates}"
+            )
+
+    def send_calls(self, calls: Sequence[Call], **kwargs):
+        """Send multiple calls serially.
+
+        Parameters
+        ----------
+        kwargs
+            Passed to writing function.
+        """
+        self.check_overwriting_calls(calls)
+        self.check_directories(calls)
+
+        for call in calls:
+            self.send_single_call(call, **kwargs)
+
+    def send_calls_together(
+        self,
+        calls: Sequence[Call],
+        client: Client,
+        chop: int | None = None,
+        **kwargs,
+    ):
+        """Send multiple calls together.
+
+        If Dask is correctly configured, the writing calls will be executed in parallel.
+
+        For all calls within a group, a list of delayed writing calls is constructed.
+        It is then computed all at once using ``client.compute(delayed)``, however to
+        avoid lingering results (because we only care about the side-effect of writing
+        to file, not the computed result), we get rid of 'futures' as soon as completed.
+        This avoid a blow up in memory::
+
+            for future in distributed.as_completed(client.compute(delayed)):
+                log.debug("future completed: %s", future)
+
+        Parameters
+        ----------
+        client
+            Dask :class:`Client` instance.
+        chop
+            If None (default), all calls are sent together. If chop is an integer,
+            groups of calls of size ``chop`` (at most) will be sent one after the other,
+            calls within each group being run in parallel.
+        kwargs
+            Passed to writing function.
+
+        """
+        import distributed
+
+        self.check_overwriting_calls(calls)
+        self.check_directories(calls)
+        ncalls = len(calls)
+        if chop is None:
+            chop = ncalls
+
+        slices = cut_slices(ncalls, chop)
+        log.info("%d total calls in %d groups.", ncalls, len(slices))
+
+        # This create delayed objects when calling function
+        kwargs["compute"] = False
+
+        for slc in slices:
+            log.debug("\tslice %s", slc)
+
+            # Select calls and turn it into a list of delayed objects for Dask
+            grouped_calls = calls[slc]
+            delayed = [self.send_single_call(c, **kwargs) for c in grouped_calls]
+
+            # Compute them all at once
+            # This loop is super important, this create all the futures for computation
+            # and remove them as soon as they are completed (and the variable `future`
+            # goes out of scope). That way the data does not pile up, it is freed.
+            # We only care about the side effect of writing to disk, not the result data.
+            for future in distributed.as_completed(client.compute(delayed)):
+                log.debug("\t\tfuture completed: %s", future)
 
 
 # Note that we inherit from FileFinderMixin, but it could be changed to any
@@ -197,7 +302,7 @@ class XarrayWriter(WriterMixin):
 # Can't be bothered to deal with mypy antics now though.
 
 
-class XarraySplitWriter(XarrayWriter, FileFinderMixin):
+class XarraySplitWriterModule(XarrayMultifileWriterModule, FileFinderModule):
     """Writer for Xarray datasets in multifiles.
 
     Can automatically split a dataset to the corresponding files by communicating
@@ -239,7 +344,6 @@ class XarraySplitWriter(XarrayWriter, FileFinderMixin):
         ds: xr.Dataset,
         /,
         *,
-        encoding: Mapping,
         time_freq: str | bool = True,
         squeeze: bool | str | Mapping[Hashable, bool | str] = False,
         client: Client | None = None,
@@ -258,8 +362,6 @@ class XarraySplitWriter(XarrayWriter, FileFinderMixin):
 
         Parameters
         ----------
-        encoding:
-            Mapping of encoding parameters.
         time_freq:
             If it is a string, use it as a frequency/period for
             :meth:`xarray.Dataset.resample`. For example ``M`` will return datasets
@@ -464,123 +566,6 @@ class XarraySplitWriter(XarrayWriter, FileFinderMixin):
             calls.append((ds, outfile))
 
         return calls
-
-    def check_overwriting_calls(self, calls: Sequence[Call]):
-        """Check if some calls have the same filename."""
-        outfiles = [f for _, f in calls]
-        duplicates = []
-        for f in set(outfiles):
-            if outfiles.count(f) > 1:
-                duplicates.append(f)
-
-        if duplicates:
-            raise ValueError(
-                f"Multiple writing calls to the same filename·s: {duplicates}"
-            )
-
-    def check_directories(self, calls: Sequence[Call]):
-        """Check if directories are missing, and create them if necessary."""
-        files = [f for _, f in calls]
-
-        # Keep only the containing directories, with no duplicate
-        directories = set()
-        for f in files:
-            directories.add(path.dirname(f))
-
-        for d in directories:
-            if not path.isdir(d):
-                log.debug("Creating output directory %s", d)
-                os.makedirs(d)
-
-    def send_calls(self, calls: Sequence[Call], **kwargs):
-        """Send multiple calls serially.
-
-        Parameters
-        ----------
-        kwargs
-            Passed to writing function.
-        """
-        self.check_overwriting_calls(calls)
-        self.check_directories(calls)
-
-        for call in calls:
-            self.send_single_call(call, **kwargs)
-
-    def send_calls_together(
-        self,
-        calls: Sequence[Call],
-        client: Client,
-        chop: int | None = None,
-        **kwargs,
-    ):
-        """Send multiple calls together.
-
-        If Dask is correctly configured, the writing calls will be executed in parallel.
-
-        For all calls within a group, a list of delayed writing calls is constructed.
-        It is then computed all at once using ``client.compute(delayed)``, however to
-        avoid lingering results (because we only care about the side-effect of writing
-        to file, not the computed result), we get rid of 'futures' as soon as completed.
-        This avoid a blow up in memory::
-
-            for future in distributed.as_completed(client.compute(delayed)):
-                log.debug("future completed: %s", future)
-
-        Parameters
-        ----------
-        client
-            Dask :class:`Client` instance.
-        chop
-            If None (default), all calls are sent together. If chop is an integer,
-            groups of calls of size ``chop`` (at most) will be sent one after the other,
-            calls within each group being run in parallel.
-        kwargs
-            Passed to writing function.
-
-        """
-        import distributed
-
-        self.check_overwriting_calls(calls)
-        self.check_directories(calls)
-        ncalls = len(calls)
-        if chop is None:
-            chop = ncalls
-
-        slices = cut_slices(ncalls, chop)
-        log.info("%d total calls in %d groups.", ncalls, len(slices))
-
-        # This create delayed objects when calling function
-        kwargs["compute"] = False
-
-        for slc in slices:
-            log.debug("\tslice %s", slc)
-
-            # Select calls and turn it into a list of delayed objects for Dask
-            grouped_calls = calls[slc]
-            delayed = [self.send_single_call(c, **kwargs) for c in grouped_calls]
-
-            # Compute them all at once
-            # This loop is super important, this create all the futures for computation
-            # and remove them as soon as they are completed (and the variable `future`
-            # goes out of scope). That way the data does not pile up, it is freed.
-            # We only care about the side effect of writing to disk, not the result data.
-            for future in distributed.as_completed(client.compute(delayed)):
-                log.debug("\t\tfuture completed: %s", future)
-
-    def send_single_call(self, call: Call, **kwargs):
-        """Execute a single call.
-
-        Parameters
-        ----------
-        kwargs
-            Passed to the writing function.
-        """
-        # To file
-        # TODO Out to deal with different files, we need different methods call :(
-        # That could be a dataset attribute, like OUTPUT_FORMAT
-        ds, outfile = call
-        kwargs = kwargs | self.TO_NETCDF_KWARGS
-        return ds.to_netcdf(outfile, **kwargs)
 
 
 def cut_slices(total_size: int, slice_size: int) -> list[slice]:
