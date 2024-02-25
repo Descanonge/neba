@@ -110,10 +110,14 @@ class Scheme(Configurable):
 
         for k, v in classdict.items():
             # register subschemes
-            if isinstance(v, Instance) and issubclass(v.klass, Scheme):
-                cls._subschemes[k] = v.klass
+            if isinstance(v, Instance):
+                # if v.klass is str, transform to corresponding type
+                v._resolve_classes()
+                assert isinstance(v.klass, type)
+                if issubclass(v.klass, Scheme):
+                    cls._subschemes[k] = v.klass
 
-        cls.setup_class(classdict)
+        cls.setup_class(classdict)  # type: ignore
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
