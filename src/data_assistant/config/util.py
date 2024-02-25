@@ -33,10 +33,40 @@ def underline(lines: list[str], char: str = "=") -> list[str]:
     return lines
 
 
-def indent(lines: list[str], num: int = 4) -> list[str]:
+def indent(lines: list[str], num: int = 4, initial_indent: bool = True) -> list[str]:
     for i, line in enumerate(lines):
+        if i == 0 and not initial_indent:
+            continue
         lines[i] = " " * num + line
     return lines
+
+
+def stringify(obj) -> str:
+    """Return a string representation of object.
+
+    To put in trait metadata in the documentation.
+    """
+    if isinstance(obj, str):
+        # Add ""s to be clear (especially when we have an empty string)
+        return f'"{obj}"'
+
+    # Try to have a nice link for types/classes
+    if isinstance(obj, type):
+        try:
+            fullname = f"{obj.__module__}.{obj.__name__}"
+        except AttributeError:
+            fullname = str(obj)
+        return f":class:`~{fullname}`"
+
+    out = str(obj)
+
+    # arbitrary length of characters
+    maxlength = 32
+    if len(out) > maxlength:
+        # the repr/str is too long
+        out = out[:maxlength] + "..."
+
+    return out
 
 
 def get_trait_typehint(trait: Any, mode: str = "short") -> str:

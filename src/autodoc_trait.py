@@ -8,7 +8,7 @@ import sys
 from typing import Any
 
 from data_assistant.config.scheme import FixableTrait
-from data_assistant.config.util import get_trait_typehint
+from data_assistant.config.util import get_trait_typehint, stringify
 from sphinx.application import Sphinx
 from sphinx.ext.autodoc import (
     SUPPRESS,
@@ -25,32 +25,8 @@ from traitlets import (
 from traitlets.utils.text import wrap_paragraphs
 
 
-def stringify(obj) -> str:
-    """Return a string representation of object.
-
-    To put in trait metadata in the documentation.
-    """
-    if isinstance(obj, str):
-        # Add ""s to be clear (especially when we have an empty string)
-        return f'``"{obj}"``'
-
-    # Try to have a nice link for types/classes
-    if isinstance(obj, type):
-        try:
-            fullname = f"{obj.__module__}.{obj.__name__}"
-        except AttributeError:
-            fullname = str(obj)
-        return f":class:`~{fullname}`"
-
-    out = str(obj)
-
-    # arbitrary length of characters
-    maxlength = 32
-    if len(out) > maxlength:
-        # the repr/str is too long
-        out = out[:maxlength] + "..."
-
-    return f"``{out}``"
+def wrap_quote(text: str) -> str:
+    return f"``{text}``"
 
 
 class TraitDocumenter(AttributeDocumenter):
@@ -79,7 +55,7 @@ class TraitDocumenter(AttributeDocumenter):
     @property
     def default_value(self) -> tuple[str, list[str]] | None:
         """Default value of trait. Nicely rendered."""
-        return ("Default value", [stringify(self.object.default())])
+        return ("Default value", [wrap_quote(stringify(self.object.default()))])
 
     @property
     def accepted_values(self) -> tuple[str, list[str]] | None:
@@ -96,7 +72,7 @@ class TraitDocumenter(AttributeDocumenter):
             if self.object._per_key_traits is not None:
                 lines = [""]
                 for key, trait in self.object._per_key_traits.items():
-                    lines += [f"   * *{key}*: {stringify(type(trait))}"]
+                    lines += [f"   * *{key}*: ``{(stringify(type(trait)))}``"]
                 return ("Per key traits", lines)
         return None
 

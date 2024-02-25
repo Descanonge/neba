@@ -10,13 +10,18 @@ import re
 from argparse import Action, ArgumentParser, _StoreAction
 from collections.abc import Callable, Sequence
 from os import path
-from typing import TYPE_CHECKING, Any
+from textwrap import dedent
+from typing import TYPE_CHECKING, Any, overload
 
 from traitlets.traitlets import HasTraits
 from traitlets.utils.sentinel import Sentinel
 
 if TYPE_CHECKING:
+    from tomlkit.container import Container, Table
+    from tomlkit.toml_document import TOMLDocument
+
     from .application import ApplicationBase
+    from .scheme import Scheme
 
 from traitlets.traitlets import TraitType
 
@@ -308,6 +313,9 @@ class FileLoader(ConfigLoader):
         self.filename = filename
         self.full_filename = path.abspath(filename)
 
+    def write(self) -> None:
+        raise NotImplementedError()
+
 
 class TomlKitLoader(FileLoader):
     """Load config from TOML files using tomlkit library.
@@ -327,6 +335,7 @@ class TomlKitLoader(FileLoader):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         import tomlkit
+        # from tomlkit import comment, document, dumps, nl, table
 
         self.backend = tomlkit
 
@@ -338,7 +347,7 @@ class TomlKitLoader(FileLoader):
             root_table = self.backend.load(fp)
 
         # flatten tables
-        def recurse(table, key):
+        def recurse(table: Container, key: list[str]):
             for k, v in table.items():
                 newkey = key + [k]
                 if isinstance(v, self.backend.api.Table):
@@ -354,6 +363,67 @@ class TomlKitLoader(FileLoader):
         # Resolve and return
         self.config = self.app.resolve_config(self.config)
         return self.config
+
+    def to_lines(self) -> list[str]:
+        doc = self.backend.document()
+
+        self.serialize_scheme(self.app, [], doc)
+
+        return self.backend.dumps(doc).splitlines()
+
+    @overload
+    def serialize_scheme(
+        self, scheme: ApplicationBase, fullpath: list[str], container: TOMLDocument
+    ) -> TOMLDocument:
+        ...
+
+    @overload
+    def serialize_scheme(
+        self,
+        scheme: Scheme,
+        fullpath: list[str],
+        container: None = None,
+    ) -> Table:
+        ...
+
+    def serialize_scheme(
+        self, scheme: Scheme, fullpath: list[str], container: TOMLDocument | None = None
+    ) -> Table | TOMLDocument:
+        t: Container | Table
+        if container is None:
+            t = self.backend.table()
+        else:
+            t = container
+
+        self.wrap_comment(t, scheme.emit_description())
+        t.add(self.backend.nl())
+
+        for name, trait in sorted(scheme.traits(config=True).items()):
+            trait_lines = scheme.emit_trait_help(
+                fullpath + [name],
+                trait,
+                structure="{name} = {value}\n--{fullpath} ({typehint})",
+            )
+            self.wrap_comment(t, trait_lines)
+            t.add(self.backend.nl())
+
+        for name, subscheme in sorted(scheme.trait_values(subscheme=True).items()):
+            t.add(self.backend.nl())
+            t.add(name, self.serialize_scheme(subscheme, fullpath + [name]))
+
+        return t
+
+    def wrap_comment(self, item: Table | Container, text: str | list[str]):
+        if not isinstance(text, str):
+            text = "\n".join(text)
+
+        text = dedent(text)
+        # remove empty trailing lines
+        text = text.rstrip(" \n")
+        lines = text.splitlines()
+
+        for line in lines:
+            item.add(self.backend.comment(line))
 
 
 class YamlLoader(FileLoader):

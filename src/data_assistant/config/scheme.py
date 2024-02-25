@@ -2,14 +2,15 @@ from __future__ import annotations
 
 from collections.abc import Callable, Generator, Hashable, Iterator
 from inspect import Parameter, signature
+from textwrap import dedent
 from typing import Any
 
-from traitlets import Bool, Enum, Instance, List, TraitType, Undefined, Unicode, Union
+from traitlets import Bool, Enum, Instance, List, TraitType, Unicode, Union
 from traitlets.config import Configurable
 from traitlets.utils.text import wrap_paragraphs
 
 from .loader import ConfigValue
-from .util import add_spacer, get_trait_typehint, indent, underline
+from .util import add_spacer, get_trait_typehint, indent, underline, stringify
 
 
 class FixableTrait(Union):
@@ -94,7 +95,7 @@ class Scheme(Configurable):
         cls._setup_scheme()
 
     @classmethod
-    def _setup_scheme(cls):
+    def _setup_scheme(cls) -> None:
         cls._subschemes = {}
         classdict = cls.__dict__
         for k, v in classdict.items():
@@ -429,10 +430,9 @@ class Scheme(Configurable):
                 lines.append(f"{short}: {long}")
 
         for name, trait in sorted(self.traits(config=True).items()):
-            fullname = f"--{'.'.join(fullpath + [name])}"
-            typehint = get_trait_typehint(trait, mode="minimal")
-            lines.append(f"{fullname} ({typehint})")
-            lines += indent(self.emit_trait_help(trait))
+            lines += indent(
+                self.emit_trait_help(fullpath + [name], trait), initial_indent=False
+            )
 
         for name in self._subschemes:
             add_spacer(lines)
@@ -446,13 +446,26 @@ class Scheme(Configurable):
             return doc.rstrip(" \n").splitlines()
         return []
 
-    def emit_trait_help(self, trait: TraitType) -> list[str]:
+    def emit_trait_help(
+        self, fullpath: list[str], trait: TraitType, structure: str | None = None
+    ) -> list[str]:
         lines: list[str] = []
-        if trait.default_value is not Undefined:
-            lines.append("* Default value: " + repr(trait.default()))
+
+        namespace = dict(
+            name=fullpath[-1],
+            typehint=get_trait_typehint(trait, mode="minimal"),
+            fullpath=".".join(fullpath),
+            value=stringify(trait.default()),
+        )
+
+        # Default value for CLI
+        if structure is None:
+            structure = "{name} ({typehint})\n--{fullpath} = {value}"
+
+        lines += structure.format(**namespace).splitlines()
 
         if isinstance(trait, Enum):
-            lines.append("* Accepted values: " + repr(trait.values))
+            lines.append("> Accepted values: " + repr(trait.values))
 
         if trait.help:
             # separate paragraphs by linebreaks
