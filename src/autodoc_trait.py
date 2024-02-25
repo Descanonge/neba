@@ -40,7 +40,6 @@ class TraitDocumenter(AttributeDocumenter):
         "per_key_traits",
         "min_length",
         "max_length",
-        "config_paths",
         "configurable",
         "read_only",
         "fixable",
@@ -93,20 +92,6 @@ class TraitDocumenter(AttributeDocumenter):
                 return ("Maximum length", [stringify(self.object._maxlen)])
             pass
         return None
-
-    @property
-    def config_paths(self) -> tuple[str, list[str]] | None:
-        """List of configuration paths to access this trait."""
-        paths = self.object.get_metadata("paths")
-        if paths is None:
-            return None
-
-        if len(paths) == 1:
-            return ("Path", [f"``{paths[0]}``"])
-
-        lines = [""]
-        lines += [f"    * ``{path}``" for path in paths]
-        return ("Paths", lines)
 
     @property
     def configurable(self) -> tuple[str, list[str]] | None:
