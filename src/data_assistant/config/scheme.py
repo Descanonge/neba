@@ -423,7 +423,10 @@ class Scheme(Configurable):
         lines = [title]
         underline(lines)
 
-        lines += self.emit_description()
+        description = self.emit_description()
+        if description:
+            lines += description
+            lines.append("")
 
         # aliases
         if self.aliases:
@@ -438,7 +441,7 @@ class Scheme(Configurable):
                 self.emit_trait_help(fullpath + [name], trait), initial_indent=False
             )
 
-        for name in self._subschemes:
+        for name in sorted(self._subschemes):
             add_spacer(lines)
             lines += getattr(self, name).emit_help(fullpath + [name])
 
@@ -446,9 +449,19 @@ class Scheme(Configurable):
 
     def emit_description(self) -> list[str]:
         doc = self.__doc__
-        if doc:
-            return doc.rstrip(" \n").splitlines()
-        return []
+        if not doc:
+            return []
+
+        # Remove leading and trailing whitespace
+        doc = doc.strip()
+        lines = doc.splitlines()
+        if len(lines) > 1:
+            # dedent, ignoring first line that has no indent in docstrigs
+            trimmed = dedent("\n".join(lines[1:]))
+            # put it back together
+            lines = lines[:1] + trimmed.splitlines()
+
+        return lines
 
     def emit_trait_help(
         self, fullpath: list[str], trait: TraitType, structure: str | None = None
