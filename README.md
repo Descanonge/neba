@@ -27,12 +27,12 @@ Each new dataset is specified by creating a subclass of a dataset object. Releva
 
 This framework tries to make those dataset objects as universal as reasonably possible.
 Some common convenience features are written with the data source and format, or the loading library for instance left unspecified.
-Features can be added to the dataset class as necessary via a system of Mixins[^1].
+Features can be added to the dataset class as needed via a system of independent modules (Mixins classes for the initiated).
 
-For example, we can make our base dataset class by adding XarrayLoaderMixin and XarrayWriterMixin to load and write data using [xarray](https://xarray.dev/), and FileFinderMixin to manage/find datafiles using the simple syntax of [filefinder](https://filefinder.readthedocs.io/).
+For example, we can make our base dataset class by adding XarrayMultiFileLoaderModule and XarrayWriterModule to load and write data using [xarray](https://xarray.dev/), and FileFinderModule to manage/find datafiles using the simple syntax of [filefinder](https://filefinder.readthedocs.io/).
 
 ``` python
-class DatasetDefault(XarrayLoaderMixin, XarrayWriterMixin, FileFinderMixin, DatasetBase):
+class DatasetDefault(XarrayMultiFileLoaderModule, XarrayWriterModule, FileFinderModule, DatasetBase):
     OPEN_MFDATASET_KWARGS = dict(parallel=True)
     
     
@@ -44,26 +44,24 @@ class SST(DatasetDefault):
         return "%(Y)/SST_%(Y)%(m)%(d).nc"
 ```
 
-This can allow for a little more advanced functionalities, here for instance we combine the writing mixin with the filefinder one, so that we can automatically split data to different files when writing to disk using the specified filename pattern.
+This can allow for a little more advanced functionalities, here for instance we combine the writing module with the filefinder one, so that we can automatically split data to different files when writing to disk using the specified filename pattern.
 
 ``` python
-class DatasetDefault(XarrayLoaderMixin, XarrayWriterComboFileFinderMixin, DatasetBase):
+class DatasetDefault(XarrayMultiFileLoaderModule, XarraySplitWriterModule, DatasetBase):
     OPEN_MFDATASET_KWARGS = dict(parallel=True)
     
 ...
 
-# Say we obtain our SST dataset as a xarray.Dataset,
-# we can write our daily data to disk in monthly files
-# It would also distribute among any other parameter present in the filename pattern.
-# By supplying a Dask client, this is going to be done in parallel.
+```
 
+Say we obtain our SST dataset as a `xarray.Dataset`, we can write our daily data to disk in monthly files.
+It would also distribute among any other parameters present in the filename pattern.
+And by supplying a Dask client, this is going to be done in parallel:
+
+``` python
 SST(**maybe_our_parameters).write(
     sst,
     time_freq="M",
     client=client
 )
-    
 ```
-
-
-[^1]: in the works, see branch 'mixins'. Current system uses composition, but it makes for a somewhat confusing interface imho.
