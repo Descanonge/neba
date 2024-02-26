@@ -310,12 +310,22 @@ class FileLoader(ConfigLoader):
     Common logic goes here.
     """
 
-    extensions: list[str]
+    extensions: list[str] = []
 
     def __init__(self, filename: str, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.filename = filename
         self.full_filename = path.abspath(filename)
+
+    @classmethod
+    def can_load(cls, filename: str) -> bool:
+        """Return if this loader class appropriate for this config file.
+
+        This is a classmethod to avoid unnecessary/unwanted library import that might
+        happen at initialization.
+        """
+        _, ext = path.splitext(filename)
+        return ext in cls.extensions
 
     def write(self) -> None:
         raise NotImplementedError()

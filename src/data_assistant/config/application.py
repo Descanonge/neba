@@ -1,28 +1,30 @@
+from __future__ import annotations
+
 import logging
 import sys
 from collections.abc import Callable
 from os import path
+from typing import TYPE_CHECKING
 
-from traitlets import Bool, Instance, List, TraitType, Unicode, Union
-from traitlets.config import Application, Configurable
+from traitlets import Bool, Union, List, Unicode, Instance
 
-from .loader import (
-    CLILoader,
-    ConfigLoader,
-    ConfigValue,
-    FileLoader,
-    PyLoader,
-    TomlKitLoader,
-    YamlLoader,
-    to_nested_dict,
-)
-from .scheme import Scheme
+from .loader import CLILoader, PyLoader, TomlKitLoader, YamlLoader, to_nested_dict
+
+if TYPE_CHECKING:
+    from traitlets.traitlets import TraitType
+    from traitlets.config.configurable import Configurable
+
+    from .scheme import Scheme
+    from .loader import ConfigLoader, ConfigValue, FileLoader
 
 
 class ApplicationBase(Scheme):
     """Base application class.
 
-    Manages loading config from files and CLI.
+    Orchestrate the loading of configuration keys from files or from command line
+    arguments.
+    Pass the combined configuration keys to the appropriate schemes in the configuration
+    tree structure. This validate the values and instanciate the configuration objects.
     """
 
     strict_parsing = Bool(
@@ -54,6 +56,11 @@ class ApplicationBase(Scheme):
     ignore_cli = Bool(False, help="If True, do not parse command line arguments.")
 
     file_loaders: list[type[FileLoader]] = [TomlKitLoader, YamlLoader, PyLoader]
+    """List of possible configuration loaders from file, for different formats.
+
+    Each will be tried until an appropriate loader is found. Currently, loaders only
+    look at the extension.
+    """
 
     def __init__(self, *args, **kwargs) -> None:
         self.cli_conf: dict[str, ConfigValue] = {}
@@ -142,26 +149,28 @@ class ApplicationBase(Scheme):
 
         file_confs: dict[str, dict[str, ConfigValue]] = {}
         for filepath in self.config_files:
-            _, ext = path.splitext(filepath)
-
-            found_loader = False
-            for loader_cls in self.file_loaders:
-                if ext.lstrip(".") in loader_cls.extensions:
-                    found_loader = True
-                    loader = loader_cls(filepath, self, log=log)
-                    file_confs[filepath] = loader.get_config()
-                    break
-
-            if not found_loader:
-                raise KeyError(
-                    f"Did not find loader for config file {filepath}. "
-                    f" Supported loaders are {self.file_loaders}"
-                )
+            loader_cls = self._select_file_loader(filepath)
+            loader = loader_cls(filepath, self, log=log)
+            file_confs[filepath] = loader.get_config()
 
         if len(file_confs) > 1:
             self.file_conf = self.merge_configs(*file_confs.values())
         else:
             self.file_conf = list(file_confs.values())[0]
+
+    def _select_file_loader(self, filename: str) -> type[FileLoader]:
+        """Return the first appropriate FileLoader for this file."""
+        select: type[FileLoader] | None = None
+        for loader_cls in self.file_loaders:
+            if loader_cls.can_load(filename):
+                select = loader_cls
+                break
+        if select is None:
+            raise KeyError(
+                f"Did not find appropriate loader for config file {filename}. "
+                f" Supported loaders are {self.file_loaders}"
+            )
+        return select
 
     def add_extra_parameter(
         self,
@@ -260,28 +269,5 @@ class ApplicationBase(Scheme):
         with open(filename, "w") as f:
             f.write("\n".join(lines))
 
-    def _filter_parent_app(self, classes):
-        for c in classes:
-            if issubclass(c, Application) and c != self.__class__:
-                continue
-            yield c
-
     def exit(self, exit_status: int | str = 0):
         sys.exit(exit_status)
-
-    def generate_config_file(self, classes=None):
-        """Generate default config file from Configurables.
-
-        Override to avoid documenting base classes of the application.
-        """
-        lines = ["# Configuration file for %s." % self.name]
-        lines.append("")
-        lines.append("c = get_config()  #" + "noqa")
-        lines.append("")
-        classes = self.classes if classes is None else classes
-        config_classes = list(self._classes_with_config_traits(classes))
-        config_classes = self._filter_parent_app(config_classes)
-        for cls in config_classes:
-            lines.append(cls.class_config_section(config_classes))
-
-        return "\n".join(lines)
