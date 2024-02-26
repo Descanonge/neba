@@ -383,7 +383,7 @@ class TomlKitLoader(FileLoader):
                     recurse(v, newkey)
                 else:
                     fullkey = ".".join(newkey)
-                    value = ConfigValue(v.unwrap(), fullkey, origin=self.filename)
+                    value = ConfigValue(v, fullkey, origin=self.filename)
                     # no parsing, directly to values
                     value.value = value.input
                     self.config[fullkey] = value
