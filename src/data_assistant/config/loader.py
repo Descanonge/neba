@@ -129,7 +129,12 @@ class ConfigLoader:
     def clear(self) -> None:
         self.config.clear()
 
-    def get_config(self) -> dict[str, ConfigValue]:
+    def get_config(self, *args, **kwargs) -> dict[str, ConfigValue]:
+        self.clear()
+        self.config = self.load_config(*args, **kwargs)
+        return self.app.resolve_config(self.config)
+
+    def load_config(self) -> dict[str, ConfigValue]:
         raise NotImplementedError
 
 
@@ -270,10 +275,15 @@ class CLILoader(ConfigLoader):
         # parser.set_action_creation(func)
         return parser
 
-    # TODO use a catch error decorator
     def get_config(self, argv: list[str] | None = None) -> dict[str, ConfigValue]:
-        self.clear()
+        self.config = super().get_config(argv)
+        # Parse values using the traits
+        for val in self.config.values():
+            val.parse()
+        return self.config
 
+    # TODO use a catch error decorator
+    def load_config(self, argv: list[str] | None = None) -> dict[str, ConfigValue]:
         # ArgumentParser does its job
         args = vars(self.parser.parse_args(argv))
 
@@ -288,13 +298,7 @@ class CLILoader(ConfigLoader):
             self.app.help()
             self.app.exit()
 
-        # resolve paths
-        config = self.app.resolve_config(config)
-        # Parse using the traits
-        for val in config.values():
-            val.parse()
-        self.config = config
-        return self.config
+        return config
 
 
 # --- File loaders
@@ -341,8 +345,7 @@ class TomlKitLoader(FileLoader):
 
     # TODO use a catch error decorator
     # so that any error is raise as a ConfigLoadingError, easy to catch in App
-    def get_config(self) -> dict[str, ConfigValue]:
-        self.clear()
+    def load_config(self) -> dict[str, ConfigValue]:
         with open(self.full_filename) as fp:
             root_table = self.backend.load(fp)
 
@@ -360,9 +363,7 @@ class TomlKitLoader(FileLoader):
                     self.config[fullkey] = value
 
         recurse(root_table, [])
-        # Resolve and return
-        self.config = self.app.resolve_config(self.config)
-        return self.config
+        return config
 
     def to_lines(self) -> list[str]:
         doc = self.backend.document()
@@ -476,9 +477,7 @@ class PyLoader(FileLoader):
 
     extensions = ["py", "ipy"]
 
-    def get_config(self) -> dict[str, ConfigValue]:
-        self.clear()
-
+    def load_config(self) -> dict[str, ConfigValue]:
         read_config = _ReadConfig()
 
         # from traitlets.config.loader.PyFileConfigLoader
@@ -504,6 +503,4 @@ class PyLoader(FileLoader):
                     self.config[fullkey] = value
 
         recurse(read_config, [])
-        # Resolve and return
-        self.config = self.app.resolve_config(self.config)
         return self.config
