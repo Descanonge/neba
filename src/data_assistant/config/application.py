@@ -8,13 +8,13 @@ from typing import TYPE_CHECKING
 
 from traitlets import Bool, Union, List, Unicode, Instance
 
+
 from .loader import CLILoader, PyLoader, TomlKitLoader, YamlLoader, to_nested_dict
+from .scheme import Scheme
 
 if TYPE_CHECKING:
     from traitlets.traitlets import TraitType
     from traitlets.config.configurable import Configurable
-
-    from .scheme import Scheme
     from .loader import ConfigLoader, ConfigValue, FileLoader
 
 
@@ -256,15 +256,11 @@ class ApplicationBase(Scheme):
             if answer.startswith("n"):
                 return
 
-        lines = self.generate_config_file().splitlines()
+        loader = self._select_file_loader(filename)(filename, self, self.log)
+        lines = loader.to_lines(comment=comment)
 
         # Remove trailing whitespace
         lines = [line.rstrip() for line in lines]
-
-        if not comment:
-            for i, line in enumerate(lines):
-                if line.startswith("# c."):
-                    lines[i] = line.removeprefix("# ")
 
         with open(filename, "w") as f:
             f.write("\n".join(lines))

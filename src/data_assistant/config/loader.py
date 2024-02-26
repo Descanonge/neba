@@ -325,10 +325,26 @@ class FileLoader(ConfigLoader):
         happen at initialization.
         """
         _, ext = path.splitext(filename)
-        return ext in cls.extensions
+        return ext.lstrip(".") in cls.extensions
 
     def write(self) -> None:
         raise NotImplementedError()
+
+    def to_lines(self, comment: Any = None) -> list[str]:
+        """Return lines of configuration file corresponding to the app config tree.
+
+        Parameters
+        ----------
+        comment
+            Include more or less information in comments. Can be one of:
+            * full: all information about traits is included
+            * no-help: help string is not included
+            * none: no information is included, only the key and default value
+            Note that the line containing the key and default value, for instance
+            ``traitname = 2`` will be commented since we do not need to parse/load the
+            default value.
+        """
+        raise NotImplementedError("Implement for different file formats.")
 
 
 class TomlKitLoader(FileLoader):
@@ -373,18 +389,35 @@ class TomlKitLoader(FileLoader):
                     self.config[fullkey] = value
 
         recurse(root_table, [])
-        return config
+        return self.config
 
-    def to_lines(self) -> list[str]:
+    def to_lines(self, comment: str = "full") -> list[str]:
+        """Return lines of configuration file corresponding to the app config tree.
+
+        Parameters
+        ----------
+        comment
+            Include more or less information in comments. Can be one of:
+            * full: all information about traits is included
+            * no-help: help string is not included
+            * none: no information is included, only the key and default value
+            Note that the line containing the key and default value, for instance
+            ``traitname = 2`` will be commented since we do not need to parse/load the
+            default value.
+        """
         doc = self.backend.document()
 
-        self.serialize_scheme(self.app, [], doc)
+        self.serialize_scheme(self.app, [], comment, doc)
 
         return self.backend.dumps(doc).splitlines()
 
     @overload
     def serialize_scheme(
-        self, scheme: ApplicationBase, fullpath: list[str], container: TOMLDocument
+        self,
+        scheme: ApplicationBase,
+        fullpath: list[str],
+        comment: str,
+        container: TOMLDocument,
     ) -> TOMLDocument:
         ...
 
@@ -393,12 +426,17 @@ class TomlKitLoader(FileLoader):
         self,
         scheme: Scheme,
         fullpath: list[str],
+        comment: str,
         container: None = None,
     ) -> Table:
         ...
 
     def serialize_scheme(
-        self, scheme: Scheme, fullpath: list[str], container: TOMLDocument | None = None
+        self,
+        scheme: Scheme,
+        fullpath: list[str],
+        comment: str,
+        container: TOMLDocument | None = None,
     ) -> Table | TOMLDocument:
         t: Container | Table
         if container is None:
@@ -406,21 +444,25 @@ class TomlKitLoader(FileLoader):
         else:
             t = container
 
-        self.wrap_comment(t, scheme.emit_description())
-        t.add(self.backend.nl())
+        if comment != "none":
+            self.wrap_comment(t, scheme.emit_description())
+            t.add(self.backend.nl())
+
+        structure = "{name} = {value}"
+        if comment != "none":
+            structure += "\n--{fullpath} ({typehint})"
 
         for name, trait in sorted(scheme.traits(config=True).items()):
             trait_lines = scheme.emit_trait_help(
-                fullpath + [name],
-                trait,
-                structure="{name} = {value}\n--{fullpath} ({typehint})",
+                fullpath + [name], trait, structure=structure, comment=comment
             )
             self.wrap_comment(t, trait_lines)
-            t.add(self.backend.nl())
+            if comment != "none":
+                t.add(self.backend.nl())
 
         for name, subscheme in sorted(scheme.trait_values(subscheme=True).items()):
             t.add(self.backend.nl())
-            t.add(name, self.serialize_scheme(subscheme, fullpath + [name]))
+            t.add(name, self.serialize_scheme(subscheme, fullpath + [name], comment))
 
         return t
 

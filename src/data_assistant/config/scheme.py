@@ -464,7 +464,11 @@ class Scheme(Configurable):
         return lines
 
     def emit_trait_help(
-        self, fullpath: list[str], trait: TraitType, structure: str | None = None
+        self,
+        fullpath: list[str],
+        trait: TraitType,
+        structure: str | None = None,
+        comment: str = "full",
     ) -> list[str]:
         lines: list[str] = []
 
@@ -481,8 +485,14 @@ class Scheme(Configurable):
 
         lines += structure.format(**namespace).splitlines()
 
+        if comment == "none":
+            return lines
+
         if isinstance(trait, Enum):
             lines.append("> Accepted values: " + repr(trait.values))
+
+        if comment == "no-help":
+            return lines
 
         if trait.help:
             # separate paragraphs by linebreaks
