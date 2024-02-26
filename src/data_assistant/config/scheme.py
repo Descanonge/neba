@@ -5,7 +5,16 @@ from inspect import Parameter, signature
 from textwrap import dedent
 from typing import Any
 
-from traitlets import Bool, Enum, Instance, List, TraitType, Unicode, Union
+from traitlets import (
+    Bool,
+    Enum,
+    Instance,
+    List,
+    TraitType,
+    Unicode,
+    Union,
+    ClassBasedTraitType,
+)
 from traitlets.config import Configurable
 from traitlets.utils.text import wrap_paragraphs
 
@@ -469,6 +478,8 @@ class Scheme(Configurable):
         trait: TraitType,
         structure: str | None = None,
         comment: str = "full",
+        rst: bool = False,
+        stringify_classes=False,
     ) -> list[str]:
         lines: list[str] = []
 
@@ -476,8 +487,15 @@ class Scheme(Configurable):
             name=fullpath[-1],
             typehint=get_trait_typehint(trait, mode="minimal"),
             fullpath=".".join(fullpath),
-            value=stringify(trait.default()),
+            value=stringify(trait.default(), rst=rst),
         )
+
+        if (
+            stringify_classes
+            and isinstance(trait, ClassBasedTraitType)
+            and isinstance(trait.default(), type)
+        ):
+            namespace["value"] = f'"{namespace["value"]}"'
 
         # Default value for CLI
         if structure is None:

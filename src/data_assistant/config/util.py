@@ -41,14 +41,26 @@ def indent(lines: list[str], num: int = 4, initial_indent: bool = True) -> list[
     return lines
 
 
-def stringify(obj) -> str:
+def stringify(obj, rst=True) -> str:
     """Return a string representation of object.
 
     To put in trait metadata in the documentation.
+
+    Parameters
+    ----------
+    rst
+        If True, wrap the output in wrap the output in double backticks and link
+        classes using roles.
     """
+
+    def output(text: str) -> str:
+        if rst:
+            return f"``{text}``"
+        return text
+
     if isinstance(obj, str):
         # Add ""s to be clear (especially when we have an empty string)
-        return f'"{obj}"'
+        return output(f'"{obj}"')
 
     # Try to have a nice link for types/classes
     if isinstance(obj, type):
@@ -56,7 +68,9 @@ def stringify(obj) -> str:
             fullname = f"{obj.__module__}.{obj.__name__}"
         except AttributeError:
             fullname = str(obj)
-        return f":class:`~{fullname}`"
+        if rst:
+            return f":class:`{fullname}`"
+        return fullname
 
     out = str(obj)
 
@@ -66,7 +80,7 @@ def stringify(obj) -> str:
         # the repr/str is too long
         out = out[:maxlength] + "..."
 
-    return out
+    return output(out)
 
 
 def get_trait_typehint(trait: Any, mode: str = "short") -> str:

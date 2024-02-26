@@ -25,10 +25,6 @@ from traitlets import (
 from traitlets.utils.text import wrap_paragraphs
 
 
-def wrap_quote(text: str) -> str:
-    return f"``{text}``"
-
-
 class TraitDocumenter(AttributeDocumenter):
     """Documenter for Trait objects."""
 
@@ -54,7 +50,7 @@ class TraitDocumenter(AttributeDocumenter):
     @property
     def default_value(self) -> tuple[str, list[str]] | None:
         """Default value of trait. Nicely rendered."""
-        return ("Default value", [wrap_quote(stringify(self.object.default()))])
+        return ("Default value", [stringify(self.object.default())])
 
     @property
     def accepted_values(self) -> tuple[str, list[str]] | None:
@@ -71,7 +67,7 @@ class TraitDocumenter(AttributeDocumenter):
             if self.object._per_key_traits is not None:
                 lines = [""]
                 for key, trait in self.object._per_key_traits.items():
-                    lines += [f"   * *{key}*: ``{(stringify(type(trait)))}``"]
+                    lines += [f"   * *{key}*: {(stringify(type(trait)))}"]
                 return ("Per key traits", lines)
         return None
 

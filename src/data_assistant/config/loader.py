@@ -454,7 +454,12 @@ class TomlKitLoader(FileLoader):
 
         for name, trait in sorted(scheme.traits(config=True).items()):
             trait_lines = scheme.emit_trait_help(
-                fullpath + [name], trait, structure=structure, comment=comment
+                fullpath + [name],
+                trait,
+                structure=structure,
+                comment=comment,
+                rst=False,
+                stringify_classes=True,
             )
             self.wrap_comment(t, trait_lines)
             if comment != "none":
