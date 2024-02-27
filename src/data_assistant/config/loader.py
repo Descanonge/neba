@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any, overload
 from traitlets.traitlets import HasTraits, TraitType, Enum
 from traitlets.utils.sentinel import Sentinel
 
-from .util import get_trait_typehint, wrap_text
+from .util import get_trait_typehint, wrap_text, underline
 
 
 if TYPE_CHECKING:
@@ -165,7 +165,7 @@ class _DefaultOptionDict(dict[str, Action]):
 
         Default action is "store", of type ``str``, with ``nargs=*`` (any number of
         arguments). The destination is the argument name, stripped of leading hyphens,
-        and with dots "." replaced by :any:`_DOT` (``__DOT__``).
+        and with dots "." replaced by :attr:`_DOT` (``__DOT__``).
         """
         action = _StoreAction(
             option_strings=[key],
@@ -588,3 +588,70 @@ class PyLoader(FileLoader):
 
         recurse(read_config, [])
         return self.config
+
+    def to_lines(self, comment: str = "full") -> list[str]:
+        """Return lines of configuration file corresponding to the app config tree.
+
+        Parameters
+        ----------
+        comment
+            Include more or less information in comments. Can be one of:
+            * full: all information about traits is included
+            * no-help: help string is not included
+            * none: no information is included, only the key and default value
+            Note that the line containing the key and default value, for instance
+            ``traitname = 2`` will be commented since we do not need to parse/load the
+            default value.
+        """
+        return self.serialize_scheme(self.app, [], comment)
+
+    def serialize_scheme(
+        self, scheme: Scheme, fullpath: list[str], comment: str
+    ) -> list[str]:
+        lines = []
+        if comment != "none":
+            lines += self.wrap_comment(scheme.emit_description())
+
+        lines.append("")
+
+        for name, trait in sorted(scheme.traits(config=True).items()):
+            if comment != "none":
+                typehint = get_trait_typehint(trait, "minimal")
+                lines.append(f"## {name} ({typehint})")
+
+            fullkey = ".".join(fullpath + [name])
+            try:
+                value = trait.default_value_repr()
+            except Exception:
+                value = repr(value)
+            lines.append(f"# c.{fullkey} = {value}")
+
+            if comment != "none" and isinstance(trait, Enum):
+                lines.append("# Accepted values: " + repr(trait.values))
+
+            if comment != "no-help" and trait.help:
+                lines += self.wrap_comment(trait.help)
+
+            self.wrap_comment(lines)
+            if comment != "none":
+                lines.append("")
+
+        for name, subscheme in sorted(scheme.trait_values(subscheme=True).items()):
+            lines.append("")
+            lines.append(f"## {subscheme.__class__.__name__} (.{name}) ##")
+            underline(lines, "#")
+            lines += self.serialize_scheme(subscheme, fullpath + [name], comment)
+
+        return lines
+
+    def wrap_comment(self, text: str | list[str]) -> list[str]:
+        if not isinstance(text, str):
+            text = "\n".join(text)
+
+        text = dedent(text)
+        # remove empty trailing lines
+        text = text.rstrip(" \n")
+        lines = wrap_text(text)
+        lines = [f"# {line}" for line in lines]
+
+        return lines
