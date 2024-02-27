@@ -13,8 +13,11 @@ from os import path
 from textwrap import dedent
 from typing import TYPE_CHECKING, Any, overload
 
-from traitlets.traitlets import HasTraits
+from traitlets.traitlets import HasTraits, TraitType, Enum
 from traitlets.utils.sentinel import Sentinel
+
+from .util import get_trait_typehint, wrap_text
+
 
 if TYPE_CHECKING:
     from tomlkit.container import Container, Table
@@ -22,8 +25,6 @@ if TYPE_CHECKING:
 
     from .application import ApplicationBase
     from .scheme import Scheme
-
-from traitlets.traitlets import TraitType
 
 _DOT = "__DOT__"
 
@@ -365,7 +366,6 @@ class TomlKitLoader(FileLoader):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         import tomlkit
-        # from tomlkit import comment, document, dumps, nl, table
 
         self.backend = tomlkit
 
@@ -448,20 +448,33 @@ class TomlKitLoader(FileLoader):
             self.wrap_comment(t, scheme.emit_description())
             t.add(self.backend.nl())
 
-        structure = "{name} = {value}"
-        if comment != "none":
-            structure += "\n--{fullpath} ({typehint})"
-
         for name, trait in sorted(scheme.traits(config=True).items()):
-            trait_lines = scheme.emit_trait_help(
-                fullpath + [name],
-                trait,
-                structure=structure,
-                comment=comment,
-                rst=False,
-                stringify_classes=True,
-            )
-            self.wrap_comment(t, trait_lines)
+            lines: list[str] = []
+            # the actual toml code key = value
+            # If anything goes wrong we just use str, it may not be valid toml but
+            # the user will deal with it.
+            try:
+                value = self.get_trait_keyval(trait)
+            except Exception:
+                value = str(value)
+            lines.append(f"{name} = {value}")
+
+            if comment == "full":
+                # a separator between the key = value and block of help/info
+                lines.append("-" * len(name))
+
+            if comment != "none":
+                fullkey = ".".join(fullpath + [name])
+                typehint = get_trait_typehint(trait, "minimal")
+                lines.append(f"{fullkey} ({typehint})")
+
+                if isinstance(trait, Enum):
+                    lines.append("Accepted values: " + repr(trait.values))
+
+            if comment != "no-help" and trait.help:
+                lines += wrap_text(trait.help)
+
+            self.wrap_comment(t, lines)
             if comment != "none":
                 t.add(self.backend.nl())
 
@@ -470,6 +483,20 @@ class TomlKitLoader(FileLoader):
             t.add(name, self.serialize_scheme(subscheme, fullpath + [name], comment))
 
         return t
+
+    def get_trait_keyval(self, trait: TraitType) -> str:
+        # The actual toml code key = value.
+        value = trait.default()
+
+        if value is None:
+            return ""
+
+        # convert types to string
+        if isinstance(value, type):
+            return f'"{value.__module__}.{value.__name__}"'
+
+        item = self.backend.item(value)
+        return item.as_string()
 
     def wrap_comment(self, item: Table | Container, text: str | list[str]):
         if not isinstance(text, str):
