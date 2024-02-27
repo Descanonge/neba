@@ -142,6 +142,9 @@ class Scheme(Configurable):
         pass
 
     def __str__(self) -> str:
+        return self.__class__.__name__
+
+    def __repr__(self) -> str:
         lines = [f"{self.__class__.__name__}:"]
         for key, trait in self.traits(config=True).items():
             if key in self._subschemes:
@@ -149,7 +152,7 @@ class Scheme(Configurable):
             trait_cls = trait.__class__.__name__
             value = trait.get(self)
             default = trait.default()
-            lines.append(f"  -{key} ({trait_cls}): {value} [default: {default}]")
+            lines.append(f"  -{key}: {value} [{trait_cls}, default: {default}]")
 
         # TODO: add Enum
 
@@ -165,9 +168,6 @@ class Scheme(Configurable):
                 )
             )
         return "\n".join(lines)
-
-    def __repr__(self) -> str:
-        return str(self)
 
     def __dir__(self):
         if not self._attr_completion_only_traits:
