@@ -55,9 +55,8 @@ class TraitDocumenter(AttributeDocumenter):
     @property
     def accepted_values(self) -> tuple[str, list[str]] | None:
         """List of accepted values in an Enum."""
-        if isinstance(self.object, Enum):
-            values = self.object.values
-            return ("Accepted values", [f"``{values}``"])
+        if isinstance(self.object, Enum) and (values := self.object.values) is not None:
+            return ("Accepted values", [", ".join([stringify(v) for v in values])])
         return None
 
     @property
