@@ -4,6 +4,8 @@ from typing import Any
 from traitlets.config import Configurable
 from traitlets.traitlets import Container, Dict, Instance, TraitType, Tuple, Type, Union
 
+from traitlets.utils.text import wrap_paragraphs
+
 
 def tag_all_traits(**metadata) -> Callable:
     """Tag all class-own traits.
@@ -39,6 +41,12 @@ def indent(lines: list[str], num: int = 4, initial_indent: bool = True) -> list[
             continue
         lines[i] = " " * num + line
     return lines
+
+
+def wrap_text(text: str) -> list[str]:
+    """Wrap text with multiple paragraph."""
+    paragraphs = "\n\n".join(wrap_paragraphs(text))
+    return paragraphs.splitlines()
 
 
 def stringify(obj, rst=True) -> str:

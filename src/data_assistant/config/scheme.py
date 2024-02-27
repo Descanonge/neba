@@ -16,10 +16,16 @@ from traitlets import (
     ClassBasedTraitType,
 )
 from traitlets.config import Configurable
-from traitlets.utils.text import wrap_paragraphs
 
 from .loader import ConfigValue
-from .util import add_spacer, get_trait_typehint, indent, underline, stringify
+from .util import (
+    add_spacer,
+    get_trait_typehint,
+    indent,
+    underline,
+    wrap_text,
+    stringify,
+)
 
 
 class FixableTrait(Union):
@@ -472,50 +478,20 @@ class Scheme(Configurable):
 
         return lines
 
-    def emit_trait_help(
-        self,
-        fullpath: list[str],
-        trait: TraitType,
-        structure: str | None = None,
-        comment: str = "full",
-        rst: bool = False,
-        stringify_classes=False,
-    ) -> list[str]:
+    def emit_trait_help(self, fullpath: list[str], trait: TraitType) -> list[str]:
         lines: list[str] = []
 
-        namespace = dict(
-            name=fullpath[-1],
-            typehint=get_trait_typehint(trait, mode="minimal"),
-            fullpath=".".join(fullpath),
-            value=stringify(trait.default(), rst=rst),
-        )
-
-        if (
-            stringify_classes
-            and isinstance(trait, ClassBasedTraitType)
-            and isinstance(trait.default(), type)
-        ):
-            namespace["value"] = f'"{namespace["value"]}"'
-
-        # Default value for CLI
-        if structure is None:
-            structure = "{name} ({typehint})\n--{fullpath} = {value}"
-
-        lines += structure.format(**namespace).splitlines()
-
-        if comment == "none":
-            return lines
+        name = fullpath[-1]
+        value = stringify(trait.default(), rst=False)
+        typehint = get_trait_typehint(trait, mode="minimal")
+        fullkey = ".".join(fullpath)
+        lines += [f"{name} ({typehint})", f"--{fullkey} = {value}"]
 
         if isinstance(trait, Enum):
-            lines.append("> Accepted values: " + repr(trait.values))
-
-        if comment == "no-help":
-            return lines
+            lines.append("Accepted values: " + repr(trait.values))
 
         if trait.help:
-            # separate paragraphs by linebreaks
-            paragraphs = "\n\n".join(wrap_paragraphs(trait.help))
-            lines += paragraphs.splitlines()
+            lines += wrap_text(trait.help)
 
         return lines
 

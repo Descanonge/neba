@@ -8,7 +8,7 @@ import sys
 from typing import Any
 
 from data_assistant.config.scheme import FixableTrait
-from data_assistant.config.util import get_trait_typehint, stringify
+from data_assistant.config.util import get_trait_typehint, stringify, wrap_text
 from sphinx.application import Sphinx
 from sphinx.ext.autodoc import (
     SUPPRESS,
@@ -22,7 +22,6 @@ from traitlets import (
     Set,
     TraitType,
 )
-from traitlets.utils.text import wrap_paragraphs
 
 
 class TraitDocumenter(AttributeDocumenter):
@@ -162,8 +161,7 @@ class TraitDocumenter(AttributeDocumenter):
         lines += [""]
 
         if help := self.object.help:
-            paragraphs = "\n\n".join(wrap_paragraphs(help))
-            lines += paragraphs.splitlines()
+            lines += wrap_text(help)
 
         return [lines]  # type: ignore
 
