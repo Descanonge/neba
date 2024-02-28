@@ -1,19 +1,21 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Generator, Hashable, Iterator
+from collections.abc import Callable, Generator, Hashable, Iterator, Sequence
 from inspect import Parameter, signature
+import re
 from textwrap import dedent
 from typing import Any
 
 from traitlets import (
     Bool,
     Enum,
+    Float,
     Instance,
+    Int,
     List,
     TraitType,
     Unicode,
     Union,
-    ClassBasedTraitType,
 )
 from traitlets.config import Configurable
 
@@ -47,23 +49,70 @@ class FixableTrait(Union):
         Arguments passed to the Union trait created.
     """
 
+    range_max_len: int = 500
+    range_rgx = re.compile("(.+?):(.+?)(?::(.*?))?")
+    range_trait: list[type[TraitType]] = [Float, Int]
+
     info_text = "a fixable"
 
-    def __init__(self, trait: TraitType, **kwargs) -> None:
+    def __init__(self, trait: TraitType, default_value: Any = None, **kwargs) -> None:
         self.trait = trait
-        traits = [
-            trait,
-            Unicode(),
-            List([Union([trait, Unicode()])]),
-        ]
+        # TODO : List(trait | Unicode) is printed as NoneType ?
+        traits = [trait, Unicode(), List([trait, Unicode()])]
         for arg in ["default_value", "help", "allow_none"]:
             value = getattr(trait, arg, None)
             if value is not None:
                 kwargs.setdefault(arg, value)
+        if default_value is not None:
+            kwargs["default_value"] = default_value
         super().__init__(traits, **kwargs)
 
-    # def from_string()
-    #     # manage int ranges ?
+    def from_string(self, value: str) -> Any:
+        if isinstance(self.trait, tuple(self.range_trait)):
+            m = self.range_rgx.fullmatch(value)
+            if m is not None:
+                try:
+                    return self.from_string_range(m)
+                except Exception as err:
+                    raise ValueError(f"Failed to parse range string '{value}") from err
+        return super().from_string(value)
+
+    def from_string_range(self, m: re.Match) -> Sequence[Any]:
+        import operator as op
+
+        args_str = dict(zip(["start", "stop", "step"], m.groups(default="1")))
+        args = []
+        for var, arg_str in args_str.items():
+            arg = self.trait.from_string(arg_str)
+            if arg is None:
+                trait_cls = self.trait.__class__.__name__
+                raise ValueError(f"Could not parse {var}={arg_str} into {trait_cls}")
+            args.append(arg)
+
+        start, stop, step = args
+        step = abs(step)
+        descending = start > stop
+        if descending:
+            step = -step
+
+        # stop when "value comp_op stop"
+        comp_op = op.lt if descending else op.gt
+
+        values = []
+        current = start
+        for i in range(self.range_max_len):
+            values.append(current)
+            current += step
+            if comp_op(current, stop):
+                break
+
+        if len(values) == self.range_max_len:
+            raise IndexError(
+                f"Range length exceding maximum length ({self.range_max_len}). "
+                "Possible misstake, else change FixableTrait.range_max_len"
+            )
+
+        return values
 
 
 def subscheme(scheme: type[Scheme]) -> Instance:
