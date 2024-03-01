@@ -366,7 +366,7 @@ class Scheme(Configurable):
             for k, v in c.items():
                 if isinstance(v, ConfigValue):
                     if k in out:
-                        if out[k].priority < v.priority:
+                        if out[k].priority >= v.priority:
                             continue
                         # TODO log debug overwrite
                     out[k] = v

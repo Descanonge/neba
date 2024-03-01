@@ -47,7 +47,7 @@ class ConfigValue:
         self.value: Any = Undefined
         self.trait: TraitType | None = None
         self.container_cls: type[HasTraits] | None = None
-        self.priority: int = 0
+        self.priority: int = 100
 
     def __str__(self) -> str:
         s = [str(self.get_value())]
