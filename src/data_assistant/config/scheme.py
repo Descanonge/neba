@@ -1,6 +1,12 @@
+"""Scheme: nested equivalent of Configurable.
+
+Defines a :class:`Scheme` class meant to be used in place of
+:class:`traitlets.config.Configurable` that make possible deeply nested configurations.
+"""
+
 from __future__ import annotations
 
-from collections.abc import Callable, Generator, Hashable, Iterator
+from collections.abc import Callable, Generator, Hashable, Iterator, Mapping, Sequence
 from inspect import Parameter, signature
 from textwrap import dedent
 from typing import Any
@@ -22,48 +28,84 @@ from .util import (
 def subscheme(scheme: type[Scheme]) -> Instance:
     """Transform a subscheme into a proper trait.
 
-    This is done automatically even without this function, but it can help static
-    type checkers.
+    To make the specification easier, an attribute of type :class:`Scheme` will
+    automatically be transformed into a proper :class:`Instance` trait using this
+    function. It can be used "manually" as well, this will most notably help static
+    type checkers understand what is happening.
+
+    So when specifying a subscheme the two lines below are equivalent:
+
+        subgroup = MySubgroupScheme
+        subgroup = subscheme(MySubgroupScheme)
+
     """
     return Instance(scheme, args=(), kwargs={}).tag(subscheme=True)
 
 
 class Scheme(Configurable):
-    """Configuration specification.
+    """Object holding configurable values.
 
-    A Configurable object facilitating nested Configurables.
-    All traits are automatically tagged as configurable (``.tag(config=True)``),
-    unless already tagged.
-    Any class attribute that is a subclass of Scheme will be registered as a
-    nested subscheme and replaced by a :class:`traitlets.Instance` trait.
+    This class inherits from :class:`traitlets.config.Configurable` and so can hold
+    configurable attributes as :class:`traits<traitlets.TraitType>`, but also expands to
+    allow nested configuration. Other Scheme classes can be set as attribute
+    in order to specify parameters in deeper nested levels.
+
+    The main features of this class are:
+
+    * all traits are automatically tagged as configurable (``.tag(config=True)``),
+      unless already tagged.
+    * Any class attribute that is a subclass of Scheme will be registered as a nested
+      *subscheme* and replaced by a :class:`traitlets.Instance` trait, tagged as a
+      "subscheme" in its metadata.
+    * Shortcuts to nested subschemes can be defined in the :attr:`aliases` attribute.
+      This allows to specify shorter keys (in command line or config files).
+
+    The API expand to recursively retrieve all traits (or their values) from this
+    scheme and its subschemes. It defines help emitting functions, suitable for
+    command line help message. It also enables having unique keys that point to a
+    specific trait in the configuration tree (see :meth:`class_resolve_key`).
     """
 
     _subschemes: dict[str, type[Scheme]]
-    """Mapping of nested Configurables classes."""
+    """Mapping of nested Scheme classes."""
 
     _attr_completion_only_traits = Bool(
         False, help="Only keep configurable traits in attribute completion."
     )
 
     aliases: dict[str, str] = {}
+    """Mapping of aliases/shortcuts.
+
+    The shortcut name maps to the subscheme it points to, for example:
+
+        {"short": "some.deeply.nested.subscheme"}
+
+    will allow to specify parameters in two equivalent ways:
+
+        some.deeply.nested.subscheme.my_parameter = 2
+        short.my_parameter = 2
+    """
 
     def __init_subclass__(cls, /, **kwargs):
-        """Subclass initialization hook.
-
-        Any subclass will automatically run this after being defined.
-
-        Register subschemes and tag all traits as configurable (unless already
-        tagged).
-
-        It will then run the ``setup_class`` class method to trigger the
-        initialization process of traitlets
-        (:func:`traitlets.MetaHasTraits.class_setup`).
-        """
         super().__init_subclass__(**kwargs)
         cls._setup_scheme()
 
     @classmethod
     def _setup_scheme(cls) -> None:
+        """Set up the class after definition.
+
+        This hook is run in :meth:`__init_subclass__`, after any subclass of
+        :class:`Scheme` is defined.
+
+        By default, deals with the objective of ``Scheme``: tagging all traits as
+        configurable, and setting up attributes that are subclasses of ``Scheme``
+        as :class:`Instance` traits, and registering them as subschemes.
+
+        This method can be modified by subclasses in need of specific behavior. Do not
+        forget to call the ``super()`` version, and if traits are added/modified it
+        might be necessary to call :meth:`traitlets.traitlets.HasTraits.setup_class`
+        (``cls.setup_class(cls.__dict__)``).
+        """
         cls._subschemes = {}
         classdict = cls.__dict__
         for k, v in classdict.items():
@@ -81,9 +123,11 @@ class Scheme(Configurable):
             if isinstance(v, Instance):
                 # if v.klass is str, transform to corresponding type
                 v._resolve_classes()
-                assert isinstance(v.klass, type)
+                assert isinstance(v.klass, type)  # maybe into a try/except block?
                 if issubclass(v.klass, Scheme):
                     cls._subschemes[k] = v.klass
+                    # In case subscheme was defined manually as an Instance without tag
+                    v.tag(subscheme=True)
 
         cls.setup_class(classdict)  # type: ignore
 
@@ -92,6 +136,10 @@ class Scheme(Configurable):
         self.postinit()
 
     def postinit(self):
+        """Run any instructions after instanciation.
+
+        This allows to set/modify traits depending on other traits values.
+        """
         pass
 
     def __str__(self) -> str:
@@ -148,12 +196,14 @@ class Scheme(Configurable):
     # Lifted from traitlets.config.application.Application
     @classmethod
     def _classes_inc_parents(
-        cls, classes: list[type[Scheme]] | None = None
+        cls, classes: Sequence[type[Scheme]] | None = None
     ) -> Generator[type[Configurable], None, None]:
         """Iterate through configurable classes, including configurable parents.
 
-        :param classes:
-            The list of classes to iterate; if not set, uses subschemes.
+        Parameters
+        ----------
+        classes
+            The list of classes to start from; if not set, uses all nested subschemes.
 
         Children should always be after parents, and each class should only be
         yielded once.
@@ -169,11 +219,17 @@ class Scheme(Configurable):
                     seen.add(parent)
                     yield parent
 
-    def instanciate_subschemes(self, config: dict[str, Any]):
-        """Recursively instanciate subschemes."""
+    def instanciate_subschemes(self, config: Mapping):
+        """Recursively instanciate subschemes.
+
+        Parameters
+        ----------
+        config
+            Nested configuration mapping attribute names to
+        """
         for name, subscheme in self._subschemes.items():
             subconf = config.get(name, {})
-            # discard subsubconfs using the scheme
+            # discard further nested subschemes, only keep this level traits.
             kwargs = {
                 t: subconf[t]
                 for t in subscheme.class_trait_names(subscheme=None)
@@ -181,7 +237,9 @@ class Scheme(Configurable):
             }
             # Transform from ConfigValue to a value
             for key, val in kwargs.items():
-                kwargs[key] = val.get_value()
+                if isinstance(val, ConfigValue):
+                    kwargs[key] = val.get_value()
+
             # set trait to a new instance
             self.set_trait(name, subscheme(parent=self, **kwargs))
             # recursive on this new instance
@@ -265,6 +323,29 @@ class Scheme(Configurable):
     def class_resolve_key(
         cls, key: str | list[str]
     ) -> tuple[str, type[Scheme], TraitType | None]:
+        """Resolve a key.
+
+        This method is meant to be used pre-instanciation. Otherwise look to
+        :meth:`resolve_key`.
+
+        Parameters
+        ----------
+        key
+            Dot separated (or a list of) attribute names that point to a trait in the
+            configuration tree, starting from this Scheme.
+            It might contain aliases/shortcuts.
+
+        Returns
+        -------
+        fullkey
+            Dot separated attribute names that *unambiguously* and *uniquely* point to a
+            trait in the config tree, starting from this Scheme, ending with the trait
+            name.
+        subscheme
+            The :class:`Scheme` *class* that contains the trait.
+        trait
+            The :class:`trait<traitlets.TraitType>` object corresponding to the key.
+        """
         if isinstance(key, str):
             key = key.split(".")
 
@@ -288,6 +369,26 @@ class Scheme(Configurable):
         return ".".join(fullkey + [lastname]), subscheme, trait
 
     def resolve_key(self, key: str | list[str]) -> tuple[str, Scheme, TraitType | None]:
+        """Resolve a key.
+
+        Parameters
+        ----------
+        key
+            Dot separated (or a list of) attribute names that point to a trait in the
+            configuration tree, starting from this Scheme.
+            It might contain aliases/shortcuts.
+
+        Returns
+        -------
+        fullkey
+            Dot separated attribute names that *unambiguously* and *uniquely* point to a
+            trait in the config tree, starting from this Scheme, ending with the trait
+            name.
+        subscheme
+            The :class:`Scheme` *instance* that contains the trait.
+        trait
+            The :class:`trait<traitlets.TraitType>` object corresponding to the key.
+        """
         if isinstance(key, str):
             key = key.split(".")
 
@@ -312,6 +413,27 @@ class Scheme(Configurable):
 
     @classmethod
     def resolve_class_key(cls, key: str | list[str]) -> list[str]:
+        """Resolve a "class key".
+
+        Meaning a trait value specified as ``SchemeClassName.trait_name = ...``.
+        Because *unlike in "native" traitlets* a Scheme can be used multiple times in
+        the configuration tree (and still have instances with different configuration
+        values), this method finds all occurences of the specified class and for each
+        return the full key pointing to the trait.
+
+        Parameters
+        ----------
+        key
+            The key pointing to a trait either as a string like above, or a list
+            resulting from ``key.split(".")``.
+
+        Returns
+        -------
+        keys
+            A list of dot separated attribute names that *unambiguously* and *uniquely*
+            point to a trait in the config tree, starting from this Scheme, ending with
+            the trait name.
+        """
         if isinstance(key, str):
             key = key.split(".")
         if len(key) > 2:
@@ -331,7 +453,31 @@ class Scheme(Configurable):
         return list(recurse(cls, []))
 
     @classmethod
-    def resolve_config(cls, config: dict[str, ConfigValue]) -> dict[str, ConfigValue]:
+    def resolve_config(
+        cls, config: Mapping[str, ConfigValue]
+    ) -> dict[str, ConfigValue]:
+        """Resolve all keys in the config and validate it.
+
+        Keys can use aliases/shortcuts, and also be under the form of "class keys"
+        ``SchemeClassName.trait_name = ...``. We normalize all keys as dot separated
+        attributes names, without shortcuts, that point a trait.
+        Keys that do not resolve to any known trait will raise error.
+
+        Values specified with class keys will be duplicated over all places where the
+        scheme class has been used. Their priority will automatically set lower.
+
+        The trait and containing scheme class will be added to the :class:`ConfigValue`.
+
+        Parameters
+        ----------
+        config
+            Flat mapping of all keys to their ConfigValue
+
+        Returns
+        -------
+        resolved_config
+            Flat mapping of normalized keys to their ConfigValue
+        """
         config_classes = [cls.__name__ for cls in cls._classes_inc_parents()]
 
         # Transform Class.trait keys into fullkeys
@@ -340,7 +486,7 @@ class Scheme(Configurable):
             # Set the priority of class traits lower and duplicate them
             # for each instance of their class in the config tree
             if key.split(".")[0] in config_classes:
-                val.priority = 100
+                val.priority = 10
                 for fullkey in cls.resolve_class_key(key):
                     no_class_key[fullkey] = val.copy(key=fullkey)
             else:
@@ -359,8 +505,16 @@ class Scheme(Configurable):
     @classmethod
     def merge_configs(
         cls,
-        *configs: dict[str, ConfigValue],
+        *configs: Mapping[str, ConfigValue],
     ) -> dict[str, ConfigValue]:
+        """Merge multiple flat configuration mappings.
+
+        The configurations should have been resolved with :meth:`resolve_config`. If
+        there is a conflict between values, configurations specified *later* in the
+        argument list will take priority (ie last one wins). The value from the
+        precedent config is replaced if the :attr:`value's
+        priority<ConfigValue.priority>` is equal or higher.
+        """
         out: dict[str, ConfigValue] = {}
         for c in configs:
             for k, v in c.items():
@@ -379,9 +533,18 @@ class Scheme(Configurable):
         return out
 
     def help(self) -> None:
+        """Print description of this scheme and its traits."""
         print("\n".join(self.emit_help()))
 
     def emit_help(self, fullpath: list[str] | None = None) -> list[str]:
+        """Return help for this scheme, and its subschemes recursively.
+
+        Contains the name of this scheme, its description if it has one, eventual
+        aliases/shortcuts, help on each trait, and same thing recursively on subschemes.
+
+        Format the help so that it can be used as help for specifying values from the
+        command line.
+        """
         if fullpath is None:
             fullpath = []
 
@@ -416,6 +579,11 @@ class Scheme(Configurable):
         return lines
 
     def emit_description(self) -> list[str]:
+        """Return lines of description of this scheme.
+
+        Take the scheme docstring if defined, and format it nicely (wraps it, remove
+        trailing whitespace, etc.). Return a list of lines.
+        """
         doc = self.__doc__
         if not doc:
             return []
@@ -432,6 +600,11 @@ class Scheme(Configurable):
         return lines
 
     def emit_trait_help(self, fullpath: list[str], trait: TraitType) -> list[str]:
+        """Return lines of help for a trait of this scheme.
+
+        Format the help so that it can be used as help for specifying values from the
+        command line.
+        """
         lines: list[str] = []
 
         name = fullpath[-1]
@@ -449,7 +622,7 @@ class Scheme(Configurable):
         return lines
 
     def trait_values_from_func_signature(
-        self, func: Callable, trait_select: dict | None = None, **kwargs
+        self, func: Callable, trait_select: Mapping | None = None, **kwargs
     ) -> dict:
         """Return trait values that appear in a function signature.
 

@@ -13,11 +13,10 @@ from os import path
 from textwrap import dedent
 from typing import TYPE_CHECKING, Any, overload
 
-from traitlets.traitlets import HasTraits, TraitType, Enum
+from traitlets.traitlets import Enum, HasTraits, TraitType
 from traitlets.utils.sentinel import Sentinel
 
-from .util import get_trait_typehint, wrap_text, underline
-
+from .util import get_trait_typehint, underline, wrap_text
 
 if TYPE_CHECKING:
     from tomlkit.container import Container, Table

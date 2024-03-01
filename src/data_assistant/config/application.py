@@ -6,15 +6,15 @@ from collections.abc import Callable
 from os import path
 from typing import TYPE_CHECKING
 
-from traitlets import Bool, Union, List, Unicode, Instance
-
+from traitlets import Bool, Instance, List, Unicode, Union
 
 from .loader import CLILoader, PyLoader, TomlKitLoader, YamlLoader, to_nested_dict
 from .scheme import Scheme
 
 if TYPE_CHECKING:
-    from traitlets.traitlets import TraitType
     from traitlets.config.configurable import Configurable
+    from traitlets.traitlets import TraitType
+
     from .loader import ConfigLoader, ConfigValue, FileLoader
 
 
