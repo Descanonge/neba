@@ -31,6 +31,8 @@ from traitlets import (
 class TraitDocumenter(AttributeDocumenter):
     """Documenter for Trait objects."""
 
+    objtype = "trait"
+    directivetype = "attribute"
     priority = AttributeDocumenter.priority + 10
 
     metadata_properties = [
