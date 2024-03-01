@@ -7,8 +7,12 @@ from __future__ import annotations
 import sys
 from typing import Any
 
-from data_assistant.config.scheme import FixableTrait
-from data_assistant.config.util import get_trait_typehint, stringify, wrap_text
+from data_assistant.config.util import (
+    FixableTrait,
+    get_trait_typehint,
+    stringify,
+    wrap_text,
+)
 from sphinx.application import Sphinx
 from sphinx.ext.autodoc import (
     SUPPRESS,
