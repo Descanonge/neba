@@ -34,17 +34,30 @@ class FixableTrait(Union):
     """Fixable parameter, specified in a filename pattern.
 
     A fixable parameter (ie specified in a filename pattern) can take:
-    * a value of the appropriate type (int, float, bool, or str depending on the format),
-    * a string (then the filename part must match that string, which
-    can be a regular expression),
-    * a list of values (see 1) or strings (see 2), (then any value of
-    the list will be accepted in the filenames).
+
+    1. a value of the appropriate type (int, float, bool, or str depending on the format),
+    2. a string that will be interpreted as a regular expression to match a filename
+       part or a string specifying a range of values (see below).
+    3. a list of values (see 1), any of which will be accepted as a valid filename part.
+
+    Values for a fixable can be specified using a string expression of the following
+    format ``start:stop[:step]``. This will generate values between 'start' and 'stop'
+    spaced by 'step'. The 'stop' value will be included (``values <= stop``). The step
+    is optional and will by default be one. It also does not need to be signed, only its
+    absolute value will be used.
+    The trait type must be one of :attr:`range_trait` (by default float or int).
+    Here are some examples:
+
+        "2000:2005": [2000, 2001, 2002, 2003, 2004, 2005]
+        "2000:2005:2": [2000, 2002, 2004]
+        "2005:2000:2": [2005, 20003, 2001]
+        "0.:2.:0.5": [0.0, 0.5, 1.0, 1.5, 2.0]
 
     Parameters
     ----------
     trait
-        The trait corresponding to the fixable parameter format. Some properties are
-        kept: ``default_value``, ``allow_none``, ``help``. The metadata is not kept.
+        The trait corresponding to the fixable parameter format. Some of its properties
+        are used: ``default_value``, ``allow_none``, ``help``. The metadata is not kept.
     kwargs
         Arguments passed to the Union trait created.
     """
@@ -57,8 +70,7 @@ class FixableTrait(Union):
 
     def __init__(self, trait: TraitType, default_value: Any = None, **kwargs) -> None:
         self.trait = trait
-        # TODO : List(trait | Unicode) is printed as NoneType ?
-        traits = [trait, Unicode(), List([trait, Unicode()])]
+        traits = [trait, Unicode(), List(trait)]
         for arg in ["default_value", "help", "allow_none"]:
             value = getattr(trait, arg, None)
             if value is not None:
@@ -67,17 +79,31 @@ class FixableTrait(Union):
             kwargs["default_value"] = default_value
         super().__init__(traits, **kwargs)
 
-    def from_string(self, value: str) -> Any:
+    def from_string(self, s: str) -> Any:
+        """Get a value from a config string.
+
+        Will test for a string specifying a range.
+        """
+        # TODO error management ? see traitlets.Union.from_string
         if isinstance(self.trait, tuple(self.range_trait)):
-            m = self.range_rgx.fullmatch(value)
+            m = self.range_rgx.fullmatch(s)
             if m is not None:
                 try:
                     return self.from_string_range(m)
                 except Exception as err:
-                    raise ValueError(f"Failed to parse range string '{value}") from err
-        return super().from_string(value)
+                    raise ValueError(f"Failed to parse range string '{s}") from err
+        return super().from_string(s)
 
     def from_string_range(self, m: re.Match) -> Sequence[Any]:
+        """Get a list of value from a range specification.
+
+        Parameters
+        ----------
+        m
+            Match object resulting from the pattern :attr:`range_rgx`.
+            Should contain groups matching start, stop, and step, in this order, step
+            being optional.
+        """
         import operator as op
 
         args_str = dict(zip(["start", "stop", "step"], m.groups(default="1")))
@@ -100,7 +126,7 @@ class FixableTrait(Union):
 
         values = []
         current = start
-        for i in range(self.range_max_len):
+        for _ in range(self.range_max_len):
             values.append(current)
             current += step
             if comp_op(current, stop):
