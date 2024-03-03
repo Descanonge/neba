@@ -3,25 +3,63 @@ from __future__ import annotations
 
 import logging
 from os import PathLike, path
-from typing import Generic, TypeVar
 
 from filefinder import Finder
 
-from .dataset import Module
 from .module import CacheModule, autocached
 
 log = logging.getLogger(__name__)
 
 
-_FileT = TypeVar("_FileT")
-
-
-class MultiFileModuleAbstract(Generic[_FileT], Module):
-    def get_filename(self, **fixes) -> _FileT:
+class MultiFileModuleAbstract(CacheModule):
+    def get_filename(self, **fixes) -> str:
+        # not necessary if we only want to upload data :/
+        # Use a protocol or force check hasattr in WriterModules ?
         raise NotImplementedError()
 
-    def get_source(self) -> list[_FileT]:
+    def get_root_directory(self) -> str | list[str]:
+        # Not necessary either, just in their for some common code
         raise NotImplementedError()
+
+    @property
+    def root_directory(self) -> str:
+        """Root directory containing data."""
+        rootdir = self.get_root_directory()
+
+        if isinstance(rootdir, list | tuple):
+            rootdir = path.join(*rootdir)
+
+        return rootdir
+
+    def get_source(self) -> list[str]:
+        return self.datafiles
+
+    @property
+    @autocached
+    def datafiles(self) -> list[str]:
+        raise NotImplementedError()
+
+
+class GlobModule(MultiFileModuleAbstract, CacheModule):
+    def get_glob_pattern(self):
+        raise NotImplementedError("Implement in your Dataset subclass.")
+
+    @property
+    @autocached
+    def datafiles(self) -> list[str]:
+        import glob
+
+        try:
+            root = self.root_directory
+        except NotImplementedError:
+            root = None
+
+        pattern = self.get_glob_pattern()
+        files = glob.glob(pattern, root_dir=root, recursive=True)
+
+        if len(files) == 0:
+            log.warning("No file found for pattern %s", pattern)
+        return files
 
 
 class FileFinderModule(MultiFileModuleAbstract, CacheModule):
@@ -83,9 +121,6 @@ class FileFinderModule(MultiFileModuleAbstract, CacheModule):
         # Add fixable_params to the dataset allowed_params
         # self.allowed_params |= set(self.fixable)
 
-    def get_source(self) -> list[str]:
-        return self.datafiles
-
     def get_filename(self, **fixes) -> str:
         """Create a filename corresponding to a set of parameters values.
 
@@ -116,23 +151,6 @@ class FileFinderModule(MultiFileModuleAbstract, CacheModule):
         filename = self.filefinder.make_filename(fixes)
         return filename
 
-    # --
-
-    @property
-    def root_directory(self) -> str:
-        """Root directory containing data."""
-        rootdir = self.get_root_directory()
-
-        if isinstance(rootdir, list | tuple):
-            rootdir = path.join(*rootdir)
-
-        return rootdir
-
-    @property
-    def filename_pattern(self) -> str:
-        """Filename pattern used to find files using :mod:`filefinder`."""
-        return self.get_filename_pattern()
-
     @property
     @autocached
     def filefinder(self) -> Finder:
@@ -140,7 +158,7 @@ class FileFinderModule(MultiFileModuleAbstract, CacheModule):
 
         Is also used to create filenames for a specific set of parameters.
         """
-        finder = Finder(self.root_directory, self.filename_pattern)
+        finder = Finder(self.root_directory, self.get_filename_pattern())
 
         # We now fix the parameters present in the filename (we don't have to worry
         # about them after that). We re-use code from self.fixable to avoid
@@ -187,7 +205,7 @@ class FileFinderModule(MultiFileModuleAbstract, CacheModule):
         """
         files = self.filefinder.get_files()
         if len(files) == 0:
-            log.warning("%s", self.filefinder)
+            log.warning("No file found for finder:\n%s", self.filefinder)
         return files
 
 
