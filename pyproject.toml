@@ -52,6 +52,7 @@ line-length = 88
 target-version = 'py311'
 
 ignore = [
+       'D105', # missing docstring on magic methods
        'E226', # missing whitespace around arithmetic operator
        'D203', # one blank line before class
        'D213', # multiline docstring start at 2nd line

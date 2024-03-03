@@ -7,6 +7,7 @@ from __future__ import annotations
 import sys
 from typing import Any
 
+from data_assistant.config.scheme import Scheme
 from data_assistant.config.util import (
     FixableTrait,
     get_trait_typehint,
@@ -17,7 +18,9 @@ from sphinx.application import Sphinx
 from sphinx.ext.autodoc import (
     SUPPRESS,
     AttributeDocumenter,
+    ClassDocumenter,
     Documenter,
+    ObjectMembers,
 )
 from traitlets import (
     Dict,
@@ -125,9 +128,6 @@ class TraitDocumenter(AttributeDocumenter):
 
         '_subschemes' attribute is not documented.
         """
-        if membername == "_subschemes":
-            return False
-
         can_super = super().can_document_member(member, membername, isattr, parent)
         return can_super and isinstance(member, TraitType)
 
@@ -223,10 +223,46 @@ def skip_trait_member(app, what, name, obj, skip, options) -> bool:
     return skip
 
 
+class SchemeDocumenter(ClassDocumenter):
+    # Cannot change objtype to anything other than class, the only one recognized
+    # by autosummary.
+    objtype = "class"
+    directivetype = "class"
+    priority = ClassDocumenter.priority + 2
+
+    @classmethod
+    def can_document_member(
+        cls, member: Any, membername: str, isattr: bool, parent: Any
+    ) -> bool:
+        can_super = super().can_document_member(member, membername, isattr, parent)
+        return can_super and issubclass(member, Scheme)
+
+    def filter_members(
+        self, members: ObjectMembers, want_all: bool
+    ) -> list[tuple[str, Any, bool]]:
+        filtered = super().filter_members(members, want_all)
+
+        # Skip _subschemes attr for subclasses of Scheme.
+        # For Scheme itself, keep it for documenting this package.
+        if self.object is not Scheme:
+            filtered = [
+                (name, member, isattr)
+                for name, member, isattr in filtered
+                if name != "_subschemes"
+            ]
+        return filtered
+
+
 def setup(app: Sphinx):
     app.setup_extension("sphinx.ext.autodoc")
     app.add_autodocumenter(TraitDocumenter)
+
+    # To avoid creating another autoclass directive, I use some lower level functions.
+    app.registry.add_documenter("class", SchemeDocumenter)
+
     app.connect("autodoc-skip-member", skip_trait_member)
+
+    print(app.registry.documenters)
 
     return dict(
         version="0.1",
