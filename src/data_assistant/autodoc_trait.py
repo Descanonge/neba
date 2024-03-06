@@ -3,9 +3,9 @@
 Add a specific Documenter for TraitType and member filter for traits.
 
 It will also replace the default class documenter to handle Schemes. This is only for a
-minor thing (suppress the ``_subschemes`` attribute(!)), so it would be recommended to
-put this extension first, in case other extensions also replace the default documenter
-for more useful things...
+minor thing (filter out unwanted *private* attributes from the documentation), so it
+would be recommended to put this extension first, in case other extensions also replace
+the default documenter for more useful things...
 """
 from __future__ import annotations
 
@@ -243,15 +243,29 @@ class SchemeDocumenter(ClassDocumenter):
     def filter_members(
         self, members: list[ObjectMember], want_all: bool
     ) -> list[tuple[str, Any, bool]]:
+        """Filter the given member list.
+
+        If self is a subclass of :class:`~.config.scheme.Scheme`, but not Scheme itself
+        (for our own package documentation), filter out the ``_subschemes`` attribute.
+        """
         filtered = super().filter_members(members, want_all)
 
-        # Skip _subschemes attr for subclasses of Scheme.
-        # For Scheme itself, keep it for documenting this package.
-        if issubclass(self.object, Scheme) and self.object is not Scheme:
+        to_remove = [
+            "_all_trait_default_generators",
+            "_descriptors",
+            "_instance_inits",
+            "_static_immutable_initial_values",
+            "_trait_default_generators",
+            "_traits",
+        ]
+
+        if issubclass(self.object, Scheme):
+            if self.object is not Scheme:
+                to_remove.append("_subschemes")
             filtered = [
                 (name, member, isattr)
                 for name, member, isattr in filtered
-                if name != "_subschemes"
+                if name not in to_remove
             ]
         return filtered
 
