@@ -10,7 +10,7 @@ for more useful things...
 from __future__ import annotations
 
 import sys
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from data_assistant.config.scheme import Scheme
 from data_assistant.config.util import (
@@ -19,21 +19,18 @@ from data_assistant.config.util import (
     stringify,
     wrap_text,
 )
-from sphinx.application import Sphinx
+
+if TYPE_CHECKING:
+    from sphinx.application import Sphinx
+    from sphinx.ext.autodoc import ObjectMember
+
 from sphinx.ext.autodoc import (
     SUPPRESS,
     AttributeDocumenter,
     ClassDocumenter,
     Documenter,
-    ObjectMembers,
 )
-from traitlets import (
-    Dict,
-    Enum,
-    List,
-    Set,
-    TraitType,
-)
+from traitlets import Dict, Enum, List, Set, TraitType
 
 
 class TraitDocumenter(AttributeDocumenter):
@@ -244,7 +241,7 @@ class SchemeDocumenter(ClassDocumenter):
     """
 
     def filter_members(
-        self, members: ObjectMembers, want_all: bool
+        self, members: list[ObjectMember], want_all: bool
     ) -> list[tuple[str, Any, bool]]:
         filtered = super().filter_members(members, want_all)
 
