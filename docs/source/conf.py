@@ -8,7 +8,7 @@ import sys
 
 import data_assistant
 
-# -- Project information -----------------------------------------------------
+## Project information
 
 project = "data-assistant"
 copyright = "2023, Clément Haëck"
@@ -19,17 +19,31 @@ release = data_assistant.__version__
 
 print(f"{project}: {version}")
 
-# -- General configuration ---------------------------------------------------
+## General configuration
+
+nitpicky = False
+nitpick_ignore = [
+    ("py:class", "Sphinx"),
+    ("py:class", "ObjectMember"),
+    ("py:class", "DocumenterBridge"),
+    ("py:class", "dask.distributed.Security"),
+]
+nitpick_ignore_regex = [
+    ("py:.*", r"sphinx.*"),
+    ("py:class", r"(traitlets\.(traitlets\.)?)?TraitType"),
+    ("py:class", r"(traitlets\.(traitlets\.)?)?Int"),
+    ("py:meth", r"__\w+__"),
+]
 
 templates_path = ["_templates"]
 exclude_patterns = ["_build"]
 
 extensions = [
     "data_assistant.autodoc_trait",
-    "sphinx.ext.napoleon",
-    "sphinx.ext.autodoc",
-    "sphinx.ext.autosummary",
     "sphinx.ext.intersphinx",
+    "sphinx.ext.autodoc",
+    "sphinx.ext.napoleon",
+    "sphinx.ext.autosummary",
 ]
 
 add_module_names = False
@@ -37,13 +51,14 @@ toc_object_entries_show_parents = "hide"
 
 pygments_style = "default"
 
-# -- Autodoc config
+## Autodoc config
 autodoc_typehints = "description"
 autodoc_typehints_format = "short"
 autodoc_typehints_description_target = "all"
 autodoc_default_options = {"undoc-members": True}
 # autodoc_member_order = "groupwise"
 autodoc_class_content = "both"
+autodoc_class_signature = "mixed"
 autodoc_type_aliases = {
     # show the full path
     "xr.DataArray": "xarray.DataArray",
@@ -57,18 +72,18 @@ autodoc_type_aliases = {
 
 autodoc_default_options = {"show-inheritance": True, "inherited-members": False}
 
-# -- Autosummary config
+## Autosummary config
 autosummary_generate = True
 
-# -- Napoleon config
+## Napoleon config
 napoleon_google_docstring = False
 napoleon_numpy_docstring = True
 napoleon_use_param = True
 napoleon_use_rtype = False
 napoleon_preprocess_type = False
-napoleon_type_aliases = autodoc_type_aliases.copy()
+# napoleon_type_aliases = autodoc_type_aliases.copy()
 
-# -- Intersphinx config
+## Intersphinx config
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3/", None),
     "numpy": ("https://numpy.org/doc/stable", None),
@@ -79,10 +94,10 @@ intersphinx_mapping = {
 }
 
 
-# -- Options for HTML output -------------------------------------------------
+## Options for HTML output
 
 html_theme = "sphinx_book_theme"
-html_static_path = ["_static"]
+# html_static_path = ["_static"]
 html_title = project
 html_theme_options = dict(
     collapse_navigation=False,

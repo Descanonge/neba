@@ -6,9 +6,8 @@
    {% if attributes %}
    .. rubric:: {{ _('Module Attributes') }}
 
-   .. autosummary::
    {% for item in attributes %}
-      {{ item }}
+   .. autodata:: {{ item }}
    {%- endfor %}
    {% endif %}
    {% endblock %}
