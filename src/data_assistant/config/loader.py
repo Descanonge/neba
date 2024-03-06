@@ -1,17 +1,42 @@
 """Configuration loaders.
 
-Extend loaders defined by traitlets for our needs (mainly nested configuration).
+Similarly to traitlets, the
+:class:`Application<data_assistant.config.application.ApplicationBase>` object delegates
+the work of loading configuration values from various sources (config files, CLI, etc.).
+
+Because we want to allow nested configurations, the traitlets loaders are not really
+appropriate and difficult to adapt. Therefore we start from scratch (but still borrowing
+some code...).
+
+The application will try to make sense of the configuration it receives from the loader.
+It should raise on any malformed or invalid config key, but the loader can still act
+upstream, for instance on duplicate keys.
+
+Presently, the application accepts different
+types of keys:
+
+* "fullpaths": they define the succession of attribute names leading to a specific
+  trait (example ``group.subgroup.sub_subgroup.trait_name``)
+* "fullpaths with shortcuts": :class:`schemes<data_assistant.config.scheme.Scheme>` can
+  define shortcuts to avoid repeating parts of the fullpath (for example we could have a
+  key ``shortcut.trait_name`` that would be equivalent to the one above).
+* "class keys": they use the :class:`~.config.scheme.Scheme` class name followed by that
+  of a trait (for example ``SchemeClassName.trait_name``). Since we allow a scheme to be
+  re-used multiple times in the nested configuration, this can be equivalent to
+  specifying multiple parameters with the same values. They will have a lower priority
+  than specifying the full path.
 """
+
 from __future__ import annotations
 
 import argparse
 import logging
 import re
 from argparse import Action, ArgumentParser, _StoreAction
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Hashable, Sequence
 from os import path
 from textwrap import dedent
-from typing import TYPE_CHECKING, Any, overload
+from typing import TYPE_CHECKING, Any, overload, Self
 
 from traitlets.traitlets import Enum, HasTraits, TraitType
 from traitlets.utils.sentinel import Sentinel
@@ -25,28 +50,63 @@ if TYPE_CHECKING:
     from .application import ApplicationBase
     from .scheme import Scheme
 
+
 _DOT = "__DOT__"
+"""String replacement for dots in command line keys."""
 
 
 Undefined = Sentinel(
     "Undefined", "data-assistant", "Configuration value not (yet) set or parsed."
 )
+""":class:`traitlets.Sentinel<traitlets.utils.sentinel.Sentinel>` object for undefined configuration values.
+
+Allows to separate them from simply ``None``.
+"""  # noqa: E501
 
 
 class ConfigValue:
+    """Value obtained from a source.
+
+    It stores a number of information about the value (its origin, initial value, etc.).
+
+    Parameters
+    ----------
+    input
+        The initial value obtained from a configuration source.
+    key
+        The key it was associated with in the source. For information purpose mainly.
+    origin
+        A string specifying the configuration source it was found in. For information
+        purpose mainly.
+    """
+
     def __init__(self, input: Any, key: str, origin: str | None = None):
         if isinstance(input, list):
             if len(input) == 1:
                 input = input[0]
 
         self.key = key
+        """The key this value was associated to."""
         self.input = input
+        """The initial value obtained."""
         self.origin = origin
+        """A description of the configuration source it was found in."""
 
         self.value: Any = Undefined
+        """The parameter value once parsed.
+
+        By default, it equals to :attr:`Undefined`.
+        """
         self.trait: TraitType | None = None
+        """The trait instance specifying the parameter to configure."""
         self.container_cls: type[HasTraits] | None = None
+        """The configurable class that owns the trait."""
         self.priority: int = 100
+        """Priority of the value used when merging config.
+
+        If two values, possibly from different sources, target the same parameter the
+        value with the highest priority is used.
+        """
 
     def __str__(self) -> str:
         s = [str(self.get_value())]
@@ -57,7 +117,14 @@ class ConfigValue:
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({str(self)})"
 
-    def copy(self, **kwargs) -> ConfigValue:
+    def copy(self, **kwargs) -> Self:
+        """Return a copy of this instance.
+
+        Parameters
+        ----------
+        kwargs
+            Attribute values to overwrite in the copy.
+        """
         data = {
             attr: getattr(self, attr)
             for attr in [
@@ -78,11 +145,24 @@ class ConfigValue:
         return out
 
     def get_value(self) -> Any:
+        """Return the actual value to use as parameter.
+
+        By default, use the :attr:`value` attribute, unless it is :attr:`Undefined` then
+        use the initial value (possibly unparsed).
+        """
         if self.value is not Undefined:
             return self.value
         return self.input
 
     def parse(self) -> None:
+        """Parse the initial value.
+
+        The associated trait must have been found. The initial value can be whatever can
+        be handled by the trait with the
+        :meth:`<traitlets.traitlets.TraitType.from_string>`. Container traits can also
+        handle lists of strings with
+        :meth:`traitlets.traitlets.Container.from_string_list<Container.from_string_list>`.
+        """
         if self.trait is None:
             raise RuntimeError(f"Cannot parse key {self.key}, has not trait.")
         if isinstance(self.input, str):
@@ -103,12 +183,40 @@ class ConfigValue:
     #     setattr(self.container, self.lastname, self.value)
 
 
-def to_dict(config: dict[str, ConfigValue]) -> dict[str, Any]:
-    output = {str(key): val.get_value() for key, val in config.items()}
+def to_dict(config: dict[Hashable, ConfigValue]) -> dict[Hashable, Any]:
+    """Transform ConfigValue instances into regular values.
+
+    Simply applies :meth:`ConfigValue.get_value()` to each dictionnary value.
+
+    Parameters
+    ----------
+    config
+        A flat dictionnary mapping keys to ConfigValues.
+
+    Returns
+    -------
+    config
+        A flat dictionnary mapping keys to values.
+    """
+    output = {key: val.get_value() for key, val in config.items()}
     return output
 
 
 def to_nested_dict(config: dict[str, ConfigValue]) -> dict[str, Any]:
+    """Transform a flat configuration into a nested dictionnary of regular values.
+
+    Similar to :meth:`to_dict` but the result is a nested dictionnary.
+
+    Parameters
+    ----------
+    config
+        A flat dictionnary mapping keys to ConfigValues.
+
+    Returns
+    -------
+    config
+        A nested dictionnary mapping keys to sub-dictionnaries or values.
+    """
     nested_conf: dict[str, Any] = {}
     for key, val in config.items():
         subconf = nested_conf
@@ -119,26 +227,63 @@ def to_nested_dict(config: dict[str, ConfigValue]) -> dict[str, Any]:
 
 
 class ConfigLoader:
+    """Abstract ConfigLoader.
+
+    Define the public API of loaders that will be used by the
+    :class:`Application<data_assistant.config.applicationApplicationBase>` object, as
+    well as some common logic.
+
+
+    Parameters
+    ----------
+    app
+        Parent application that created this loader.
+    log
+        Logger instance.
+    """
+
     def __init__(self, app: ApplicationBase, log: logging.Logger | None = None):
         self.app = app
+        """Parent application that created this loader.
+
+        This gives access to the configuration tree, and the application logging.
+        """
         if log is None:
             log = logging.getLogger(__name__)
         self.log = log
         self.config: dict[str, ConfigValue] = {}
+        """Configuration dictionnary mapping keys to ConfigValues.
+
+        It should be a flat dictionnary. It will be automatically "cleaned" by the
+        application.
+        """
 
     def clear(self) -> None:
+        """Empty the config."""
         self.config.clear()
 
     def get_config(self, *args, **kwargs) -> dict[str, ConfigValue]:
-        self.clear()
-        self.config = self.load_config(*args, **kwargs)
-        return self.app.resolve_config(self.config)
+        """Load and return a proper configuration dict.
 
-    def load_config(self) -> dict[str, ConfigValue]:
+        This method clears the existing config, call :meth:`load_config` to populate the
+        config attribute, resolve/clean the config and return it.
+
+        Parameters
+        ----------
+        args, kwargs
+            Passed to :meth:`load_config`.
+        """
+        self.clear()
+        self.load_config(*args, **kwargs)
+        self.config = self.app.resolve_config(self.config)
+        return self.config
+
+    def load_config(self) -> None:
+        """Populate the config attribute from a source."""
         raise NotImplementedError
 
 
-class _DefaultOptionDict(dict[str, Action]):
+class DefaultOptionDict(dict[str, Action]):
     """Dictionnary that create missing actions on the fly.
 
     Meant to replace :attr:`argparse.ArgumentParser._option_string_actions`. Any
@@ -203,11 +348,15 @@ class GreedyArgumentParser(ArgumentParser):
     """Subclass of ArgumentParser that accepts any option."""
 
     _action_creation_func: Callable[[str], Action] | None = None
+    """Callback that will be used to create an action on the fly.
+
+    If None, the default one :meth:`DefaultOptionDict._create_action` will be used.
+    """
 
     def set_action_creation(self, func: Callable[[str], Action]) -> None:
         """Change the default action creation function.
 
-        By using :class:`_DefaultOptionDict` unknown arguments will create actions on
+        By using :class:`DefaultOptionDict` unknown arguments will create actions on
         the fly. Replace the default function by ``func``, which must be an unbound
         method or simple function that takes the argument and return an action.
         """
@@ -222,7 +371,7 @@ class GreedyArgumentParser(ArgumentParser):
         # registration of explicit actions via parser.add_option will fail during setup
 
         # Setup defaultdict
-        defaultdict_class = _DefaultOptionDict
+        defaultdict_class = DefaultOptionDict
         if self._action_creation_func is not None:
             defaultdict_class._set_action_creation(self._action_creation_func)
 
@@ -237,26 +386,21 @@ class CLILoader(ConfigLoader):
     """Load config from command line.
 
     This uses the standard module :mod:`argparse`. However, rather than specifying
-    each and every possible argument we use some trickery to allow any parameter.
-    Any parameter received can be of the form:
-    * SchemeClassName.parameter
-    * group.subgroup.parameter (with as much nesting as needed)
-    * alias.parameter
-    followed by one or more arguments.
-
-    Each parameter will be associated to its corresponding trait and parsed (using the
-    trait). Parameters that do not conform to the specified schemes and traits will
-    raise exceptions.
+    each and every possible argument (there is many possibilities because of the keys
+    allowed by the application) we use some trickery to allow any parameter.
 
     .. rubric:: On the trickery
 
-    To allow for any parameter to be accepter by the parser, we have to do some
-    trickery. This is all lifted from traitlets, with some supplements to make it more
-    flexible. The parser (:class:`argparse.ArgumentParser`) will find first try to
-    recognize optional arguments using a dictionnary.
-    We use a subclass :class:`GreedyArgumentParser` that change the class of that
-    dictionnary just before parsing. We use a custom :class:`_DefaultOptionDict` that
-    will automatically create an action when asked about an unknown argument.
+    This is all lifted from traitlets, with some supplements to make it more
+    flexible. The parser (:class:`argparse.ArgumentParser`) will first try to
+    recognize optional arguments using a dictionnary of known arguments and their
+    associated :class:`action<argparse.Action>`.
+    We use a subclass parser :class:`GreedyArgumentParser` that changes the type of
+    that dictionnary just before parsing. We use a custom :class:`DefaultOptionDict`
+    that will automatically create an action when asked about an unknown argument.
+
+    The default action is ``nargs="*", type=str``, and for the destination it replaces
+    dots in the key by a replacement string (:attr:`_DOT`).
 
     The function that create the action from the argument name can be changed with
     :meth:`GreedyArgumentParser.set_action_creation` any time after the parser creation.
@@ -269,6 +413,11 @@ class CLILoader(ConfigLoader):
         self.parser = self.create_parser()
 
     def create_parser(self, **kwargs) -> ArgumentParser:
+        """Create a parser instance.
+
+        Can be overwritten if the :attr:`parser_class` attribute is not enough.
+        The default action can be here for instance.
+        """
         kwargs.setdefault("add_help", False)
         parser = self.parser_class(**kwargs)
         # The default action can be changed here if needed
@@ -276,6 +425,17 @@ class CLILoader(ConfigLoader):
         return parser
 
     def get_config(self, argv: list[str] | None = None) -> dict[str, ConfigValue]:
+        """Load and return a proper configuration dict.
+
+        This overwrites the common method to parse all values. Since the config has
+        been resolved, each config value should be associated to a trait, allowing
+        parsing.
+
+        Parameters
+        ----------
+        argv
+            Arguments to parse. If None use the system ones.
+        """
         self.config = super().get_config(argv)
         # Parse values using the traits
         for val in self.config.values():
@@ -283,7 +443,12 @@ class CLILoader(ConfigLoader):
         return self.config
 
     # TODO use a catch error decorator
-    def load_config(self, argv: list[str] | None = None) -> dict[str, ConfigValue]:
+    def load_config(self, argv: list[str] | None = None) -> None:
+        """Populate the config attribute from CLI.
+
+        Use argparser to obtain key/values.
+        Deal with 'help' flags.
+        """
         # ArgumentParser does its job
         args = vars(self.parser.parse_args(argv))
 
@@ -291,6 +456,8 @@ class CLILoader(ConfigLoader):
         config = {}
         for name, value in args.items():
             key = name.replace(_DOT, ".")
+            # TODO: check if key already exists
+            # maybe a method self.add_key() ? common to loaders
             config[key] = ConfigValue(value, key, origin="CLI")
 
         # check if there are any help flags
@@ -298,7 +465,7 @@ class CLILoader(ConfigLoader):
             self.app.help()
             self.app.exit()
 
-        return config
+        self.config = config
 
 
 # --- File loaders
@@ -311,6 +478,7 @@ class FileLoader(ConfigLoader):
     """
 
     extensions: list[str] = []
+    """File extension that are supported by this loader."""
 
     def __init__(self, filename: str, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -323,12 +491,11 @@ class FileLoader(ConfigLoader):
 
         This is a classmethod to avoid unnecessary/unwanted library import that might
         happen at initialization.
+
+        By default, only check supported file extensions.
         """
         _, ext = path.splitext(filename)
         return ext.lstrip(".") in cls.extensions
-
-    def write(self) -> None:
-        raise NotImplementedError()
 
     def to_lines(self, comment: Any = None) -> list[str]:
         """Return lines of configuration file corresponding to the app config tree.
@@ -337,9 +504,11 @@ class FileLoader(ConfigLoader):
         ----------
         comment
             Include more or less information in comments. Can be one of:
+
             * full: all information about traits is included
             * no-help: help string is not included
             * none: no information is included, only the key and default value
+
             Note that the line containing the key and default value, for instance
             ``traitname = 2`` will be commented since we do not need to parse/load the
             default value.
@@ -347,7 +516,7 @@ class FileLoader(ConfigLoader):
         raise NotImplementedError("Implement for different file formats.")
 
 
-class TomlKitLoader(FileLoader):
+class TomlkitLoader(FileLoader):
     """Load config from TOML files using tomlkit library.
 
     The :mod:`tomlkit` library is the default for data-assistant, as it allows precise
@@ -370,7 +539,11 @@ class TomlKitLoader(FileLoader):
 
     # TODO use a catch error decorator
     # so that any error is raise as a ConfigLoadingError, easy to catch in App
-    def load_config(self) -> dict[str, ConfigValue]:
+    def load_config(self) -> None:
+        """Populate the config attribute from TOML file.
+
+        We use :mod:`tomlkit` to parse file.
+        """
         with open(self.full_filename) as fp:
             root_table = self.backend.load(fp)
 
@@ -388,7 +561,6 @@ class TomlKitLoader(FileLoader):
                     self.config[fullkey] = value
 
         recurse(root_table, [])
-        return self.config
 
     def to_lines(self, comment: str = "full") -> list[str]:
         """Return lines of configuration file corresponding to the app config tree.
@@ -397,9 +569,11 @@ class TomlKitLoader(FileLoader):
         ----------
         comment
             Include more or less information in comments. Can be one of:
+
             * full: all information about traits is included
             * no-help: help string is not included
             * none: no information is included, only the key and default value
+
             Note that the line containing the key and default value, for instance
             ``traitname = 2`` will be commented since we do not need to parse/load the
             default value.
@@ -437,6 +611,10 @@ class TomlKitLoader(FileLoader):
         comment: str,
         container: TOMLDocument | None = None,
     ) -> Table | TOMLDocument:
+        """Serialize a Scheme and its subschemes recursively.
+
+        We use the extented capabilities of :mod:`tomlkit`.
+        """
         t: Container | Table
         if container is None:
             t = self.backend.table()
@@ -484,6 +662,11 @@ class TomlKitLoader(FileLoader):
         return t
 
     def get_trait_keyval(self, trait: TraitType) -> str:
+        """Return the value string to use for the line key = value.
+
+        Take care of specific cases when default value is None or a type, else use
+        :func:`tomlkit.item` and :meth:`tomlkit.items.Item.as_string`.
+        """
         # The actual toml code key = value.
         value = trait.default()
 
@@ -498,6 +681,7 @@ class TomlKitLoader(FileLoader):
         return item.as_string()
 
     def wrap_comment(self, item: Table | Container, text: str | list[str]):
+        """Wrap text correctly and add it to a toml container as comment lines."""
         if not isinstance(text, str):
             text = "\n".join(text)
 
@@ -511,10 +695,15 @@ class TomlKitLoader(FileLoader):
 
 
 class YamlLoader(FileLoader):
+    """Loader for Yaml files.
+
+    Not implemented yet.
+    """
+
     extensions = ["yaml", "yml"]
 
 
-class _ReadConfig:
+class PyConfigContainer:
     """Object that can define attributes recursively on the fly.
 
     Allows the config file syntax:
@@ -523,8 +712,8 @@ class _ReadConfig:
         c.another_group.parameter = True
 
     It patches ``__getattribute__`` to allow this. Any unknown attribute is
-    automatically created and assigned a new instance of _ReadConfig. The attributes
-    values can be explored (recursively) in the ``__dict__`` attribute.
+    automatically created and assigned a new instance of PyConfigContainer. The
+    attributes values can be explored (recursively) in the ``__dict__`` attribute.
 
     This is a very minimalist approach and caution should be applied if this class is to
     be expanded.
@@ -534,7 +723,7 @@ class _ReadConfig:
         try:
             return super().__getattribute__(key)
         except AttributeError:
-            obj = _ReadConfig()
+            obj = PyConfigContainer()
             self.__setattr__(key, obj)
             return obj
 
@@ -552,7 +741,7 @@ class PyLoader(FileLoader):
 
     Arbitrary schemes and sub-schemes can be specified. The object ``c`` is already
     defined. It is a simple object only meant to allow for this syntax
-    (:class:`_ReadConfig`). Any code will be run, so some logic can be used in the
+    (:class:`PyConfigContainer`). Any code will be run, so some logic can be used in the
     config files directly (changing a value depending on OS or hostname for instance).
 
     Sub-configs are not supported (but could be if necessary).
@@ -560,8 +749,13 @@ class PyLoader(FileLoader):
 
     extensions = ["py", "ipy"]
 
-    def load_config(self) -> dict[str, ConfigValue]:
-        read_config = _ReadConfig()
+    def load_config(self) -> None:
+        """Populate the config attribute from python file.
+
+        Compile the config file, and execute it with the variable ``c`` defined
+        as an empty :class:`_ReadConfig` object.
+        """
+        read_config = PyConfigContainer()
 
         # from traitlets.config.loader.PyFileConfigLoader
         namespace = dict(c=read_config, __file__=self.full_filename)
@@ -573,10 +767,10 @@ class PyLoader(FileLoader):
             )
 
         # flatten config
-        def recurse(cfg: _ReadConfig, key: list[str]):
+        def recurse(cfg: PyConfigContainer, key: list[str]):
             for k, v in cfg.__dict__.items():
                 newkey = key + [k]
-                if isinstance(v, _ReadConfig):
+                if isinstance(v, PyConfigContainer):
                     recurse(v, newkey)
                 else:
                     fullkey = ".".join(newkey)
@@ -586,7 +780,6 @@ class PyLoader(FileLoader):
                     self.config[fullkey] = value
 
         recurse(read_config, [])
-        return self.config
 
     def to_lines(self, comment: str = "full") -> list[str]:
         """Return lines of configuration file corresponding to the app config tree.
@@ -595,9 +788,11 @@ class PyLoader(FileLoader):
         ----------
         comment
             Include more or less information in comments. Can be one of:
+
             * full: all information about traits is included
             * no-help: help string is not included
             * none: no information is included, only the key and default value
+
             Note that the line containing the key and default value, for instance
             ``traitname = 2`` will be commented since we do not need to parse/load the
             default value.
@@ -607,6 +802,13 @@ class PyLoader(FileLoader):
     def serialize_scheme(
         self, scheme: Scheme, fullpath: list[str], comment: str
     ) -> list[str]:
+        """Serialize a Scheme and its subschemes recursively.
+
+        If comments are present, trait are separated by double comment lines (##) that
+        can be read by editors as magic cells separations.
+
+        For the key = value lines, we make use of :meth:`TraitType.default_value_repr`.
+        """
         lines = []
         if comment != "none":
             lines += self.wrap_comment(scheme.emit_description())
@@ -644,6 +846,7 @@ class PyLoader(FileLoader):
         return lines
 
     def wrap_comment(self, text: str | list[str]) -> list[str]:
+        """Wrap text and return it as commented lines."""
         if not isinstance(text, str):
             text = "\n".join(text)
 

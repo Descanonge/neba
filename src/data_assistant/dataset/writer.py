@@ -23,7 +23,9 @@ if TYPE_CHECKING:
     import xarray as xr
     from distributed import Client
 
+    # TODO make a generic ? to have different dataset types
     Call = tuple[xr.Dataset, str]
+
 log = logging.getLogger(__name__)
 
 

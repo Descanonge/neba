@@ -97,9 +97,9 @@ class Scheme(Configurable):
         This hook is run in :meth:`__init_subclass__`, after any subclass of
         :class:`Scheme` is defined.
 
-        By default, deals with the objective of ``Scheme``: tagging all traits as
-        configurable, and setting up attributes that are subclasses of ``Scheme``
-        as :class:`Instance` traits, and registering them as subschemes.
+        By default, deals with the objective of Scheme: tagging all traits as
+        configurable, and setting up attributes that are subclasses of Scheme
+        as :class:`~traitlets.Instance` traits, and registering them as subschemes.
 
         This method can be modified by subclasses in need of specific behavior. Do not
         forget to call the ``super()`` version, and if traits are added/modified it
@@ -200,13 +200,13 @@ class Scheme(Configurable):
     ) -> Generator[type[Configurable], None, None]:
         """Iterate through configurable classes, including configurable parents.
 
+        Children should always be after parents, and each class should only be
+        yielded once.
+
         Parameters
         ----------
         classes
             The list of classes to start from; if not set, uses all nested subschemes.
-
-        Children should always be after parents, and each class should only be
-        yielded once.
         """
         if classes is None:
             classes = list(cls._subschemes_recursive())
@@ -513,7 +513,7 @@ class Scheme(Configurable):
         there is a conflict between values, configurations specified *later* in the
         argument list will take priority (ie last one wins). The value from the
         precedent config is replaced if the :attr:`value's
-        priority<ConfigValue.priority>` is equal or higher.
+        priority<.config.loader.ConfigValue.priority>` is equal or higher.
         """
         out: dict[str, ConfigValue] = {}
         for c in configs:

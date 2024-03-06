@@ -231,8 +231,16 @@ def skip_trait_member(app, what, name, obj, skip, options) -> bool | None:
 class SchemeDocumenter(ClassDocumenter):
     """Documenter for Scheme objects.
 
-    Used to filter ``_subschemes`` attributes away, the skip event does not give
-    information on the parent object to do that.
+    Used to filter ``_subschemes`` attributes away, as well as some undocumented members
+    that pop up from HasTraits. The skip event does not give information on the parent
+    object to do that so we use a custom documenter.
+
+    Currently, custom class documenters are not working that well together with
+    autosummary. Autosummary only works with hardcoded object types (the ``objtype``)
+    attribute: 'class', 'function', etc. Anything else will be listed as 'data'.
+    And we cannot use another directive than autoclass, since this is what autosummary
+    will generate. For the moment, we override the class documenter.
+    See `<https://github.com/sphinx-doc/sphinx/issues/12021>`.
     """
 
     def filter_members(

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import sys
+from collections.abc import Sequence
 from typing import Any
 
 import distributed
@@ -472,6 +473,10 @@ class DaskConfig(Scheme):
 
     @classmethod
     def _setup_scheme(cls):
+        """Set up the class after definition.
+
+        Only add the subschemes corresponding to the ``selected_clusters`` attribute.
+        """
         # Add selected cluster types
         for name in cls.selected_clusters:
             setattr(cls, name, cls.cluster_names[name])
@@ -483,20 +488,25 @@ class DaskConfig(Scheme):
         cls.cluster_type.default_value = cls.selected_clusters[0]
 
     @classmethod
-    def set_selected_clusters(cls, select):
+    def set_selected_clusters(cls, select: Sequence[str]):
+        """Change the selected clusters types.
+
+        Only those selected will be available to configure as subschemes.
+        """
         # Remove all DaskClusterAbstract attributes
         for name in cls.selected_clusters:
             delattr(cls, name)
-        cls.selected_clusters = select
+        cls.selected_clusters = list(select)
         cls._setup_scheme()
 
     def start(self, **kwargs: Any):
         """Start Dask distributed client.
 
-        This method instanciates a :class:`DaskCluster` in ``self.dask``, which
-        will start the Cluster specified by :attr:`DaskCluster.cluster_type` and
-        the associated :class:`distributed.Client`. Both are accessible as
-        attributes :attr:`dask.client` and :attr:`dask.cluster`
+        This method instanciates a subclass of :class:`DaskClusterAbstract` in
+        ``self.dask``, which will start the Cluster specified by
+        :attr:`DaskClusterAbstract.cluster_class` and the associated
+        :class:`distributed.Client`. Both are accessible as attributes
+        :attr:`dask.client` and :attr:`dask.cluster`
 
         The cluster can either be a :class:`LocalCluster` or one of the clusters
         supported by :mod:`dask-jobqueue`. The cluster is instanciated with the
@@ -511,6 +521,8 @@ class DaskConfig(Scheme):
         """
         cluster_cls = self.cluster_names[self.cluster_type]
         self.cluster = cluster_cls().get_cluster(**kwargs)
+        """Dask cluster object, local or distributed via jobqueue."""
 
         self.client = distributed.Client(self.cluster)
+        """Dask client object."""
         # self.log.info('Dashboard available at %s', self.dask.client.dashboard_link)

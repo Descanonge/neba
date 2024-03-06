@@ -1,3 +1,5 @@
+"""Main entry point for configuration."""
+
 from __future__ import annotations
 
 import logging
@@ -8,7 +10,7 @@ from typing import TYPE_CHECKING
 
 from traitlets import Bool, Instance, List, Unicode, Union
 
-from .loader import CLILoader, PyLoader, TomlKitLoader, YamlLoader, to_nested_dict
+from .loader import CLILoader, PyLoader, TomlkitLoader, YamlLoader, to_nested_dict
 from .scheme import Scheme
 
 if TYPE_CHECKING:
@@ -55,7 +57,7 @@ class ApplicationBase(Scheme):
 
     ignore_cli = Bool(False, help="If True, do not parse command line arguments.")
 
-    file_loaders: list[type[FileLoader]] = [TomlKitLoader, YamlLoader, PyLoader]
+    file_loaders: list[type[FileLoader]] = [TomlkitLoader, YamlLoader, PyLoader]
     """List of possible configuration loaders from file, for different formats.
 
     Each will be tried until an appropriate loader is found. Currently, loaders only
@@ -174,42 +176,23 @@ class ApplicationBase(Scheme):
 
     def add_extra_parameter(
         self,
-        name: str,
+        key: str,
         trait: TraitType,
-        dest: type[Configurable] | str | None = None,
-        auto_alias: bool = True,
     ):
         """Add a configurable trait to this application configuration.
 
         Parameters
         ----------
-        name:
-            Name of the trait.
+        key:
+            Path specifying the place and name of the trait to add to the configuration
+            tree.
         trait:
             Trait object to add. It will automatically be tagged as configurable.
-            It will be accessible in the config object, under `dest`.
-        dest:
-            Subclass of :class:`Configurable` that will host the trait (one of
-            :attr:`classes` typically). If left to None, it will default to this
-            class. If specified as a string, it should correspond to the name
-            of a class present in ``App.classes``.
-        auto_alias:
-            If True (default), it will automatically add an alias so that the
-            trait can be set directly with ``--{name}=`` instead of
-            ``--{dest}.{name}=``.
         """
-        if dest is None:
-            dest = self.__class__
-        elif isinstance(dest, str):
-            if dest in self._subschemes:
-                dest = self._subschemes[dest]
-            else:
-                classes = {cls.__name__: cls for cls in self._classes_inc_parents()}
-                dest = classes[dest]
-
-        trait.tag(config=True)
-        setattr(dest, name, trait)
-        dest.setup_class(dest.__dict__)  # type: ignore
+        raise NotImplementedError()
+        # trait.tag(config=True)
+        # setattr(dest, name, trait)
+        # dest.setup_class(dest.__dict__)  # type: ignore
 
     def write_config(
         self,
@@ -222,8 +205,8 @@ class ApplicationBase(Scheme):
         Parameters
         ----------
         filename:
-            Write to this file. If None, the current value of
-            :attr:`config_file` is used.
+            Write to this file. If None, the first filename from :attr:`config_files` is
+            used.
         comment:
             If True (default), comment configuration lines.
         ask_overwrite:
