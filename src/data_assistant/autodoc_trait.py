@@ -1,6 +1,11 @@
 """Autodoc extension for automatic documentation of Traits.
 
 Add a specific Documenter for TraitType and member filter for traits.
+
+It will also replace the default class documenter to handle Schemes. This is only for a
+minor thing (suppress the ``_subschemes`` attribute(!)), so it would be recommended to
+put this extension first, in case other extensions also replace the default documenter
+for more useful things...
 """
 from __future__ import annotations
 
@@ -201,7 +206,7 @@ class TraitDocumenter(AttributeDocumenter):
         self.add_line("   :type: " + objrepr, sourcename)
 
 
-def skip_trait_member(app, what, name, obj, skip, options) -> bool:
+def skip_trait_member(app, what, name, obj, skip, options) -> bool | None:
     """Decide wether to skip trait autodoc.
 
     By default, autodoc will skip traits without any 'help' attribute. But we can
@@ -209,7 +214,7 @@ def skip_trait_member(app, what, name, obj, skip, options) -> bool:
     implement simple custom logic here.
     """
     if not isinstance(obj, TraitType):
-        return skip
+        return None
 
     skip = False
     # Check if private (only from name, no docstring analysis)
@@ -224,18 +229,11 @@ def skip_trait_member(app, what, name, obj, skip, options) -> bool:
 
 
 class SchemeDocumenter(ClassDocumenter):
-    # Cannot change objtype to anything other than class, the only one recognized
-    # by autosummary.
-    objtype = "class"
-    directivetype = "class"
-    priority = ClassDocumenter.priority + 2
+    """Documenter for Scheme objects.
 
-    @classmethod
-    def can_document_member(
-        cls, member: Any, membername: str, isattr: bool, parent: Any
-    ) -> bool:
-        can_super = super().can_document_member(member, membername, isattr, parent)
-        return can_super and issubclass(member, Scheme)
+    Used to filter ``_subschemes`` attributes away, the skip event does not give
+    information on the parent object to do that.
+    """
 
     def filter_members(
         self, members: ObjectMembers, want_all: bool
@@ -244,7 +242,7 @@ class SchemeDocumenter(ClassDocumenter):
 
         # Skip _subschemes attr for subclasses of Scheme.
         # For Scheme itself, keep it for documenting this package.
-        if self.object is not Scheme:
+        if issubclass(self.object, Scheme) and self.object is not Scheme:
             filtered = [
                 (name, member, isattr)
                 for name, member, isattr in filtered
@@ -256,13 +254,8 @@ class SchemeDocumenter(ClassDocumenter):
 def setup(app: Sphinx):
     app.setup_extension("sphinx.ext.autodoc")
     app.add_autodocumenter(TraitDocumenter)
-
-    # To avoid creating another autoclass directive, I use some lower level functions.
-    app.registry.add_documenter("class", SchemeDocumenter)
-
+    app.add_autodocumenter(SchemeDocumenter, False)
     app.connect("autodoc-skip-member", skip_trait_member)
-
-    print(app.registry.documenters)
 
     return dict(
         version="0.1",

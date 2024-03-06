@@ -8,8 +8,6 @@ import sys
 
 import data_assistant
 
-sys.path.append(os.path.abspath("./_ext"))
-
 # -- Project information -----------------------------------------------------
 
 project = "data-assistant"
@@ -27,11 +25,11 @@ templates_path = ["_templates"]
 exclude_patterns = ["_build"]
 
 extensions = [
+    "data_assistant.autodoc_trait",
     "sphinx.ext.napoleon",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
     "sphinx.ext.intersphinx",
-    "autodoc_trait",
 ]
 
 add_module_names = False
@@ -43,6 +41,7 @@ pygments_style = "default"
 autodoc_typehints = "description"
 autodoc_typehints_format = "short"
 autodoc_typehints_description_target = "all"
+autodoc_default_options = {"undoc-members": True}
 # autodoc_member_order = "groupwise"
 autodoc_class_content = "both"
 autodoc_type_aliases = {

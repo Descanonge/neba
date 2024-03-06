@@ -19,3 +19,4 @@ Modules
 
    dataset
    config
+   autodoc_trait
