@@ -1,5 +1,5 @@
 import re
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Sequence, Mapping
 from typing import Any
 
 from traitlets.config import Configurable
@@ -214,7 +214,9 @@ def stringify(obj, rst=True) -> str:
     return output(out)
 
 
-def get_trait_typehint(trait: Any, mode: str = "short") -> str:
+def get_trait_typehint(
+    trait: Any, mode: str = "short", aliases: Mapping[str, str] | None = None
+) -> str:
     """Return the typehint corresponding to a trait object.
 
     Parameters
@@ -223,8 +225,11 @@ def get_trait_typehint(trait: Any, mode: str = "short") -> str:
         Trait instance. Also accept any other type of object.
     mode:
         If "short", add a ~ in front of the full typehint to only print the type name
-        but still have a link.
+        but still have a link. If minimal, only keep the name. If anything else, return
+        the fully qualified link.
     """
+    if aliases is None:
+        aliases = {}
 
     def serialize(obj: Any) -> str:
         """Return the full import name of any object or type."""
@@ -248,20 +253,22 @@ def get_trait_typehint(trait: Any, mode: str = "short") -> str:
 
     def recurse(obj):
         """Recurse this function, keeping optional arguments."""
-        return get_trait_typehint(obj, mode)
+        return get_trait_typehint(obj, mode, aliases)
 
     def output(typehint):
         """Hook before returning the typehint."""
+        if (alias := aliases.get(typehint.lstrip("~"), None)) is not None:
+            typehint = alias
         if trait.allow_none:
             typehint += " | None"
         return typehint
 
-    # If simply an object, nothing specific to do:
-    if not isinstance(trait, TraitType):
-        return serialize(trait)
-
     # Get the typehint of the trait itself
     typehint = serialize(trait)
+
+    # If simply an object, nothing specific to do:
+    if not isinstance(trait, TraitType):
+        return typehint
 
     if isinstance(trait, Union):
         interior = " | ".join(recurse(subtrait) for subtrait in trait.trait_types)

@@ -13,11 +13,12 @@ if TYPE_CHECKING:
 class LoaderModuleAbstract(Generic[_DataT, _SourceT], Module):
     """Abstract class of Loader module.
 
-    Defines the minimal API to communicate with the parent :class:`DatasetAbstract` and
-    other modules.
+    Defines the minimal API to communicate with the parent
+    :class:`~.dataset.DatasetBase` and other modules.
 
     The Loader is tasked with opening the data into Python.
     It may run post-processing if defined by the user.
+
     """
 
     def load_data(

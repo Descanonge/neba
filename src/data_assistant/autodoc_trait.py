@@ -196,7 +196,11 @@ class TraitDocumenter(AttributeDocumenter):
         if self.config.autodoc_typehints == "none":
             return
 
-        objrepr = get_trait_typehint(self.object, self.config.autodoc_typehints_format)
+        objrepr = get_trait_typehint(
+            self.object,
+            mode=self.config.autodoc_typehints_format,
+            aliases=self.config.autodoc_type_aliases,
+        )
         alias_key = objrepr.lstrip("~")
         if (alias := self.config.autodoc_type_aliases.get(alias_key, None)) is not None:
             objrepr = alias

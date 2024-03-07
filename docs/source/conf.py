@@ -67,7 +67,7 @@ autodoc_type_aliases = {
     "ndarray": "numpy.ndarray",
     "da.Array": "dask.array.Array",
     # do not show the full path
-    "collections.abc.Sequence": "~collections.abc.Sequence",
+    "traitlets.traitlets.Int": "~traitlets.Int",
 }
 
 autodoc_default_options = {"show-inheritance": True, "inherited-members": False}
