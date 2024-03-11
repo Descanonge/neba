@@ -1,47 +1,79 @@
-"""Dataset objects.
+"""DataManager base.
 
-The Dataset object is the main entry point for the user. By subclassing it,
-they can adapt it to their data quickly.
+The DataManager object is the main entry point for the user. The base object
+(:class:`DataManagerBase`) should be completed with mixins classes called
+:class:`modules<module.Module>` that add various functionalities. The user can choose
+modules, or/and then overwrite methods and attributes of a single class to adapt it to
+their data quickly.
 
-If we want to retain the ability to define a new dataset just by subclassing
-the main class, this makes splitting features into different classes challenging.
-I still tried to use composition and delegate some work by "modules": FileManager,
-Loader, and Writer. These retain a reference to the Dataset and can invoke
-attributes and methods from it, which can be user-defined in a subclass.
 
-I tried to stay agnostic to how a module may work to possibly accomodate for different
-data formats, sources, etc. A minimal API is written in each abstract class.
-It may still be quite geared towards multifiles-netcdf, since this is what I had in mind
-when writing it. But hopefully it should be easy to swap modules without breaking
+The DataManager base and the modules were made to be as agnostic as possible concerning
+the data type, source format, etc. A minimal API is written in each abstract class that
+should allow inter-operation between different modules. Hopefully this can accomodate a
+variety of datasets, and it should be possible to swap modules without breaking
 everything.
 
-The parameters management is kept in the Dataset object for simplicity, maybe it
+The parameters management is kept in the DataManager object for simplicity, maybe it
 could be done by a module of its own, if this is necessary.
-
-Modules all inherit from :class:`module.Module`, which features a caching system, with
-even some attribute that can generate a new value on the fly in case of a cache
-miss (see AutoCachedProperty). This was done to avoid numerous computations when
-dealing with multi-files scanners.
-The Dataset can trigger a flush of all caches.
 """
+
 from __future__ import annotations
 
-from collections.abc import Hashable, Iterable, Mapping, Sequence
-from typing import Any, Generic, TypeVar
+from collections.abc import Hashable, Mapping, Sequence
+from typing import Any, Generic, Self, TypeVar
 
 from data_assistant.config import Scheme
 
 from .module import HasCache, Module
 
 _DataT = TypeVar("_DataT")
+"""Type of data (numpy, pandas, xarray, etc.)."""
 _SourceT = TypeVar("_SourceT")
+"""Type of the data source (filename, URL, object, etc.)."""
 
 
-class DatasetBase(Generic[_DataT, _SourceT]):
+"""
+Note on this mixins architecture.
+
+I tried to use what could be thought as a more natural structure using composition and
+by making modules attributes of the datamanager base, instead of mixins.
+Problem is if the user wants to overwrite a method to adapt to their dataset, it would
+be logically bound in a module: difficult to overwrite quickly to create a new
+data-manager class. The solution was to allow modules to state methods to be defined on
+the data-manager. The module would keep a reference of the central data-manager object
+and execute methods on it. But this makes it difficult to specify
+the methods precise signature, and is quite confusing in the end...
+"""
+
+
+class DataManagerBase(Generic[_DataT, _SourceT]):
+    """DataManager base object.
+
+    Add functionalities by subclassing it and adding mixin modules.
+
+    The base class manages the parameters mainly via :meth:`set_params`, and specify
+    entry points to be implemented by modules: :meth:`get_source` and :meth:`get_data`.
+
+    It is excepected that the user chooses modules adapted to their needs and dataset
+    formats, and create subclasses overwritting methods to further specify details
+    about their datasets.
+    Each subclass is thus associated to a particular dataset. Each instance of that
+    subclass is associated to specific parameters: only one year, or one value of
+    this or that parameter, etc.
+
+    The parameters (stored in :attr:`params`) are treated as global across the instance,
+    and those are the value that will be used when calling various methods. Few
+    methods may allow to complete them, fewer to overwrite them temporarily.
+    Parameters should be changed using :meth:`set_paramas`, which may will the cache
+    that some module use.
+    :meth:`save_excursion` can be used to change parameters temporarily inside a `with`
+    block.
+    """
+
     SHORTNAME: str | None = None
-    """Short name to refer to this dataset class."""
+    """Short name to refer to this data-manager class."""
     ID: str | None = None
-    """Long name to identify uniquely this dataset class."""
+    """Long name to identify uniquely this data-manager class."""
 
     PARAMS_NAMES: Sequence[Hashable] = []
     """List of known parameters names."""
@@ -49,8 +81,8 @@ class DatasetBase(Generic[_DataT, _SourceT]):
     """Default values of parameters.
 
     Optional. Can be used to define default values for parameters local to a
-    dataset, (*ie* that are not defined in project-wide
-    :class:`ParametersManager`).
+    data-manager, (*ie* that are not defined in project-wide with
+    :mod:`data_assistant.config`).
     """
 
     def __init__(
@@ -135,9 +167,14 @@ class DatasetBase(Generic[_DataT, _SourceT]):
         return "\n".join(s)
 
     def get_source(self) -> _SourceT:
+        """Return source for the data.
+
+        Can be filenames, URL, store object, etc.
+        """
         raise NotImplementedError("Implement in a subclass or Mixin.")
 
     def get_data(self) -> _DataT:
+        """Return data object."""
         raise NotImplementedError("Implement in a subclass or Mixin.")
 
     def get_data_sets(
@@ -149,7 +186,7 @@ class DatasetBase(Generic[_DataT, _SourceT]):
         return self.get_data(**kwargs)
 
     # def check_known_param(self, params: Iterable[str]):
-    #     """Check if the parameters are known to this dataset class.
+    #     """Check if the parameters are known to this data-manager class.
 
     #     A 'known parameter' is one present in :attr:`PARAMS_NAMES` or defined
     #     in the filename pattern (as a varying group).

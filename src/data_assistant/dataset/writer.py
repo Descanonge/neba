@@ -1,4 +1,4 @@
-"""Writer module."""
+"""Writer module: write data to disk."""
 
 from __future__ import annotations
 
@@ -30,11 +30,14 @@ log = logging.getLogger(__name__)
 
 
 class WriterModuleAbstract(Module):
-    """Abstract class of Writer module."""
+    """Abstract class of Writer module.
+
+    Manages metadata to (eventually) add to data before writing.
+    """
 
     def get_metadata(
         self,
-        parameters: dict | str | None = None,
+        params: dict | str | None = None,
         add_dataset_params: bool = True,
         add_commit: bool = True,
     ) -> dict[str, Any]:
@@ -50,7 +53,7 @@ class WriterModuleAbstract(Module):
 
         Parameters
         ----------
-        parameters  # noqa
+        params
             A dictionnary of the parameters used, that will automatically be serialized
             as a string. Can also be a custom string.
             Presentely we first try a serialization using json, if that fails, `str()`.
@@ -76,16 +79,16 @@ class WriterModuleAbstract(Module):
         meta["created_by"] = f"{hostname}:{script}"
 
         # Get parameters as string
-        if parameters is not None:
-            if isinstance(parameters, str):
-                params_str = parameters
+        if params is not None:
+            if isinstance(params, str):
+                params_str = params
             else:
                 if add_dataset_params:
-                    parameters = self.params | parameters
+                    params = self.params | params
                 try:
-                    params_str = json.dumps(parameters)
+                    params_str = json.dumps(params)
                 except TypeError:
-                    params_str = str(parameters)
+                    params_str = str(params)
 
             meta["created_with_params"] = params_str
 
@@ -111,7 +114,7 @@ class XarrayWriterModule(WriterModuleAbstract):
     """Writer for Xarray datasets.
 
     For simple unique calls.
-    The source should be compatible with a unique ``to_netcdf`` call.
+    The source should be compatible with a unique :meth:`xr.Dataset.to_netcdf` call.
     """
 
     TO_NETCDF_KWARGS: dict[str, Any] = {}
@@ -120,7 +123,7 @@ class XarrayWriterModule(WriterModuleAbstract):
         self,
         ds: xr.Dataset,
         /,
-        parameters: dict | str | None = None,
+        params: dict | str | None = None,
         add_dataset_parameters: bool = True,
         add_commit: bool = True,
     ) -> xr.Dataset:
@@ -132,7 +135,7 @@ class XarrayWriterModule(WriterModuleAbstract):
         ----------
         ds
             Dataset to add global attributes to. This is done in-place.
-        parameters  # noqa
+        params
             A dictionnary of the parameters used, that will automatically be serialized
             as a string. Can also be a custom string.
             Presentely we first try a serialization using json, if that fails, `str()`.
@@ -145,7 +148,7 @@ class XarrayWriterModule(WriterModuleAbstract):
             containing the script called.
         """
         meta = self.get_metadata(
-            parameters=parameters,
+            params=params,
             add_dataset_params=add_dataset_parameters,
             add_commit=add_commit,
         )
@@ -157,7 +160,7 @@ class XarrayWriterModule(WriterModuleAbstract):
         ds: xr.Dataset,
         /,
         *,
-        parameters: dict,
+        params: dict,
         **kwargs,
     ):
         """Write to netcdf file.
@@ -167,14 +170,14 @@ class XarrayWriterModule(WriterModuleAbstract):
 
         Parameters
         ----------
-        parameters:  # noqa
+        params:
             Mapping of parameters to obtain filename.
         kwargs:
             Passed to the function that writes to disk
             (:meth:`xarray.Dataset.to_netcdf`).
         """
-        outfile = self.get_source(**parameters)
-        ds = self.set_metadata(ds, parameters=parameters)
+        outfile = self.get_source(**params)
+        ds = self.set_metadata(ds, params=params)
         call = ds, outfile
         self.check_directories([call])
         return self.send_single_call(call, **kwargs)

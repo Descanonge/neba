@@ -2,23 +2,26 @@
 
 Various possible architectures.
 
-## Single file
-All of your DatasetManager classes are defined in a single file/module.
+Single file
+-----------
+All of your DataManager classes are defined in a single file/module.
 You can then import any one of them from that module or the store. No special issue.
 
-## Separated files, no store
-You can separate different datasets in different modules for any number of reason.
-This is efficient since you import module only as you need them.
+Separated files, no store
+-------------------------
+You can separate different DataManagers in different modules for any number of reason.
+This is efficient since you import files only as you need them.
 
 But if you want to use the store, it might get more complicated since you may quickly
 run in circular imports. Also each module needs te be imported for the store to register
 the datasets in them.
 
-## Separated files, with store
+Separated files, with store
+---------------------------
 To avoid these problems, I propose a three part structure:
 
 - A first module, let's call it ``data``. It will define the store variable, and
-  eventually some project wide stuff, like a project-default Dataset class so all
+  eventually some project wide stuff, like a project-default DataManager class so all
   datasets will have common functions.
 
 - Any number of other modules that will define all the datasets needed. They can be
@@ -40,23 +43,23 @@ Once this structure is in place, you can simply import the store from ``datalist
 
 Note that this has the disadvantage of importing all module data, which might add some
 overhead in some cases for datasets that might not be used.
-The store also "hides" the type of the DatasetManager you get, which can be annoying
+The store also "hides" the type of the DataManager you get, which can be annoying
 when using static type checking.
 """
 
 from collections.abc import Callable, Hashable
 from typing import TypeVar, cast
 
-from .dataset import DatasetBase
+from .dataset import DataManagerBase
 
 _K = TypeVar("_K", bound=Hashable)
-_V = TypeVar("_V", bound=type[DatasetBase])
+_V = TypeVar("_V", bound=type[DataManagerBase])
 
 
 class DatasetStore(dict[_K, _V]):
     """Mapping of registered Datasets.
 
-    Maps ID and/or SHORTNAME to a :class:`DatasetBase` subclass.
+    Maps ID and/or SHORTNAME to a :class:`DataManagerBase` subclass.
 
     Datasets classes are stored using their unique ID, or SHORTNAME if not
     defined. They can be retrieved using ID or SHORTNAME, as preferred.
@@ -73,7 +76,7 @@ class DatasetStore(dict[_K, _V]):
             self.add_dataset(ds)
 
     def add_dataset(self, ds: _V, name: str | None = None):
-        """Register a DatasetBase subclass."""
+        """Register a DataManagerBase subclass."""
         if name is not None:
             key = name
             key_type = "USER"
@@ -96,7 +99,7 @@ class DatasetStore(dict[_K, _V]):
         super().__setitem__(cast(_K, key), ds)
 
     def __getitem__(self, key: _K) -> _V:
-        """Return DatasetBase subclass with this ID or SHORTNAME."""
+        """Return DataManagerBase subclass with this ID or SHORTNAME."""
         if key in self.shortnames:
             if self.shortnames.count(key) > 1:
                 raise KeyError(f"More than one Dataset with SHORTNAME: {key}")

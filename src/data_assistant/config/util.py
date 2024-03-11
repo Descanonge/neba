@@ -1,5 +1,5 @@
 import re
-from collections.abc import Callable, Sequence, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
 from traitlets.config import Configurable

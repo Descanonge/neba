@@ -9,9 +9,9 @@ log = logging.getLogger(__name__)
 
 
 if TYPE_CHECKING:
-    from .dataset import DatasetBase
+    from .dataset import DataManagerBase
 
-    _DB = DatasetBase
+    _DB = DataManagerBase
 else:
     _DB = object
 

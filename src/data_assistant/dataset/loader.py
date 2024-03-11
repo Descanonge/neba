@@ -1,7 +1,8 @@
-"""Loader module."""
+"""Loader module: loads data into python."""
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, Generic
 
 from .dataset import Module, _DataT, _SourceT
@@ -13,12 +14,8 @@ if TYPE_CHECKING:
 class LoaderModuleAbstract(Generic[_DataT, _SourceT], Module):
     """Abstract class of Loader module.
 
-    Defines the minimal API to communicate with the parent
-    :class:`~.dataset.DatasetBase` and other modules.
-
     The Loader is tasked with opening the data into Python.
     It may run post-processing if defined by the user.
-
     """
 
     def load_data(
@@ -53,10 +50,15 @@ class LoaderModuleAbstract(Generic[_DataT, _SourceT], Module):
         return data
 
     def postprocess_data(self, data: _DataT) -> _DataT:
+        """Run operation after loading data."""
         raise NotImplementedError("Implement on your DatasetBase subclass.")
 
     def load_data_concrete(self, source: _SourceT, **kwargs) -> Any:
-        """Load the data from datafiles."""
+        """Load the data from datafiles.
+
+        This method should be implemented in subclasses to account for different
+        format, libraries, etc.
+        """
         return NotImplementedError("Implement in Mixin subclass.")
 
 
@@ -68,7 +70,7 @@ class XarrayMultiFileLoaderModule(LoaderModuleAbstract):
 
     OPEN_MFDATASET_KWARGS: dict[str, Any] = {}
 
-    def load_data_concrete(self, source: Any, **kwargs) -> xr.Dataset:
+    def load_data_concrete(self, source: Sequence[str], **kwargs) -> xr.Dataset:
         """Return a dataset object.
 
         The dataset is obtained from :func:`xarray.open_mfdataset`.

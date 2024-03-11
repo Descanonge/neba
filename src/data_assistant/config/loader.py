@@ -36,7 +36,7 @@ from argparse import Action, ArgumentParser, _StoreAction
 from collections.abc import Callable, Hashable, Sequence
 from os import path
 from textwrap import dedent
-from typing import TYPE_CHECKING, Any, overload, Self
+from typing import TYPE_CHECKING, Any, Self, overload
 
 from traitlets.traitlets import Enum, HasTraits, TraitType
 from traitlets.utils.sentinel import Sentinel
