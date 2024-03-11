@@ -177,13 +177,100 @@ class DataManagerBase(Generic[_DataT, _SourceT]):
         """Return data object."""
         raise NotImplementedError("Implement in a subclass or Mixin.")
 
+    def save_excursion(self) -> _DataManagerContext:
+        """Save and restore current paramaters after a with block.
+
+        For instance::
+
+            # we have some paramaters, self.params["p"] = 0
+            with self.save_excursion():
+                # we change them
+                self.set_params(p=2)
+                self.get_data()
+
+            # we are back to self.params["p"] = 0
+
+        Any exception happening in the with block will be raised.
+        If the datamanager has a cache module, its content will not be saved. This
+        could be implemented in the future though.
+
+        Returns
+        -------
+        context
+            Context object containing the original parameters.
+        """
+        return _DataManagerContext(self)
+
     def get_data_sets(
         self,
         params_maps: Sequence[Mapping[str, Any]] | None = None,
         params_sets: Sequence[Sequence] | None = None,
         **kwargs,
-    ) -> _DataT | Iterable[_DataT]:
-        return self.get_data(**kwargs)
+    ) -> _DataT | list[_DataT]:
+        """Return data for specific sets of parameters.
+
+        Each set of parameter will specify one filename. Parameters that do not change
+        from one set to the next do not need to be specified if they are fixed (by
+        setting them in the DataManager). The sets can be specified with either one of
+        `params_maps` or `params_sets`.
+
+        Parameters
+        ----------
+        params_maps
+            Each set is specified by a mapping of parameters names to a value::
+
+                [{'Y': 2020, 'm': 1, 'd': 15},
+                 {'Y': 2021, 'm': 2, 'd': 24},
+                 {'Y': 2022, 'm', 6, 'd': 2}]
+
+            This will give 3 filenames for 3 different dates. Note that here, the
+            parameters do not need to be the same for all sets, for example in a fourth
+            set we could have ``{'Y': 2023, 'm': 1, 'd': 10, 'depth': 50}`` to override
+            the value of 'depth' set in the DataManager parameters.
+        params_sets
+            Here each set is specified by sequence of parameters values. This first row
+            gives the order of parameters. The same input as before can be written as::
+
+                [['Y', 'm', 'd'],
+                 [2020, 1, 15],
+                 [2021, 2, 24],
+                 [2022, 6, 2]]
+
+            Here the changing parameters must remain the same for the whole sequence.
+        kwargs
+            Arguments passed to :meth:`get_data`.
+
+        Returns
+        -------
+        data
+            List of data objects corresponding to each set of parameters. Subclasses can
+            overwrite this method to specify how to combine them into one if needed.
+        """
+        if params_sets is not None and params_maps is not None:
+            raise KeyError("Cannot specify both params_sets and params_maps")
+
+        if params_maps is None:
+            # Turn param_sets into param_maps
+            if params_sets is None:
+                raise KeyError(
+                    "Must at least specify one of params_sets or params_maps"
+                )
+
+            dims = params_sets[0]
+            if not all(isinstance(x, str) for x in dims):
+                raise TypeError(f"Dimensions names must be strings, got: {dims}")
+
+            params_maps = []
+            for p_set in params_sets[1:]:
+                params_maps.append(dict(zip(dims, p_set, strict=True)))
+
+        data: list[_DataT] = []
+        with self.save_excursion():
+            for p_map in params_maps:
+                self.set_params(p_map)
+                data.append(self.get_data(**kwargs))
+
+        return data
 
     # def check_known_param(self, params: Iterable[str]):
     #     """Check if the parameters are known to this data-manager class.
@@ -198,3 +285,17 @@ class DataManagerBase(Generic[_DataT, _SourceT]):
     #     for p in params:
     #         if p not in self.allowed_params:
     #             raise KeyError(f"Parameter '{p}' was not expected for dataset {self}")
+
+
+class _DataManagerContext:
+    def __init__(self, dm: DataManagerBase):
+        self.dm = dm
+        self.params = dm.params.copy()
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, *exc):
+        self.dm.set_params(self.params)
+        # return false to raise any exception that may have occured
+        return False
