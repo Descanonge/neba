@@ -2,13 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from typing import TYPE_CHECKING, Any, Generic
+from typing import Any, Generic
 
 from .dataset import Module, _DataT, _SourceT
-
-if TYPE_CHECKING:
-    import xarray as xr
 
 
 class LoaderModuleAbstract(Generic[_DataT, _SourceT], Module):
@@ -60,32 +56,3 @@ class LoaderModuleAbstract(Generic[_DataT, _SourceT], Module):
         format, libraries, etc.
         """
         return NotImplementedError("Implement in Mixin subclass.")
-
-
-class XarrayMultiFileLoaderModule(LoaderModuleAbstract):
-    """Loader for Multifile Xarray.
-
-    Uses :func:`xarray.open_mfdataset` to open data.
-    """
-
-    OPEN_MFDATASET_KWARGS: dict[str, Any] = {}
-
-    def load_data_concrete(self, source: Sequence[str], **kwargs) -> xr.Dataset:
-        """Return a dataset object.
-
-        The dataset is obtained from :func:`xarray.open_mfdataset`.
-
-        Parameters
-        ----------
-        source:
-            Sequence of files containing data.
-        kwargs:
-            Arguments passed to :func:`xarray.open_mfdataset`. They will
-            take precedence over the default values of the class attribute
-            :attr:`OPEN_MFDATASET_KWARGS`.
-        """
-        import xarray as xr
-
-        kwargs = self.OPEN_MFDATASET_KWARGS | kwargs
-        ds = xr.open_mfdataset(source, **kwargs)
-        return ds
