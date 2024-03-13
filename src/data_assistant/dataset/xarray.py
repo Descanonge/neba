@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING, Any
 import xarray as xr
 
 from .file_manager import FileFinderModule
-from .writer import WriterModuleAbstract, WriterMultiFileAbstract
 from .loader import LoaderModuleAbstract
+from .writer import WriterModuleAbstract, WriterMultiFileAbstract
 
 if TYPE_CHECKING:
     try:

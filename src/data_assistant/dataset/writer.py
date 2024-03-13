@@ -13,7 +13,6 @@ from datetime import datetime
 from os import path
 from typing import Any
 
-
 from .dataset import Module, _DataT
 
 Call = tuple[_DataT, str]

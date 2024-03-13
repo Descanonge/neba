@@ -37,20 +37,6 @@ class FileFinderModule(MultiFileModuleAbstract, CacheModule):
     initialization, which is important if parameters checking is enabled.
     """
 
-    # Methods to be overwritten by user
-
-    def get_root_directory(self) -> str | list[str]:
-        """Return the directory containing all datafiles.
-
-        Can return a path, or an iterable of directories that will automatically be
-        joined.
-
-        Define this method on the parent :class:`DatasetAbstract`.
-        """
-        raise NotImplementedError(
-            "This method should be implemented in your Dataset class."
-        )
-
     def get_filename_pattern(self) -> str:
         """Return the filename pattern.
 
@@ -62,8 +48,6 @@ class FileFinderModule(MultiFileModuleAbstract, CacheModule):
         raise NotImplementedError(
             "This method should be implemented in your Dataset class."
         )
-
-    # Method overwritting DatasetBase
 
     def _init_module(self) -> None:
         super()._init_module()
