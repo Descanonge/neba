@@ -1,4 +1,5 @@
 """Plugin definitions for XArray."""
+from __future__ import annotations
 
 import itertools
 import logging
@@ -7,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 import xarray as xr
 
-from .file_manager import FileFinderPlugin
+from .filefinder import FileFinderPlugin
 from .loader import LoaderPluginAbstract
 from .writer import WriterMultiFileAbstract, WriterPluginAbstract
 
