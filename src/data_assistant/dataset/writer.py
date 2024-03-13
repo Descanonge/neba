@@ -1,4 +1,4 @@
-"""Writer module: write data to disk."""
+"""Writer plugin: write data to disk."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from datetime import datetime
 from os import path
 from typing import Any
 
-from .dataset import Module, _DataT
+from .dataset import Plugin, _DataT
 
 Call = tuple[_DataT, str]
 """Tuple of data and filename to write it to."""
@@ -21,8 +21,8 @@ Call = tuple[_DataT, str]
 log = logging.getLogger(__name__)
 
 
-class WriterModuleAbstract(Module):
-    """Abstract class of Writer module.
+class WriterPluginAbstract(Plugin):
+    """Abstract class of Writer plugin.
 
     Manages metadata to (eventually) add to data before writing.
     """
@@ -128,7 +128,7 @@ class WriterModuleAbstract(Module):
         raise NotImplementedError
 
 
-class WriterMultiFileAbstract(WriterModuleAbstract):
+class WriterMultiFileAbstract(WriterPluginAbstract):
     def check_overwriting_calls(self, calls: Sequence[Call]):
         """Check if some calls have the same filename."""
         outfiles = [f for _, f in calls]

@@ -1,3 +1,5 @@
+"""Plugin definitions for XArray."""
+
 import itertools
 import logging
 from collections.abc import Hashable, Mapping, Sequence
@@ -5,9 +7,9 @@ from typing import TYPE_CHECKING, Any
 
 import xarray as xr
 
-from .file_manager import FileFinderModule
-from .loader import LoaderModuleAbstract
-from .writer import WriterModuleAbstract, WriterMultiFileAbstract
+from .file_manager import FileFinderPlugin
+from .loader import LoaderPluginAbstract
+from .writer import WriterMultiFileAbstract, WriterPluginAbstract
 
 if TYPE_CHECKING:
     try:
@@ -24,7 +26,7 @@ log = logging.getLogger(__name__)
 ## Loading
 
 
-class XarrayFileLoaderModule(LoaderModuleAbstract):
+class XarrayFileLoaderPlugin(LoaderPluginAbstract):
     """Loader for a single file to Xarray.
 
     Uses :func:`xarray.open_dataset` to open data.
@@ -52,7 +54,7 @@ class XarrayFileLoaderModule(LoaderModuleAbstract):
         return ds
 
 
-class XarrayMultiFileLoaderModule(LoaderModuleAbstract):
+class XarrayMultiFileLoaderPlugin(LoaderPluginAbstract):
     """Loader for multiple files to Xarray.
 
     Uses :func:`xarray.open_mfdataset` to open data.
@@ -84,7 +86,7 @@ class XarrayMultiFileLoaderModule(LoaderModuleAbstract):
 ## Writing
 
 
-class XarrayWriterModule(WriterModuleAbstract):
+class XarrayWriterPlugin(WriterPluginAbstract):
     """Writer for Xarray datasets.
 
     For simple unique calls.
@@ -172,7 +174,7 @@ class XarrayWriterModule(WriterModuleAbstract):
         return ds.to_netcdf(outfile, **kwargs)
 
 
-class XarrayMultiFileWriterModule(XarrayWriterModule, WriterMultiFileAbstract):
+class XarrayMultiFileWriterPlugin(XarrayWriterPlugin, WriterMultiFileAbstract):
     def send_calls_together(
         self,
         calls: Sequence[CallXr],
@@ -240,7 +242,7 @@ class XarrayMultiFileWriterModule(XarrayWriterModule, WriterMultiFileAbstract):
 # Can't be bothered to deal with mypy antics now though.
 
 
-class XarraySplitWriterModule(XarrayMultiFileWriterModule, FileFinderModule):
+class XarraySplitWriterPlugin(XarrayMultiFileWriterPlugin, FileFinderPlugin):
     """Writer for Xarray datasets in multifiles.
 
     Can automatically split a dataset to the corresponding files by communicating
@@ -277,14 +279,14 @@ class XarraySplitWriterModule(XarrayMultiFileWriterModule, FileFinderModule):
     )
     """List of correspondance between pattern names and pandas frequencies."""
 
-    def _init_module(self) -> None:
-        super()._init_module()
+    def _init_plugin(self) -> None:
+        super()._init_plugin()
         try:
             from filefinder.group import TIME_GROUPS
         except ImportError as err:
             raise ImportError(
                 "The 'filefinder' package must be installed to use this "
-                "module (XarraySplitWriterModule)"
+                "plugin (XarraySplitWriterPlugin)"
             ) from err
 
         self.TIME_GROUPS = TIME_GROUPS

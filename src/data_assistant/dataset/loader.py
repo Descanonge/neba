@@ -1,14 +1,14 @@
-"""Loader module: loads data into python."""
+"""Loader plugin: loads data into python."""
 
 from __future__ import annotations
 
 from typing import Any, Generic
 
-from .dataset import Module, _DataT, _SourceT
+from .dataset import Plugin, _DataT, _SourceT
 
 
-class LoaderModuleAbstract(Generic[_DataT, _SourceT], Module):
-    """Abstract class of Loader module.
+class LoaderPluginAbstract(Generic[_DataT, _SourceT], Plugin):
+    """Abstract class of Loader plugin.
 
     The Loader is tasked with opening the data into Python.
     It may run post-processing if defined by the user.

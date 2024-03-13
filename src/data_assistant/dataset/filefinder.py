@@ -1,4 +1,4 @@
-"""FileManager module."""
+"""FileManager plugin."""
 from __future__ import annotations
 
 import logging
@@ -6,13 +6,13 @@ from os import PathLike, path
 
 from filefinder import Finder
 
-from .module import CacheModule, autocached
-from .source import MultiFileModuleAbstract
+from .plugin import CachePlugin, autocached
+from .source import MultiFilePluginAbstract
 
 log = logging.getLogger(__name__)
 
 
-class FileFinderModule(MultiFileModuleAbstract, CacheModule):
+class FileFinderPlugin(MultiFilePluginAbstract, CachePlugin):
     """Multifiles manager using Filefinder.
 
     Written for datasets comprising of many datafiles, either because of the have long
@@ -49,8 +49,8 @@ class FileFinderModule(MultiFileModuleAbstract, CacheModule):
             "This method should be implemented in your Dataset class."
         )
 
-    def _init_module(self) -> None:
-        super()._init_module()
+    def _init_plugin(self) -> None:
+        super()._init_plugin()
 
         # Add fixable_params to the dataset allowed_params
         # self.allowed_params |= set(self.fixable)
@@ -160,7 +160,7 @@ class climato:  # noqa: N801
     def __init__(self, append_folder: str | None = None):
         self.append_folder = append_folder
 
-    def __call__(self, cls: FileFinderModule):
+    def __call__(self, cls: FileFinderPlugin):
         """Apply decorator."""
         from filefinder import Finder
         from filefinder.group import TIME_GROUPS

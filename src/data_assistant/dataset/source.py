@@ -1,4 +1,4 @@
-"""Source Module: manages/find sources.
+"""Source Plugin: manages/find sources.
 
 Currently mainly deals with the source being multiple files on disk.
 """
@@ -7,12 +7,12 @@ from __future__ import annotations
 import logging
 from os import path
 
-from .module import CacheModule, autocached
+from .plugin import CachePlugin, autocached
 
 log = logging.getLogger(__name__)
 
 
-class MultiFileModuleAbstract(CacheModule):
+class MultiFilePluginAbstract(CachePlugin):
     """Abstract class for source consisting of multiple files.
 
     It is easier to deal with multiple files when separating a root directory, and the
@@ -68,10 +68,10 @@ class MultiFileModuleAbstract(CacheModule):
     @autocached
     def datafiles(self) -> list[str]:
         """Cached list of source files."""
-        raise NotImplementedError("Implement in Module subclass.")
+        raise NotImplementedError("Implement in Plugin subclass.")
 
 
-class GlobModule(MultiFileModuleAbstract, CacheModule):
+class GlobPlugin(MultiFilePluginAbstract, CachePlugin):
     """Find files using glob patterns.
 
     Glob pattern are Unix shell-style wildcards:
