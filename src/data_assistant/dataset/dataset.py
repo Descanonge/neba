@@ -6,7 +6,6 @@ The DataManager object is the main entry point for the user. The base object
 plugins, or/and then overwrite methods and attributes of a single class to adapt it to
 their data quickly.
 
-
 The DataManager base and the plugins were made to be as agnostic as possible concerning
 the data type, source format, etc. A minimal API is written in each abstract class that
 should allow inter-operation between different plugins. Hopefully this can accomodate a
@@ -20,17 +19,16 @@ could be done by a plugin of its own, if this is necessary.
 from __future__ import annotations
 
 from collections.abc import Hashable, Mapping, Sequence
-from typing import Any, Generic, Self, TypeVar
+from typing import Any, Generic, Self, TypeVar, TypeGuard
 
 from data_assistant.config import Scheme
 
-from .plugin import HasCache, Plugin
+from .plugin import Plugin, CachePlugin
 
 _DataT = TypeVar("_DataT")
 """Type of data (numpy, pandas, xarray, etc.)."""
 _SourceT = TypeVar("_SourceT")
 """Type of the data source (filename, URL, object, etc.)."""
-
 
 """
 Note on this mixins architecture.
@@ -45,18 +43,26 @@ and execute methods on it. But this makes it difficult to specify
 the methods precise signature, and is quite confusing in the end...
 """
 
+_P = TypeVar("_P", bound=Plugin)
+
+
+def has_plugin(obj: DataManagerBase, cls: type[_P]) -> TypeGuard[_P]:
+    """Return if the DataManager contains a plugin."""
+    return isinstance(obj, cls)
+
 
 class DataManagerBase(Generic[_DataT, _SourceT]):
     """DataManager base object.
 
     Add functionalities by subclassing it and adding mixin plugins.
 
-    The base class manages the parameters mainly via :meth:`set_params`, and specify
-    entry points to be implemented by plugins: :meth:`get_source` and :meth:`get_data`.
+    The base class manages the parameters mainly via :meth:`set_params`, and specify two
+    API methods to be implemented by plugins: :meth:`get_source` (that can be used
+    by other plugin to access the source) and :meth:`get_data` to load data.
 
     It is excepected that the user chooses plugins adapted to their needs and dataset
-    formats, and create subclasses overwritting methods to further specify details
-    about their datasets.
+    formats, and create their own subclasses, overwritting methods to further specify
+    details about their datasets.
     Each subclass is thus associated to a particular dataset. Each instance of that
     subclass is associated to specific parameters: only one year, or one value of
     this or that parameter, etc.
@@ -68,6 +74,7 @@ class DataManagerBase(Generic[_DataT, _SourceT]):
     that some plugin use.
     :meth:`save_excursion` can be used to change parameters temporarily inside a `with`
     block.
+
     """
 
     SHORTNAME: str | None = None
@@ -96,6 +103,7 @@ class DataManagerBase(Generic[_DataT, _SourceT]):
         """
 
         # Initianlize plugins in base classes
+        # Only check bases, the plugin then propagate the call to its parents with super
         for cls in self.__class__.__bases__:
             if issubclass(cls, Plugin):
                 cls._init_plugin(self)  # type: ignore
@@ -129,9 +137,9 @@ class DataManagerBase(Generic[_DataT, _SourceT]):
 
         self.params.update(params)
 
-        # can also be done via a faster hasattr check
-        if isinstance(self, HasCache):
+        if has_plugin(self, CachePlugin):
             self.clean_cache()
+
         # self.check_known_param(params)
 
     def __str__(self) -> str:

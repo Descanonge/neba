@@ -1,7 +1,11 @@
-from data_assistant.dataset import DatasetDefault
+from data_assistant.dataset import DataManagerBase
+from data_assistant.dataset.xarray import (
+    XarrayMultiFileLoaderPlugin,
+    XarraySplitWriterPlugin,
+)
 
 
-class DatasetSST(DatasetDefault):
+class DMSST(XarrayMultiFileLoaderPlugin, XarraySplitWriterPlugin, DataManagerBase):
     PARAMS_NAMES = ["days", "region"]
 
     PARAMS_DEFAULTS = dict(days=5)
@@ -14,4 +18,4 @@ class DatasetSST(DatasetDefault):
 
 
 if __name__ == "__main__":
-    ds = DatasetSST()
+    dm = DMSST()
