@@ -55,6 +55,14 @@ class FileFinderPlugin(MultiFilePluginAbstract, CachePlugin):
         # Add fixable_params to the dataset allowed_params
         # self.allowed_params |= set(self.fixable)
 
+    def __repr__(self) -> str:
+        s = super().__repr__().splitlines()
+        # autocached prop has full qualified name
+        if "FileFinderPlugin::filefinder" in self.cache:
+            s.append("Filefinder:")
+            s += [f"\t{line}" for line in str(self.filefinder).splitlines()]
+        return "\n".join(s)
+
     def get_filename(self, **fixes) -> str:
         """Create a filename corresponding to a set of parameters values.
 
