@@ -90,7 +90,13 @@ def autocached(func: Callable[[Any], R]) -> Callable[[Any], R]:
     If the variable of the same name is in the cache, return its cached value
     immediately. Otherwise run the code of the property and cache the return value.
     """
-    name = f"{func.__qualname__}::{func.__name__}"
+    try:
+        qualpath = func.__qualname__.split(".")[:-1]
+        qualname = ".".join(qualpath)
+    except Exception:
+        qualname = ""
+
+    name = "::".join([qualname, func.__name__])
 
     @functools.wraps(func)
     def wrapper(self: Any) -> R:
