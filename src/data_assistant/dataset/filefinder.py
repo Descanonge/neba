@@ -40,20 +40,21 @@ class FileFinderPlugin(MultiFilePluginAbstract, CachePlugin):
     def get_filename_pattern(self) -> str:
         """Return the filename pattern.
 
-        See the Filefinder documentation on the syntax:
-        `https://filefinder.readthedocs.io/en/latest/find_files.html`.
+        The filename pattern specify the parts of the datafiles that vary from file to
+        file. See the filefinder package `documentation
+        <https://filefinder.readthedocs.io/en/latest/>`_ for the details.
 
-        Define this method on the parent :class:`DatasetAbstract`.
+        *Not implemented: implement in your DataManager class.*
         """
         raise NotImplementedError(
             "This method should be implemented in your Dataset class."
         )
 
-    def _init_plugin(self) -> None:
-        super()._init_plugin()
+    # def _init_plugin(self) -> None:
+    #     super()._init_plugin()
 
-        # Add fixable_params to the dataset allowed_params
-        # self.allowed_params |= set(self.fixable)
+    #     Add fixable_params to the dataset allowed_params
+    #     self.allowed_params |= set(self.fixable)
 
     def __repr__(self) -> str:
         s = super().__repr__().splitlines()

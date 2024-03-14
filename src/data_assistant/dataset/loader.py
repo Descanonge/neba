@@ -19,7 +19,7 @@ class LoaderPluginAbstract(Generic[_DataT, _SourceT], Plugin):
     ) -> _DataT:
         """Load data and run post-processing.
 
-        Uses :meth:`load_data` that can be overwritten by subclasses.
+        Uses :meth:`load_data_concrete` that can be overwritten by subclasses.
 
         Tries to run the method ``postprocess_data`` of the parent dataset. If it raises
         NotImplementedError, postprocess will be ignored.
@@ -32,7 +32,6 @@ class LoaderPluginAbstract(Generic[_DataT, _SourceT], Plugin):
             If True, do not apply postprocessing. Default is False.
         kwargs:
             Arguments passed to function loading data.
-
         """
         data = self.load_data_concrete(source, **kwargs)
 
@@ -46,7 +45,10 @@ class LoaderPluginAbstract(Generic[_DataT, _SourceT], Plugin):
         return data
 
     def postprocess_data(self, data: _DataT) -> _DataT:
-        """Run operation after loading data."""
+        """Run operation after loading data.
+
+        *Not implemented: implement (if necessary) on your DataManager subclass.*
+        """
         raise NotImplementedError("Implement on your DatasetBase subclass.")
 
     def load_data_concrete(self, source: _SourceT, **kwargs) -> Any:
@@ -54,5 +56,7 @@ class LoaderPluginAbstract(Generic[_DataT, _SourceT], Plugin):
 
         This method should be implemented in subclasses to account for different
         format, libraries, etc.
+
+        *Not implemented: implement in a plugin subclass.*
         """
         return NotImplementedError("Implement in Mixin subclass.")

@@ -176,6 +176,8 @@ class XarrayWriterPlugin(WriterPluginAbstract):
 
 
 class XarrayMultiFileWriterPlugin(XarrayWriterPlugin, WriterMultiFileAbstract):
+    """Write from an xarray dataset to multiple files using Dask."""
+
     def send_calls_together(
         self,
         calls: Sequence[CallXr],

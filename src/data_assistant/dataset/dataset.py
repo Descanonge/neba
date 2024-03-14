@@ -19,11 +19,11 @@ could be done by a plugin of its own, if this is necessary.
 from __future__ import annotations
 
 from collections.abc import Hashable, Mapping, Sequence
-from typing import Any, Generic, Self, TypeVar, TypeGuard
+from typing import Any, Generic, Self, TypeGuard, TypeVar
 
 from data_assistant.config import Scheme
 
-from .plugin import Plugin, CachePlugin
+from .plugin import CachePlugin, Plugin
 
 _DataT = TypeVar("_DataT")
 """Type of data (numpy, pandas, xarray, etc.)."""
@@ -70,7 +70,7 @@ class DataManagerBase(Generic[_DataT, _SourceT]):
     The parameters (stored in :attr:`params`) are treated as global across the instance,
     and those are the value that will be used when calling various methods. Few
     methods may allow to complete them, fewer to overwrite them temporarily.
-    Parameters should be changed using :meth:`set_paramas`, which may will the cache
+    Parameters should be changed using :meth:`set_params`, which may will the cache
     that some plugin use.
     :meth:`save_excursion` can be used to change parameters temporarily inside a `with`
     block.
@@ -167,30 +167,30 @@ class DataManagerBase(Generic[_DataT, _SourceT]):
         # s.append(f"\tallowed: {self.allowed_params}")
         s.append(f"\tset: {self.params}")
 
-        # TODO check HasFileManager ? with protocol or type ?
-        # try except ?
-        # if self.file_manager is not None:
-        #     s += str(self.file_manager).splitlines()
-
         return "\n".join(s)
 
     def get_source(self) -> _SourceT:
         """Return source for the data.
 
         Can be filenames, URL, store object, etc.
+
+        *Not implemented: implement in a subclass or plugin.*
         """
         raise NotImplementedError("Implement in a subclass or Mixin.")
 
     def get_data(self) -> _DataT:
-        """Return data object."""
+        """Return data object.
+
+        *Not implemented: implement in a subclass or plugin.*
+        """
         raise NotImplementedError("Implement in a subclass or Mixin.")
 
     def save_excursion(self) -> _DataManagerContext:
-        """Save and restore current paramaters after a with block.
+        """Save and restore current parameters after a with block.
 
         For instance::
 
-            # we have some paramaters, self.params["p"] = 0
+            # we have some parameters, self.params["p"] = 0
             with self.save_excursion():
                 # we change them
                 self.set_params(p=2)

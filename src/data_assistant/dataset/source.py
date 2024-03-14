@@ -34,6 +34,9 @@ class MultiFilePluginAbstract(CachePlugin):
             Parameters to fix to specific values. Only parameters defined in the
             filename pattern can be fixed. Will take precedence over the
             parent ``params`` attribute.
+
+
+        *Not implemented: implement in a plugin subclass or DataManager subclass.*
         """
         raise NotImplementedError()
 
@@ -42,6 +45,8 @@ class MultiFilePluginAbstract(CachePlugin):
 
         Can return a path, or an iterable of directories that will automatically be
         joined into a valid path.
+
+        *Not implemented: implement in your DataManager subclass.*
         """
         raise NotImplementedError(
             "This method should be implemented in your DataManager class."
@@ -67,8 +72,11 @@ class MultiFilePluginAbstract(CachePlugin):
     @property
     @autocached
     def datafiles(self) -> list[str]:
-        """Cached list of source files."""
-        raise NotImplementedError("Implement in Plugin subclass.")
+        """Cached list of source files.
+
+        *Not implemented: implement in plugin subclass.*
+        """
+        raise NotImplementedError("Implement in plugin subclass.")
 
 
 class GlobPlugin(MultiFilePluginAbstract, CachePlugin):
@@ -93,8 +101,10 @@ class GlobPlugin(MultiFilePluginAbstract, CachePlugin):
         """Return the glob pattern matching your files.
 
         If it is defined, the pattern starts from :meth:`get_root_directory`.
+
+        *Not implemented: implement in your DataManager subclass.*
         """
-        raise NotImplementedError("Implement in your Dataset subclass.")
+        raise NotImplementedError("Implement in your DataManager subclass.")
 
     @property
     @autocached

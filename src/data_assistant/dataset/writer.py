@@ -124,11 +124,19 @@ class WriterPluginAbstract(Plugin):
         ----------
         kwargs
             Passed to the writing function.
+
+        *Not implemented: implement in a plugin subclass.*
         """
-        raise NotImplementedError
+        raise NotImplementedError("Implement this method in a plugin subclass.")
 
 
 class WriterMultiFileAbstract(WriterPluginAbstract):
+    """Add basic functionalities for multifile datasets.
+
+    Allow to deal with multiple calls: check if there is some conflict of filename
+    between calls, and a method to send calls one after another.
+    """
+
     def check_overwriting_calls(self, calls: Sequence[Call]):
         """Check if some calls have the same filename."""
         outfiles = [f for _, f in calls]
@@ -144,6 +152,9 @@ class WriterMultiFileAbstract(WriterPluginAbstract):
 
     def send_calls(self, calls: Sequence[Call], **kwargs):
         """Send multiple calls serially.
+
+        Check beforehand if there are filename conflicts betwen calls, and make
+        sure the necessary (sub)directories are created if they not exist already.
 
         Parameters
         ----------
