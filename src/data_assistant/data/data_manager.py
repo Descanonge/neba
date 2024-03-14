@@ -25,9 +25,9 @@ from data_assistant.config import Scheme
 
 from .plugin import CachePlugin, Plugin
 
-_DataT = TypeVar("_DataT")
+T_Data = TypeVar("T_Data")
 """Type of data (numpy, pandas, xarray, etc.)."""
-_SourceT = TypeVar("_SourceT")
+T_Source = TypeVar("T_Source")
 """Type of the data source (filename, URL, object, etc.)."""
 
 """
@@ -51,7 +51,7 @@ def has_plugin(obj: DataManagerBase, cls: type[_P]) -> TypeGuard[_P]:
     return isinstance(obj, cls)
 
 
-class DataManagerBase(Generic[_DataT, _SourceT]):
+class DataManagerBase(Generic[T_Data, T_Source]):
     """DataManager base object.
 
     Add functionalities by subclassing it and adding mixin plugins.
@@ -169,7 +169,7 @@ class DataManagerBase(Generic[_DataT, _SourceT]):
 
         return "\n".join(s)
 
-    def get_source(self) -> _SourceT:
+    def get_source(self) -> T_Source:
         """Return source for the data.
 
         Can be filenames, URL, store object, etc.
@@ -178,7 +178,7 @@ class DataManagerBase(Generic[_DataT, _SourceT]):
         """
         raise NotImplementedError("Implement in a subclass or Mixin.")
 
-    def get_data(self) -> _DataT:
+    def get_data(self) -> T_Data:
         """Return data object.
 
         *Not implemented: implement in a subclass or plugin.*
@@ -214,7 +214,7 @@ class DataManagerBase(Generic[_DataT, _SourceT]):
         params_maps: Sequence[Mapping[str, Any]] | None = None,
         params_sets: Sequence[Sequence] | None = None,
         **kwargs,
-    ) -> _DataT | list[_DataT]:
+    ) -> T_Data | list[T_Data]:
         """Return data for specific sets of parameters.
 
         Each set of parameter will specify one filename. Parameters that do not change
@@ -272,7 +272,7 @@ class DataManagerBase(Generic[_DataT, _SourceT]):
             for p_set in params_sets[1:]:
                 params_maps.append(dict(zip(dims, p_set, strict=True)))
 
-        data: list[_DataT] = []
+        data: list[T_Data] = []
         with self.save_excursion():
             for p_map in params_maps:
                 self.set_params(p_map)

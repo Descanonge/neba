@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from typing import Any, Generic
 
-from .data_manager import Plugin, _DataT, _SourceT
+from .data_manager import Plugin, T_Data, T_Source
 
 
-class LoaderPluginAbstract(Generic[_DataT, _SourceT], Plugin):
+class LoaderPluginAbstract(Generic[T_Data, T_Source], Plugin):
     """Abstract class of Loader plugin.
 
     The Loader is tasked with opening the data into Python.
@@ -15,8 +15,8 @@ class LoaderPluginAbstract(Generic[_DataT, _SourceT], Plugin):
     """
 
     def load_data(
-        self, source: _SourceT, ignore_postprocess: bool = False, **kwargs
-    ) -> _DataT:
+        self, source: T_Source, ignore_postprocess: bool = False, **kwargs
+    ) -> T_Data:
         """Load data and run post-processing.
 
         Uses :meth:`load_data_concrete` that can be overwritten by subclasses.
@@ -44,14 +44,14 @@ class LoaderPluginAbstract(Generic[_DataT, _SourceT], Plugin):
             pass
         return data
 
-    def postprocess_data(self, data: _DataT) -> _DataT:
+    def postprocess_data(self, data: T_Data) -> T_Data:
         """Run operation after loading data.
 
         *Not implemented: implement (if necessary) on your DataManager subclass.*
         """
         raise NotImplementedError("Implement on your DatasetBase subclass.")
 
-    def load_data_concrete(self, source: _SourceT, **kwargs) -> Any:
+    def load_data_concrete(self, source: T_Source, **kwargs) -> Any:
         """Load the data from datafiles.
 
         This method should be implemented in subclasses to account for different

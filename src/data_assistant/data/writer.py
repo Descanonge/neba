@@ -13,9 +13,9 @@ from datetime import datetime
 from os import path
 from typing import Any
 
-from .data_manager import Plugin, _DataT
+from .data_manager import Plugin, T_Data
 
-Call = tuple[_DataT, str]
+Call = tuple[T_Data, str]
 """Tuple of data and filename to write it to."""
 
 log = logging.getLogger(__name__)
