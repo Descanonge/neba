@@ -50,7 +50,7 @@ when using static type checking.
 from collections.abc import Callable, Hashable
 from typing import TypeVar, cast
 
-from .dataset import DataManagerBase
+from .data_manager import DataManagerBase
 
 _K = TypeVar("_K", bound=Hashable)
 _V = TypeVar("_V", bound=type[DataManagerBase])

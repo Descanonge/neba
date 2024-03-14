@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Generic
 
-from .dataset import Plugin, _DataT, _SourceT
+from .data_manager import Plugin, _DataT, _SourceT
 
 
 class LoaderPluginAbstract(Generic[_DataT, _SourceT], Plugin):

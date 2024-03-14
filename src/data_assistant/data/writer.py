@@ -13,7 +13,7 @@ from datetime import datetime
 from os import path
 from typing import Any
 
-from .dataset import Plugin, _DataT
+from .data_manager import Plugin, _DataT
 
 Call = tuple[_DataT, str]
 """Tuple of data and filename to write it to."""

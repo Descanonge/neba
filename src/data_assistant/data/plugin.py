@@ -25,7 +25,7 @@ log = logging.getLogger(__name__)
 
 
 if TYPE_CHECKING:
-    from .dataset import DataManagerBase
+    from .data_manager import DataManagerBase
 
     _DB = DataManagerBase
 else:
