@@ -1,4 +1,4 @@
-"""Loader plugin: loads data into python."""
+"""Plugin to load data into python."""
 
 from __future__ import annotations
 
@@ -47,9 +47,9 @@ class LoaderPluginAbstract(Generic[T_Data, T_Source], Plugin):
     def postprocess_data(self, data: T_Data) -> T_Data:
         """Run operation after loading data.
 
-        *Not implemented: implement (if necessary) on your DataManager subclass.*
+        :Not implemented: implement (if necessary) on your DataManager subclass.
         """
-        raise NotImplementedError("Implement on your DatasetBase subclass.")
+        raise NotImplementedError("Implement in your DataManager subclass.")
 
     def load_data_concrete(self, source: T_Source, **kwargs) -> Any:
         """Load the data from datafiles.
@@ -57,6 +57,6 @@ class LoaderPluginAbstract(Generic[T_Data, T_Source], Plugin):
         This method should be implemented in subclasses to account for different
         format, libraries, etc.
 
-        *Not implemented: implement in a plugin subclass.*
+        :Not implemented: implement in a plugin subclass.
         """
-        return NotImplementedError("Implement in Mixin subclass.")
+        return NotImplementedError("Implement in a plugin subclass.")

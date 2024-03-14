@@ -1,4 +1,4 @@
-"""Plugin for the DataManager.
+"""Definition of base Plugin for the DataManager.
 
 Each plugin is a mixin class that adds functionalities to a DataManager base class,
 allowing the user to choose how to deal with various parts of loading/writing data.

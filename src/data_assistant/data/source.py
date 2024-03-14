@@ -1,6 +1,6 @@
-"""Source Plugin: manages/find sources.
+"""Plugin to manages and find data sources.
 
-Currently mainly deals with the source being multiple files on disk.
+Currently mainly give some basic options for the source being multiple files on disk.
 """
 from __future__ import annotations
 
@@ -28,17 +28,18 @@ class MultiFilePluginAbstract(CachePlugin):
         All parameters must be defined, either by the parent
         :attr:`DatasetAbstract.params`, or by the ``fixes`` arguments.
 
+        :Not implemented: implement in your DataManager subclass or a plugin subclass.
+
         Parameters
         ----------
         fixes:
             Parameters to fix to specific values. Only parameters defined in the
             filename pattern can be fixed. Will take precedence over the
             parent ``params`` attribute.
-
-
-        *Not implemented: implement in a plugin subclass or DataManager subclass.*
         """
-        raise NotImplementedError()
+        raise NotImplementedError(
+            "Implement in your DataManager subclass or a plugin subclass."
+        )
 
     def get_root_directory(self) -> str | list[str]:
         """Return the directory containing all datafiles.
@@ -46,11 +47,9 @@ class MultiFilePluginAbstract(CachePlugin):
         Can return a path, or an iterable of directories that will automatically be
         joined into a valid path.
 
-        *Not implemented: implement in your DataManager subclass.*
+        :Not implemented: implement in your DataManager subclass.
         """
-        raise NotImplementedError(
-            "This method should be implemented in your DataManager class."
-        )
+        raise NotImplementedError("Implemented in your DataManager subclass.")
 
     @property
     def root_directory(self) -> str:
@@ -74,7 +73,7 @@ class MultiFilePluginAbstract(CachePlugin):
     def datafiles(self) -> list[str]:
         """Cached list of source files.
 
-        *Not implemented: implement in plugin subclass.*
+        :Not implemented: implement in plugin subclass.
         """
         raise NotImplementedError("Implement in plugin subclass.")
 
@@ -82,27 +81,28 @@ class MultiFilePluginAbstract(CachePlugin):
 class GlobPlugin(MultiFilePluginAbstract, CachePlugin):
     """Find files using glob patterns.
 
+    Relies on the function :func:`glob.glob`.
     Glob pattern are Unix shell-style wildcards:
 
-    * "*" matches everything
-    * "?" matches a single character
-    * [seq] matches any character in seq (once)
-    * [!seq] matches any character *not* in seq
+    * ``*`` matches everything
+    * ``?`` matches a single character
+    * ``[seq]`` matches any character in seq (once)
+    * ``[!seq]`` matches any character *not* in seq
     """
 
     RECURSIVE: bool = True
     """Correspond to the recursive argument to glob.
 
-    If True, the pattern "**" will any files and zero or more directories,
+    If True, the pattern ``**`` will match any files and zero or more directories,
     subdirectories and symbolic links to directories.
     """
 
-    def get_glob_pattern(self):
+    def get_glob_pattern(self) -> str:
         """Return the glob pattern matching your files.
 
         If it is defined, the pattern starts from :meth:`get_root_directory`.
 
-        *Not implemented: implement in your DataManager subclass.*
+        :Not implemented: implement in your DataManager subclass.
         """
         raise NotImplementedError("Implement in your DataManager subclass.")
 

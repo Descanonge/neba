@@ -1,4 +1,4 @@
-"""FileManager plugin."""
+"""A plugin to manager multiple files using filefinder."""
 from __future__ import annotations
 
 import logging
@@ -44,11 +44,9 @@ class FileFinderPlugin(MultiFilePluginAbstract, CachePlugin):
         file. See the filefinder package `documentation
         <https://filefinder.readthedocs.io/en/latest/>`_ for the details.
 
-        *Not implemented: implement in your DataManager class.*
+        :Not implemented: implement in your DataManager class.
         """
-        raise NotImplementedError(
-            "This method should be implemented in your Dataset class."
-        )
+        raise NotImplementedError("Implement in your DataManager class.")
 
     # def _init_plugin(self) -> None:
     #     super()._init_plugin()

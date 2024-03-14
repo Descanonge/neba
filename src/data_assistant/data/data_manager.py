@@ -1,4 +1,4 @@
-"""DataManager base.
+"""DataManager base: the main class for your dataset.
 
 The DataManager object is the main entry point for the user. The base object
 (:class:`DataManagerBase`) should be completed with mixins classes called
@@ -174,16 +174,16 @@ class DataManagerBase(Generic[T_Data, T_Source]):
 
         Can be filenames, URL, store object, etc.
 
-        *Not implemented: implement in a subclass or plugin.*
+        :Not implemented: implement in your DataManager subclass or a plugin.
         """
-        raise NotImplementedError("Implement in a subclass or Mixin.")
+        raise NotImplementedError("Implement in your DataManager subclass or a plugin.")
 
     def get_data(self) -> T_Data:
         """Return data object.
 
-        *Not implemented: implement in a subclass or plugin.*
+        :Not implemented: implement in your DataManager subclass or a plugin.
         """
-        raise NotImplementedError("Implement in a subclass or Mixin.")
+        raise NotImplementedError("Implement in your DataManager subclass or a plugin.")
 
     def save_excursion(self) -> _DataManagerContext:
         """Save and restore current parameters after a with block.

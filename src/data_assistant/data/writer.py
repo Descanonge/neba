@@ -37,7 +37,7 @@ class WriterPluginAbstract(Plugin):
 
         Attributes are:
 
-        * ``written_as_dataset:`` name of dataset class.
+        * ``written_as_dataset``: name of dataset class.
         * ``created_by``: hostname and filename of the python script used
         * ``created_with_params``: a string representing the parameters,
         * ``created_on``: date of creation
@@ -120,14 +120,14 @@ class WriterPluginAbstract(Plugin):
     def send_single_call(self, call, **kwargs) -> Any:
         """Execute a single call.
 
+        :Not implemented: implement in plugin subclass.
+
         Parameters
         ----------
         kwargs
             Passed to the writing function.
-
-        *Not implemented: implement in a plugin subclass.*
         """
-        raise NotImplementedError("Implement this method in a plugin subclass.")
+        raise NotImplementedError("Implement in plugin subclass.")
 
 
 class WriterMultiFileAbstract(WriterPluginAbstract):
