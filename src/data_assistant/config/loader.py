@@ -465,7 +465,6 @@ class CLILoader(ConfigLoader):
         args = vars(self.parser.parse_args(argv))
 
         # convert to ConfigKey/Value objects
-        config = {}
         for name, value in args.items():
             key = name.replace(_DOT, ".")
 
@@ -473,16 +472,12 @@ class CLILoader(ConfigLoader):
                 self.app.extra_parameters[key] = value
                 continue
 
-            # TODO: check if key already exists
-            # maybe a method self.add_key() ? common to loaders
-            config[key] = ConfigValue(value, key, origin="CLI")
+            self.add(key, ConfigValue(value, key, origin="CLI"))
 
         # check if there are any help flags
-        if "help" in config:
+        if "help" in self.config:
             self.app.help()
             self.app.exit()
-
-        self.config = config
 
 
 # --- File loaders
@@ -580,7 +575,7 @@ class TomlkitLoader(FileLoader):
                     value = ConfigValue(v, fullkey, origin=self.filename)
                     # no parsing, directly to values
                     value.value = value.input
-                    self.config[fullkey] = value
+                    self.add(fullkey, value)
 
         recurse(root_table, [])
 
@@ -799,7 +794,7 @@ class PyLoader(FileLoader):
                     value = ConfigValue(v, fullkey, origin=self.filename)
                     # no parsing, directly to values
                     value.value = value.input
-                    self.config[fullkey] = value
+                    self.add(fullkey, value)
 
         recurse(read_config, [])
 
