@@ -279,7 +279,10 @@ class ConfigLoader:
         return self.config
 
     def load_config(self) -> None:
-        """Populate the config attribute from a source."""
+        """Populate the config attribute from a source.
+
+        :Not implemented:
+        """
         raise NotImplementedError
 
 
@@ -475,6 +478,11 @@ class FileLoader(ConfigLoader):
     """Load config from a file.
 
     Common logic goes here.
+
+    Parameters
+    ----------
+    filename
+        Full path of configuration file to load.
     """
 
     extensions: list[str] = []

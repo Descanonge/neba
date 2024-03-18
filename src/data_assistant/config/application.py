@@ -40,7 +40,10 @@ class ApplicationBase(Scheme):
     config_files = Union(
         [Unicode(), List(Unicode())],
         default_value=["config.toml", "config.py"],
-        help="Load those config files.",
+        help=(
+            "Path to configuration files. Either relative from interpreter "
+            "working directory or absolute."
+        ),
     )
 
     auto_instanciate = Bool(
@@ -151,6 +154,9 @@ class ApplicationBase(Scheme):
 
         file_confs: dict[str, dict[str, ConfigValue]] = {}
         for filepath in self.config_files:
+            if not path.isfile(filepath):
+                continue
+
             loader_cls = self._select_file_loader(filepath)
             loader = loader_cls(filepath, self, log=log)
             file_confs[filepath] = loader.get_config()
