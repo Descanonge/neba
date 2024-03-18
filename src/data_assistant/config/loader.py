@@ -32,7 +32,7 @@ from __future__ import annotations
 import argparse
 import logging
 import re
-from argparse import Action, ArgumentParser, _StoreAction
+from argparse import Action, ArgumentParser, _AppendAction
 from collections.abc import Callable, Hashable, Sequence
 from os import path
 from textwrap import dedent
@@ -319,11 +319,16 @@ class DefaultOptionDict(dict[str, Action]):
     def _create_action(key: str) -> Action:
         """Creation an action for the argument ``key``.
 
-        Default action is "store", of type ``str``, with ``nargs=*`` (any number of
+        Default action is "append", of type ``str``, with ``nargs=*`` (any number of
         arguments). The destination is the argument name, stripped of leading hyphens,
         and with dots "." replaced by :attr:`_DOT` (``__DOT__``).
+
+        Action is "append" to allow to check how many times the user has specified a
+        key. This avoids ``--param.one 1 ... --param.one 2`` where the second key
+        silently overrides the first value. To obtain a list, simply use it once:
+        ``--param.one 1 2``.
         """
-        action = _StoreAction(
+        action = _AppendAction(
             option_strings=[key],
             dest=key.lstrip("-").replace(".", _DOT),
             type=str,
@@ -471,6 +476,14 @@ class CLILoader(ConfigLoader):
             if key in self.app.extra_parameters:
                 self.app.extra_parameters[key] = value
                 continue
+
+            # Check that the key was specified only once
+            if len(value) > 1:
+                raise KeyError(
+                    f"Configuration key '{key}' was specified more than once "
+                    f"with values {value}."
+                )
+            value = value[0]
 
             self.add(key, ConfigValue(value, key, origin="CLI"))
 
