@@ -8,10 +8,10 @@ import logging
 import os
 import socket
 import subprocess
-from collections.abc import Sequence
+import typing as t
+from collections import abc
 from datetime import datetime
 from os import path
-from typing import Any
 
 from .data_manager import Plugin, T_Data
 
@@ -32,7 +32,7 @@ class WriterPluginAbstract(Plugin):
         params: dict | str | None = None,
         add_dataset_params: bool = True,
         add_commit: bool = True,
-    ) -> dict[str, Any]:
+    ) -> dict[str, t.Any]:
         """Set some dataset attributes with information on how it was created.
 
         Attributes are:
@@ -101,7 +101,7 @@ class WriterPluginAbstract(Plugin):
 
         return meta
 
-    def check_directories(self, calls: Call | Sequence[Call]):
+    def check_directories(self, calls: Call | abc.Sequence[Call]):
         """Check if directories are missing, and create them if necessary."""
         if isinstance(calls, tuple):
             calls = [calls]
@@ -117,7 +117,7 @@ class WriterPluginAbstract(Plugin):
                 log.debug("Creating output directory %s", d)
                 os.makedirs(d)
 
-    def send_single_call(self, call, **kwargs) -> Any:
+    def send_single_call(self, call, **kwargs) -> t.Any:
         """Execute a single call.
 
         :Not implemented: implement in plugin subclass.
@@ -137,7 +137,7 @@ class WriterMultiFileAbstract(WriterPluginAbstract):
     between calls, and a method to send calls one after another.
     """
 
-    def check_overwriting_calls(self, calls: Sequence[Call]):
+    def check_overwriting_calls(self, calls: abc.Sequence[Call]):
         """Check if some calls have the same filename."""
         outfiles = [f for _, f in calls]
         duplicates = []
@@ -150,7 +150,7 @@ class WriterMultiFileAbstract(WriterPluginAbstract):
                 f"Multiple writing calls to the same filename·s: {duplicates}"
             )
 
-    def send_calls(self, calls: Sequence[Call], **kwargs):
+    def send_calls(self, calls: abc.Sequence[Call], **kwargs):
         """Send multiple calls serially.
 
         Check beforehand if there are filename conflicts betwen calls, and make

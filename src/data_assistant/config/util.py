@@ -1,8 +1,8 @@
 """Various utilities."""
 
 import re
-from collections.abc import Callable, Mapping
-from typing import Any, TypeVar, cast
+import typing as t
+from collections import abc
 
 from traitlets.config import Configurable
 from traitlets.traitlets import (
@@ -20,8 +20,7 @@ from traitlets.traitlets import (
 )
 from traitlets.utils.text import wrap_paragraphs
 
-
-T = TypeVar("T", bound=Float | Int)
+T = t.TypeVar("T", bound=Float | Int)
 
 
 class RangeTrait(List[T]):
@@ -77,7 +76,7 @@ class RangeTrait(List[T]):
                 except Exception as err:
                     raise ValueError(f"Failed to parse range string '{s}") from err
             else:
-                values.append(cast(T, self.item_from_string(s)))
+                values.append(t.cast(T, self.item_from_string(s)))
         return values
 
     def from_string_range(self, m: re.Match) -> list[T]:
@@ -162,7 +161,7 @@ class FixableTrait(Union):
     def __init__(
         self,
         trait: TraitType,
-        default_value: Any = None,
+        default_value: t.Any = None,
         unicode: bool = False,
         range: bool = True,
         **kwargs,
@@ -189,7 +188,7 @@ class FixableTrait(Union):
         super().__init__(traits, **kwargs)
 
 
-def tag_all_traits(**metadata) -> Callable:
+def tag_all_traits(**metadata) -> abc.Callable:
     """Tag all class-own traits.
 
     Parameters
@@ -274,7 +273,7 @@ def stringify(obj, rst=True) -> str:
 
 
 def get_trait_typehint(
-    trait: Any, mode: str = "short", aliases: Mapping[str, str] | None = None
+    trait: t.Any, mode: str = "short", aliases: abc.Mapping[str, str] | None = None
 ) -> str:
     """Return the typehint corresponding to a trait object.
 
@@ -290,7 +289,7 @@ def get_trait_typehint(
     if aliases is None:
         aliases = {}
 
-    def serialize(obj: Any) -> str:
+    def serialize(obj: t.Any) -> str:
         """Return the full import name of any object or type."""
         if isinstance(obj, type):
             cls = obj

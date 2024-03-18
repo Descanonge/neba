@@ -47,13 +47,13 @@ The store also "hides" the type of the DataManager you get, which can be annoyin
 when using static type checking.
 """
 
-from collections.abc import Callable, Hashable
-from typing import TypeVar, cast
+import typing as t
+from collections import abc
 
 from .data_manager import DataManagerBase
 
-_K = TypeVar("_K", bound=Hashable)
-_V = TypeVar("_V", bound=type[DataManagerBase])
+_K = t.TypeVar("_K", bound=abc.Hashable)
+_V = t.TypeVar("_V", bound=type[DataManagerBase])
 
 
 class DatasetStore(dict[_K, _V]):
@@ -69,8 +69,8 @@ class DatasetStore(dict[_K, _V]):
         # create empty dict
         super().__init__()
 
-        self.shortnames: list[Hashable] = []
-        self.ids: list[Hashable] = []
+        self.shortnames: list[abc.Hashable] = []
+        self.ids: list[abc.Hashable] = []
 
         for ds in args:
             self.add_dataset(ds)
@@ -96,7 +96,7 @@ class DatasetStore(dict[_K, _V]):
             self.shortnames.append(ds.SHORTNAME)
             self.ids.append(key)
 
-        super().__setitem__(cast(_K, key), ds)
+        super().__setitem__(t.cast(_K, key), ds)
 
     def __getitem__(self, key: _K) -> _V:
         """Return DataManagerBase subclass with this ID or SHORTNAME."""
@@ -104,7 +104,7 @@ class DatasetStore(dict[_K, _V]):
             if self.shortnames.count(key) > 1:
                 raise KeyError(f"More than one Dataset with SHORTNAME: {key}")
             idx = self.shortnames.index(key)
-            key = cast(_K, self.ids[idx])
+            key = t.cast(_K, self.ids[idx])
         try:
             return super().__getitem__(key)
         except KeyError as e:
@@ -113,7 +113,7 @@ class DatasetStore(dict[_K, _V]):
                 f"{list(self.keys())} and shortnames: {self.shortnames}"
             ) from e
 
-    def register(self, name: str | None = None) -> Callable[[_V], _V]:
+    def register(self, name: str | None = None) -> abc.Callable[[_V], _V]:
         """Register a dataset with a decorator."""
 
         def decorator(ds: _V) -> _V:

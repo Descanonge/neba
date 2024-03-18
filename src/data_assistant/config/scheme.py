@@ -6,10 +6,10 @@ Defines a :class:`Scheme` class meant to be used in place of
 
 from __future__ import annotations
 
-from collections.abc import Callable, Generator, Hashable, Iterator, Mapping, Sequence
+import typing as t
+from collections import abc
 from inspect import Parameter, signature
 from textwrap import dedent
-from typing import Any
 
 from traitlets import Bool, Enum, Instance, TraitType
 from traitlets.config import Configurable
@@ -178,7 +178,7 @@ class Scheme(Configurable):
         return configurables | subschemes
 
     @classmethod
-    def _subschemes_recursive(cls) -> Iterator[type[Scheme]]:
+    def _subschemes_recursive(cls) -> abc.Iterator[type[Scheme]]:
         """Iterate recursively over all subschemes."""
         for subscheme in cls._subschemes.values():
             yield from subscheme._subschemes_recursive()
@@ -187,7 +187,7 @@ class Scheme(Configurable):
     @classmethod
     def class_traits_recursive(cls) -> dict:
         """Return nested/recursive dict of all traits."""
-        config: dict[Any, Any] = dict()
+        config: dict[t.Any, t.Any] = dict()
         config.update(cls.class_own_traits(config=True))
         for name, subscheme in cls._subschemes.items():
             config[name] = subscheme.class_traits_recursive()
@@ -196,8 +196,8 @@ class Scheme(Configurable):
     # Lifted from traitlets.config.application.Application
     @classmethod
     def _classes_inc_parents(
-        cls, classes: Sequence[type[Scheme]] | None = None
-    ) -> Generator[type[Configurable], None, None]:
+        cls, classes: abc.Sequence[type[Scheme]] | None = None
+    ) -> abc.Generator[type[Configurable], None, None]:
         """Iterate through configurable classes, including configurable parents.
 
         Children should always be after parents, and each class should only be
@@ -219,7 +219,7 @@ class Scheme(Configurable):
                     seen.add(parent)
                     yield parent
 
-    def instanciate_subschemes(self, config: Mapping):
+    def instanciate_subschemes(self, config: abc.Mapping):
         """Recursively instanciate subschemes.
 
         Parameters
@@ -247,9 +247,11 @@ class Scheme(Configurable):
 
     def remap(
         self,
-        func: Callable[[Configurable, dict, Hashable, TraitType, list[str]], None],
+        func: abc.Callable[
+            [Configurable, dict, abc.Hashable, TraitType, list[str]], None
+        ],
         **metadata,
-    ) -> dict[Hashable, Any]:
+    ) -> dict[abc.Hashable, t.Any]:
         """Recursively apply function to traits.
 
         Parameters
@@ -443,7 +445,7 @@ class Scheme(Configurable):
 
         clsname, traitname = key
 
-        def recurse(scheme: type[Scheme], fullpath: list[str]) -> Iterator[str]:
+        def recurse(scheme: type[Scheme], fullpath: list[str]) -> abc.Iterator[str]:
             for name, subscheme in scheme._subschemes.items():
                 newpath = fullpath + [name]
                 if subscheme.__name__ == clsname:
@@ -454,7 +456,7 @@ class Scheme(Configurable):
 
     @classmethod
     def resolve_config(
-        cls, config: Mapping[str, ConfigValue]
+        cls, config: abc.Mapping[str, ConfigValue]
     ) -> dict[str, ConfigValue]:
         """Resolve all keys in the config and validate it.
 
@@ -505,7 +507,7 @@ class Scheme(Configurable):
     @classmethod
     def merge_configs(
         cls,
-        *configs: Mapping[str, ConfigValue],
+        *configs: abc.Mapping[str, ConfigValue],
     ) -> dict[str, ConfigValue]:
         """Merge multiple flat configuration mappings.
 
@@ -622,7 +624,7 @@ class Scheme(Configurable):
         return lines
 
     def trait_values_from_func_signature(
-        self, func: Callable, trait_select: Mapping | None = None, **kwargs
+        self, func: abc.Callable, trait_select: abc.Mapping | None = None, **kwargs
     ) -> dict:
         """Return trait values that appear in a function signature.
 

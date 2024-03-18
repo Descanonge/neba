@@ -4,15 +4,15 @@ from __future__ import annotations
 
 import logging
 import sys
+import typing as t
 from os import path
-from typing import TYPE_CHECKING, Any
 
 from traitlets import Bool, List, Unicode, Union
 
 from .loader import CLILoader, PyLoader, TomlkitLoader, YamlLoader, to_nested_dict
 from .scheme import Scheme
 
-if TYPE_CHECKING:
+if t.TYPE_CHECKING:
     from .loader import ConfigValue, FileLoader
 
 
@@ -69,9 +69,9 @@ class ApplicationBase(Scheme):
         self.file_conf: dict[str, ConfigValue] = {}
         """Configuration values obtained from configuration files."""
 
-        self._extra_parameters_args: list[tuple[list, dict[str, Any]]] = []
+        self._extra_parameters_args: list[tuple[list, dict[str, t.Any]]] = []
         """Extra parameters passed to the command line parser."""
-        self.extra_parameters: dict[str, Any] = {}
+        self.extra_parameters: dict[str, t.Any] = {}
         """Extra paramaters retrieved by the command line parser."""
 
         self.log = logging.getLogger(__name__)

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import logging
 import sys
+import typing as t
 from collections.abc import Sequence
-from typing import Any
 
 import distributed
 from distributed.deploy.cluster import Cluster
@@ -55,8 +55,8 @@ class DaskClusterAbstract(Scheme):
     def get_cluster_kwargs(self) -> dict:
         """Return cluster __init__ keyword arguments from configuration."""
         args = self.trait_values(cluster_args=True)
-        for t in self.trait_names(cluster_kwargs=True):
-            kwargs = args.pop(t)
+        for name in self.trait_names(cluster_kwargs=True):
+            kwargs = args.pop(name)
             args.update(kwargs)
         return args
 
@@ -499,7 +499,7 @@ class DaskConfig(Scheme):
         cls.selected_clusters = list(select)
         cls._setup_scheme()
 
-    def start(self, **kwargs: Any):
+    def start(self, **kwargs: t.Any):
         """Start Dask distributed client.
 
         This method instanciates a subclass of :class:`DaskClusterAbstract` in

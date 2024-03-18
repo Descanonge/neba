@@ -18,16 +18,16 @@ could be done by a plugin of its own, if this is necessary.
 
 from __future__ import annotations
 
-from collections.abc import Hashable, Mapping, Sequence
-from typing import Any, Generic, Self, TypeGuard, TypeVar
+import typing as t
+from collections import abc
 
 from data_assistant.config import Scheme
 
 from .plugin import CachePlugin, Plugin
 
-T_Data = TypeVar("T_Data")
+T_Data = t.TypeVar("T_Data")
 """Type of data (numpy, pandas, xarray, etc.)."""
-T_Source = TypeVar("T_Source")
+T_Source = t.TypeVar("T_Source")
 """Type of the data source (filename, URL, object, etc.)."""
 
 """
@@ -43,15 +43,15 @@ and execute methods on it. But this makes it difficult to specify
 the methods precise signature, and is quite confusing in the end...
 """
 
-_P = TypeVar("_P", bound=Plugin)
+_P = t.TypeVar("_P", bound=Plugin)
 
 
-def has_plugin(obj: DataManagerBase, cls: type[_P]) -> TypeGuard[_P]:
+def has_plugin(obj: DataManagerBase, cls: type[_P]) -> t.TypeGuard[_P]:
     """Return if the DataManager contains a plugin."""
     return isinstance(obj, cls)
 
 
-class DataManagerBase(Generic[T_Data, T_Source]):
+class DataManagerBase(t.Generic[T_Data, T_Source]):
     """DataManager base object.
 
     Add functionalities by subclassing it and adding mixin plugins.
@@ -82,7 +82,7 @@ class DataManagerBase(Generic[T_Data, T_Source]):
     ID: str | None = None
     """Long name to identify uniquely this data-manager class."""
 
-    PARAMS_NAMES: Sequence[Hashable] = []
+    PARAMS_NAMES: abc.Sequence[abc.Hashable] = []
     """List of known parameters names."""
     PARAMS_DEFAULTS: dict = {}
     """Default values of parameters.
@@ -93,9 +93,9 @@ class DataManagerBase(Generic[T_Data, T_Source]):
     """
 
     def __init__(
-        self, params: Mapping[str, Any] | Scheme | None = None, **kwargs
+        self, params: abc.Mapping[str, t.Any] | Scheme | None = None, **kwargs
     ) -> None:
-        self.params: dict[str, Any] = {}
+        self.params: dict[str, t.Any] = {}
         """Mapping of current parameters values.
 
         They should be changed by using :meth:`set_params` to void the cached values
@@ -112,7 +112,7 @@ class DataManagerBase(Generic[T_Data, T_Source]):
 
     def set_params(
         self,
-        params: Mapping[str, Any] | Scheme | None = None,
+        params: abc.Mapping[str, t.Any] | Scheme | None = None,
         **kwargs,
     ):
         """Set parameters values.
@@ -211,8 +211,8 @@ class DataManagerBase(Generic[T_Data, T_Source]):
 
     def get_data_sets(
         self,
-        params_maps: Sequence[Mapping[str, Any]] | None = None,
-        params_sets: Sequence[Sequence] | None = None,
+        params_maps: abc.Sequence[abc.Mapping[str, t.Any]] | None = None,
+        params_sets: abc.Sequence[abc.Sequence] | None = None,
         **kwargs,
     ) -> T_Data | list[T_Data]:
         """Return data for specific sets of parameters.
@@ -300,7 +300,7 @@ class _DataManagerContext:
         self.dm = dm
         self.params = dm.params.copy()
 
-    def __enter__(self) -> Self:
+    def __enter__(self) -> t.Self:
         return self
 
     def __exit__(self, *exc):

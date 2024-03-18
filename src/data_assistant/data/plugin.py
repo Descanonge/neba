@@ -18,13 +18,13 @@ from __future__ import annotations
 
 import functools
 import logging
-from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, TypeVar
+import typing as t
+from collections import abc
 
 log = logging.getLogger(__name__)
 
 
-if TYPE_CHECKING:
+if t.TYPE_CHECKING:
     from .data_manager import DataManagerBase
 
     _DB = DataManagerBase
@@ -74,14 +74,14 @@ class CachePlugin(Plugin):
         # Multiple plugins might have a cache
         # The cache is in common. Dangerous.
         if not hasattr(self, "cache"):
-            self.cache: dict[str, Any] = {}
+            self.cache: dict[str, t.Any] = {}
             """Cache dictionnary."""
 
     def clean_cache(self) -> None:
         """Clean the cache of all variables."""
         self.cache.clear()
 
-    def set_in_cache(self, key: str, value: Any):
+    def set_in_cache(self, key: str, value: t.Any):
         """Add value to the plugin cache."""
         self.cache[key] = value
 
@@ -90,13 +90,13 @@ class CachePlugin(Plugin):
         name = self.ID or self.SHORTNAME or self.__class__.__name__
         raise KeyError(f"Key '{key}' not found in cache of dataset '{name}'.")
 
-    def get_cached(self, key: str) -> Any:
+    def get_cached(self, key: str) -> t.Any:
         """Get value from the cache."""
         if key in self.cache:
             return self.cache[key]
         self._key_error(key)
 
-    def pop_from_cache(self, key: str) -> Any:
+    def pop_from_cache(self, key: str) -> t.Any:
         """Remove key from the cache and return its value."""
         if key in self.cache:
             return self.cache.pop(key)
@@ -104,12 +104,12 @@ class CachePlugin(Plugin):
 
 
 # Typevar to preserve autocached properties' type.
-R = TypeVar("R")
+R = t.TypeVar("R")
 
 
 # The `func` argument is typed as Any because technically Callable is contravariant
 # and typing it as Plugin would not allow subclasses.
-def autocached(func: Callable[[Any], R]) -> Callable[[Any], R]:
+def autocached(func: abc.Callable[[t.Any], R]) -> abc.Callable[[t.Any], R]:
     """Make a property auto-cached.
 
     If the variable of the same name is in the cache, return its cached value
@@ -124,7 +124,7 @@ def autocached(func: Callable[[Any], R]) -> Callable[[Any], R]:
     name = "::".join([qualname, func.__name__])
 
     @functools.wraps(func)
-    def wrapper(self: Any) -> R:
+    def wrapper(self: t.Any) -> R:
         if name in self.cache:
             return self.get_cached(name)
         value = func(self)

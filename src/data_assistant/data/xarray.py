@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import itertools
 import logging
-from collections.abc import Hashable, Mapping, Sequence
-from typing import TYPE_CHECKING, Any
+import typing as t
+from collections import abc
 
 import xarray as xr
 
@@ -12,7 +12,7 @@ from .filefinder import FileFinderPlugin
 from .loader import LoaderPluginAbstract
 from .writer import WriterMultiFileAbstract, WriterPluginAbstract
 
-if TYPE_CHECKING:
+if t.TYPE_CHECKING:
     try:
         from dask.delayed import Delayed
         from distributed import Client
@@ -33,7 +33,7 @@ class XarrayFileLoaderPlugin(LoaderPluginAbstract):
     Uses :func:`xarray.open_dataset` to open data.
     """
 
-    OPEN_DATASET_KWARGS: dict[str, Any] = {}
+    OPEN_DATASET_KWARGS: dict[str, t.Any] = {}
 
     def load_data_concrete(self, source: str, **kwargs) -> xr.Dataset:
         """Return a dataset object.
@@ -61,9 +61,9 @@ class XarrayMultiFileLoaderPlugin(LoaderPluginAbstract):
     Uses :func:`xarray.open_mfdataset` to open data.
     """
 
-    OPEN_MFDATASET_KWARGS: dict[str, Any] = {}
+    OPEN_MFDATASET_KWARGS: dict[str, t.Any] = {}
 
-    def load_data_concrete(self, source: Sequence[str], **kwargs) -> xr.Dataset:
+    def load_data_concrete(self, source: abc.Sequence[str], **kwargs) -> xr.Dataset:
         """Return a dataset object.
 
         The dataset is obtained from :func:`xarray.open_mfdataset`.
@@ -94,7 +94,7 @@ class XarrayWriterPlugin(WriterPluginAbstract):
     The source should be compatible with a unique :meth:`xr.Dataset.to_netcdf` call.
     """
 
-    TO_NETCDF_KWARGS: dict[str, Any] = {}
+    TO_NETCDF_KWARGS: dict[str, t.Any] = {}
 
     def set_metadata(
         self,
@@ -180,7 +180,7 @@ class XarrayMultiFileWriterPlugin(XarrayWriterPlugin, WriterMultiFileAbstract):
 
     def send_calls_together(
         self,
-        calls: Sequence[CallXr],
+        calls: abc.Sequence[CallXr],
         client: Client,
         chop: int | None = None,
         **kwargs,
@@ -300,7 +300,7 @@ class XarraySplitWriterPlugin(XarrayMultiFileWriterPlugin, FileFinderPlugin):
         /,
         *,
         time_freq: str | bool = True,
-        squeeze: bool | str | Mapping[Hashable, bool | str] = False,
+        squeeze: bool | str | abc.Mapping[abc.Hashable, bool | str] = False,
         client: Client | None = None,
         chop: int | None = None,
         **kwargs,
@@ -414,9 +414,9 @@ class XarraySplitWriterPlugin(XarrayMultiFileWriterPlugin, FileFinderPlugin):
         else:
             # we guess from pattern
             # TIME_GROUPS is sorted by period, first hit is smallest period
-            for t in self.TIME_GROUPS:
-                if t in unfixed:
-                    freq = self.time_intervals_groups[t]
+            for grp in self.TIME_GROUPS:
+                if grp in unfixed:
+                    freq = self.time_intervals_groups[grp]
                     break
 
         infreq = xr.infer_freq(ds.time)
@@ -464,8 +464,8 @@ class XarraySplitWriterPlugin(XarrayMultiFileWriterPlugin, FileFinderPlugin):
 
     def to_calls(
         self,
-        datasets: Sequence[xr.Dataset],
-        squeeze: bool | str | Mapping[Hashable, bool | str] = False,
+        datasets: abc.Sequence[xr.Dataset],
+        squeeze: bool | str | abc.Mapping[abc.Hashable, bool | str] = False,
     ) -> list[CallXr]:
         """Transform sequence of datasets into writing calls.
 
@@ -508,7 +508,7 @@ class XarraySplitWriterPlugin(XarrayMultiFileWriterPlugin, FileFinderPlugin):
             outfile = self.get_filename(**unfixed_values)
 
             # Apply squeeze argument
-            if isinstance(squeeze, Mapping):
+            if isinstance(squeeze, abc.Mapping):
                 for d, sq in squeeze.items():
                     if sq:
                         ds = ds.squeeze(d, drop=(sq == "drop"))

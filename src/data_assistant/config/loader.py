@@ -32,20 +32,20 @@ from __future__ import annotations
 import argparse
 import logging
 import re
+import typing as t
 from argparse import Action, ArgumentParser, _AppendAction
-from collections.abc import Callable, Hashable, Sequence
+from collections import abc
 from os import path
 from textwrap import dedent
-from typing import TYPE_CHECKING, Any, Self, overload
 
-from traitlets.traitlets import Container, Enum, HasTraits, TraitType, Union, TraitError
+from traitlets.traitlets import Container, Enum, HasTraits, TraitError, TraitType, Union
 from traitlets.utils.sentinel import Sentinel
 
 from .util import get_trait_typehint, underline, wrap_text
 
-if TYPE_CHECKING:
-    from tomlkit.container import Table
+if t.TYPE_CHECKING:
     from tomlkit.container import Container as TOMLContainer
+    from tomlkit.container import Table
     from tomlkit.toml_document import TOMLDocument
 
     from .application import ApplicationBase
@@ -81,7 +81,7 @@ class ConfigValue:
         purpose mainly.
     """
 
-    def __init__(self, input: Any, key: str, origin: str | None = None):
+    def __init__(self, input: t.Any, key: str, origin: str | None = None):
         if isinstance(input, list):
             if len(input) == 1:
                 input = input[0]
@@ -93,7 +93,7 @@ class ConfigValue:
         self.origin = origin
         """A description of the configuration source it was found in."""
 
-        self.value: Any = Undefined
+        self.value: t.Any = Undefined
         """The parameter value once parsed.
 
         By default, it equals to :attr:`Undefined`.
@@ -118,7 +118,7 @@ class ConfigValue:
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({str(self)})"
 
-    def copy(self, **kwargs) -> Self:
+    def copy(self, **kwargs) -> t.Self:
         """Return a copy of this instance.
 
         Parameters
@@ -145,7 +145,7 @@ class ConfigValue:
             setattr(out, attr, value)
         return out
 
-    def get_value(self) -> Any:
+    def get_value(self) -> t.Any:
         """Return the actual value to use as parameter.
 
         By default, use the :attr:`value` attribute, unless it is :attr:`Undefined` then
@@ -234,7 +234,7 @@ class ConfigValue:
     #     setattr(self.container, self.lastname, self.value)
 
 
-def to_dict(config: dict[Hashable, ConfigValue]) -> dict[Hashable, Any]:
+def to_dict(config: dict[abc.Hashable, ConfigValue]) -> dict[abc.Hashable, t.Any]:
     """Transform ConfigValue instances into regular values.
 
     Simply applies :meth:`ConfigValue.get_value()` to each dictionnary value.
@@ -253,7 +253,7 @@ def to_dict(config: dict[Hashable, ConfigValue]) -> dict[Hashable, Any]:
     return output
 
 
-def to_nested_dict(config: dict[str, ConfigValue]) -> dict[str, Any]:
+def to_nested_dict(config: dict[str, ConfigValue]) -> dict[str, t.Any]:
     """Transform a flat configuration into a nested dictionnary of regular values.
 
     Similar to :meth:`to_dict` but the result is a nested dictionnary.
@@ -268,7 +268,7 @@ def to_nested_dict(config: dict[str, ConfigValue]) -> dict[str, Any]:
     config
         A nested dictionnary mapping keys to sub-dictionnaries or values.
     """
-    nested_conf: dict[str, Any] = {}
+    nested_conf: dict[str, t.Any] = {}
     for key, val in config.items():
         subconf = nested_conf
         for subkey in key.split(".")[:-1]:
@@ -388,7 +388,7 @@ class DefaultOptionDict(dict[str, Action]):
         return action
 
     @classmethod
-    def _set_action_creation(cls, func: Callable[[str], Action]) -> None:
+    def _set_action_creation(cls, func: abc.Callable[[str], Action]) -> None:
         cls._create_action = staticmethod(func)  # type: ignore
 
     def __contains__(self, key) -> bool:
@@ -405,7 +405,7 @@ class DefaultOptionDict(dict[str, Action]):
             return super().__getitem__(key)
         raise KeyError(key)
 
-    def get(self, key, default: Any = None) -> Any:
+    def get(self, key, default: t.Any = None) -> t.Any:
         try:
             return self[key]
         except KeyError:
@@ -415,13 +415,13 @@ class DefaultOptionDict(dict[str, Action]):
 class GreedyArgumentParser(ArgumentParser):
     """Subclass of ArgumentParser that accepts any option."""
 
-    _action_creation_func: Callable[[str], Action] | None = None
+    _action_creation_func: abc.Callable[[str], Action] | None = None
     """Callback that will be used to create an action on the fly.
 
     If None, the default one :meth:`DefaultOptionDict._create_action` will be used.
     """
 
-    def set_action_creation(self, func: Callable[[str], Action]) -> None:
+    def set_action_creation(self, func: abc.Callable[[str], Action]) -> None:
         """Change the default action creation function.
 
         By using :class:`DefaultOptionDict` unknown arguments will create actions on
@@ -432,7 +432,7 @@ class GreedyArgumentParser(ArgumentParser):
 
     def parse_known_args(  # type:ignore[override]
         self,
-        args: Sequence[str] | None = None,
+        args: abc.Sequence[str] | None = None,
         namespace: argparse.Namespace | None = None,
     ) -> tuple[argparse.Namespace | None, list[str]]:
         # must be done immediately prior to parsing because if we do it in init,
@@ -578,7 +578,7 @@ class FileLoader(ConfigLoader):
         _, ext = path.splitext(filename)
         return ext.lstrip(".") in cls.extensions
 
-    def to_lines(self, comment: Any = None) -> list[str]:
+    def to_lines(self, comment: t.Any = None) -> list[str]:
         """Return lines of configuration file corresponding to the app config tree.
 
         Parameters
@@ -629,7 +629,7 @@ class TomlkitLoader(FileLoader):
             root_table = self.backend.load(fp)
 
         # flatten tables
-        def recurse(table: Container, key: list[str]):
+        def recurse(table: TOMLContainer, key: list[str]):
             for k, v in table.items():
                 newkey = key + [k]
                 if isinstance(v, self.backend.api.Table):
@@ -665,7 +665,7 @@ class TomlkitLoader(FileLoader):
 
         return self.backend.dumps(doc).splitlines()
 
-    @overload
+    @t.overload
     def serialize_scheme(
         self,
         scheme: ApplicationBase,
@@ -675,7 +675,7 @@ class TomlkitLoader(FileLoader):
     ) -> TOMLDocument:
         ...
 
-    @overload
+    @t.overload
     def serialize_scheme(
         self,
         scheme: Scheme,
@@ -800,7 +800,7 @@ class PyConfigContainer:
     be expanded.
     """
 
-    def __getattribute__(self, key: str) -> Any:
+    def __getattribute__(self, key: str) -> t.Any:
         try:
             return super().__getattribute__(key)
         except AttributeError:

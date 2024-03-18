@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Any, Generic
+import typing as t
 
 from .data_manager import Plugin, T_Data, T_Source
 
 
-class LoaderPluginAbstract(Generic[T_Data, T_Source], Plugin):
+class LoaderPluginAbstract(t.Generic[T_Data, T_Source], Plugin):
     """Abstract class of Loader plugin.
 
     The Loader is tasked with opening the data into Python.
@@ -51,7 +51,7 @@ class LoaderPluginAbstract(Generic[T_Data, T_Source], Plugin):
         """
         raise NotImplementedError("Implement in your DataManager subclass.")
 
-    def load_data_concrete(self, source: T_Source, **kwargs) -> Any:
+    def load_data_concrete(self, source: T_Source, **kwargs) -> t.Any:
         """Load the data from datafiles.
 
         This method should be implemented in subclasses to account for different

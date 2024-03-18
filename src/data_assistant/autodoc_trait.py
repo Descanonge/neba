@@ -10,7 +10,7 @@ the default documenter for more useful things...
 from __future__ import annotations
 
 import sys
-from typing import TYPE_CHECKING, Any
+import typing as t
 
 from data_assistant.config.scheme import Scheme
 from data_assistant.config.util import (
@@ -20,7 +20,7 @@ from data_assistant.config.util import (
     wrap_text,
 )
 
-if TYPE_CHECKING:
+if t.TYPE_CHECKING:
     from sphinx.application import Sphinx
     from sphinx.ext.autodoc import ObjectMember
 
@@ -124,7 +124,7 @@ class TraitDocumenter(AttributeDocumenter):
 
     @classmethod
     def can_document_member(
-        cls, member: Any, membername: str, isattr: bool, parent: Any
+        cls, member: t.Any, membername: str, isattr: bool, parent: t.Any
     ) -> bool:
         """Can this class document this member.
 
@@ -246,7 +246,7 @@ class SchemeDocumenter(ClassDocumenter):
 
     def filter_members(
         self, members: list[ObjectMember], want_all: bool
-    ) -> list[tuple[str, Any, bool]]:
+    ) -> list[tuple[str, t.Any, bool]]:
         """Filter the given member list.
 
         If self is a subclass of :class:`~.config.scheme.Scheme`, but not Scheme itself

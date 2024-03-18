@@ -30,4 +30,3 @@ if __name__ == "__main__":
     # Values (default or overriden) can be accessed with:
     # print(app.parameters.region)
     print(app.parameters.year)
-    print(app.parameters.test)
