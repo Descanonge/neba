@@ -1,6 +1,8 @@
+"""Various utilities."""
+
 import re
-from collections.abc import Callable, Mapping, Sequence
-from typing import Any
+from collections.abc import Callable, Mapping
+from typing import Any, TypeVar, cast
 
 from traitlets.config import Configurable
 from traitlets.traitlets import (
@@ -19,71 +21,66 @@ from traitlets.traitlets import (
 from traitlets.utils.text import wrap_paragraphs
 
 
-class FixableTrait(Union):
-    """Fixable parameter, specified in a filename pattern.
+T = TypeVar("T", bound=Float | Int)
 
-    A fixable parameter (ie specified in a filename pattern) can take:
 
-    1. a value of the appropriate type (int, float, bool, or str depending on the format),
-    2. a string that will be interpreted as a regular expression to match a filename
-       part or a string specifying a range of values (see below).
-    3. a list of values (see 1), any of which will be accepted as a valid filename part.
+class RangeTrait(List[T]):
+    """Allow to specify a list of items using ranges.
 
-    Values for a fixable can be specified using a string expression of the following
-    format ``start:stop[:step]``. This will generate values between 'start' and 'stop'
-    spaced by 'step'. The 'stop' value will be included (``values <= stop``). The step
-    is optional and will by default be one. It also does not need to be signed, only its
-    absolute value will be used.
-    The trait type must be one of :attr:`range_trait` (by default float or int).
-    Here are some examples:
+    The string must match is ``start:stop[:step]``. This will generate values between
+    'start' and 'stop' spaced by 'step'. The 'stop' value will be included (``values <=
+    stop``). The step is optional and will by default be one. It also does not need to
+    be signed, only its absolute value will be used. The trait type must be one of
+    :attr:`allowed_traits` (by default float or int). Here are some examples:
 
         "2000:2005": [2000, 2001, 2002, 2003, 2004, 2005]
         "2000:2005:2": [2000, 2002, 2004]
-        "2005:2000:2": [2005, 20003, 2001]
+        "2005:2000:2": [2005, 2003, 2001]
         "0.:2.:0.5": [0.0, 0.5, 1.0, 1.5, 2.0]
 
-    Parameters
-    ----------
-    trait
-        The trait corresponding to the fixable parameter format. Some of its properties
-        are used: ``default_value``, ``allow_none``, ``help``. The metadata is not kept.
-    kwargs
-        Arguments passed to the Union trait created.
     """
 
     range_max_len: int = 500
-    range_rgx = re.compile("(.+?):(.+?)(?::(.*?))?")
-    range_trait: list[type[TraitType]] = [Float, Int]
+    range_rgx = re.compile("([-+.0-9]+?):([-+.0-9]+?)(?::([-+.0-9]*?))?")
+    allowed_traits: list[type[TraitType]] = [Float, Int]
 
-    info_text = "a fixable"
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        if self._trait is not None and not isinstance(
+            self._trait, tuple(self.allowed_traits)
+        ):
+            name = self.__class__.__name__
+            received = self._trait.__class__.__name__
+            raise TypeError(
+                f"Trait type {received} is not allowed for {name}. "
+                f"Must be one of {self.allowed_traits}"
+            )
 
-    def __init__(self, trait: TraitType, default_value: Any = None, **kwargs) -> None:
-        self.trait = trait
-        traits = [trait, Unicode(), List(trait)]
-        for arg in ["default_value", "help", "allow_none"]:
-            value = getattr(trait, arg, None)
-            if value is not None:
-                kwargs.setdefault(arg, value)
-        if default_value is not None:
-            kwargs["default_value"] = default_value
-        super().__init__(traits, **kwargs)
-
-    def from_string(self, s: str) -> Any:
+    def from_string(self, s: str) -> list[T] | None:
         """Get a value from a config string.
 
         Will test for a string specifying a range.
         """
-        # TODO error management ? see traitlets.Union.from_string
-        if isinstance(self.trait, tuple(self.range_trait)):
+        return super().from_string(s)
+
+    def from_string_list(self, s_list: list[str]) -> list[T] | None:
+        """Get a value from a config string.
+
+        Will test for a string specifying a range.
+        """
+        values = []
+        for s in s_list:
             m = self.range_rgx.fullmatch(s)
             if m is not None:
                 try:
-                    return self.from_string_range(m)
+                    values += self.from_string_range(m)
                 except Exception as err:
                     raise ValueError(f"Failed to parse range string '{s}") from err
-        return super().from_string(s)
+            else:
+                values.append(cast(T, self.item_from_string(s)))
+        return values
 
-    def from_string_range(self, m: re.Match) -> Sequence[Any]:
+    def from_string_range(self, m: re.Match) -> list[T]:
         """Get a list of value from a range specification.
 
         Parameters
@@ -98,9 +95,9 @@ class FixableTrait(Union):
         args_str = dict(zip(["start", "stop", "step"], m.groups(default="1")))
         args = []
         for var, arg_str in args_str.items():
-            arg = self.trait.from_string(arg_str)
+            arg = self._trait.from_string(arg_str)
             if arg is None:
-                trait_cls = self.trait.__class__.__name__
+                trait_cls = self._trait.__class__.__name__
                 raise ValueError(f"Could not parse {var}={arg_str} into {trait_cls}")
             args.append(arg)
 
@@ -128,6 +125,68 @@ class FixableTrait(Union):
             )
 
         return values
+
+
+class FixableTrait(Union):
+    """Fixable parameter, specified in a filename pattern.
+
+    A fixable parameter (ie specified in a filename pattern) can take:
+
+    1. a value of the appropriate type (int, float, bool, or str depending on the format),
+    2. a string that will be interpreted as a regular expression to match a filename
+       part or a string specifying a range of values (see below).
+    3. a list of values (see 1), any of which will be accepted as a valid filename part.
+
+    Values for a fixable can be specified using a string expression of the following
+    format ``start:stop[:step]``. This will generate values between 'start' and 'stop'
+    spaced by 'step'. The 'stop' value will be included (``values <= stop``). The step
+    is optional and will by default be one. It also does not need to be signed, only its
+    absolute value will be used.
+
+        "2000:2005": [2000, 2001, 2002, 2003, 2004, 2005]
+        "2000:2005:2": [2000, 2002, 2004]
+        "2005:2000:2": [2005, 2003, 2001]
+        "0.:2.:0.5": [0.0, 0.5, 1.0, 1.5, 2.0]
+
+    Parameters
+    ----------
+    trait
+        The trait corresponding to the fixable parameter format. Some of its properties
+        are used: ``default_value``, ``allow_none``, ``help``. The metadata is not kept.
+    kwargs
+        Arguments passed to the Union trait created.
+    """
+
+    info_text = "a fixable"
+
+    def __init__(
+        self,
+        trait: TraitType,
+        default_value: Any = None,
+        unicode: bool = False,
+        range: bool = True,
+        **kwargs,
+    ) -> None:
+        self.trait = trait
+
+        # Create the types for Union
+        traits = [trait]
+        if unicode:
+            traits.append(Unicode())
+        if range and isinstance(trait, tuple(RangeTrait.allowed_traits)):
+            traits.append(RangeTrait(trait))
+        else:
+            traits.append(List(trait))
+
+        # Transfer some properties to deal with benign mistakes in syntax
+        for arg in ["default_value", "help", "allow_none"]:
+            value = getattr(trait, arg, None)
+            if value is not None:
+                kwargs.setdefault(arg, value)
+        if default_value is not None:
+            kwargs["default_value"] = default_value
+
+        super().__init__(traits, **kwargs)
 
 
 def tag_all_traits(**metadata) -> Callable:

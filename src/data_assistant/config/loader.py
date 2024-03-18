@@ -38,13 +38,14 @@ from os import path
 from textwrap import dedent
 from typing import TYPE_CHECKING, Any, Self, overload
 
-from traitlets.traitlets import Enum, HasTraits, TraitType
+from traitlets.traitlets import Container, Enum, HasTraits, TraitType, Union, TraitError
 from traitlets.utils.sentinel import Sentinel
 
 from .util import get_trait_typehint, underline, wrap_text
 
 if TYPE_CHECKING:
-    from tomlkit.container import Container, Table
+    from tomlkit.container import Table
+    from tomlkit.container import Container as TOMLContainer
     from tomlkit.toml_document import TOMLDocument
 
     from .application import ApplicationBase
@@ -157,25 +158,75 @@ class ConfigValue:
     def parse(self) -> None:
         """Parse the initial value.
 
-        The associated trait must have been found. The initial value can be whatever can
-        be handled by the trait with the
-        :meth:`<traitlets.traitlets.TraitType.from_string>`. Container traits can also
-        handle lists of strings with
-        :meth:`traitlets.traitlets.Container.from_string_list<Container.from_string_list>`.
+        Parsing traits is done by either
+        :meth:`TraitType.from_string<traitlets.TraitType.from_string>` or
+        :meth:`Container.from_string_list<traitlets.Container.from_string_list>` for
+        container traits.
+
+        We have to choose the correct function, and :class:`traitlets.Union` traits do
+        not do that (if no correct parsing is found they just return the input string,
+        and if a correct value is extracted the trait tries to validate it and may
+        fail and raise).
+
+        This method tries to handles containers and union more gracefully. If all
+        options have been tried and no parsing was successful the function will
+        raise.
         """
         if self.trait is None:
             raise RuntimeError(f"Cannot parse key {self.key}, has not trait.")
-        if isinstance(self.input, str):
-            self.value = self.trait.from_string(self.input)
+
+        def try_list(trait: Container, src: list[str]) -> bool:
+            """Try to parse a list of elements.
+
+            Trait must be Container, or at last have ``from_string_list``.
+
+            Return True if no error was encountered (parsing successful a priori), False
+            otherwise.
+            """
+            try:
+                self.value = trait.from_string_list(src)
+                return True
+            except (TraitError, ValueError):
+                pass
+            return False
+
+        def try_item(trait: TraitType, src: str) -> bool:
+            """Try to parse a single element.
+
+            Return True if no error was encountered (parsing successful a priori), False
+            otherwise.
+            """
+            try:
+                self.value = trait.from_string(src)
+                return True
+            except (TraitError, ValueError):
+                pass
+            return False
+
+        src = [self.input] if isinstance(self.input, str) else self.input
+
+        # Handle lists
+        if isinstance(self.trait, Container) and try_list(self.trait, src):
             return
-        try:
-            self.value = self.trait.from_string_list(self.input)  # type: ignore
-        except AttributeError as err:
-            raise AttributeError(
-                f"Expecting Trait {self.trait.__class__} "
-                f"for key {self.key} to be able to parse lists with "
-                "`from_string_list()`."
-            ) from err
+
+        # Handle Union with lists
+        if isinstance(self.trait, Union):
+            for trait_type in self.trait.trait_types:
+                if isinstance(trait_type, Container):
+                    if try_list(trait_type, src):
+                        return
+                if len(src) == 1:
+                    if try_item(trait_type, src[0]):
+                        return
+
+        # Handle everything else
+        if len(src) == 1 and try_item(self.trait, src[0]):
+            return
+
+        traitname = self.trait.__class__.__name__
+        raise TraitError(
+            f"Could not parse {self.input} for trait {self.key}:{traitname}"
+        )
 
     # def apply(self) -> None:
     #     if self.container is None:
@@ -645,7 +696,7 @@ class TomlkitLoader(FileLoader):
 
         We use the extented capabilities of :mod:`tomlkit`.
         """
-        t: Container | Table
+        t: TOMLContainer | Table
         if container is None:
             t = self.backend.table()
         else:
@@ -710,7 +761,7 @@ class TomlkitLoader(FileLoader):
         item = self.backend.item(value)
         return item.as_string()
 
-    def wrap_comment(self, item: Table | Container, text: str | list[str]):
+    def wrap_comment(self, item: Table | TOMLContainer, text: str | list[str]):
         """Wrap text correctly and add it to a toml container as comment lines."""
         if not isinstance(text, str):
             text = "\n".join(text)
