@@ -25,17 +25,17 @@ class MultiFilePluginAbstract(CachePlugin):
     def get_filename(self, **fixes) -> str:
         """Create a filename corresponding to a set of parameters values.
 
-        All parameters must be defined, either by the parent
-        :attr:`DatasetAbstract.params`, or by the ``fixes`` arguments.
+        All parameters must be defined, either in the DataManager
+        :attr:`~.data_manager.DataManagerBase.params`, or by the ``fixes``
+        arguments.
 
         :Not implemented: implement in your DataManager subclass or a plugin subclass.
 
         Parameters
         ----------
         fixes:
-            Parameters to fix to specific values. Only parameters defined in the
-            filename pattern can be fixed. Will take precedence over the
-            parent ``params`` attribute.
+            Parameters to fix to specific values to obtain a filename. Should take
+            precedence over the parent ``params`` attribute, which will be unaffected.
         """
         raise NotImplementedError(
             "Implement in your DataManager subclass or a plugin subclass."

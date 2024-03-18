@@ -69,28 +69,14 @@ class ApplicationBase(Scheme):
 
     def __init__(self, *args, **kwargs) -> None:
         self.cli_conf: dict[str, ConfigValue] = {}
+        """Configuration values obtained from command line arguments."""
         self.file_conf: dict[str, ConfigValue] = {}
+        """Configuration values obtained from configuration files."""
+
+        self.extra_parameters: dict[str, Action] = {}
+        """Extra parameters passed to the command line parser."""
 
         self.log = logging.getLogger(__name__)
-
-        self.start()
-
-    @classmethod
-    def add_scheme(cls) -> Callable[[type[Configurable]], type[Configurable]]:
-        """Decorate a Configurable to make it available to configuration.
-
-        Useful for schemes that are not explicitely specified in the configuration
-        structure.
-        They will be set as an Instance trait to the application, accessible with the
-        name of the class.
-        """
-
-        def decorator(conf: type[Configurable]) -> type[Configurable]:
-            trait = Instance(klass=conf, args=(), kwargs={}).tag(config=True)
-            setattr(cls, conf.__name__, trait)
-            return conf
-
-        return decorator
 
     def start(
         self,
@@ -144,28 +130,54 @@ class ApplicationBase(Scheme):
             self.instanciate_subschemes(to_nested_dict(self.conf))
 
     def _create_cli_loader(
-        self,
-        argv: list[str] | None,
-        log: logging.Logger | None = None,
-    ) -> ConfigLoader:
+        self, argv: list[str] | None, log: logging.Logger | None = None, **kwargs
+    ) -> CLILoader:
+        """Create a CLILoader instance to parse command line arguments."""
         if log is None:
             log = self.log
-        return CLILoader(self, log=log)
+        return CLILoader(self, log=log, **kwargs)
 
     def parse_command_line(
-        self, argv=None, log: logging.Logger | None = None, **kwargs
+        self, argv: list[str] | None = None, log: logging.Logger | None = None, **kwargs
     ):
-        # argv handling should go here in case we want something fancier
-        # At the moment we pass None down to ArgumentParser
+        """Parse command line arguments and populate :attr:`cli_conf`.
+
+        Parameters
+        ----------
+        argv
+            Command line arguments. If None, they are obtained through :meth:`get_argv`.
+        kwargs
+            Passed to :class:`~.loader.CLILoader` initialization.
+        """
+        if argv is None:
+            argv = self.get_argv()
         loader = self._create_cli_loader(argv, log=log, **kwargs)
+        for action in self.extra_parameters.values():
+            loader.parser._add_action(action)
         self.cli_conf = loader.get_config()
 
+    def get_argv(self) -> list[str] | None:
+        """Return command line arguments.
+
+        Currently return None, which can be passed down to the parser
+        :class:`argparse.ArgumentParser`.
+        To handle more complex cases, like separating arguments for different
+        applications (with ``--`` typically), more logic can be setup here.
+        """
+        return None
+
     def apply_cli_config(self) -> None:
+        """Apply configuration *for this object* obtained from command line.
+
+        Only apply configuration values whose container class matches that of this
+        instance.
+        """
         for key, val in self.cli_conf.items():
             if val.container_cls is not None and isinstance(self, val.container_cls):
                 setattr(self, key.split(".")[-1], val.value)
 
     def load_config_files(self, log: logging.Logger | None = None):
+        """Load configuration vaules from files and populate :attr:`config_files`."""
         if log is None:
             log = self.log
         if isinstance(self.config_files, str):
@@ -199,25 +211,16 @@ class ApplicationBase(Scheme):
             )
         return select
 
-    def add_extra_parameter(
-        self,
-        key: str,
-        trait: TraitType,
-    ):
+    def add_extra_parameter(self, *args, **kwargs):
         """Add a configurable trait to this application configuration.
 
         Parameters
         ----------
-        key:
-            Path specifying the place and name of the trait to add to the configuration
-            tree.
-        trait:
-            Trait object to add. It will automatically be tagged as configurable.
+        args, kwargs
+            Passed to :meth:`argparse.Action`.
         """
-        raise NotImplementedError()
-        # trait.tag(config=True)
-        # setattr(dest, name, trait)
-        # dest.setup_class(dest.__dict__)  # type: ignore
+        action = Action(*args, **kwargs)
+        self.extra_parameters[action.dest] = action
 
     def write_config(
         self,
