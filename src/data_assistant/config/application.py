@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import sys
-from argparse import Action
 from os import path
 from typing import TYPE_CHECKING, Any
 
@@ -70,7 +69,7 @@ class ApplicationBase(Scheme):
         self.file_conf: dict[str, ConfigValue] = {}
         """Configuration values obtained from configuration files."""
 
-        self._extra_parameters_actions: dict[str, Action] = {}
+        self._extra_parameters_args: list[tuple[list, dict[str, Any]]] = []
         """Extra parameters passed to the command line parser."""
         self.extra_parameters: dict[str, Any] = {}
         """Extra paramaters retrieved by the command line parser."""
@@ -151,8 +150,9 @@ class ApplicationBase(Scheme):
         if argv is None:
             argv = self.get_argv()
         loader = self._create_cli_loader(argv, log=log, **kwargs)
-        for action in self._extra_parameters_actions.values():
-            loader.parser._add_action(action)
+        for args, kwargs in self._extra_parameters_args:
+            action = loader.parser.add_argument(*args, **kwargs)
+            self.extra_parameters[action.dest] = action.default
         self.cli_conf = loader.get_config()
 
     def get_argv(self) -> list[str] | None:
@@ -216,11 +216,9 @@ class ApplicationBase(Scheme):
         Parameters
         ----------
         args, kwargs
-            Passed to :meth:`argparse.Action`.
+            Passed to :meth:`argparse.ArgumentParser.add_argument`.
         """
-        action = Action(*args, **kwargs)
-        self._extra_parameters_actions[action.dest] = action
-        self.extra_parameters[action.dest] = action.default
+        self._extra_parameters_args.append((args, kwargs))
 
     def write_config(
         self,

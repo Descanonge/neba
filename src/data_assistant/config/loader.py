@@ -262,6 +262,15 @@ class ConfigLoader:
         """Empty the config."""
         self.config.clear()
 
+    def add(self, key: str, value: ConfigValue):
+        """Add key to configuration dictionnary."""
+        if key in self.config:
+            raise KeyError(
+                f"Config key '{key}' already specified "
+                f"values: {[self.config[key], value]}"
+            )
+        self.config[key] = value
+
     def get_config(self, *args, **kwargs) -> dict[str, ConfigValue]:
         """Load and return a proper configuration dict.
 
@@ -460,8 +469,9 @@ class CLILoader(ConfigLoader):
         for name, value in args.items():
             key = name.replace(_DOT, ".")
 
-            if key in self.app._extra_parameters_actions:
+            if key in self.app.extra_parameters:
                 self.app.extra_parameters[key] = value
+                continue
 
             # TODO: check if key already exists
             # maybe a method self.add_key() ? common to loaders
