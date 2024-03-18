@@ -208,9 +208,9 @@ def tag_all_traits(**metadata) -> abc.Callable:
 
 
 def add_spacer(lines: list[str]) -> list[str]:
-    if not lines[-1].endswith("\n"):
-        lines.append("\n")
     """Add empty line if line above not already empty."""
+    if lines[-1]:
+        lines.append("")
     return lines
 
 
