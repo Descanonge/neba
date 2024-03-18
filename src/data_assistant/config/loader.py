@@ -405,7 +405,7 @@ class DefaultOptionDict(dict[str, Action]):
             return super().__getitem__(key)
         raise KeyError(key)
 
-    def get(self, key, default: t.Any = None) -> t.Any:
+    def get(self, key, default: t.Any = None) -> t.Any:  # noqa: D102
         try:
             return self[key]
         except KeyError:
@@ -430,7 +430,7 @@ class GreedyArgumentParser(ArgumentParser):
         """
         self._action_creation_func = func
 
-    def parse_known_args(  # type:ignore[override]
+    def parse_known_args(  # type:ignore[override]  # noqa: D102
         self,
         args: abc.Sequence[str] | None = None,
         namespace: argparse.Namespace | None = None,

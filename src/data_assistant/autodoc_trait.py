@@ -274,7 +274,7 @@ class SchemeDocumenter(ClassDocumenter):
         return filtered
 
 
-def setup(app: Sphinx):
+def setup(app: Sphinx):  # noqa: D103
     app.setup_extension("sphinx.ext.autodoc")
     app.add_autodocumenter(TraitDocumenter)
     app.add_autodocumenter(SchemeDocumenter, False)

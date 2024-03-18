@@ -91,7 +91,9 @@ class RangeTrait(List[T]):
         """
         import operator as op
 
-        args_str = dict(zip(["start", "stop", "step"], m.groups(default="1")))
+        args_str = dict(
+            zip(["start", "stop", "step"], m.groups(default="1"), strict=True)
+        )
         args = []
         for var, arg_str in args_str.items():
             arg = self._trait.from_string(arg_str)
@@ -208,15 +210,26 @@ def tag_all_traits(**metadata) -> abc.Callable:
 def add_spacer(lines: list[str]) -> list[str]:
     if not lines[-1].endswith("\n"):
         lines.append("\n")
+    """Add empty line if line above not already empty."""
     return lines
 
 
 def underline(lines: list[str], char: str = "=") -> list[str]:
+    """Underline content of the last line."""
     lines.append(char * len(lines[-1]))
     return lines
 
 
 def indent(lines: list[str], num: int = 4, initial_indent: bool = True) -> list[str]:
+    """Indent lines.
+
+    Parameters
+    ----------
+    num
+        Number of spaces to indent.
+    initial_indent
+        If False do not indent the first line.
+    """
     for i, line in enumerate(lines):
         if i == 0 and not initial_indent:
             continue
@@ -314,7 +327,7 @@ def get_trait_typehint(
         return get_trait_typehint(obj, mode, aliases)
 
     def output(typehint):
-        """Hook before returning the typehint."""
+        """Hook before returning the typehint."""  # noqa: D401
         if (alias := aliases.get(typehint.lstrip("~"), None)) is not None:
             typehint = alias
         if trait.allow_none:
