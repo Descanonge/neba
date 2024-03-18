@@ -92,36 +92,55 @@ class ApplicationBase(Scheme):
 
         return decorator
 
-    def start(self, argv: list[str] | None = None) -> None:
+    def start(
+        self,
+        argv: list[str] | None = None,
+        ignore_cli: bool | None = None,
+        instanciate: bool | None = None,
+    ) -> None:
         """Initialize and start application.
 
-        - Parse command line arguments
+        - Parse command line arguments (optional)
         - Load configuration file(s).
         - Merge configurations
-        - Instanciate schemes objects
+        - Instanciate schemes objects (optional)
+
+        Instanciation is necessary to fully validate the values of the configuration
+        parameters, but in case systematic instanciation is unwanted this can be
+        disabled (for example in case of costly instanciations).
 
         Parameters
         ----------
-        argv:
+        argv
             Override command line arguments to parse. If left to None, arguments are
-            obtained from system.
+            obtained from :meth:`get_argv`.
+        ignore_cli
+            If True, do not parse command line arguments. If not None, this argument
+            overrides :attr:`ignore_cli`.
+        instanciate
+            If True, instanciate all schemes. If not None, this argument overrides
+            :attr:`auto_instanciate`.
         """
-        # First parse CLI
-        # needed for help, or overriding the config files)
-        # Sets self.cli_conf
-        if not self.ignore_cli:
+        # Parse CLI first
+        #  -> needed for help, or setting config filenames
+        # This sets self.cli_conf
+        if ignore_cli is None:
+            ignore_cli = self.ignore_cli
+        if not ignore_cli:
             self.parse_command_line(argv)
 
         self.apply_cli_config()
 
         # Read config files
-        # Sets self.file_conf
+        # This sets self.file_conf
         if self.config_files:
             self.load_config_files()
 
         self.conf = self.merge_configs(self.file_conf, self.cli_conf)
 
-        if self.auto_instanciate:
+        if instanciate is None:
+            instanciate = self.auto_instanciate
+        if instanciate:
             self.instanciate_subschemes(to_nested_dict(self.conf))
 
     def _create_cli_loader(
