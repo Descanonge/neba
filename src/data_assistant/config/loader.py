@@ -482,7 +482,7 @@ class FileLoader(ConfigLoader):
     Parameters
     ----------
     filename
-        Full path of configuration file to load.
+        Path of configuration file to load.
     """
 
     extensions: list[str] = []

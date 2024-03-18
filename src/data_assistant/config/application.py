@@ -4,20 +4,17 @@ from __future__ import annotations
 
 import logging
 import sys
-from collections.abc import Callable
+from argparse import Action
 from os import path
 from typing import TYPE_CHECKING
 
-from traitlets import Bool, Instance, List, Unicode, Union
+from traitlets import Bool, List, Unicode, Union
 
 from .loader import CLILoader, PyLoader, TomlkitLoader, YamlLoader, to_nested_dict
 from .scheme import Scheme
 
 if TYPE_CHECKING:
-    from traitlets.config.configurable import Configurable
-    from traitlets.traitlets import TraitType
-
-    from .loader import ConfigLoader, ConfigValue, FileLoader
+    from .loader import ConfigValue, FileLoader
 
 
 class ApplicationBase(Scheme):
@@ -225,8 +222,8 @@ class ApplicationBase(Scheme):
     def write_config(
         self,
         filename: str | None = None,
-        comment: bool = True,
-        ask_overwrite: bool = True,
+        comment: str = "full",
+        overwrite: bool | None = None,
     ):
         """(Over)write a configuration file.
 
@@ -236,10 +233,19 @@ class ApplicationBase(Scheme):
             Write to this file. If None, the first filename from :attr:`config_files` is
             used.
         comment:
-            If True (default), comment configuration lines.
-        ask_overwrite:
-            If True (default), ask for confirmation if config file
-            already exists. Else, overwrite the file without questions.
+            Include more or less information in comments. Can be one of:
+
+            * full: all information about traits is included
+            * no-help: help string is not included
+            * none: no information is included, only the key and default value
+
+            Note that the line containing the key and default value, for instance
+            ``traitname = 2`` will be commented since we do not need to parse/load the
+            default value.
+        overwrite:
+            If the target file already exists: if None (default) ask wether to
+            overwrite, if a boolean either overwrite (True) the existing file, or not
+            (False).
         """
         if filename is None:
             if isinstance(self.config_files, list | tuple):
@@ -249,7 +255,7 @@ class ApplicationBase(Scheme):
 
         filename = path.realpath(filename)
 
-        if path.exists(filename) and ask_overwrite:
+        if path.exists(filename) and overwrite is None:
             print(f"Config file already exists '{filename}")
 
             def ask():
@@ -264,17 +270,17 @@ class ApplicationBase(Scheme):
             while not answer.startswith(("y", "n")):
                 print("Please answer 'yes' or 'no'")
                 answer = ask()
-            if answer.startswith("n"):
+            overwrite = not answer.startswith("n")
+            if not overwrite:
                 return
+            self.log.info("Overwriting configuration file %s.", filename)
 
         loader = self._select_file_loader(filename)(filename, self, self.log)
         lines = loader.to_lines(comment=comment)
-
-        # Remove trailing whitespace
-        lines = [line.rstrip() for line in lines]
 
         with open(filename, "w") as f:
             f.write("\n".join(lines))
 
     def exit(self, exit_status: int | str = 0):
+        """Exit python interpreter."""
         sys.exit(exit_status)
