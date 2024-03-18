@@ -6,7 +6,7 @@ import logging
 import sys
 from argparse import Action
 from os import path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from traitlets import Bool, List, Unicode, Union
 
@@ -70,8 +70,10 @@ class ApplicationBase(Scheme):
         self.file_conf: dict[str, ConfigValue] = {}
         """Configuration values obtained from configuration files."""
 
-        self.extra_parameters: dict[str, Action] = {}
+        self._extra_parameters_actions: dict[str, Action] = {}
         """Extra parameters passed to the command line parser."""
+        self.extra_parameters: dict[str, Any] = {}
+        """Extra paramaters retrieved by the command line parser."""
 
         self.log = logging.getLogger(__name__)
 
@@ -149,7 +151,7 @@ class ApplicationBase(Scheme):
         if argv is None:
             argv = self.get_argv()
         loader = self._create_cli_loader(argv, log=log, **kwargs)
-        for action in self.extra_parameters.values():
+        for action in self._extra_parameters_actions.values():
             loader.parser._add_action(action)
         self.cli_conf = loader.get_config()
 
@@ -217,7 +219,8 @@ class ApplicationBase(Scheme):
             Passed to :meth:`argparse.Action`.
         """
         action = Action(*args, **kwargs)
-        self.extra_parameters[action.dest] = action
+        self._extra_parameters_actions[action.dest] = action
+        self.extra_parameters[action.dest] = action.default
 
     def write_config(
         self,

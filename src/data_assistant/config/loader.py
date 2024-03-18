@@ -459,6 +459,10 @@ class CLILoader(ConfigLoader):
         config = {}
         for name, value in args.items():
             key = name.replace(_DOT, ".")
+
+            if key in self.app._extra_parameters_actions:
+                self.app.extra_parameters[key] = value
+
             # TODO: check if key already exists
             # maybe a method self.add_key() ? common to loaders
             config[key] = ConfigValue(value, key, origin="CLI")
