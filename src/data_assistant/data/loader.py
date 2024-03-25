@@ -14,12 +14,13 @@ class LoaderPluginAbstract(t.Generic[T_Source, T_Data], Plugin):
     It may run post-processing if defined by the user.
     """
 
-    def load_data(
-        self, source: T_Source, ignore_postprocess: bool = False, **kwargs
+    def get_data(
+        self, source: T_Source | None = None, ignore_postprocess: bool = False, **kwargs
     ) -> T_Data:
         """Load data and run post-processing.
 
-        Uses :meth:`load_data_concrete` that can be overwritten by subclasses.
+        The actual loading is done by :meth:`load_data_concrete` that can be overwritten
+        by subclasses.
 
         Tries to run the method ``postprocess_data`` of the parent dataset. If it raises
         NotImplementedError, postprocess will be ignored.
@@ -27,12 +28,17 @@ class LoaderPluginAbstract(t.Generic[T_Source, T_Data], Plugin):
         Parameters
         ----------
         source
-            Source location of the data to load.
+            Source location of the data to load. If left to None,
+            :meth:`~.data_manager.DataManagerBase.get_source` is used.
         ignore_postprocess
             If True, do not apply postprocessing. Default is False.
         kwargs:
             Arguments passed to function loading data.
+
         """
+        if source is None:
+            source = self.get_source()
+
         data = self.load_data_concrete(source, **kwargs)
 
         if ignore_postprocess:
