@@ -152,8 +152,7 @@ class FixableTrait(Union):
     Parameters
     ----------
     trait
-        The trait corresponding to the fixable parameter format. Some of its properties
-        are used: ``default_value``, ``allow_none``, ``help``. The metadata is not kept.
+        Trait instance.
     kwargs
         Arguments passed to the Union trait created.
     """
@@ -166,6 +165,7 @@ class FixableTrait(Union):
         default_value: t.Any = None,
         unicode: bool = False,
         range: bool = True,
+        allow_none: bool = True,
         **kwargs,
     ) -> None:
         self.trait = trait
@@ -179,15 +179,9 @@ class FixableTrait(Union):
         else:
             traits.append(List(trait))
 
-        # Transfer some properties to deal with benign mistakes in syntax
-        for arg in ["default_value", "help", "allow_none"]:
-            value = getattr(trait, arg, None)
-            if value is not None:
-                kwargs.setdefault(arg, value)
-        if default_value is not None:
-            kwargs["default_value"] = default_value
-
-        super().__init__(traits, **kwargs)
+        super().__init__(
+            traits, default_value=default_value, allow_none=allow_none, **kwargs
+        )
 
 
 def tag_all_traits(**metadata) -> abc.Callable:
