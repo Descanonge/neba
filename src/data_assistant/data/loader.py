@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import typing as t
+from collections import abc
 
 from .data_manager import Plugin, T_Data, T_Source
 
@@ -15,7 +16,11 @@ class LoaderPluginAbstract(t.Generic[T_Source, T_Data], Plugin):
     """
 
     def get_data(
-        self, source: T_Source | None = None, ignore_postprocess: bool = False, **kwargs
+        self,
+        source: T_Source | None = None,
+        ignore_postprocess: bool = False,
+        pp_kwargs: abc.Mapping[str, t.Any] | None = None,
+        **kwargs,
     ) -> T_Data:
         """Load data and run post-processing.
 
@@ -32,6 +37,8 @@ class LoaderPluginAbstract(t.Generic[T_Source, T_Data], Plugin):
             :meth:`~.data_manager.DataManagerBase.get_source` is used.
         ignore_postprocess
             If True, do not apply postprocessing. Default is False.
+        pp_kwargs
+            Arguments passed to the postprocessing function.
         kwargs:
             Arguments passed to function loading data.
 
@@ -45,7 +52,7 @@ class LoaderPluginAbstract(t.Generic[T_Source, T_Data], Plugin):
             return data
 
         try:
-            data = self.postprocess_data(data)
+            data = self.postprocess_data(data, **pp_kwargs)
         except NotImplementedError:
             pass
         return data
