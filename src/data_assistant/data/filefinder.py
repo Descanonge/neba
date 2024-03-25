@@ -170,7 +170,8 @@ class climato:  # noqa: N801
     def __call__(self, cls: FileFinderPlugin):
         """Apply decorator."""
         from filefinder import Finder
-        from filefinder.group import TIME_GROUPS
+
+        time_pattern_names = "SXMHjdxFmBY"
 
         # Change get_root_directory
         if self.append_folder:
@@ -191,7 +192,7 @@ class climato:  # noqa: N801
             finder = Finder("", pattern)
             for g in finder.groups:
                 # remove fixable/groups related to time
-                if g.name in TIME_GROUPS:
+                if g.name in time_pattern_names:
                     pattern = pattern.replace(f"%({g.definition})", "")
 
             infile, ext = path.splitext(pattern)

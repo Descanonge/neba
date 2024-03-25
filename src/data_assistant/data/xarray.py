@@ -282,19 +282,10 @@ class XarraySplitWriterPlugin(XarrayMultiFileWriterPlugin, FileFinderPlugin):
         B="MS",
         Y="YS",
     )
-    """List of correspondance between pattern names and pandas frequencies."""
+    """List of correspondance between pattern names and pandas frequencies.
 
-    def _init_plugin(self) -> None:
-        super()._init_plugin()
-        try:
-            from filefinder.group import TIME_GROUPS
-        except ImportError as err:
-            raise ImportError(
-                "The 'filefinder' package must be installed to use this "
-                "plugin (XarraySplitWriterPlugin)"
-            ) from err
-
-        self.TIME_GROUPS = TIME_GROUPS
+    The pattern names are arranged in increasing order.
+    """
 
     def write(
         self,
@@ -400,7 +391,7 @@ class XarraySplitWriterPlugin(XarrayMultiFileWriterPlugin, FileFinderPlugin):
         """
         unfixed = set(self.unfixed)
         # Only keep time related unfixed
-        unfixed &= set(self.TIME_GROUPS)
+        unfixed &= set(self.time_intervals_groups)
 
         # not time dimension or no unfixed params in filename pattern
         if "time" not in ds.dims or not unfixed:
@@ -415,8 +406,8 @@ class XarraySplitWriterPlugin(XarrayMultiFileWriterPlugin, FileFinderPlugin):
             freq = time_freq
         else:
             # we guess from pattern
-            # TIME_GROUPS is sorted by period, first hit is smallest period
-            for grp in self.TIME_GROUPS:
+            # time_intervals_groups is sorted by period, first hit is smallest period
+            for grp in self.time_intervals_groups:
                 if grp in unfixed:
                     freq = self.time_intervals_groups[grp]
                     break
@@ -445,7 +436,7 @@ class XarraySplitWriterPlugin(XarrayMultiFileWriterPlugin, FileFinderPlugin):
         """
         unfixed = set(self.unfixed)
         # Remove time related unfixeds
-        unfixed -= set(self.TIME_GROUPS)
+        unfixed -= set(self.time_intervals_groups)
 
         # Remove unfixed not associated to a coordinate
         unfixed -= set(f for f in unfixed if f not in ds.coords)
@@ -485,8 +476,8 @@ class XarraySplitWriterPlugin(XarrayMultiFileWriterPlugin, FileFinderPlugin):
         """
         unfixed = set(self.unfixed)
         # Set time fixes apart
-        present_time_fix = unfixed & set(self.TIME_GROUPS)
-        unfixed -= set(self.TIME_GROUPS)
+        present_time_fix = unfixed & set(self.time_intervals_groups)
+        unfixed -= set(self.time_intervals_groups)
 
         calls: list[CallXr] = []
         for ds in datasets:
