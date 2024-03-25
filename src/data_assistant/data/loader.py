@@ -51,6 +51,9 @@ class LoaderPluginAbstract(t.Generic[T_Source, T_Data], Plugin):
         if ignore_postprocess:
             return data
 
+        if pp_kwargs is None:
+            pp_kwargs = {}
+
         try:
             data = self.postprocess_data(data, **pp_kwargs)
         except NotImplementedError:
