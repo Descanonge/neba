@@ -126,8 +126,7 @@ class Scheme(Configurable):
                 assert isinstance(v.klass, type)  # maybe into a try/except block?
                 if issubclass(v.klass, Scheme):
                     cls._subschemes[k] = v.klass
-                    # In case subscheme was defined manually as an Instance without tag
-                    v.tag(subscheme=True)
+                    v.tag(subscheme=True, config=False)
 
         cls.setup_class(classdict)  # type: ignore
 
