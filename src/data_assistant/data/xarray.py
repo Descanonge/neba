@@ -22,12 +22,13 @@ if t.TYPE_CHECKING:
 
     CallXr = tuple[xr.Dataset, str]
 
+
 log = logging.getLogger(__name__)
 
 ## Loading
 
 
-class XarrayFileLoaderPlugin(LoaderPluginAbstract):
+class XarrayFileLoaderPlugin(LoaderPluginAbstract[str, xr.Dataset]):
     """Loader for a single file to Xarray.
 
     Uses :func:`xarray.open_dataset` to open data.
@@ -55,7 +56,7 @@ class XarrayFileLoaderPlugin(LoaderPluginAbstract):
         return ds
 
 
-class XarrayMultiFileLoaderPlugin(LoaderPluginAbstract):
+class XarrayMultiFileLoaderPlugin(LoaderPluginAbstract[abc.Sequence[str], xr.Dataset]):
     """Loader for multiple files to Xarray.
 
     Uses :func:`xarray.open_mfdataset` to open data.
@@ -95,6 +96,7 @@ class XarrayWriterPlugin(WriterPluginAbstract):
     """
 
     TO_NETCDF_KWARGS: dict[str, t.Any] = {}
+    """Arguments passed to the function writing files."""
 
     def set_metadata(
         self,
