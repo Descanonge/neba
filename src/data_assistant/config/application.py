@@ -5,15 +5,23 @@ from __future__ import annotations
 import logging
 import sys
 import typing as t
+from contextlib import suppress
+from logging.config import dictConfig
 from os import path
 
-from traitlets import Bool, List, Unicode, Union
+from traitlets import Bool, Dict, Enum, List, Unicode, Union, default, observe
+from traitlets.config.configurable import LoggerType, LoggingConfigurable
+from traitlets.utils.bunch import Bunch
+from traitlets.utils.nested_update import nested_update
 
 from .loader import CLILoader, PyLoader, TomlkitLoader, YamlLoader, to_nested_dict
 from .scheme import Scheme
 
 if t.TYPE_CHECKING:
     from .loader import ConfigValue, FileLoader
+
+
+IS_PYTHONW = sys.executable and sys.executable.endswith("pythonw.exe")
 
 
 class ApplicationBase(Scheme):
@@ -74,8 +82,6 @@ class ApplicationBase(Scheme):
         self.extra_parameters: dict[str, t.Any] = {}
         """Extra paramaters retrieved by the command line parser."""
 
-        self.log = logging.getLogger(__name__)
-
     def start(
         self,
         argv: list[str] | None = None,
@@ -131,8 +137,7 @@ class ApplicationBase(Scheme):
         self, argv: list[str] | None, log: logging.Logger | None = None, **kwargs
     ) -> CLILoader:
         """Create a CLILoader instance to parse command line arguments."""
-        if log is None:
-            log = self.log
+        log = getattr(self, "log", None)
         return CLILoader(self, log=log, **kwargs)
 
     def parse_command_line(
@@ -178,7 +183,7 @@ class ApplicationBase(Scheme):
     def load_config_files(self, log: logging.Logger | None = None):
         """Load configuration vaules from files and populate :attr:`config_files`."""
         if log is None:
-            log = self.log
+            log = getattr(self, "log", None)
         if isinstance(self.config_files, str):
             self.config_files = [self.config_files]
 
@@ -248,6 +253,8 @@ class ApplicationBase(Scheme):
             overwrite, if a boolean either overwrite (True) the existing file, or not
             (False).
         """
+        log = getattr(self, "log", None)
+
         if filename is None:
             if isinstance(self.config_files, list | tuple):
                 filename = self.config_files[0]
@@ -274,9 +281,11 @@ class ApplicationBase(Scheme):
             overwrite = not answer.startswith("n")
             if not overwrite:
                 return
-            self.log.info("Overwriting configuration file %s.", filename)
 
-        loader = self._select_file_loader(filename)(filename, self, self.log)
+            if log is not None:
+                log.info("Overwriting configuration file %s.", filename)
+
+        loader = self._select_file_loader(filename)(filename, self, log=log)
         lines = loader.to_lines(comment=comment)
 
         with open(filename, "w") as f:
@@ -285,3 +294,167 @@ class ApplicationBase(Scheme):
     def exit(self, exit_status: int | str = 0):
         """Exit python interpreter."""
         sys.exit(exit_status)
+
+
+class LoggingMixin(LoggingConfigurable):
+    """Add logging functionnalities to an Application.
+
+    This is lifted from :class:`traitlets.config.Application`, with some minor changes.
+    """
+
+    _log_formatter_cls: type[logging.Formatter] = logging.Formatter
+
+    log_level = Enum(
+        [0, 10, 20, 30, 40, 50, "DEBUG", "INFO", "WARN", "ERROR", "CRITICAL"],
+        default_value="WARN",
+        help="Set the log level by value or name.",
+    ).tag(config=True)
+
+    log_datefmt = Unicode(
+        "%Y-%m-%d %H:%M:%S",
+        help="The date format used by logging formatters for %(asctime)s",
+    ).tag(config=True)
+
+    log_format = Unicode(
+        "%(levelname)s:%(name)s:%(lineno)d:%(message)s",
+        help="The Logging format template",
+    ).tag(config=True)
+
+    logging_config = Dict(
+        help="""\
+        Configure additional log handlers.
+
+        The default stderr logs handler is configured by the log_level, log_datefmt and
+        log_format settings.
+
+        This configuration can be used to configure additional handlers (e.g. to output
+        the log to a file) or for finer control over the default handlers.
+
+        If provided this should be a logging configuration dictionary, for more
+        information see:
+        https://docs.python.org/3/library/logging.config.html#logging-config-dictschema
+
+        This dictionary is merged with the base logging configuration which defines the
+        following:
+
+        * A logging formatter intended for interactive use called ``console``.
+        * A logging handler that writes to stderr called ``console`` which uses the
+            formatter ``console``.
+        * A logger with the name of this application set to ``DEBUG`` level.
+
+        This example adds a new handler that writes to a file:
+
+        .. code-block:: python
+
+            c.Application.logging_config = {
+                "handlers": {
+                    "file": {
+                        "class": "logging.FileHandler",
+                        "level": "DEBUG",
+                        "filename": "<path/to/file>",
+                    }
+                },
+                "loggers": {
+                    "<application-name>": {
+                        "level": "DEBUG",
+                        # NOTE: if you don't list the default "console"
+                        # handler here then it will be disabled
+                        "handlers": ["console", "file"],
+                    },
+                },
+            }
+
+    """,
+    ).tag(config=True)
+
+    def get_default_logging_config(self) -> dict[str, t.Any]:
+        """Return the base logging configuration.
+
+        The default is to log to stderr using a StreamHandler, if no default
+        handler already exists.
+
+        The log handler level starts at logging.WARN, but this can be adjusted
+        by setting the ``log_level`` attribute.
+
+        The ``logging_config`` trait is merged into this allowing for finer
+        control of logging.
+
+        """
+        config: dict[str, t.Any] = {
+            "version": 1,
+            "handlers": {
+                "console": {
+                    "class": "logging.StreamHandler",
+                    "formatter": "console",
+                    "level": logging.getLevelName(self.log_level),  # type:ignore[arg-type]
+                    "stream": "ext://sys.stderr",
+                },
+            },
+            "formatters": {
+                "console": {
+                    "class": (
+                        f"{self._log_formatter_cls.__module__}"
+                        f".{self._log_formatter_cls.__name__}"
+                    ),
+                    "format": self.log_format,
+                    "datefmt": self.log_datefmt,
+                },
+            },
+            "loggers": {
+                self.__class__.__name__: {
+                    "level": "DEBUG",
+                    "handlers": ["console"],
+                }
+            },
+            "disable_existing_loggers": False,
+        }
+
+        if IS_PYTHONW:
+            # disable logging
+            # (this should really go to a file, but file-logging is only
+            # hooked up in parallel applications)
+            del config["handlers"]
+            del config["loggers"]
+
+        return config
+
+    # Simplify default logger, just give Application class name
+    @default("log")
+    def _log_default(self) -> LoggerType:
+        return logging.getLogger(self.__class__.__name__)
+
+    @observe("log_datefmt", "log_format", "log_level", "logging_config")
+    def _observe_logging_change(self, change: Bunch) -> None:
+        # convert log level strings to ints
+        log_level = self.log_level
+        if isinstance(log_level, str):
+            self.log_level = t.cast(int, getattr(logging, log_level))
+        self._configure_logging()
+
+    @observe("log", type="default")
+    def _observe_logging_default(self, change: Bunch) -> None:
+        self._configure_logging()
+
+    def _configure_logging(self) -> None:
+        config = self.get_default_logging_config()
+        nested_update(config, self.logging_config or {})
+        dictConfig(config)
+        # make a note that we have configured logging
+        self._logging_configured = True
+
+    def __del__(self) -> None:
+        self.close_handlers()
+
+    def close_handlers(self) -> None:
+        """Close handlers if they have been opened.
+
+        ie if :attr:`_logging_configured` is True.
+        """
+        if getattr(self, "_logging_configured", False):
+            # don't attempt to close handlers unless they have been opened
+            # (note accessing self.log.handlers will create handlers if they
+            # have not yet been initialised)
+            for handler in self.log.handlers:
+                with suppress(Exception):
+                    handler.close()
+            self._logging_configured = False
