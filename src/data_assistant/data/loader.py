@@ -7,7 +7,7 @@ import typing as t
 from .data_manager import Plugin, T_Data, T_Source
 
 
-class LoaderPluginAbstract(t.Generic[T_Data, T_Source], Plugin):
+class LoaderPluginAbstract(t.Generic[T_Source, T_Data], Plugin):
     """Abstract class of Loader plugin.
 
     The Loader is tasked with opening the data into Python.

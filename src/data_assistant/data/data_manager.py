@@ -51,7 +51,7 @@ def has_plugin(obj: DataManagerBase, cls: type[_P]) -> t.TypeGuard[_P]:
     return isinstance(obj, cls)
 
 
-class DataManagerBase(t.Generic[T_Data, T_Source]):
+class DataManagerBase(t.Generic[T_Source, T_Data]):
     """DataManager base object.
 
     Add functionalities by subclassing it and adding mixin plugins.
