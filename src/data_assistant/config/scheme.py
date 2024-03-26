@@ -473,56 +473,6 @@ class Scheme(Configurable):
         return list(recurse(cls, []))
 
     @classmethod
-    def resolve_config(
-        cls, config: abc.Mapping[str, ConfigValue]
-    ) -> dict[str, ConfigValue]:
-        """Resolve all keys in the config and validate it.
-
-        Keys can use aliases/shortcuts, and also be under the form of "class keys"
-        ``SchemeClassName.trait_name = ...``. We normalize all keys as dot separated
-        attributes names, without shortcuts, that point a trait.
-        Keys that do not resolve to any known trait will raise error.
-
-        Values specified with class keys will be duplicated over all places where the
-        scheme class has been used. Their priority will automatically set lower.
-
-        The trait and containing scheme class will be added to the :class:`ConfigValue`.
-
-        Parameters
-        ----------
-        config
-            Flat mapping of all keys to their ConfigValue
-
-        Returns
-        -------
-        resolved_config
-            Flat mapping of normalized keys to their ConfigValue
-        """
-        config_classes = [cls.__name__ for cls in cls._classes_inc_parents()]
-
-        # Transform Class.trait keys into fullkeys
-        no_class_key: dict[str, ConfigValue] = {}
-        for key, val in config.items():
-            # Set the priority of class traits lower and duplicate them
-            # for each instance of their class in the config tree
-            if key.split(".")[0] in config_classes:
-                val.priority = 10
-                for fullkey in cls.resolve_class_key(key):
-                    no_class_key[fullkey] = val.copy(key=fullkey)
-            else:
-                no_class_key[key] = val
-
-        # Resolve fullpath for all keys
-        output = {}
-        for key, val in no_class_key.items():
-            fullkey, container_cls, trait = cls.class_resolve_key(key)
-            val.container_cls = container_cls
-            val.trait = trait
-            output[fullkey] = val
-
-        return output
-
-    @classmethod
     def merge_configs(
         cls,
         *configs: abc.Mapping[str, ConfigValue],

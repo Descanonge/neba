@@ -42,6 +42,7 @@ from traitlets.traitlets import Container, Enum, HasTraits, TraitError, TraitTyp
 from traitlets.utils.sentinel import Sentinel
 
 from .util import (
+    ConfigErrorHandler,
     ConfigParsingError,
     MultipleConfigKeyError,
     get_trait_typehint,
@@ -330,15 +331,34 @@ class ConfigLoader:
         """Load and return a proper configuration dict.
 
         This method clears the existing config, call :meth:`load_config` to populate the
-        config attribute, resolve/clean the config and return it.
+        config attribute, apply parameters to the root Application, resolve/clean
+        the config and return it.
+
+        Parameters applied to the application before proper resolution of the config are
+        detected in a simple manner (to avoid any errors). Only single level keys
+        and class keys corresponding to an application trait are used. Aliases not yet
+        supported.
 
         Parameters
         ----------
         args, kwargs
             Passed to :meth:`load_config`.
+
         """
         self.clear()
         self.load_config(*args, **kwargs)
+
+        # Apply config for Application
+        for key, val in self.config.items():
+            keypath = key.split(".")
+            if (len(keypath) == 1 and key in self.app.trait_names()) or (
+                len(keypath) == 2 and keypath[0] == self.app.__class__.__name__
+            ):
+                traitname = keypath[-1]
+                val.trait = self.app.traits()[traitname]
+                val.parse()
+                setattr(self.app, traitname, val.get_value())
+
         self.config = self.app.resolve_config(self.config)
         return self.config
 
@@ -510,8 +530,9 @@ class CLILoader(ConfigLoader):
         """
         self.config = super().get_config(argv)
         # Parse values using the traits
-        for val in self.config.values():
-            val.parse()
+        for key, val in self.config.items():
+            with ConfigErrorHandler(self.app, key):
+                val.parse()
         return self.config
 
     def load_config(self, argv: list[str] | None = None) -> None:
@@ -531,15 +552,13 @@ class CLILoader(ConfigLoader):
                 self.app.extra_parameters[key] = value
                 continue
 
-            # Check that the key was specified only once
-            if len(value) > 1:
-                raise KeyError(
-                    f"Configuration key '{key}' was specified more than once "
-                    f"with values {value}."
-                )
-            value = value[0]
+            with ConfigErrorHandler(self.app, key):
+                # Check that the key was specified only once
+                if len(value) > 1:
+                    raise MultipleConfigKeyError(key, value)
+                value = value[0]
 
-            self.add(key, ConfigValue(value, key, origin="CLI"))
+                self.add(key, ConfigValue(value, key, origin="CLI"))
 
         # check if there are any help flags
         if "help" in self.config:

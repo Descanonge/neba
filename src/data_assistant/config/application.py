@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import sys
 import typing as t
+from collections import abc
 from contextlib import suppress
 from logging.config import dictConfig
 from os import path
@@ -16,6 +17,7 @@ from traitlets.utils.nested_update import nested_update
 
 from .loader import CLILoader, PyLoader, TomlkitLoader, YamlLoader, to_nested_dict
 from .scheme import Scheme
+from .util import ConfigErrorHandler
 
 if t.TYPE_CHECKING:
     from .loader import ConfigValue, FileLoader
@@ -35,10 +37,13 @@ class ApplicationBase(Scheme):
 
     strict_parsing = Bool(
         True,
-        help=(
-            """If true, raise errors when encountering unknown arguments or
-            configuration keys. Else only prints a warning."""
-        ),
+        help="""\
+        If true, raise errors when encountering unknown configuration keys. Otherwise
+        only log a warning and keep the illegal key.
+
+        Are concerned only subclasses of :class:`~.util.ConfigError`, and parts of the
+        code enclosed in a :class:`~.util.ConfigErrorHandler` context manager.
+        """,
     )
 
     config_files = Union(
@@ -119,8 +124,6 @@ class ApplicationBase(Scheme):
         if not ignore_cli:
             self.parse_command_line(argv)
 
-        self.apply_cli_config()
-
         # Read config files
         # This sets self.file_conf
         if self.config_files:
@@ -170,16 +173,6 @@ class ApplicationBase(Scheme):
         """
         return None
 
-    def apply_cli_config(self) -> None:
-        """Apply configuration *for this object* obtained from command line.
-
-        Only apply configuration values whose container class matches that of this
-        instance.
-        """
-        for key, val in self.cli_conf.items():
-            if val.container_cls is not None and isinstance(self, val.container_cls):
-                setattr(self, key.split(".")[-1], val.value)
-
     def load_config_files(self, log: logging.Logger | None = None):
         """Load configuration vaules from files and populate :attr:`config_files`."""
         if log is None:
@@ -214,6 +207,60 @@ class ApplicationBase(Scheme):
                 f" Supported loaders are {self.file_loaders}"
             )
         return select
+
+    def resolve_config(
+        self, config: abc.Mapping[str, ConfigValue]
+    ) -> dict[str, ConfigValue]:
+        """Resolve all keys in the config and validate it.
+
+        Keys can use aliases/shortcuts, and also be under the form of "class keys"
+        ``SchemeClassName.trait_name = ...``. We normalize all keys as dot separated
+        attributes names, without shortcuts, that point a trait.
+        Keys that do not resolve to any known trait will raise error.
+
+        Values specified with class keys will be duplicated over all places where the
+        scheme class has been used. Their priority will automatically be set lower.
+
+        The trait and containing scheme class will be added to each :class:`ConfigValue`.
+
+        Parameters
+        ----------
+        config
+            Flat mapping of all keys to their ConfigValue
+
+        Returns
+        -------
+        resolved_config
+            Flat mapping of normalized keys to their ConfigValue
+        """
+        config_classes = [cls.__name__ for cls in self._classes_inc_parents()]
+
+        # Transform Class.trait keys into fullkeys
+        no_class_key: dict[str, ConfigValue] = {}
+        for key, val in config.items():
+            # Set the priority of class traits lower and duplicate them
+            # for each instance of their class in the config tree
+            if key.split(".")[0] in config_classes:
+                val.priority = 10
+                # we assume we will have at least one fullkey, since the classname
+                # appeared in cls._classes_inc_parents
+                for fullkey in self.resolve_class_key(key):
+                    no_class_key[fullkey] = val.copy(key=fullkey)
+            else:
+                no_class_key[key] = val
+
+        # Resolve fullpath for all keys
+        output = {}
+        for key, val in no_class_key.items():
+            # If an error happens in class_resolve_key, we have a fallback
+            fullkey = key
+            with ConfigErrorHandler(self, key):
+                fullkey, container_cls, trait = self.class_resolve_key(key)
+                val.container_cls = container_cls
+                val.trait = trait
+            output[fullkey] = val
+
+        return output
 
     def add_extra_parameter(self, *args, **kwargs):
         """Add a configurable trait to this application configuration.
@@ -332,14 +379,14 @@ class LoggingMixin(LoggingConfigurable):
 
         If provided this should be a logging configuration dictionary, for more
         information see:
-        https://docs.python.org/3/library/logging.config.html#logging-config-dictschema
+        `<https://docs.python.org/3/library/logging.config.html#logging-config-dictschema>`__
 
         This dictionary is merged with the base logging configuration which defines the
         following:
 
         * A logging formatter intended for interactive use called ``console``.
         * A logging handler that writes to stderr called ``console`` which uses the
-            formatter ``console``.
+          formatter ``console``.
         * A logger with the name of this application set to ``DEBUG`` level.
 
         This example adds a new handler that writes to a file:
