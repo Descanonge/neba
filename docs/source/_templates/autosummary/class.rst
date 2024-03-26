@@ -4,5 +4,4 @@
 
 .. autoclass:: {{ objname }}
    :members:
-   :private-members:
    :no-inherited-members:

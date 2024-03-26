@@ -289,10 +289,9 @@ def to_nested_dict(config: dict[str, ConfigValue]) -> dict[str, t.Any]:
 class ConfigLoader:
     """Abstract ConfigLoader.
 
-    Define the public API of loaders that will be used by the
-    :class:`Application<data_assistant.config.applicationApplicationBase>` object, as
-    well as some common logic.
-
+    Define the public API that will be used by the
+    :class:`Application<.application.ApplicationBase>` object, as well as some common
+    logic.
 
     Parameters
     ----------
@@ -306,7 +305,8 @@ class ConfigLoader:
         self.app = app
         """Parent application that created this loader.
 
-        This gives access to the configuration tree.
+        It will be used to deal with exceptions, and to resolve/normalize the config
+        once loaded.
         """
         if log is None:
             log = logging.getLogger(__name__)
@@ -322,7 +322,13 @@ class ConfigLoader:
         self.config.clear()
 
     def add(self, key: str, value: ConfigValue):
-        """Add key to configuration dictionnary."""
+        """Add key to configuration dictionnary.
+
+        Raises
+        ------
+        MultipleConfigKeyError
+            If the key is already present in the current configuration.
+        """
         if key in self.config:
             raise MultipleConfigKeyError(key, [self.config[key], value])
         self.config[key] = value
@@ -331,13 +337,13 @@ class ConfigLoader:
         """Load and return a proper configuration dict.
 
         This method clears the existing config, call :meth:`load_config` to populate the
-        config attribute, apply parameters to the root Application, resolve/clean
-        the config and return it.
+        :attr:`config` attribute, apply parameters to the root application,
+        resolve/normalize the config and return it.
 
-        Parameters applied to the application before proper resolution of the config are
-        detected in a simple manner (to avoid any errors). Only single level keys
-        and class keys corresponding to an application trait are used. Aliases not yet
-        supported.
+        Parameters to be applied to the application before proper resolution of the
+        whole configuration are detected in a simple manner. Only single level keys and
+        class keys corresponding to an existing application trait are used. Aliases not
+        yet supported.
 
         Parameters
         ----------
@@ -581,7 +587,7 @@ class FileLoader(ConfigLoader):
     """
 
     extensions: list[str] = []
-    """File extension that are supported by this loader."""
+    """File extensions that are supported by this loader."""
 
     def __init__(self, filename: str, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -590,7 +596,7 @@ class FileLoader(ConfigLoader):
 
     @classmethod
     def can_load(cls, filename: str) -> bool:
-        """Return if this loader class appropriate for this config file.
+        """Return if this loader class is appropriate for this config file.
 
         This is a classmethod to avoid unnecessary/unwanted library import that might
         happen at initialization.
@@ -601,15 +607,15 @@ class FileLoader(ConfigLoader):
         return ext.lstrip(".") in cls.extensions
 
     def to_lines(self, comment: t.Any = None) -> list[str]:
-        """Return lines of configuration file corresponding to the app config tree.
+        """Generate lines of a configuration file corresponding to the app config tree.
 
         Parameters
         ----------
         comment
-            Include more or less information in comments. Can be one of:
+            Include more or less information as comments. Can be one of:
 
             * full: all information about traits is included
-            * no-help: help string is not included
+            * no-help: trait help attribute is not included
             * none: no information is included, only the key and default value
 
             Note that the line containing the key and default value, for instance
@@ -672,7 +678,7 @@ class TomlkitLoader(FileLoader):
             Include more or less information in comments. Can be one of:
 
             * full: all information about traits is included
-            * no-help: help string is not included
+            * no-help: trait help attribute is not included
             * none: no information is included, only the key and default value
 
             Note that the line containing the key and default value, for instance
@@ -807,7 +813,7 @@ class YamlLoader(FileLoader):
 class PyConfigContainer:
     """Object that can define attributes recursively on the fly.
 
-    Allows the config file syntax:
+    Allows the config file syntax::
 
         c.group.subgroup.parameter = 3
         c.another_group.parameter = True
@@ -832,11 +838,11 @@ class PyConfigContainer:
 class PyLoader(FileLoader):
     """Load config from a python file.
 
-    Follows the syntax of traitlets python config files:
+    Follows the syntax of traitlets python config files::
 
         c.ClassName.parameter = 1
 
-    but now also:
+    but now also::
 
         c.group.subgroup.parameter = True
 
@@ -854,7 +860,7 @@ class PyLoader(FileLoader):
         """Populate the config attribute from python file.
 
         Compile the config file, and execute it with the variable ``c`` defined
-        as an empty :class:`_ReadConfig` object.
+        as an empty :class:`PyConfigContainer` object.
         """
         read_config = PyConfigContainer()
 
@@ -891,7 +897,7 @@ class PyLoader(FileLoader):
             Include more or less information in comments. Can be one of:
 
             * full: all information about traits is included
-            * no-help: help string is not included
+            * no-help: trait help attribute is not included
             * none: no information is included, only the key and default value
 
             Note that the line containing the key and default value, for instance

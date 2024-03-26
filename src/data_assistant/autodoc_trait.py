@@ -208,7 +208,7 @@ class TraitDocumenter(AttributeDocumenter):
 
 
 def skip_trait_member(app, what, name, obj, skip, options) -> bool | None:
-    """Decide wether to skip trait autodoc.
+    """Decide whether to skip trait autodoc.
 
     By default, autodoc will skip traits without any 'help' attribute. But we can
     add information without docstring (default value, config path, etc.). So we

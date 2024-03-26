@@ -62,10 +62,10 @@ class MultipleConfigKeyError(ConfigError):
 class ConfigErrorHandler:
     """Context for handling configuration errors.
 
-    This context uses the :attr:`ApplicationBase.strict_parsing` attribute to determine
-    if any :class:`ConfigError` exception raised in the context should be silenced or
-    not. If silenced, the error is still logged at the :attr:`log_level` (warning by
-    default).
+    This context uses the :attr:`~.application.ApplicationBase.strict_parsing` attribute
+    to determine if any :class:`ConfigError` exception raised in the context should be
+    silenced or not. If silenced, the error is still logged at the :attr:`log_level`
+    (warning by default).
 
     Parameters
     ----------
@@ -74,9 +74,11 @@ class ConfigErrorHandler:
     key
         Eventually, the configuration key that is concerned. Used to make a more
         informative log message.
+
     """
 
     log_level: int = logging.WARNING
+    """Level at which to log a silenced exception."""
 
     def __init__(self, app: ApplicationBase, key: str | None = None) -> None:
         self.app = app
@@ -103,9 +105,9 @@ class ConfigErrorHandler:
         return True
 
     def is_raise(self, exc: Exception) -> bool:
-        """Return wether to raise or not.
+        """Return whether to raise or not.
 
-        By default only use :attr:`ApplicationBase.strict_parsing`.
+        By default only use :attr:`~.application.ApplicationBase.strict_parsing`.
         """
         return self.app.strict_parsing
 

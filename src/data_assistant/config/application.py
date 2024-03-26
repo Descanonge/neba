@@ -296,7 +296,7 @@ class ApplicationBase(Scheme):
             ``traitname = 2`` will be commented since we do not need to parse/load the
             default value.
         overwrite:
-            If the target file already exists: if None (default) ask wether to
+            If the target file already exists: if None (default) ask whether to
             overwrite, if a boolean either overwrite (True) the existing file, or not
             (False).
         """

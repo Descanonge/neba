@@ -53,7 +53,6 @@ pygments_style = "default"
 autodoc_typehints = "description"
 autodoc_typehints_format = "short"
 autodoc_typehints_description_target = "all"
-autodoc_default_options = {"undoc-members": True}
 # autodoc_member_order = "groupwise"
 autodoc_class_content = "both"
 autodoc_class_signature = "mixed"
@@ -89,6 +88,7 @@ intersphinx_mapping = {
     "xarray": ("https://docs.xarray.dev/en/stable/", None),
     "filefinder": ("https://filefinder.readthedocs.io/en/latest", None),
     "traitlets": ("https://traitlets.readthedocs.io/en/stable", None),
+    "tomlkit": ("https://tomlkit.readthedocs.io/en/latest/", None),
 }
 
 
