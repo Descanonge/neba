@@ -41,7 +41,13 @@ from textwrap import dedent
 from traitlets.traitlets import Container, Enum, HasTraits, TraitError, TraitType, Union
 from traitlets.utils.sentinel import Sentinel
 
-from .util import get_trait_typehint, underline, wrap_text
+from .util import (
+    ConfigParsingError,
+    MultipleConfigKeyError,
+    get_trait_typehint,
+    underline,
+    wrap_text,
+)
 
 if t.TYPE_CHECKING:
     from tomlkit.container import Container as TOMLContainer
@@ -173,7 +179,9 @@ class ConfigValue:
         raise.
         """
         if self.trait is None:
-            raise RuntimeError(f"Cannot parse key {self.key}, has not trait.")
+            raise ConfigParsingError(
+                f"Cannot parse key '{self.key}', has no associated trait."
+            )
 
         def try_list(trait: Container, src: list[str]) -> bool:
             """Try to parse a list of elements.
@@ -224,8 +232,8 @@ class ConfigValue:
             return
 
         traitname = self.trait.__class__.__name__
-        raise TraitError(
-            f"Could not parse {self.input} for trait {self.key}:{traitname}"
+        raise ConfigParsingError(
+            f"Could not parse '{self.input}' for trait '{self.key}' ({traitname})."
         )
 
     # def apply(self) -> None:
@@ -297,7 +305,7 @@ class ConfigLoader:
         self.app = app
         """Parent application that created this loader.
 
-        This gives access to the configuration tree, and the application logging.
+        This gives access to the configuration tree.
         """
         if log is None:
             log = logging.getLogger(__name__)
@@ -305,8 +313,7 @@ class ConfigLoader:
         self.config: dict[str, ConfigValue] = {}
         """Configuration dictionnary mapping keys to ConfigValues.
 
-        It should be a flat dictionnary. It will be automatically "cleaned" by the
-        application.
+        It should be a flat dictionnary.
         """
 
     def clear(self) -> None:
@@ -316,10 +323,7 @@ class ConfigLoader:
     def add(self, key: str, value: ConfigValue):
         """Add key to configuration dictionnary."""
         if key in self.config:
-            raise KeyError(
-                f"Config key '{key}' already specified "
-                f"values: {[self.config[key], value]}"
-            )
+            raise MultipleConfigKeyError(key, [self.config[key], value])
         self.config[key] = value
 
     def get_config(self, *args, **kwargs) -> dict[str, ConfigValue]:
@@ -510,7 +514,6 @@ class CLILoader(ConfigLoader):
             val.parse()
         return self.config
 
-    # TODO use a catch error decorator
     def load_config(self, argv: list[str] | None = None) -> None:
         """Populate the config attribute from CLI.
 
@@ -618,8 +621,6 @@ class TomlkitLoader(FileLoader):
 
         self.backend = tomlkit
 
-    # TODO use a catch error decorator
-    # so that any error is raise as a ConfigLoadingError, easy to catch in App
     def load_config(self) -> None:
         """Populate the config attribute from TOML file.
 

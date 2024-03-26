@@ -16,6 +16,8 @@ from traitlets.config import Configurable
 
 from .loader import ConfigValue
 from .util import (
+    ConfigError,
+    UnknownConfigKeyError,
     add_spacer,
     get_trait_typehint,
     indent,
@@ -363,8 +365,16 @@ class Scheme(Configurable):
                 for alias_subkey in alias:
                     subscheme = subscheme._subschemes[alias_subkey]
             else:
-                raise KeyError(f"No subscheme '{subkey}' in class {subscheme}")
+                raise UnknownConfigKeyError(
+                    f"Scheme '{'.'.join(fullkey)}' ({subscheme.__class__.__name__}) "
+                    f"has no subscheme or alias '{subkey}'."
+                )
 
+        if not hasattr(subscheme, lastname):
+            raise UnknownConfigKeyError(
+                f"Scheme '{'.'.join(fullkey)}' ({subscheme.__class__.__name__}) "
+                f"has no trait '{lastname}'."
+            )
         trait = getattr(subscheme, lastname)
 
         return ".".join(fullkey + [lastname]), subscheme, trait
@@ -406,8 +416,16 @@ class Scheme(Configurable):
                 for alias_subkey in alias:
                     subscheme = getattr(subscheme, alias_subkey)
             else:
-                raise KeyError(f"No subscheme '{subkey}' in class {subscheme}")
+                raise UnknownConfigKeyError(
+                    f"Scheme '{'.'.join(fullkey)}' ({subscheme.__class__.__name__}) "
+                    f"has no subscheme or alias '{subkey}'."
+                )
 
+        if lastname not in subscheme.trait_names():
+            raise UnknownConfigKeyError(
+                f"Scheme '{'.'.join(fullkey)}' ({subscheme.__class__.__name__}) "
+                f"has no trait '{lastname}'."
+            )
         trait = subscheme.traits()[lastname]
 
         return ".".join(fullkey + [lastname]), subscheme, trait
@@ -438,12 +456,13 @@ class Scheme(Configurable):
         if isinstance(key, str):
             key = key.split(".")
         if len(key) > 2:
-            raise KeyError(
+            raise ConfigError(
                 f"A parameter --Class.trait cannot be nested ({'.'.join(key)})."
             )
 
         clsname, traitname = key
 
+        # Recurse throughout configuration tree to find matching classes
         def recurse(scheme: type[Scheme], fullpath: list[str]) -> abc.Iterator[str]:
             for name, subscheme in scheme._subschemes.items():
                 newpath = fullpath + [name]
