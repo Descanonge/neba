@@ -361,6 +361,9 @@ class ApplicationBase(Scheme, LoggingMixin):
         if isinstance(self.config_files, str):
             self.config_files = [self.config_files]
 
+        if not self.config_files:
+            return
+
         file_confs: dict[str, dict[str, ConfigValue]] = {}
         for filepath in self.config_files:
             if not path.isfile(filepath):
@@ -370,10 +373,12 @@ class ApplicationBase(Scheme, LoggingMixin):
             loader = loader_cls(filepath, self)
             file_confs[filepath] = loader.get_config()
 
-        if len(file_confs) > 1:
-            self.file_conf = self.merge_configs(*file_confs.values())
-        else:
+        if len(file_confs) == 0:
+            log.info("No config files found (%s)", str(self.config_files))
+        elif len(file_confs) == 1:
             self.file_conf = list(file_confs.values())[0]
+        else:
+            self.file_conf = self.merge_configs(*file_confs.values())
 
     def _select_file_loader(self, filename: str) -> type[FileLoader]:
         """Return the first appropriate FileLoader for this file."""
