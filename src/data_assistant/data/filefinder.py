@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from collections import abc
 from os import PathLike, path
 
 from filefinder import Finder
@@ -130,9 +131,14 @@ class FileFinderPlugin(MultiFilePluginAbstract, CachePlugin):
         """List of varying parameters whose value is not fixed.
 
         Considering the current set of parameters of the dataset.
-        Parameters set to ``None`` are left unfixed.
+        Parameters set to ``None`` or set to a sequence of values are considered
+        unfixed.
         """
-        unfixed = [g.name for g in self.filefinder.groups if g.fixed_value is None]
+        unfixed = [
+            g.name
+            for g in self.filefinder.groups
+            if g.fixed_value is None or isinstance(g.fixed_value, abc.Sequence)
+        ]
         # remove duplicates
         return list(set(unfixed))
 
