@@ -306,6 +306,7 @@ class ApplicationBase(Scheme, LoggingMixin):
             ignore_cli = self.ignore_cli
         if not ignore_cli:
             self.parse_command_line(argv)
+            log.debug("Found config keys from CLI: %s", ", ".join(self.cli_conf.keys()))
 
         # Read config files
         # This sets self.file_conf
@@ -323,8 +324,7 @@ class ApplicationBase(Scheme, LoggingMixin):
         self, argv: list[str] | None, log: logging.Logger | None = None, **kwargs
     ) -> CLILoader:
         """Create a CLILoader instance to parse command line arguments."""
-        log = getattr(self, "log", None)
-        return CLILoader(self, log=log, **kwargs)
+        return CLILoader(self, **kwargs)
 
     def parse_command_line(
         self, argv: list[str] | None = None, log: logging.Logger | None = None, **kwargs
@@ -340,7 +340,7 @@ class ApplicationBase(Scheme, LoggingMixin):
         """
         if argv is None:
             argv = self.get_argv()
-        loader = self._create_cli_loader(argv, log=log, **kwargs)
+        loader = self._create_cli_loader(argv, **kwargs)
         for args, kwargs in self._extra_parameters_args:
             action = loader.parser.add_argument(*args, **kwargs)
             self.extra_parameters[action.dest] = action.default
@@ -356,10 +356,8 @@ class ApplicationBase(Scheme, LoggingMixin):
         """
         return None
 
-    def load_config_files(self, log: logging.Logger | None = None):
-        """Load configuration vaules from files and populate :attr:`config_files`."""
-        if log is None:
-            log = getattr(self, "log", None)
+    def load_config_files(self) -> None:
+        """Load configuration values from files and populate :attr:`config_files`."""
         if isinstance(self.config_files, str):
             self.config_files = [self.config_files]
 
@@ -369,7 +367,7 @@ class ApplicationBase(Scheme, LoggingMixin):
                 continue
 
             loader_cls = self._select_file_loader(filepath)
-            loader = loader_cls(filepath, self, log=log)
+            loader = loader_cls(filepath, self)
             file_confs[filepath] = loader.get_config()
 
         if len(file_confs) > 1:
@@ -483,8 +481,6 @@ class ApplicationBase(Scheme, LoggingMixin):
             overwrite, if a boolean either overwrite (True) the existing file, or not
             (False).
         """
-        log = getattr(self, "log", None)
-
         if filename is None:
             if isinstance(self.config_files, list | tuple):
                 filename = self.config_files[0]
@@ -512,10 +508,9 @@ class ApplicationBase(Scheme, LoggingMixin):
             if not overwrite:
                 return
 
-            if log is not None:
-                log.info("Overwriting configuration file %s.", filename)
+            log.info("Overwriting configuration file %s.", filename)
 
-        loader = self._select_file_loader(filename)(filename, self, log=log)
+        loader = self._select_file_loader(filename)(filename, self)
         lines = loader.to_lines(comment=comment)
 
         with open(filename, "w") as f:

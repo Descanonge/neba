@@ -174,6 +174,7 @@ class XarrayWriterPlugin(WriterPluginAbstract):
         # That could be a dataset attribute, like OUTPUT_FORMAT
         ds, outfile = call
         kwargs = kwargs | self.TO_NETCDF_KWARGS
+        log.debug("Sending single call to %s", outfile)
         return ds.to_netcdf(outfile, **kwargs)
 
 
@@ -227,7 +228,7 @@ class XarrayMultiFileWriterPlugin(XarrayWriterPlugin, WriterMultiFileAbstract):
         kwargs["compute"] = False
 
         for slc in slices:
-            log.debug("\tslice %s", slc)
+            log.info("\tslice %s", slc)
 
             # Select calls and turn it into a list of delayed objects for Dask
             grouped_calls = calls[slc]
@@ -395,6 +396,7 @@ class XarraySplitWriterPlugin(XarrayMultiFileWriterPlugin, FileFinderPlugin):
 
         # not time dimension or no unfixed params in filename pattern
         if "time" not in ds.dims or not unfixed:
+            log.debug("Not splitting by time.")
             return [ds]
 
         # user asked to not resample
@@ -412,12 +414,13 @@ class XarraySplitWriterPlugin(XarrayMultiFileWriterPlugin, FileFinderPlugin):
                     freq = self.time_intervals_groups[grp]
                     break
 
+        log.debug("Split with frequency %s", freq)
+
         infreq = xr.infer_freq(ds.time)
         if infreq is not None and infreq == freq:
             log.debug(
-                "Resampling frequency is equal to that of dataset (%s). "
-                "Will not resample.",
-                freq,
+                "Resampling frequency is equal to that of dataset. "
+                "Will not resample."
             )
             return [ds_unit for _, ds_unit in ds.groupby("time", squeeze=False)]
 
@@ -447,6 +450,8 @@ class XarraySplitWriterPlugin(XarrayMultiFileWriterPlugin, FileFinderPlugin):
         # No parameter to split
         if not unfixed:
             return [ds]
+
+        log.debug("Split by parameters %s", unfixed)
 
         stack_vars = list(unfixed)
         stacked = ds.stack(__filename_vars__=stack_vars)
