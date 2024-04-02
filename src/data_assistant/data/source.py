@@ -67,7 +67,7 @@ class MultiFilePluginAbstract(CachePlugin):
 
     def get_source(self) -> list[str]:  # noqa: D102
         if len(self.datafiles) == 0:
-            raise ValueError("No files were found.")
+            raise ValueError(f"No files were found '{self}'.")
         return self.datafiles
 
     @property

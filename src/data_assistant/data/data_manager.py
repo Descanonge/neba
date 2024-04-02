@@ -150,9 +150,13 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
         if self.ID is not None:
             name.append(self.ID)
 
-        clsname = self.__class__.__name__
-        if name:
-            clsname = f" ({clsname})"
+        try:
+            cls = self.__class__
+            clsname = f"{cls.__module__}.{cls.__name__}"
+            if name:
+                clsname = f" ({clsname})"
+        except AttributeError:
+            clsname = ""
 
         return ":".join(name) + clsname
 

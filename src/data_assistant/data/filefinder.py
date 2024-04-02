@@ -78,7 +78,7 @@ class FileFinderPlugin(MultiFilePluginAbstract, CachePlugin):
         # Check they can be fixed (they exist in the pattern)
         for f in fixes:
             if f not in self.fixable:
-                raise KeyError(f"Parameter {f} cannot be fixed.")
+                raise KeyError(f"Parameter {f} cannot be fixed '{self}'.")
 
         # In case params were changed sneakily and the cache was not invalidated
         fixable_params = {

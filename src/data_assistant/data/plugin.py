@@ -87,8 +87,7 @@ class CachePlugin(Plugin):
 
     def _key_error(self, key: str):
         """Raise slightly more informative message on cache miss."""
-        name = self.ID or self.SHORTNAME or self.__class__.__name__
-        raise KeyError(f"Key '{key}' not found in cache of dataset '{name}'.")
+        raise KeyError(f"Key '{key}' not found in cache of dataset '{self}'.")
 
     def get_cached(self, key: str) -> t.Any:
         """Get value from the cache."""
