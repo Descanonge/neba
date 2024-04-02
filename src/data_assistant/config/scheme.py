@@ -6,6 +6,7 @@ Defines a :class:`Scheme` class meant to be used in place of
 
 from __future__ import annotations
 
+import logging
 import typing as t
 from collections import abc
 from inspect import Parameter, signature
@@ -25,6 +26,8 @@ from .util import (
     underline,
     wrap_text,
 )
+
+log = logging.getLogger(__name__)
 
 
 def subscheme(scheme: type[Scheme]) -> Instance:
@@ -488,17 +491,19 @@ class Scheme(Configurable):
         out: dict[str, ConfigValue] = {}
         for c in configs:
             for k, v in c.items():
-                if isinstance(v, ConfigValue):
-                    if k in out:
-                        if out[k].priority >= v.priority:
-                            continue
-                        # TODO log debug overwrite
-                    out[k] = v
-                else:
-                    for c in configs:
-                        c.setdefault(k, {})
-                    configs_lower = [c[k] for c in configs]
-                    out[k] = cls.merge_configs(*configs_lower)  # type:ignore
+                if k in out:
+                    if v.priority < out[k].priority:
+                        continue
+                    log.debug(
+                        "Parameter '%s' with value '%s' (from %s) has been overwritten "
+                        "by value '%s' (from %s).",
+                        k,
+                        str(out[k].value),
+                        out[k].origin,
+                        str(v.value),
+                        v.origin,
+                    )
+                out[k] = v
 
         return out
 
