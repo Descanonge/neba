@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import itertools
 import logging
 import sys
 import typing as t
@@ -22,11 +23,193 @@ from .util import ConfigErrorHandler
 if t.TYPE_CHECKING:
     from .loader import ConfigValue, FileLoader
 
+log = logging.getLogger(__name__)
 
 IS_PYTHONW = sys.executable and sys.executable.endswith("pythonw.exe")
 
 
-class ApplicationBase(Scheme):
+class LoggingMixin(LoggingConfigurable):
+    """Add logging functionnalities to an Application.
+
+    This is lifted from :class:`traitlets.config.Application`, with some minor changes.
+    """
+
+    _log_formatter_cls: type[logging.Formatter] = logging.Formatter
+
+    log_level = Enum(
+        [0, 10, 20, 30, 40, 50, "DEBUG", "INFO", "WARN", "ERROR", "CRITICAL"],
+        default_value="INFO",
+        help="Set the log level by value or name, for the application logger.",
+    ).tag(config=True)
+
+    lib_log_level = Enum(
+        [0, 10, 20, 30, 40, 50, "DEBUG", "INFO", "WARN", "ERROR", "CRITICAL"],
+        default_value="WARN",
+        help="Set the log level for this library loggers.",
+    ).tag(config=True)
+
+    log_datefmt = Unicode(
+        "%Y-%m-%d %H:%M:%S",
+        help="The date format used by logging formatters for %(asctime)s",
+    ).tag(config=True)
+
+    log_format = Unicode(
+        "%(levelname)s:%(name)s:%(lineno)d:%(message)s",
+        help="The Logging format template",
+    ).tag(config=True)
+
+    logging_config = Dict(
+        help="""\
+        Configure additional log handlers.
+
+        The default stderr logs handler is configured by the log_level, log_datefmt and
+        log_format settings.
+
+        This configuration can be used to configure additional handlers (e.g. to output
+        the log to a file) or for finer control over the default handlers.
+
+        If provided this should be a logging configuration dictionary, for more
+        information see:
+        `<https://docs.python.org/3/library/logging.config.html#logging-config-dictschema>`__
+
+        This dictionary is merged with the base logging configuration which defines the
+        following:
+
+        * A logging formatter intended for interactive use called ``console``.
+        * A logging handler that writes to stderr called ``console`` which uses the
+          formatter ``console``.
+        * A logger with the name of this application set to :attr:`log_level`.
+        * A logger for the ``data_assistant`` library set to :attr: `lib_log_level`.
+
+        This example adds a new handler that writes to a file:
+
+        .. code-block:: python
+
+            c.Application.logging_config = {
+                "handlers": {
+                    "file": {
+                        "class": "logging.FileHandler",
+                        "level": "DEBUG",
+                        "filename": "<path/to/file>",
+                    }
+                },
+                "loggers": {
+                    "<application-name>": {
+                        "level": "DEBUG",
+                        # NOTE: if you don't list the default "console"
+                        # handler here then it will be disabled
+                        "handlers": ["console", "file"],
+                    },
+                },
+            }
+
+    """,
+    ).tag(config=True)
+
+    def get_default_logging_config(self) -> dict[str, t.Any]:
+        """Return the base logging configuration.
+
+        The default is to log to stderr using a StreamHandler, if no default
+        handler already exists.
+
+        The log handler level starts at logging.WARN, but this can be adjusted
+        by setting the ``log_level`` attribute.
+
+        The ``logging_config`` trait is merged into this allowing for finer
+        control of logging.
+
+        """
+        config: dict[str, t.Any] = {
+            "version": 1,
+            "handlers": {
+                "console": {
+                    "class": "logging.StreamHandler",
+                    "formatter": "console",
+                    "level": "DEBUG",
+                    "stream": "ext://sys.stderr",
+                },
+            },
+            "formatters": {
+                "console": {
+                    "class": (
+                        f"{self._log_formatter_cls.__module__}"
+                        f".{self._log_formatter_cls.__name__}"
+                    ),
+                    "format": self.log_format,
+                    "datefmt": self.log_datefmt,
+                },
+            },
+            "loggers": {
+                self.__class__.__name__: {
+                    "level": logging.getLevelName(self.log_level),  # type:ignore[arg-type]
+                    "handlers": ["console"],
+                },
+                "data_assistant": {
+                    "level": logging.getLevelName(self.lib_log_level),  # type:ignore[arg-type]
+                    "handlers": ["console"],
+                },
+            },
+            "disable_existing_loggers": False,
+        }
+
+        if IS_PYTHONW:
+            # disable logging
+            # (this should really go to a file, but file-logging is only
+            # hooked up in parallel applications)
+            del config["handlers"]
+            del config["loggers"]
+
+        return config
+
+    # Simplify default logger, just give Application class name
+    @default("log")
+    def _log_default(self) -> LoggerType:
+        return logging.getLogger(self.__class__.__name__)
+
+    @observe(
+        "log_datefmt", "log_format", "log_level", "lib_log_level", "logging_config"
+    )
+    def _observe_logging_change(self, change: Bunch) -> None:
+        # convert log level strings to ints
+        log_level = self.log_level
+        if isinstance(log_level, str):
+            self.log_level = t.cast(int, getattr(logging, log_level))
+        lib_log_level = self.lib_log_level
+        if isinstance(lib_log_level, str):
+            self.lib_log_level = t.cast(int, getattr(logging, lib_log_level))
+        self._configure_logging()
+
+    @observe("log", type="default")
+    def _observe_logging_default(self, change: Bunch) -> None:
+        self._configure_logging()
+
+    def _configure_logging(self) -> None:
+        config = self.get_default_logging_config()
+        nested_update(config, self.logging_config or {})
+        dictConfig(config)
+        # make a note that we have configured logging
+        self._logging_configured = True
+
+    def __del__(self) -> None:
+        self.close_handlers()
+
+    def close_handlers(self) -> None:
+        """Close handlers if they have been opened.
+
+        ie if :attr:`_logging_configured` is True.
+        """
+        if getattr(self, "_logging_configured", False):
+            # don't attempt to close handlers unless they have been opened
+            # (note accessing self.log.handlers will create handlers if they
+            # have not yet been initialised)
+            lib_logger = logging.getLogger("data_assistant")
+            for handler in itertools.chain(self.log.handlers, lib_logger.handlers):
+                with suppress(Exception):
+                    handler.close()
+            self._logging_configured = False
+
+
+class ApplicationBase(Scheme, LoggingMixin):
     """Base application class.
 
     Orchestrate the loading of configuration keys from files or from command line
@@ -341,167 +524,3 @@ class ApplicationBase(Scheme):
     def exit(self, exit_status: int | str = 0):
         """Exit python interpreter."""
         sys.exit(exit_status)
-
-
-class LoggingMixin(LoggingConfigurable):
-    """Add logging functionnalities to an Application.
-
-    This is lifted from :class:`traitlets.config.Application`, with some minor changes.
-    """
-
-    _log_formatter_cls: type[logging.Formatter] = logging.Formatter
-
-    log_level = Enum(
-        [0, 10, 20, 30, 40, 50, "DEBUG", "INFO", "WARN", "ERROR", "CRITICAL"],
-        default_value="WARN",
-        help="Set the log level by value or name.",
-    ).tag(config=True)
-
-    log_datefmt = Unicode(
-        "%Y-%m-%d %H:%M:%S",
-        help="The date format used by logging formatters for %(asctime)s",
-    ).tag(config=True)
-
-    log_format = Unicode(
-        "%(levelname)s:%(name)s:%(lineno)d:%(message)s",
-        help="The Logging format template",
-    ).tag(config=True)
-
-    logging_config = Dict(
-        help="""\
-        Configure additional log handlers.
-
-        The default stderr logs handler is configured by the log_level, log_datefmt and
-        log_format settings.
-
-        This configuration can be used to configure additional handlers (e.g. to output
-        the log to a file) or for finer control over the default handlers.
-
-        If provided this should be a logging configuration dictionary, for more
-        information see:
-        `<https://docs.python.org/3/library/logging.config.html#logging-config-dictschema>`__
-
-        This dictionary is merged with the base logging configuration which defines the
-        following:
-
-        * A logging formatter intended for interactive use called ``console``.
-        * A logging handler that writes to stderr called ``console`` which uses the
-          formatter ``console``.
-        * A logger with the name of this application set to ``DEBUG`` level.
-
-        This example adds a new handler that writes to a file:
-
-        .. code-block:: python
-
-            c.Application.logging_config = {
-                "handlers": {
-                    "file": {
-                        "class": "logging.FileHandler",
-                        "level": "DEBUG",
-                        "filename": "<path/to/file>",
-                    }
-                },
-                "loggers": {
-                    "<application-name>": {
-                        "level": "DEBUG",
-                        # NOTE: if you don't list the default "console"
-                        # handler here then it will be disabled
-                        "handlers": ["console", "file"],
-                    },
-                },
-            }
-
-    """,
-    ).tag(config=True)
-
-    def get_default_logging_config(self) -> dict[str, t.Any]:
-        """Return the base logging configuration.
-
-        The default is to log to stderr using a StreamHandler, if no default
-        handler already exists.
-
-        The log handler level starts at logging.WARN, but this can be adjusted
-        by setting the ``log_level`` attribute.
-
-        The ``logging_config`` trait is merged into this allowing for finer
-        control of logging.
-
-        """
-        config: dict[str, t.Any] = {
-            "version": 1,
-            "handlers": {
-                "console": {
-                    "class": "logging.StreamHandler",
-                    "formatter": "console",
-                    "level": logging.getLevelName(self.log_level),  # type:ignore[arg-type]
-                    "stream": "ext://sys.stderr",
-                },
-            },
-            "formatters": {
-                "console": {
-                    "class": (
-                        f"{self._log_formatter_cls.__module__}"
-                        f".{self._log_formatter_cls.__name__}"
-                    ),
-                    "format": self.log_format,
-                    "datefmt": self.log_datefmt,
-                },
-            },
-            "loggers": {
-                self.__class__.__name__: {
-                    "level": "DEBUG",
-                    "handlers": ["console"],
-                }
-            },
-            "disable_existing_loggers": False,
-        }
-
-        if IS_PYTHONW:
-            # disable logging
-            # (this should really go to a file, but file-logging is only
-            # hooked up in parallel applications)
-            del config["handlers"]
-            del config["loggers"]
-
-        return config
-
-    # Simplify default logger, just give Application class name
-    @default("log")
-    def _log_default(self) -> LoggerType:
-        return logging.getLogger(self.__class__.__name__)
-
-    @observe("log_datefmt", "log_format", "log_level", "logging_config")
-    def _observe_logging_change(self, change: Bunch) -> None:
-        # convert log level strings to ints
-        log_level = self.log_level
-        if isinstance(log_level, str):
-            self.log_level = t.cast(int, getattr(logging, log_level))
-        self._configure_logging()
-
-    @observe("log", type="default")
-    def _observe_logging_default(self, change: Bunch) -> None:
-        self._configure_logging()
-
-    def _configure_logging(self) -> None:
-        config = self.get_default_logging_config()
-        nested_update(config, self.logging_config or {})
-        dictConfig(config)
-        # make a note that we have configured logging
-        self._logging_configured = True
-
-    def __del__(self) -> None:
-        self.close_handlers()
-
-    def close_handlers(self) -> None:
-        """Close handlers if they have been opened.
-
-        ie if :attr:`_logging_configured` is True.
-        """
-        if getattr(self, "_logging_configured", False):
-            # don't attempt to close handlers unless they have been opened
-            # (note accessing self.log.handlers will create handlers if they
-            # have not yet been initialised)
-            for handler in self.log.handlers:
-                with suppress(Exception):
-                    handler.close()
-            self._logging_configured = False
