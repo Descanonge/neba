@@ -519,8 +519,8 @@ class DaskConfig(Scheme):
             Arguments passed to the Cluster initialization. They will override
             the current configuration.
         """
-        cluster_cls = self.cluster_names[self.cluster_type]
-        self.cluster = cluster_cls().get_cluster(**kwargs)
+        cluster_scheme = getattr(self, self.cluster_type)
+        self.cluster = cluster_scheme.get_cluster(**kwargs)
         """Dask cluster object, local or distributed via jobqueue."""
 
         self.client = distributed.Client(self.cluster)
