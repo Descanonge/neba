@@ -23,11 +23,11 @@ classifiers = [
     'Topic :: Utilities'
 ]
 
-dependencies = [
-    'xarray>=2023.7',
-    'dask>=2023.7',
-    'filefinder>=1.0'
-]
+# dependencies = [
+#     'xarray>=2023.7',
+#     'dask>=2023.7',
+#     'filefinder>=1.0'
+# ]
 
 [project.urls]
 'Homepage' = 'https://gitlab.in2p3.fr/biofronts/data-assistant'
