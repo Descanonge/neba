@@ -263,12 +263,6 @@ class DaskClusterJobQueue(DaskClusterAbstract):
         help="Seconds to wait for a scheduler before closing workers.",
     )
 
-    worker_command = List(
-        Unicode,  # type: ignore
-        default_value=["distributed.cli.dask_worker"],
-        help="Command to run when launching a worker.",
-    )
-
     worker_extra_args = List(
         Unicode,  # type: ignore
         default_value=[],
