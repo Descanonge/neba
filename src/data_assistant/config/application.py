@@ -12,7 +12,7 @@ from logging.config import dictConfig
 from os import path
 
 from traitlets import Bool, Dict, Enum, List, Unicode, Union, default, observe
-from traitlets.config.configurable import LoggerType, LoggingConfigurable
+from traitlets.config.configurable import LoggingConfigurable
 from traitlets.utils.bunch import Bunch
 from traitlets.utils.nested_update import nested_update
 
@@ -161,10 +161,20 @@ class LoggingMixin(LoggingConfigurable):
 
         return config
 
-    # Simplify default logger, just give Application class name
     @default("log")
-    def _log_default(self) -> LoggerType:
-        return logging.getLogger(self.__class__.__name__)
+    def _log_default(self) -> logging.Logger | logging.LoggerAdapter[t.Any]:
+        """Start logging for this application."""
+        log = logging.getLogger(self.__class__.__name__)
+        log.propagate = False
+        _log = log  # copied from Logger.hasHandlers() (new in Python 3.2)
+        while _log is not None:
+            if _log.handlers:
+                return log
+            if not _log.propagate:
+                break
+            else:
+                _log = _log.parent  # type:ignore[assignment]
+        return log
 
     @observe(
         "log_datefmt", "log_format", "log_level", "lib_log_level", "logging_config"

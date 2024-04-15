@@ -173,7 +173,7 @@ class XarrayWriterPlugin(WriterPluginAbstract):
         # TODO Out to deal with different files, we need different methods call :(
         # That could be a dataset attribute, like OUTPUT_FORMAT
         ds, outfile = call
-        kwargs = kwargs | self.TO_NETCDF_KWARGS
+        kwargs = self.TO_NETCDF_KWARGS | kwargs
         log.debug("Sending single call to %s", outfile)
         return ds.to_netcdf(outfile, **kwargs)
 
