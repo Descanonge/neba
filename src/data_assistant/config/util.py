@@ -207,6 +207,10 @@ class RangeTrait(List[T]):
             args.append(arg)
 
         start, stop, step = args
+
+        if step == 0:
+            raise IndexError("Step cannot be zero.")
+
         step = abs(step)
         descending = start > stop
         if descending:
