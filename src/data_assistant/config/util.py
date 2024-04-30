@@ -139,7 +139,7 @@ class RangeTrait(List[T]):
     """
 
     range_max_len: int = 500
-    range_rgx = re.compile("([-+.0-9]+?):([-+.0-9]+?)(?::([-+.0-9]*?))?")
+    range_rgx = re.compile("([-+.0-9eE]+?):([-+.0-9eE]+?)(?::([-+.0-9eE]*?))?")
     allowed_traits: list[type[TraitType]] = [Float, Int]
 
     def __init__(self, *args, **kwargs) -> None:
