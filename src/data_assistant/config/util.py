@@ -227,10 +227,10 @@ class RangeTrait(List[T]):
             if comp_op(current, stop):
                 break
 
-        if len(values) == self.range_max_len:
+        if len(values) >= self.range_max_len:
             raise IndexError(
                 f"Range length exceding maximum length ({self.range_max_len}). "
-                "Possible misstake, else change FixableTrait.range_max_len"
+                "Possible mistake, else change FixableTrait.range_max_len"
             )
 
         return values
