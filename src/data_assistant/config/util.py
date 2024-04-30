@@ -119,7 +119,7 @@ class ConfigErrorHandler:
         log.log(self.log_level, *args, exc_info=exc)
 
 
-T = t.TypeVar("T", bound=Float | Int)
+T = t.TypeVar("T")
 
 
 class RangeTrait(List[T]):
@@ -159,6 +159,12 @@ class RangeTrait(List[T]):
 
         Will test for a string specifying a range.
         """
+        m = self.range_rgx.fullmatch(s)
+        if m is not None:
+            try:
+                return self.generate_range(*m.groups(default="1"))
+            except Exception as err:
+                raise ValueError(f"Failed to parse range specification {s}") from err
         return super().from_string(s)
 
     def from_string_list(self, s_list: list[str]) -> list[T] | None:
@@ -171,28 +177,27 @@ class RangeTrait(List[T]):
             m = self.range_rgx.fullmatch(s)
             if m is not None:
                 try:
-                    values += self.from_string_range(m)
+                    values += self.generate_range(*m.groups(default="1"))
                 except Exception as err:
-                    raise ValueError(f"Failed to parse range string '{s}") from err
+                    raise ValueError(
+                        f"Failed to parse range specification {s}"
+                    ) from err
             else:
                 values.append(t.cast(T, self.item_from_string(s)))
         return values
 
-    def from_string_range(self, m: re.Match) -> list[T]:
+    def generate_range(self, start_s: str, stop_s: str, step_s: str) -> list[T]:
         """Get a list of value from a range specification.
 
         Parameters
         ----------
-        m
-            Match object resulting from the pattern :attr:`range_rgx`.
-            Should contain groups matching start, stop, and step, in this order, step
-            being optional.
+        start_s, stop_s, step_s
+            Strings parameters found in the range specification. Step cannot be ommited
+            here and must be replaced by a default.
         """
         import operator as op
 
-        args_str = dict(
-            zip(["start", "stop", "step"], m.groups(default="1"), strict=True)
-        )
+        args_str = dict(start=start_s, stop=stop_s, step=step_s)
         args = []
         for var, arg_str in args_str.items():
             arg = self._trait.from_string(arg_str)
