@@ -264,19 +264,19 @@ class DaskClusterJobQueue(DaskClusterAbstract):
     )
 
     worker_extra_args = List(
-        Unicode,  # type: ignore
+        Unicode(),
         default_value=[],
         help="Additional arguments to pass to dask-worker.",
     )
 
     job_script_prologue = List(
-        Unicode,  # type: ignore
+        Unicode(),
         default_value=[],
         help="Other commands to add to script before launching worker.",
     )
 
     job_directives_skip = List(
-        Unicode,  # type: ignore
+        Unicode(),
         default_value=[],
         help=(
             "Directives to skip in the generated job script header. "
@@ -389,7 +389,7 @@ class DaskClusterPBS(DaskClusterJobQueue):
     walltime = Unicode(help="Walltime for each worker job.")
 
     job_extra_directives = List(
-        Unicode,  # type: ignore
+        Unicode(),
         help=(
             "List of other PBS options. "
             "Each option will be prepended with the #PBS prefix."
@@ -435,7 +435,7 @@ class DaskClusterSLURM(DaskClusterJobQueue):
     )
 
     job_extra_directives = List(
-        Unicode,  # type: ignore
+        Unicode(),
         default_value=[],
         help=(
             "List of other PBS options. "
@@ -461,7 +461,7 @@ class DaskConfig(Scheme):
 
     cluster_type = Enum(
         list(DEFAULT_CLUSTER_NAMES.keys()),
-        default_alue="slurm",
+        default_value="slurm",
         help="Cluster type to use.",
     )
 
