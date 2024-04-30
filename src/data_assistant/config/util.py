@@ -22,8 +22,6 @@ from traitlets.traitlets import (
 )
 from traitlets.utils.text import wrap_paragraphs
 
-T = t.TypeVar("T", bound=Float | Int)
-
 if t.TYPE_CHECKING:
     from .application import ApplicationBase
 
@@ -121,6 +119,9 @@ class ConfigErrorHandler:
         log.log(self.log_level, *args, exc_info=exc)
 
 
+T = t.TypeVar("T", bound=Float | Int)
+
+
 class RangeTrait(List[T]):
     """Allow to specify a list of items using ranges.
 
@@ -143,7 +144,7 @@ class RangeTrait(List[T]):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        if self._trait is not None and not isinstance(
+        if self._trait is None or not isinstance(
             self._trait, tuple(self.allowed_traits)
         ):
             name = self.__class__.__name__
