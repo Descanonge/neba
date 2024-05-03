@@ -74,7 +74,6 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
     that some plugin use.
     :meth:`save_excursion` can be used to change parameters temporarily inside a `with`
     block.
-
     """
 
     SHORTNAME: str | None = None

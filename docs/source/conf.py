@@ -57,13 +57,7 @@ autodoc_typehints_description_target = "all"
 autodoc_class_content = "both"
 autodoc_class_signature = "mixed"
 autodoc_type_aliases = {
-    # show the full path
-    "xr.DataArray": "xarray.DataArray",
-    "xr.Dataset": "xarray.Dataset",
-    "np.ndarray": "numpy.ndarray",
-    "ndarray": "numpy.ndarray",
-    "da.Array": "dask.array.Array",
-    # do not show the full path
+    "abc.Mapping": "collections.abc.Mapping",
     "traitlets.traitlets.Int": "~traitlets.Int",
 }
 
