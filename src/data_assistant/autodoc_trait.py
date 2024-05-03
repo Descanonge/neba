@@ -12,6 +12,12 @@ from __future__ import annotations
 import sys
 import typing as t
 
+from docutils import nodes
+from docutils.parsers.rst import directives
+from sphinx.addnodes import desc_sig_space
+from sphinx.domains.python import PyAttribute
+from sphinx.util.typing import OptionSpec
+
 from data_assistant.config.scheme import Scheme
 from data_assistant.config.util import (
     FixableTrait,
@@ -37,7 +43,7 @@ class TraitDocumenter(AttributeDocumenter):
     """Documenter for Trait objects."""
 
     objtype = "trait"
-    directivetype = "attribute"
+    directivetype = "trait"
     priority = AttributeDocumenter.priority + 10
 
     metadata_properties = [
@@ -189,6 +195,9 @@ class TraitDocumenter(AttributeDocumenter):
         ):
             return
 
+        # add prefix
+        self.add_line("   :trait:", sourcename)
+
         if self.options.annotation:
             self.add_line("   :annotation: %s" % self.options.annotation, sourcename)
             return
@@ -205,6 +214,18 @@ class TraitDocumenter(AttributeDocumenter):
         if (alias := self.config.autodoc_type_aliases.get(alias_key, None)) is not None:
             objrepr = alias
         self.add_line("   :type: " + objrepr, sourcename)
+
+
+class PyTrait(PyAttribute):
+    option_spec: t.ClassVar[OptionSpec] = PyAttribute.option_spec.copy()
+    option_spec.update({"trait": directives.flag})
+
+    def get_signature_prefix(self, sig: str) -> list[nodes.Node]:
+        prefix = super().get_signature_prefix(sig)
+        if "trait" in self.options:
+            prefix.append(nodes.Text("trait"))
+            prefix.append(desc_sig_space())
+        return prefix
 
 
 def skip_trait_member(app, what, name, obj, skip, options) -> bool | None:
@@ -277,6 +298,7 @@ class SchemeDocumenter(ClassDocumenter):
 def setup(app: Sphinx):  # noqa: D103
     app.setup_extension("sphinx.ext.autodoc")
     app.add_autodocumenter(TraitDocumenter)
+    directives.register_directive("py:trait", PyTrait)
     app.add_autodocumenter(SchemeDocumenter, False)
     app.connect("autodoc-skip-member", skip_trait_member)
 
