@@ -38,7 +38,7 @@ def subscheme(scheme: type[Scheme]) -> Instance:
     function. It can be used "manually" as well, this will most notably help static
     type checkers understand what is happening.
 
-    So when specifying a subscheme the two lines below are equivalent:
+    So when specifying a subscheme the two lines below are equivalent::
 
         subgroup = MySubgroupScheme
         subgroup = subscheme(MySubgroupScheme)
@@ -376,13 +376,13 @@ class Scheme(Configurable):
                     subscheme = subscheme._subschemes[alias_subkey]
             else:
                 raise UnknownConfigKeyError(
-                    f"Scheme '{'.'.join(fullkey)}' ({subscheme.__class__.__name__}) "
+                    f"Scheme '{'.'.join(fullkey)}' ({_subscheme_clsname(subscheme)}) "
                     f"has no subscheme or alias '{subkey}'."
                 )
 
         if not hasattr(subscheme, lastname):
             raise UnknownConfigKeyError(
-                f"Scheme '{'.'.join(fullkey)}' ({subscheme.__class__.__name__}) "
+                f"Scheme '{'.'.join(fullkey)}' ({_subscheme_clsname(subscheme)}) "
                 f"has no trait '{lastname}'."
             )
         trait = getattr(subscheme, lastname)
@@ -427,13 +427,13 @@ class Scheme(Configurable):
                     subscheme = getattr(subscheme, alias_subkey)
             else:
                 raise UnknownConfigKeyError(
-                    f"Scheme '{'.'.join(fullkey)}' ({subscheme.__class__.__name__}) "
+                    f"Scheme '{'.'.join(fullkey)}' ({_subscheme_clsname(subscheme)}) "
                     f"has no subscheme or alias '{subkey}'."
                 )
 
         if lastname not in subscheme.trait_names():
             raise UnknownConfigKeyError(
-                f"Scheme '{'.'.join(fullkey)}' ({subscheme.__class__.__name__}) "
+                f"Scheme '{'.'.join(fullkey)}' ({_subscheme_clsname(subscheme)}) "
                 f"has no trait '{lastname}'."
             )
         trait = subscheme.traits()[lastname]
@@ -645,3 +645,22 @@ class Scheme(Configurable):
                     params[name] = getattr(self, name)
 
         return params
+
+
+def _subscheme_clsname(scheme: type[Scheme] | Scheme, module: bool = True) -> str:
+    if not isinstance(scheme, type):
+        scheme = scheme.__class__
+
+    mod = ""
+    if module:
+        try:
+            mod = scheme.__module__
+        except AttributeError:
+            pass
+
+    try:
+        name = scheme.__qualname__
+    except AttributeError:
+        return str(scheme)
+
+    return ".".join([mod, name])
