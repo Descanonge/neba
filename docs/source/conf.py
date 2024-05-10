@@ -84,6 +84,7 @@ intersphinx_mapping = {
     "filefinder": ("https://filefinder.readthedocs.io/en/latest", None),
     "traitlets": ("https://traitlets.readthedocs.io/en/stable", None),
     "tomlkit": ("https://tomlkit.readthedocs.io/en/latest/", None),
+    "dask-jobqueue": ("https://jobqueue.dask.org/en/latest/", None),
 }
 
 

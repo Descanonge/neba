@@ -4,64 +4,47 @@
 
 It provides mainly two modules:
 
-## Config
+## Configuration
 
-A configuration framework based on the [traitlets](https://traitlets.readthedocs.io/) library. It allows for a structured configuration with strict validation of the parameters (enforces type of value and eventual additional validation, raise on unknown or invalid input).
-We diverge from the library to give the possibility of a fully nested configuration, compatible with command line arguments, python configuration files (similar to traitlets), but also more conventional configuration files like TOML and YAML.
+The first one for managing the configuration of a project, providing the means to specify a structured, nested configuration in python code using the existing [traitlets](https://traitlets.readthedocs.io/) library. This allows type-checking, value validation and "on-change" callbacks.
 
-The configuration structure is easy to setup, using the python class syntax (parameters are class attributes) and the traitlets objects.
-After parsing, the values can be obtained by nested attributes (`app.parameters.group.subgroup.parameter`), or retrieved as a more universal nested dictionary.
+The parameters values can be retrieved from configuration files (TOML, YAML, or Python files), or from the command line.
 
-Beyond input validation, avoiding typos and other possibly silent mistakes, this modules allow to document each parameter (all traitlets objects have a 'help' keyword argument) which I believe is important for scientific projects.
-This documentation is used for the command line help, configuration files, and documentation-generating tool Sphinx via an extension.
+The whole configuration can easily be documented directly inside the specification code, and this is re-used for the command-line help, automatically generated configuration files, and sphinx documentation with a custom autodoc extension.
 
-## Dask-config
+The submodule [`config.dask_config`](./src/data_assistant/config/dask_config.py) is a show-case of using this for the different parameters necessary when deploying Dask on a local cluster or on distributed machines using [dask-jobqueue](https://jobqueue.dask.org/en/latest/).
+It also provides some convenience start-up functions to get setup quickly.
 
-This sub-module provides all configuration parameters of [dask clusters](https://docs.dask.org/en/latest/deploying.html), local or deployed on high performance networks.
-It can be thought as a showcase, but it also gives "start-up" methods on those configuration objects that start dask clusters and client.
+## Dataset management
 
-## Dataset
+The second module aims to ease the creation and management of datasets with different file format, structure, etc. that can all depend on various parameters.
 
-This module aims to ease the creation and management of multiple dataset with different file format, structure, etc. that can depend on various parameters.
-Each new dataset is specified by creating a subclass of a dataset object. Relevant attributes or methods are overridden to provide information on this dataset. Each instance of this new subclass corresponds to a set of parameters.
+Each new dataset is specified by creating a subclass of a data manager object. Relevant attributes or methods are overridden to provide information on this dataset.
+Each *instance* of this new subclass corresponds to a set of parameters that can be used to change aspects of the dataset on the fly: choose only files for a specific year, change the method to open data, etc.
 
-This framework tries to make those dataset objects as universal as reasonably possible.
-Some common convenience features are written with the data source and format, or the loading library for instance left unspecified.
-Features can be added to the dataset class as needed via a system of independent modules (Mixins classes for the initiated).
+Classes of data managers are made as universal as possible via a system of independent plugins (kinds of mixins) that each add specific features.
+One data manager can deal with multiple files data-source select via glob patterns, loaded into pandas, while another could have a remote data-store as input loaded into xarray.
 
-For example, we can make our base dataset class by adding XarrayMultiFileLoaderModule and XarrayWriterModule to load and write data using [xarray](https://xarray.dev/), and FileFinderModule to manage/find datafiles using the simple syntax of [filefinder](https://filefinder.readthedocs.io/).
+## Documentation
 
-``` python
-class DatasetDefault(XarrayMultiFileLoaderModule, XarrayWriterModule, FileFinderModule, DatasetBase):
-    OPEN_MFDATASET_KWARGS = dict(parallel=True)
-    
-    
-class SST(DatasetDefault):
-    def get_root_directory(self):
-        return "/data/SST"
+https://biofronts.pages.in2p3.fr/data-assistant
 
-    def get_filename_pattern(self):
-        return "%(Y)/SST_%(Y)%(m)%(d).nc"
+## Requirements
+
+- Python >= 3.11
+- traitlets >= 5.13
+
+## Installation
+
+PyPI: someday...🚧 
+
+From source:
+``` shell
+git clone https://gitlab.in2p3.fr/biofronts/data-assistant
+cd data-assistant
+pip install -e .
 ```
-
-This can allow for a little more advanced functionalities, here for instance we combine the writing module with the filefinder one, so that we can automatically split data to different files when writing to disk using the specified filename pattern.
-
-``` python
-class DatasetDefault(XarrayMultiFileLoaderModule, XarraySplitWriterModule, DatasetBase):
-    OPEN_MFDATASET_KWARGS = dict(parallel=True)
-    
-...
-
-```
-
-Say we obtain our SST dataset as a `xarray.Dataset`, we can write our daily data to disk in monthly files.
-It would also distribute among any other parameters present in the filename pattern.
-And by supplying a Dask client, this is going to be done in parallel:
-
-``` python
-SST(**maybe_our_parameters).write(
-    sst,
-    time_freq="M",
-    client=client
-)
+or
+``` shell
+pip install -e https://gitlab.in2p3.fr/biofronts/data-assistant.git#egg=data-assistant
 ```
