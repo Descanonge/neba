@@ -6,7 +6,7 @@ Dataset management
 
 This package has a submodule :mod:`~data_assistant.data` to ease the creation
 and management of multiple dataset with different file format, structure, etc.
-that can depend on various parameters.
+that can all depend on various parameters.
 
 Each new dataset is specified by creating a new subclass of
 :class:`~data_manager.DataManagerBase`.

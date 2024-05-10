@@ -1,8 +1,8 @@
 
 .. currentmodule:: data_assistant
 
-Parameters management
----------------------
+Configuration management
+------------------------
 
 This package provide a submodule :mod:`.config` to help managing the parameters
 of a project.
