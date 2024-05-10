@@ -18,12 +18,15 @@ could be done by a plugin of its own, if this is necessary.
 
 from __future__ import annotations
 
+import logging
 import typing as t
 from collections import abc
 
 from data_assistant.config import Scheme
 
 from .plugin import CachePlugin, Plugin
+
+log = logging.getLogger(__name__)
 
 T_Data = t.TypeVar("T_Data")
 """Type of data (numpy, pandas, xarray, etc.)."""
@@ -188,7 +191,7 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
         """
         raise NotImplementedError("Implement in your DataManager subclass or a plugin.")
 
-    def save_excursion(self) -> _DataManagerContext:
+    def save_excursion(self, save_cache: bool = False) -> _DataManagerContext:
         """Save and restore current parameters after a with block.
 
         For instance::
@@ -202,15 +205,20 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
             # we are back to self.params["p"] = 0
 
         Any exception happening in the with block will be raised.
-        If the datamanager has a cache plugin, its content will not be saved. This
-        could be implemented in the future though.
+
+        Parameters
+        ----------
+        save_cache: If true, save and restore the cache. The context reset the
+            parameters of the data manager using :meth:`set_params` and then restore any
+            saved key in the cache, *without overwriting*. This may lead to unexpected
+            behavior and is disabled by default.
 
         Returns
         -------
         context
             Context object containing the original parameters.
         """
-        return _DataManagerContext(self)
+        return _DataManagerContext(self, save_cache)
 
     def get_data_sets(
         self,
@@ -299,14 +307,40 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
 
 
 class _DataManagerContext:
-    def __init__(self, dm: DataManagerBase):
+    def __init__(self, dm: DataManagerBase, save_cache: bool):
         self.dm = dm
         self.params = dm.params.copy()
+        self.cache: dict | None = None
+
+        if save_cache and isinstance(dm, CachePlugin):
+            self.cache = dict(dm.cache)
+
+    def repopulate_cache(self):
+        for key, val in self.cache:
+            # do not overwrite current cache
+            if not self.dm.is_cached(key):
+                self.dm.set_in_cache(key, val)
+                continue
+
+            # check that there is correspondance with saved and current cache
+            current_val = self.dm.get_cached(key)
+            if current_val != val:
+                log.warning(
+                    "Different value when restoring cache for key %s, "
+                    "saved '%s', has '%s'.",
+                    key,
+                    str(val),
+                    str(current_val),
+                )
 
     def __enter__(self) -> t.Self:
         return self
 
     def __exit__(self, *exc):
         self.dm.set_params(self.params)
+
+        if self.cache is not None:
+            self.repopulate_cache()
+
         # return false to raise any exception that may have occured
         return False

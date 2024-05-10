@@ -62,10 +62,10 @@ class CachePlugin(Plugin):
     is difficult, even with introspection (at runtime, all methods are bound to the
     same DataManager object!).
 
-    There is currently no proposed solution other than hard-code keys so that there are
+    There is currently no proposed solution other than hard-coded keys so that they are
     attached to their plugin, using the plugin class name for instance. This is done
-    automatically when using the :func:`autocached` decorator on properties. This use
-    the key ``{plugin class name}::{property name}``.
+    automatically when using the :func:`autocached` decorator on properties. This
+    automatically use the key ``{plugin class name}::{property name}``.
     """
 
     def _init_plugin(self) -> None:
@@ -84,6 +84,10 @@ class CachePlugin(Plugin):
     def set_in_cache(self, key: str, value: t.Any):
         """Add value to the plugin cache."""
         self.cache[key] = value
+
+    def is_cached(self, key: str) -> bool:
+        """Check if key is cached."""
+        return key in self.cache
 
     def _key_error(self, key: str):
         """Raise slightly more informative message on cache miss."""
