@@ -23,6 +23,10 @@ classifiers = [
     'Topic :: Utilities'
 ]
 
+dependencies = [
+"traitlets>=5.13"
+]
+
 # dependencies = [
 #     'xarray>=2023.7',
 #     'dask>=2023.7',
