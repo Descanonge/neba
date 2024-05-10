@@ -251,11 +251,11 @@ class Scheme(Configurable):
 
     def remap(
         self,
-        func: abc.Callable[
-            [Configurable, dict, abc.Hashable, TraitType, list[str]], None
-        ],
+        func: abc.Callable[[Configurable, dict, str, TraitType, list[str]], None]
+        | None,
+        flatten: bool = False,
         **metadata,
-    ) -> dict[abc.Hashable, t.Any]:
+    ) -> dict[str, t.Any]:
         """Recursively apply function to traits.
 
         Parameters
@@ -273,46 +273,53 @@ class Scheme(Configurable):
         """
 
         def recurse(scheme: Scheme, outsec: dict, path: list[str]):
-            for name, trait in outsec.items():
-                newpath = path + [name]
-                if name in scheme._subschemes:
-                    subscheme = getattr(scheme, name)
-                    recurse(subscheme, outsec[name], newpath)
-                else:
-                    func(scheme, outsec, name, trait, newpath)
+            for name, trait in scheme.traits(**metadata, subscheme=None).items():
+                fullpath = path + [name]
+                key = ".".join(fullpath) if flatten else name
+                outsec[key] = trait
+                if func is not None:
+                    func(scheme, outsec, key, trait, fullpath)
 
-        output = self.traits_recursive(**metadata)
+            for name in scheme._subschemes:
+                if flatten:
+                    sub_outsec = outsec
+                else:
+                    outsec[name] = {}
+                    sub_outsec = outsec[name]
+
+                recurse(getattr(scheme, name), sub_outsec, path + [name])
+
+        output: dict[str, t.Any] = dict()
         recurse(self, output, [])
         return output
 
-    def traits_recursive(self, **metadata) -> dict:
+    def traits_recursive(self, flatten: bool = False, **metadata) -> dict[str, t.Any]:
         """Return nested dictionnary of traits."""
-        traits = dict()
-        for name, trait in self.traits(**metadata, subscheme=None).items():
-            traits[name] = trait
-        for name in self._subschemes:
-            traits[name] = getattr(self, name).traits_recursive(**metadata)
-        return traits
+        return self.remap(func=None, flatten=flatten, **metadata)
 
-    def defaults_recursive(self, config=True, **metadata):
+    def defaults_recursive(
+        self, config=True, flatten: bool = False, **metadata
+    ) -> dict[str, t.Any]:
         """Return nested dictionnary of default traits values."""
 
         def f(configurable, output, key, trait, path):
             output[key] = trait.default()
 
-        output = self.remap(f, config=config, **metadata)
+        output = self.remap(f, config=config, flatten=flatten, **metadata)
         return output
 
-    def values_recursive(self, config=True, **metadata):
+    def values_recursive(
+        self, config=True, flatten: bool = False, **metadata
+    ) -> dict[str, t.Any]:
         """Return nested dictionnary of traits values."""
 
         def f(configurable, output, key, trait, path):
             output[key] = trait.get(configurable)
 
-        output = self.remap(f, config=config, **metadata)
+        output = self.remap(f, config=config, flatten=flatten, **metadata)
         return output
 
-    def values(self, select: list[str] | None = None) -> dict:
+    def values(self, select: list[str] | None = None) -> dict[str, t.Any]:
         """Return selection of parameters.
 
         Only direct traits. Subschemes are ignored.
