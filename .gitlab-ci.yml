@@ -24,15 +24,15 @@ default:
 pages:
   extends:
     - .standard-rules
-    stage: docs
-    variables:
-      DOC_BUILD_DIR: _build
-    script:
-      - pip install sphinx sphinx-book-theme
-      - pip install -e .
-      - cd docs
-      - sphinx-build -b html -d $DOC_BUILD_DIR/doctrees . $DOC_BUILD_DIR/html
-      - mv $DOC_BUILD_DIR/html "$CI_PROJECT_DIR/public"
-    artifacts:
-      paths:
-        - public
+  stage: docs
+  variables:
+    DOC_BUILD_DIR: _build
+  script:
+    - pip install sphinx sphinx-book-theme
+    - pip install -e .
+    - cd docs
+    - sphinx-build -b html -d $DOC_BUILD_DIR/doctrees . $DOC_BUILD_DIR/html
+    - mv $DOC_BUILD_DIR/html "$CI_PROJECT_DIR/public"
+  artifacts:
+    paths:
+      - public
