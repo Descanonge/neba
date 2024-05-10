@@ -1,0 +1,38 @@
+
+stages:
+  - docs
+
+.standard-rules:
+  rules:
+    - if: $CI_PIPELINE == 'merge_request_event'
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+default:
+  image: python:latest
+  cache:
+    paths:
+      - .cache/pip
+  before_script:
+    - python --version; pip --version
+    - pip install virtualenv
+    - virtualenv venv
+    - source venv/bin/activate
+
+pages:
+  extends:
+    - .standard-rules
+    stage: docs
+    variables:
+      DOC_BUILD_DIR: _build
+    script:
+      - pip install sphinx sphinx-book-theme
+      - pip install -e .
+      - cd docs
+      - sphinx-build -b html -d $DOC_BUILD_DIR/doctrees . $DOC_BUILD_DIR/html
+      - mv $DOC_BUILD_DIR/html "$CI_PROJECT_DIR/public"
+    artifacts:
+      paths:
+        - public
