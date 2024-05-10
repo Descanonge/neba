@@ -1,7 +1,6 @@
 """Specify parameters in a configuration tree."""
 
 from .application import ApplicationBase, LoggingMixin
-from .dask_config import DaskConfig
 from .loader import (
     CLILoader,
     ConfigLoader,
@@ -21,7 +20,6 @@ __all__ = [
     "CLILoader",
     "ConfigLoader",
     "ConfigValue",
-    "DaskConfig",
     "FileLoader",
     "FixableTrait",
     "LoggingMixin",
