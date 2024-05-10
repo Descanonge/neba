@@ -1,6 +1,7 @@
 
 Things to remember:
 howto chunk ?
+
 - small enough that many of them fit in memory
 - big enough so that the computation of one task (= one python function call)
   is significantly longer than the overhead of that task (1ms), to be worth it.
@@ -36,6 +37,7 @@ The distributed scheduler is recommended, and has plenty of additionnal features
 that are welcome.
 
 Remember:
+
 - if your computation release the GIL (like functions from numpy, scipy, pandas),
   you can parallelize just with threads. Prefer then having multiple threads,
   in the limit of (memory) ressources of course.
