@@ -316,7 +316,7 @@ class _DataManagerContext:
             self.cache = dict(dm.cache)
 
     def repopulate_cache(self):
-        for key, val in self.cache:
+        for key, val in self.cache.items():
             # do not overwrite current cache
             if not self.dm.is_cached(key):
                 self.dm.set_in_cache(key, val)
