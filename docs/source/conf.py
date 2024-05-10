@@ -40,8 +40,8 @@ extensions = [
     "data_assistant.autodoc_trait",
     "sphinx.ext.intersphinx",
     "sphinx.ext.autodoc",
-    "sphinx.ext.napoleon",
     "sphinx.ext.autosummary",
+    "sphinx.ext.napoleon",
 ]
 
 add_module_names = False
@@ -57,14 +57,15 @@ autodoc_typehints_description_target = "all"
 autodoc_class_content = "both"
 autodoc_class_signature = "mixed"
 autodoc_type_aliases = {
-    "abc.Mapping": "collections.abc.Mapping",
     "traitlets.traitlets.Int": "~traitlets.Int",
 }
+
+python_use_unqualified_type_names = True
 
 autodoc_default_options = {"show-inheritance": True, "inherited-members": False}
 
 ## Autosummary config
-autosummary_generate = True
+autosummary_generate = ["api.rst"]
 
 ## Napoleon config
 napoleon_google_docstring = False

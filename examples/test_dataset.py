@@ -1,5 +1,5 @@
-from data_assistant.dataset import DataManagerBase
-from data_assistant.dataset.xarray import (
+from data_assistant.data import DataManagerBase
+from data_assistant.data.xarray import (
     XarrayMultiFileLoaderPlugin,
     XarraySplitWriterPlugin,
 )

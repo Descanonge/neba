@@ -40,17 +40,17 @@ class, and are of type :class:`traitlets.TraitType` (for instance
 .. note::
 
    Traits can be confusing at first. They are a sort of
-   :external+python:doc:`descriptor<howto/descriptor>`. They are used as
-   **instances** bound to a **class**. For instance::
+   :external+python:doc:`descriptor<howto/descriptor>`. A trait is an
+   **instance** bound to a **class**. For instance::
 
      class Container(Scheme):
          name = Float(default_value=1.)
 
-   From this we can access the trait instance with ``Container.name``, but this
-   instance only contain the parameters used for its definition, **it does not
-   hold any actual value**.
+   From this we can access the trait instance with ``Container.name``, but it
+   only contain the parameters used for its definition, **it does not hold any
+   actual value**.
 
-   But if we create an *instance* of the container, when we access ``name``
+   But if we create an **instance of the container**, when we access ``name``
    we will obtain a value, **not a trait**::
 
      >>> c = Container()
@@ -194,10 +194,10 @@ definition like so::
   some_parameter = Bool(True).tag(for_this_function=True)
 
 These traits can then automatically be retrieved using the `metadata` argument
-of the function above.
+of the function above (adding ``for_this_function=True`` to the call).
 Schemes also feature a specialized function for this use case:
 :meth:`Scheme.trait_values_from_func_signature` will find the parameters that
-share the same name as argument in the function signature.
+share the same name as arguments in the function signature.
 
 
 Input parameters
@@ -221,9 +221,8 @@ this key correspond to.
 
 .. important::
 
-   Unlike *vanilla* traitlets, the way we populate Schemes allows to have
-   multiple instances of the same configurable (ie scheme) with different
-   configurations.
+   Unlike *vanilla* traitlets, the way we populate instances allows to have
+   multiple instances of the same Scheme with different configurations.
 
 The key can be a succession of attribute names pointing to a trait, start from
 the application. With the same example as above for instance:
@@ -262,7 +261,7 @@ values that will always be interpreted as a list.
 
 Implementation detail: it is difficult to account for every way a trait can be
 indicated. Instead any parameter is accepted by argparser (there is a little
-trickery explained in the module :mod:`.loader`).
+trickery explained in the module :mod:`.config.loader`).
 
 Normalization of configuration keys
 +++++++++++++++++++++++++++++++++++

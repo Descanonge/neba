@@ -160,7 +160,8 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
 
         Parameters
         ----------
-        reset: If True all callbacks are run (default), if False none are run. Can also
+        reset
+            If True all callbacks are run (default), if False none are run. Can also
             be a list of specific callback names to run (keys in the dictionary
             :attr:`_RESET_CALLBACKS`).
         """
@@ -237,10 +238,11 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
 
         Parameters
         ----------
-        save_cache: If true, save and restore the cache. The context reset the
-            parameters of the data manager using :meth:`set_params` and then restore any
-            saved key in the cache, *without overwriting*. This may lead to unexpected
-            behavior and is disabled by default.
+        save_cache:
+            If true, save and restore the cache. The context reset the parameters of the
+            data manager using :meth:`set_params` and then restore any saved key in the
+            cache, *without overwriting*. This may lead to unexpected behavior and is
+            disabled by default.
 
         Returns
         -------
