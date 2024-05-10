@@ -130,7 +130,7 @@ class WriterPluginAbstract(Plugin):
         raise NotImplementedError("Implement in plugin subclass.")
 
 
-class WriterMultiFileAbstract(WriterPluginAbstract):
+class WriterMultiFilePluginAbstract(WriterPluginAbstract):
     """Add basic functionalities for multifile datasets.
 
     Allow to deal with multiple calls: check if there is some conflict of filename

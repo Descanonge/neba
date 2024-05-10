@@ -5,7 +5,7 @@ from .loader import LoaderPluginAbstract
 from .plugin import CachePlugin, Plugin, autocached
 from .register import DatasetStore
 from .source import GlobPlugin, MultiFilePluginAbstract
-from .writer import WriterMultiFileAbstract, WriterPluginAbstract
+from .writer import WriterMultiFilePluginAbstract, WriterPluginAbstract
 
 __all__ = [
     "CachePlugin",
@@ -15,7 +15,7 @@ __all__ = [
     "LoaderPluginAbstract",
     "MultiFilePluginAbstract",
     "Plugin",
-    "WriterMultiFileAbstract",
+    "WriterMultiFilePluginAbstract",
     "WriterPluginAbstract",
     "autocached",
 ]

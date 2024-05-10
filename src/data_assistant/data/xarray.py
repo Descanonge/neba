@@ -10,7 +10,7 @@ import xarray as xr
 
 from .filefinder import FileFinderPlugin
 from .loader import LoaderPluginAbstract
-from .writer import WriterMultiFileAbstract, WriterPluginAbstract
+from .writer import WriterMultiFilePluginAbstract, WriterPluginAbstract
 
 if t.TYPE_CHECKING:
     try:
@@ -178,7 +178,7 @@ class XarrayWriterPlugin(WriterPluginAbstract):
         return ds.to_netcdf(outfile, **kwargs)
 
 
-class XarrayMultiFileWriterPlugin(XarrayWriterPlugin, WriterMultiFileAbstract):
+class XarrayMultiFileWriterPlugin(XarrayWriterPlugin, WriterMultiFilePluginAbstract):
     """Write from an xarray dataset to multiple files using Dask."""
 
     def send_calls_together(
