@@ -77,6 +77,11 @@ class CachePlugin(Plugin):
             self.cache: dict[str, t.Any] = {}
             """Cache dictionnary."""
 
+        def callback(dm: CachePlugin, **kwargs):
+            dm.clean_cache()
+
+        self._RESET_CALLBACKS["void_cache"] = callback
+
     def clean_cache(self) -> None:
         """Clean the cache of all variables."""
         self.cache.clear()

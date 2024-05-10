@@ -79,6 +79,13 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
     block.
     """
 
+    _RESET_CALLBACKS: dict[str, abc.Callable[..., None]] = {}
+    """Dictionary of callbacks to run when parameters are changed/reset.
+
+    Callbacks should be functions that take the data manager as first argument, then
+    any number of keyword arguments.
+    """
+
     SHORTNAME: str | None = None
     """Short name to refer to this data-manager class."""
     ID: str | None = None
@@ -115,6 +122,7 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
     def set_params(
         self,
         params: abc.Mapping[str, t.Any] | Scheme | None = None,
+        reset: bool | list[str] = True,
         **kwargs,
     ):
         """Set parameters values.
@@ -123,6 +131,8 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
         ----------
         params:
             Mapping of the parameters names to their values.
+        reset:
+            Passed to :meth:`reset_callback`.
         kwargs:
             Other parameters values in the form ``name=value``.
             Parameters will be taken in order of first available in:
@@ -138,11 +148,30 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
         params.update(kwargs)
 
         self.params.update(params)
+        self.reset_callback(reset, params=params)
 
-        if has_plugin(self, CachePlugin):
-            self.clean_cache()
+    def reset_callback(self, reset: bool | list[str], **kwargs):
+        """Call all registered callbacks when parameters are reset/changed.
 
-        # self.check_known_param(params)
+        Plugins should register callback in the dictionary :attr:`_RESET_CALLBACKS`
+        during :meth:`~.plugin.Plugin._init_plugin`.
+        Callbacks should be functions that take the data manager as first argument, then
+        any number of keyword arguments.
+
+        Parameters
+        ----------
+        reset: If True all callbacks are run (default), if False none are run. Can also
+            be a list of specific callback names to run (keys in the dictionary
+            :attr:`_RESET_CALLBACKS`).
+        """
+        if reset is False:
+            return
+        if reset is True:
+            reset = list(self._RESET_CALLBACKS.keys())
+
+        for key in reset:
+            callback = self._RESET_CALLBACKS[key]
+            callback(self, **kwargs)
 
     def __str__(self) -> str:
         """Return a string representation."""
