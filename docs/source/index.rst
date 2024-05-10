@@ -63,7 +63,10 @@ input loaded into xarray.
 
    api
 
+Links
+-----
 
+Project home: https://gitlab.in2p3.fr/biofronts/data-assistant
 
 Indices and tables
 ------------------
