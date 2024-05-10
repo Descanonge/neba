@@ -12,7 +12,7 @@ from collections import abc
 from inspect import Parameter, signature
 from textwrap import dedent
 
-from traitlets import Bool, Enum, Instance, TraitType
+from traitlets import Bool, Enum, Instance, TraitType, Undefined
 from traitlets.config import Configurable
 
 from .loader import ConfigValue
@@ -610,6 +610,7 @@ class Scheme(Configurable):
 
         Only consider the function arguments that can supplied as a keyword
         argument, and whose name is that of a configurable trait.
+        A trait without value (specified or default) will be ignored.
         Unbound arguments (ie ``**kwargs``) are ignored.
 
         Parameters
@@ -640,9 +641,11 @@ class Scheme(Configurable):
 
         for name, p in sig.parameters.items():
             if p.kind in [Parameter.POSITIONAL_OR_KEYWORD, Parameter.KEYWORD_ONLY]:
-                print(name)
                 if name in trait_names:
-                    params[name] = getattr(self, name)
+                    value = getattr(self, name)
+                    if value is Undefined:
+                        continue
+                    params[name] = value
 
         return params
 
