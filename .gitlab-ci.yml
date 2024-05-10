@@ -31,7 +31,7 @@ pages:
     - pip install sphinx sphinx-book-theme
     - pip install -e .
     - cd docs
-    - sphinx-build -b html -d $DOC_BUILD_DIR/doctrees . $DOC_BUILD_DIR/html
+    - sphinx-build -b html -d $DOC_BUILD_DIR/doctrees ./source $DOC_BUILD_DIR/html
     - mv $DOC_BUILD_DIR/html "$CI_PROJECT_DIR/public"
   artifacts:
     paths:

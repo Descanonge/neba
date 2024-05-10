@@ -50,8 +50,6 @@ One data manager can deal with multiple files data-source select via glob
 patterns, loaded into pandas, while another could have a remote data-store as
 input loaded into xarray.
 
-::
-
 .. toctree::
    :maxdepth: 1
    :caption: Contents:
