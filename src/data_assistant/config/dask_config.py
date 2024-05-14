@@ -399,6 +399,17 @@ class DaskClusterPBS(DaskClusterJobQueue):
 
 @tag_all_traits(cluster_args=True)
 class DaskClusterSLURM(DaskClusterJobQueue):
+    """Config for SLURM Cluster.
+
+    I deviate from documented parameters of :class:`dask_jobqueue.slurm.SLURMJob` that
+    do not seem to be correct (`job_cpu` is not used it seems to me?).
+
+    The traits :attr:`workers_per_job`, :attr:`threads_per_job` and
+    :attr:`mem_per_worker` will be used to obtain necessary parameters (
+    :attr:`~DaskClusterJobQueue.cores`, :attr:`~DaskClusterJobQueue.processes`
+    and :attr:`~DaskClusterJobQueue.memory`).
+    """
+
     cluster_class = "dask_jobqueue.SLURMCluster"
 
     queue = Unicode(
@@ -418,22 +429,6 @@ class DaskClusterSLURM(DaskClusterJobQueue):
 
     walltime = Unicode(None, allow_none=True, help="Walltime for each worker job.")
 
-    job_cpu = Int(
-        help=(
-            "Number of cpu to book in SLURM, if None, defaults to worker "
-            "`threads * processes`"
-        )
-    )
-
-    job_mem = Unicode(
-        None,
-        allow_none=True,
-        help=(
-            "Amount of memory to request in SLURM. If None, defaults "
-            "to worker processes * memory"
-        ),
-    )
-
     job_extra_directives = List(
         Unicode(),
         default_value=[],
@@ -442,6 +437,28 @@ class DaskClusterSLURM(DaskClusterJobQueue):
             "Each option will be prepended with the #PBS prefix."
         ),
     )
+
+    workers_per_job = Int(1, help="Number of workers per job").tag(cluster_args=False)
+
+    threads_per_job = Int(1, help="Number of threads per job").tag(cluster_args=False)
+
+    mem_per_worker = Int(4, help="Number memory in GiB per worker").tag(
+        cluster_args=False
+    )
+
+    def get_cluster_kwargs(self) -> dict:
+        """Return cluster keyword arguments.
+
+        Uses :attr:`workers_per_job`, :attr:`threads_per_job` and :attr:`mem_per_worker`
+        to obtain necessary arguments.
+        """
+        kwargs = super().get_cluster_kwargs()
+
+        kwargs["cores"] = self.threads_per_job * self.workers_per_job
+        kwargs["processes"] = self.workers_per_job
+        kwargs["memory"] = f"{self.workers_per_job * self.mem_per_worker}GiB"
+
+        return kwargs
 
 
 DEFAULT_CLUSTER_NAMES = {
