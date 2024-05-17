@@ -295,6 +295,8 @@ class FixableTrait(Union):
 def tag_all_traits(**metadata) -> abc.Callable:
     """Tag all class-own traits.
 
+    Do not replace existing tags.
+
     Parameters
     ----------
     metadata:
@@ -303,7 +305,9 @@ def tag_all_traits(**metadata) -> abc.Callable:
 
     def decorator(cls: type[Configurable]):
         for trait in cls.class_own_traits().values():
-            trait.tag(**metadata)
+            for key, value in metadata.items():
+                if key not in trait.metadata:
+                    trait.tag(**{key: value})
         return cls
 
     return decorator
