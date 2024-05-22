@@ -150,29 +150,53 @@ class Scheme(Configurable):
         return self.__class__.__name__
 
     def __repr__(self) -> str:
-        lines = [f"{self.__class__.__name__}:"]
-        for key, trait in self.traits(config=True).items():
-            if key in self._subschemes:
-                continue
-            trait_cls = trait.__class__.__name__
+        return "\n".join(self._get_lines())
+
+    def _get_lines(self, header: str = "") -> list[str]:
+        line = "\u2574"
+        branch = "\u251c" + line
+        elbow = "\u2514" + line
+        branch_subscheme = "\u251d" + "\u2501" * len(line) + "\u2511"
+        elbow_subscheme = "\u2515" + "\u2501" * len(line) + "\u2511"
+        pipe = "\u2502" + " " * len(line)
+        blank = " " * len(pipe)
+
+        lines = [self.__class__.__name__]
+        traits = self.traits(config=True, subscheme=None)
+        for i, (key, trait) in enumerate(traits.items()):
+            symb = branch
+            if i == len(traits) - 1 and not self._subschemes:
+                symb = elbow
+
+            trait_cls = get_trait_typehint(trait, mode="minimal")
             value = trait.get(self)
             default = trait.default()
-            lines.append(f"  -{key}: {value} [{trait_cls}, default: {default}]")
 
-        # TODO: add Enum
+            to_add = []
+            if value != default:
+                to_add += [f"default: {default}"]
+            if isinstance(trait, Enum) and trait.values is not None:
+                to_add += [str(set(trait.values))]
 
-        if self._subschemes:
-            lines.append(
-                "subschemes: {}".format(
-                    ", ".join(
-                        [
-                            f"{k} ({subscheme.__name__})"
-                            for k, subscheme in self._subschemes.items()
-                        ]
-                    )
-                )
-            )
-        return "\n".join(lines)
+            trait_str = f"{trait_cls}"
+            if to_add:
+                trait_str += f"[{', '.join(to_add)}]"
+            trait_str = f"({trait_str})"
+
+            lines.append(f"{header}{symb}{key}: {value}  {trait_str}")
+
+        for i, name in enumerate(self._subschemes):
+            lines.append(header + pipe)
+            is_last = i == len(self._subschemes) - 1
+
+            subscheme: Scheme = getattr(self, name)
+            sublines = subscheme._get_lines(header + (blank if is_last else pipe))
+
+            symb = elbow_subscheme if is_last else branch_subscheme
+            sublines[0] = f"{header}{symb}{name}: {sublines[0]}"
+            lines += sublines
+
+        return lines
 
     def __dir__(self):
         if not self._attr_completion_only_traits:
