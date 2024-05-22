@@ -5,11 +5,16 @@ Currently mainly give some basic options for the source being multiple files on 
 from __future__ import annotations
 
 import logging
-from os import path
+from collections import abc
+from os import PathLike, path
+from typing import TYPE_CHECKING
 
 from .plugin import CachePlugin, autocached
 
 log = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from filefinder import Finder
 
 
 class MultiFilePluginAbstract(CachePlugin):
@@ -125,3 +130,215 @@ class GlobPlugin(MultiFilePluginAbstract, CachePlugin):
         if len(files) == 0:
             log.warning("No file found for pattern %s", pattern)
         return files
+
+
+class FileFinderPlugin(MultiFilePluginAbstract, CachePlugin):
+    """Multifiles manager using Filefinder.
+
+    Written for datasets comprising of many datafiles, either because of the have long
+    time series, or many parameters.
+    The user has to define two methods. One returning the root directory containing
+    all the datafiles (:meth:`get_root_directory`). And another one returning the
+    filename pattern (:meth:`get_filename_pattern`). Using methods allows to return
+    a different directory or pattern depending on the parameters.
+
+    TODO: only parameters in pattern can give multiple files openend together.
+          parameters from directory would require multiple get_data calls.
+
+    The filename pattern specify the parts of the datafiles that vary from file to file
+    using a powerful syntax. See the filefinder package `documentation
+    <https://filefinder.readthedocs.io/en/latest/>`_ for the details.
+
+    The parameters that are specified in the filename pattern, and thus correspond to
+    variations from file to file (the date in daily datafiles for instance) are called
+    'fixables'. If they are not set, the filemanager will select all files, which is
+    okay for finding files and opening the corresponding data. If the user 'fix' them to
+    a value, only part of the files will be selected. Some operation require all
+    parameters to be set, for instance to generate a specific filename.
+
+    The fixable parameters are added to the dataset allowed parameters uppon
+    initialization, which is important if parameters checking is enabled.
+    """
+
+    def get_filename_pattern(self) -> str:
+        """Return the filename pattern.
+
+        The filename pattern specify the parts of the datafiles that vary from file to
+        file. See the filefinder package `documentation
+        <https://filefinder.readthedocs.io/en/latest/>`_ for the details.
+
+        :Not implemented: implement in your DataManager class.
+        """
+        raise NotImplementedError("Implement in your DataManager class.")
+
+    # def _init_plugin(self) -> None:
+    #     super()._init_plugin()
+
+    #     Add fixable_params to the dataset allowed_params
+    #     self.allowed_params |= set(self.fixable)
+
+    def __repr__(self) -> str:
+        s = super().__repr__().splitlines()
+        # autocached prop has full qualified name
+        if "FileFinderPlugin::filefinder" in self.cache:
+            s.append("Filefinder:")
+            s += [f"\t{line}" for line in str(self.filefinder).splitlines()]
+        return "\n".join(s)
+
+    def get_filename(self, **fixes) -> str:
+        """Create a filename corresponding to a set of parameters values.
+
+        All parameters must be defined, either by the parent
+        :attr:`DatasetAbstract.params`, or by the ``fixes`` arguments.
+
+        Parameters
+        ----------
+        fixes:
+            Parameters to fix to specific values. Only parameters defined in the
+            filename pattern can be fixed. Will take precedence over the
+            parent ``params`` attribute.
+        """
+        # Check they can be fixed (they exist in the pattern)
+        for f in fixes:
+            if f not in self.fixable:
+                raise KeyError(f"Parameter {f} cannot be fixed '{self}'.")
+
+        # In case params were changed sneakily and the cache was not invalidated
+        fixable_params = {
+            p: value for p, value in self.params.items() if p in self.fixable
+        }
+        fixes = fixable_params | fixes
+
+        # Remove parameters set to None, FileFinder is not equipped for that
+        fixes = {p: value for p, value in fixes.items() if value is not None}
+
+        filename = self.filefinder.make_filename(fixes)
+        return filename
+
+    @property
+    @autocached
+    def filefinder(self) -> Finder:
+        """Filefinder instance to scan for datafiles.
+
+        Is also used to create filenames for a specific set of parameters.
+        """
+        from filefinder import Finder
+
+        finder = Finder(self.root_directory, self.get_filename_pattern())
+
+        # We now fix the parameters present in the filename (we don't have to worry
+        # about them after that). We re-use code from self.fixable to avoid
+        # infinite recursion
+        fixable = [g.name for g in finder.groups]
+
+        for p, value in self.params.items():
+            if p in fixable and value is not None:
+                finder.fix_group(p, value)
+        return finder
+
+    @property
+    @autocached
+    def fixable(self) -> list[str]:
+        """List of parameters that can vary in the filename.
+
+        Found automatically from a :class:`filefinder.Finder` instance.
+        This correspond to the list of the group names in the Finder (without
+        duplicates).
+        """
+        fixable = [g.name for g in self.filefinder.groups]
+        # remove duplicates
+        return list(set(fixable))
+
+    @property
+    @autocached
+    def unfixed(self) -> list[str]:
+        """List of varying parameters whose value is not fixed.
+
+        Considering the current set of parameters of the dataset.
+        Parameters set to ``None`` or set to a sequence of values are considered
+        unfixed.
+        """
+        unfixed = [
+            g.name
+            for g in self.filefinder.groups
+            if g.fixed_value is None or isinstance(g.fixed_value, abc.Sequence)
+        ]
+        # remove duplicates
+        return list(set(unfixed))
+
+    @property
+    @autocached
+    def datafiles(self) -> list[str]:
+        """Datafiles available.
+
+        Use the :attr:`filefinder` object to scan for files corresponding to
+        the filename pattern.
+        """
+        files = self.filefinder.get_files()
+        if len(files) == 0:
+            log.warning("No file found for finder:\n%s", self.filefinder)
+        return files
+
+
+class climato:  # noqa: N801
+    """Create a Dataset subclass for climatology.
+
+    Generate new subclass of a dataset that correspond to its climatology.
+    Have to wrap around base class get_root and get_pattern.
+    Pattern is not easy, we have to get rid of time related groups.
+
+    Parameters
+    ----------
+    append_folder:
+        If None, do not change the root directory. If is a string, append it as a
+        new directory.
+    """
+
+    def __init__(self, append_folder: str | None = None):
+        self.append_folder = append_folder
+
+    def __call__(self, cls: FileFinderPlugin):
+        """Apply decorator."""
+        from filefinder import Finder
+
+        time_pattern_names = "SXMHjdxFmBY"
+
+        # Change get_root_directory
+        if self.append_folder:
+
+            def get_root_dir_wrapped(obj):
+                root_dir = super(cls, obj).get_root_directory()
+                if isinstance(root_dir, str | PathLike):
+                    root_dir = path.join(root_dir, self.append_folder)
+                else:
+                    root_dir.append(self.append_folder)
+                return root_dir
+
+            cls.get_root_directory = get_root_dir_wrapped  # type: ignore
+
+        # Change get_filename_pattern
+        def get_filename_pattern_wrapped(obj):
+            pattern = super(cls, obj).get_filename_pattern()
+            finder = Finder("", pattern)
+            for g in finder.groups:
+                # remove fixable/groups related to time
+                if g.name in time_pattern_names:
+                    pattern = pattern.replace(f"%({g.definition})", "")
+
+            infile, ext = path.splitext(pattern)
+            # Clean pattern
+            infile = infile.strip("/_-")
+            # Add climatology group
+            infile += r"_%(climatology:fmt=s:rgx=\s+)"
+
+            pattern = infile + ext
+            return pattern
+
+        cls.get_filename_pattern = get_filename_pattern_wrapped  # type: ignore
+
+        if cls.ID:
+            cls.ID = f"{cls.ID}_cli"
+        if cls.SHORTNAME:
+            cls.SHORTNAME = f"{cls.SHORTNAME}_cli"
+
+        return cls

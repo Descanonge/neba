@@ -13,6 +13,7 @@ from .loader import (
     to_nested_dict,
 )
 from .scheme import Scheme, subscheme
+from .source import FileFinderPlugin, GlobPlugin
 from .util import FixableTrait, RangeTrait, tag_all_traits
 
 __all__ = [
@@ -20,8 +21,10 @@ __all__ = [
     "CLILoader",
     "ConfigLoader",
     "ConfigValue",
+    "FileFinderPlugin",
     "FileLoader",
     "FixableTrait",
+    "GlobPlugin",
     "LoggingMixin",
     "PyLoader",
     "RangeTrait",
