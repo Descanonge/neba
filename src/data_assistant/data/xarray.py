@@ -186,6 +186,7 @@ class XarrayMultiFileWriterPlugin(XarrayWriterPlugin, WriterMultiFilePluginAbstr
         calls: abc.Sequence[CallXr],
         client: Client,
         chop: int | None = None,
+        use_save_mfdataset: bool = True,
         **kwargs,
     ):
         """Send multiple calls together.
@@ -209,9 +210,14 @@ class XarrayMultiFileWriterPlugin(XarrayWriterPlugin, WriterMultiFilePluginAbstr
             If None (default), all calls are sent together. If chop is an integer,
             groups of calls of size ``chop`` (at most) will be sent one after the other,
             calls within each group being run in parallel.
+        use_save_mfdataset
+            If true (default) simply use :func:`xarray.save_mfdataset`. Otherwise
+            manually create delayed objects from :meth:`xarray.Dataset.to_netcdf` and
+            send them to Dask in a "fire and forget" manner to avoid data lingering in
+            memory.
         kwargs
-            Passed to writing function.
-
+            Passed to writing function. Overwrites the defaults from
+            :attr:`TO_NETCDF_KWARGS`, whatever the value of `function` is.
         """
         import distributed
 
@@ -224,14 +230,22 @@ class XarrayMultiFileWriterPlugin(XarrayWriterPlugin, WriterMultiFilePluginAbstr
         slices = cut_slices(ncalls, chop)
         log.info("%d total calls in %d groups.", ncalls, len(slices))
 
-        # This create delayed objects when calling function
-        kwargs["compute"] = False
+        kwargs = self.TO_NETCDF_KWARGS | kwargs
+
+        # with save_mfdataset, we want to trigger computation
+        # with to_netcdf, we want to delay
+        kwargs["compute"] = use_save_mfdataset
 
         for slc in slices:
             log.info("\tslice %s", slc)
 
-            # Select calls and turn it into a list of delayed objects for Dask
             grouped_calls = calls[slc]
+
+            if use_save_mfdataset:
+                datasets, paths = zip(*grouped_calls)
+                xr.save_mfdataset(datasets, paths, **kwargs)
+                continue
+
             delayed = [self.send_single_call(c, **kwargs) for c in grouped_calls]
 
             # Compute them all at once
