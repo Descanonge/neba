@@ -8,8 +8,8 @@ from collections import abc
 
 import xarray as xr
 
-from .filefinder import FileFinderPlugin
 from .loader import LoaderPluginAbstract
+from .source import FileFinderPlugin
 from .writer import WriterMultiFilePluginAbstract, WriterPluginAbstract
 
 if t.TYPE_CHECKING:

@@ -59,7 +59,7 @@ from which other loaders are derived)::
                 return "file_2"
       
 Let's switch to datasets that comprise of multiple files, we can use either
-:class:`source.GlobPlugin` or :class:`filefinder.FileFinderPlugin` to find and
+:class:`source.GlobPlugin` or :class:`source.FileFinderPlugin` to find and
 manage datafiles using the simple syntax of :mod:`filefinder`. We appropriately
 switch to :class:`xarray.XarrayMultiFileLoaderPlugin` to deal with multi-file
 inputs::
