@@ -19,7 +19,7 @@ class LoaderPluginAbstract(t.Generic[T_Source, T_Data], Plugin):
         self,
         source: T_Source | None = None,
         ignore_postprocess: bool = False,
-        pp_kwargs: abc.Mapping[str, t.Any] | None = None,
+        load_kwargs: abc.Mapping[str, t.Any] | None = None,
         **kwargs,
     ) -> T_Data:
         """Load data and run post-processing.
@@ -37,25 +37,24 @@ class LoaderPluginAbstract(t.Generic[T_Source, T_Data], Plugin):
             :meth:`~.data_manager.DataManagerBase.get_source` is used.
         ignore_postprocess
             If True, do not apply postprocessing. Default is False.
-        pp_kwargs
-            Arguments passed to the postprocessing function.
-        kwargs:
+        load_kwargs
             Arguments passed to function loading data.
+        kwargs:
+            Arguments passed to the postprocessing function.
 
         """
         if source is None:
             source = self.get_source()
 
-        data = self.load_data_concrete(source, **kwargs)
+        if load_kwargs is None:
+            load_kwargs = {}
+        data = self.load_data_concrete(source, **load_kwargs)
 
         if ignore_postprocess:
             return data
 
-        if pp_kwargs is None:
-            pp_kwargs = {}
-
         try:
-            data = self.postprocess_data(data, **pp_kwargs)
+            data = self.postprocess_data(data, **kwargs)
         except NotImplementedError:
             pass
         return data
