@@ -6,3 +6,6 @@ htmlcov
 
 docs/build
 docs/source/_generated
+
+/config.toml
+/config.py
