@@ -10,8 +10,8 @@ dependencies:
 
     - traitlets >= 5.13
 
-    - sphinx == 6.2.1
-    - sphinx-book-theme == 1.0.1
+    - sphinx
+    - sphinx-book-theme
 
     - dask-jobqueue
 
@@ -21,6 +21,7 @@ dependencies:
     - ruff
     - mypy >= 1.5
     - pytest >= 7.4
+    - hypothesis
 
     - pip
 

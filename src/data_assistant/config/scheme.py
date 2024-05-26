@@ -91,9 +91,16 @@ class Scheme(Configurable):
         short.my_parameter = 2
     """
 
+    _orphan_config: dict[str, t.Any] = {}
+
     def __init_subclass__(cls, /, **kwargs):
         super().__init_subclass__(**kwargs)
         cls._setup_scheme()
+
+    def __init__(self, *args, config: abc.Mapping | None = None, **kwargs):
+        if config is None:
+            config = self._orphan_config
+        super().__init__(config=config)
 
     @classmethod
     def _setup_scheme(cls) -> None:
@@ -224,7 +231,7 @@ class Scheme(Configurable):
     # Lifted from traitlets.config.application.Application
     @classmethod
     def _classes_inc_parents(
-        cls, classes: abc.Sequence[type[Scheme]] | None = None
+        cls, classes: abc.Iterable[type[Scheme]] | None = None
     ) -> abc.Generator[type[Configurable], None, None]:
         """Iterate through configurable classes, including configurable parents.
 
@@ -237,7 +244,7 @@ class Scheme(Configurable):
             The list of classes to start from; if not set, uses all nested subschemes.
         """
         if classes is None:
-            classes = list(cls._subschemes_recursive())
+            classes = cls._subschemes_recursive()
 
         seen = set()
         for c in classes:

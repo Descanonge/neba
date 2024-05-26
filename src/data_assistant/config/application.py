@@ -8,6 +8,7 @@ import sys
 import typing as t
 from collections import abc
 from contextlib import suppress
+from copy import copy
 from logging.config import dictConfig
 from os import path
 
@@ -18,7 +19,7 @@ from traitlets.utils.nested_update import nested_update
 
 from .loader import CLILoader, PyLoader, TomlkitLoader, YamlLoader, to_nested_dict
 from .scheme import Scheme
-from .util import ConfigErrorHandler
+from .util import ConfigError, ConfigErrorHandler
 
 if t.TYPE_CHECKING:
     from .loader import ConfigValue, FileLoader
@@ -26,6 +27,8 @@ if t.TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 IS_PYTHONW = sys.executable and sys.executable.endswith("pythonw.exe")
+
+S = t.TypeVar("S", bound=Scheme)
 
 
 class LoggingMixin(LoggingConfigurable):
@@ -262,6 +265,8 @@ class ApplicationBase(Scheme, LoggingMixin):
 
     ignore_cli = Bool(False, help="If True, do not parse command line arguments.")
 
+    orphans: dict[str, type[Scheme]] = {}
+
     file_loaders: list[type[FileLoader]] = [TomlkitLoader, YamlLoader, PyLoader]
     """List of possible configuration loaders from file, for different formats.
 
@@ -324,6 +329,8 @@ class ApplicationBase(Scheme, LoggingMixin):
             self.load_config_files()
 
         self.conf = self.merge_configs(self.file_conf, self.cli_conf)
+
+        self.setup_orphans()
 
         if instanciate is None:
             instanciate = self.auto_instanciate
@@ -432,22 +439,30 @@ class ApplicationBase(Scheme, LoggingMixin):
         config_classes = [cls.__name__ for cls in self._classes_inc_parents()]
 
         # Transform Class.trait keys into fullkeys
-        no_class_key: dict[str, ConfigValue] = {}
+        no_class_keys: dict[str, ConfigValue] = {}
+        # and store orphan keys apart
+        orphan_keys: dict[str, ConfigValue] = {}
         for key, val in config.items():
+            first = key.split(".")[0]
+            if first in self.orphans:
+                orphan_keys[first] = val
             # Set the priority of class traits lower and duplicate them
             # for each instance of their class in the config tree
-            if key.split(".")[0] in config_classes:
+            elif first in config_classes:
                 val.priority = 10
                 # we assume we will have at least one fullkey, since the classname
                 # appeared in cls._classes_inc_parents
                 for fullkey in self.resolve_class_key(key):
-                    no_class_key[fullkey] = val.copy(key=fullkey)
+                    no_class_keys[fullkey] = val.copy(key=fullkey)
             else:
-                no_class_key[key] = val
+                # euh whats the use ?
+                no_class_keys[key] = val
+
+        # assert no_class_keys empty or something maybe ?
 
         # Resolve fullpath for all keys
         output = {}
-        for key, val in no_class_key.items():
+        for key, val in no_class_keys.items():
             # If an error happens in class_resolve_key, we have a fallback
             fullkey = key
             with ConfigErrorHandler(self, key):
@@ -456,7 +471,30 @@ class ApplicationBase(Scheme, LoggingMixin):
                 val.trait = trait
             output[fullkey] = val
 
+        # Add orphan keys to be able to merge and whatnot
+        for key, val in orphan_keys.items():
+            with ConfigErrorHandler(self, key):
+                orphan = self.orphans[key]
+                if len(key.split(".")) > 2:
+                    raise ConfigError(
+                        f"A parameter --Class.trait cannot be nested ({'.'.join(key)})."
+                    )
+                trait_name = key.split(".")[1]
+                val.container_cls = orphan
+                val.trait = orphan.class_traits()[trait_name]
+            output[key] = val
+
         return output
+
+        # val.trait.
+        # gnee not sure what i'm doing. Changing the default value is dangerous ?
+        # like if there is some preprocessing in the trait __init__ ?
+        # would there be a way to track the instances of orphans...
+        # it would be easy if they are created with a decorator
+        # we can hijack the __init__ to register every new instance!
+        # and give our config as argument. if user does not want config (clean
+        # object without interference, just give explicit argument config={}?
+        # and we will know we must back off)
 
     def add_extra_parameter(self, *args, **kwargs):
         """Add a configurable trait to this application configuration.
@@ -467,6 +505,18 @@ class ApplicationBase(Scheme, LoggingMixin):
             Passed to :meth:`argparse.ArgumentParser.add_argument`.
         """
         self._extra_parameters_args.append((args, kwargs))
+
+    def add_orphan(self, scheme: type[S]) -> type[S]:
+        """Add a scheme to the configuration as an orphan."""
+        self.orphans[scheme.__name__] = scheme
+        return scheme
+
+    def setup_orphans(self) -> None:
+        for key, val in self.conf.items():
+            if key in self.orphans:
+                orphan = self.orphans[key]
+                assert isinstance(val, ConfigValue)
+                orphan._orphan_config[key] = val.get_value()
 
     def write_config(
         self,
