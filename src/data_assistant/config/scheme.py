@@ -13,7 +13,7 @@ from inspect import Parameter, signature
 from textwrap import dedent
 
 from traitlets import Bool, Enum, Instance, TraitType, Undefined
-from traitlets.config import Configurable
+from traitlets.config import Config, Configurable
 
 from .loader import ConfigValue
 from .util import (
@@ -97,11 +97,6 @@ class Scheme(Configurable):
         super().__init_subclass__(**kwargs)
         cls._setup_scheme()
 
-    def __init__(self, *args, config: abc.Mapping | None = None, **kwargs):
-        if config is None:
-            config = self._orphan_config
-        super().__init__(config=config)
-
     @classmethod
     def _setup_scheme(cls) -> None:
         """Set up the class after definition.
@@ -142,7 +137,9 @@ class Scheme(Configurable):
 
         cls.setup_class(classdict)  # type: ignore
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, orphan_config: bool = True, **kwargs):
+        if orphan_config:
+            kwargs = self._orphan_config | kwargs
         super().__init__(*args, **kwargs)
         self.postinit()
 

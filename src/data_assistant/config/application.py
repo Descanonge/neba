@@ -445,7 +445,7 @@ class ApplicationBase(Scheme, LoggingMixin):
         for key, val in config.items():
             first = key.split(".")[0]
             if first in self.orphans:
-                orphan_keys[first] = val
+                orphan_keys[key] = val
             # Set the priority of class traits lower and duplicate them
             # for each instance of their class in the config tree
             elif first in config_classes:
@@ -474,14 +474,14 @@ class ApplicationBase(Scheme, LoggingMixin):
         # Add orphan keys to be able to merge and whatnot
         for key, val in orphan_keys.items():
             with ConfigErrorHandler(self, key):
-                orphan = self.orphans[key]
-                if len(key.split(".")) > 2:
+                keypath = key.split(".")
+                if len(keypath) != 2:
                     raise ConfigError(
-                        f"A parameter --Class.trait cannot be nested ({'.'.join(key)})."
+                        f"A parameter --Class.trait cannot be nested ({key})."
                     )
-                trait_name = key.split(".")[1]
+                orphan = self.orphans[keypath[0]]
                 val.container_cls = orphan
-                val.trait = orphan.class_traits()[trait_name]
+                val.trait = orphan.class_traits()[keypath[1]]
             output[key] = val
 
         return output
@@ -506,17 +506,18 @@ class ApplicationBase(Scheme, LoggingMixin):
         """
         self._extra_parameters_args.append((args, kwargs))
 
-    def add_orphan(self, scheme: type[S]) -> type[S]:
+    @classmethod
+    def add_orphan(cls, scheme: type[S]) -> type[S]:
         """Add a scheme to the configuration as an orphan."""
-        self.orphans[scheme.__name__] = scheme
+        cls.orphans[scheme.__name__] = scheme
         return scheme
 
     def setup_orphans(self) -> None:
         for key, val in self.conf.items():
-            if key in self.orphans:
-                orphan = self.orphans[key]
-                assert isinstance(val, ConfigValue)
-                orphan._orphan_config[key] = val.get_value()
+            keypath = key.split(".")
+            if keypath[0] in self.orphans:
+                orphan = self.orphans[keypath[0]]
+                orphan._orphan_config[keypath[1]] = val.get_value()
 
     def write_config(
         self,
