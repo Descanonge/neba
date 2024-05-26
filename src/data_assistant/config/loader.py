@@ -362,7 +362,8 @@ class ConfigLoader:
             ):
                 traitname = keypath[-1]
                 val.trait = self.app.traits()[traitname]
-                val.parse()
+                if val.value is Undefined:
+                    val.parse()
                 setattr(self.app, traitname, val.get_value())
 
         self.config = self.app.resolve_config(self.config)
@@ -698,8 +699,7 @@ class TomlkitLoader(FileLoader):
         fullpath: list[str],
         comment: str,
         container: TOMLDocument,
-    ) -> TOMLDocument:
-        ...
+    ) -> TOMLDocument: ...
 
     @t.overload
     def serialize_scheme(
@@ -708,8 +708,7 @@ class TomlkitLoader(FileLoader):
         fullpath: list[str],
         comment: str,
         container: None = None,
-    ) -> Table:
-        ...
+    ) -> Table: ...
 
     def serialize_scheme(
         self,
