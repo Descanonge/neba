@@ -13,7 +13,7 @@ from inspect import Parameter, signature
 from textwrap import dedent
 
 from traitlets import Bool, Enum, Instance, TraitType, Undefined
-from traitlets.config import Config, Configurable
+from traitlets.config import Configurable
 
 from .loader import ConfigValue
 from .util import (
@@ -296,8 +296,12 @@ class Scheme(Configurable):
 
             It needs not return any value. It should directly act on the
             dictionnary.
+        flatten:
+            If True, return a flat dictionary (not nested) with each key being the full
+            path of subscheme leading to a trait, separated by dots (ie
+            ``"some.path.to.trait"``). Default is False.
         metadata:
-            Select traits.
+            Select only some traits which metadata satistify this argument.
         """
 
         def recurse(scheme: Scheme, outsec: dict, path: list[str]):
@@ -359,6 +363,81 @@ class Scheme(Configurable):
         if select is not None:
             values = {k: v for k, v in values.items() if k in select}
         return values
+
+    def update(
+        self,
+        other: Scheme | abc.Mapping[str, t.Any] | None = None,
+        allow_new: bool = False,
+        raise_on_miss: bool = False,
+        **kwargs,
+    ):
+        """Update values of this Scheme traits.
+
+        Some trait that do not exist in this instance, but are specified can be added.
+        Currently whole subschemes cannot be added.
+
+        Parameters
+        ----------
+        other
+            Other Scheme to take traits values from (recursively). It can also be a
+            flat mapping of full path keys (``"some.path.to.trait"``) to values or
+            trait instances, which default value will be used.
+        allow_new
+            If True, allow creating new traits for this Scheme. A new trait must come
+            a Scheme object, or if from a mapping be a trait instance. Default is False.
+        raise_on_miss
+            If True, raise an exception if a trait in `other` is placed on a path that
+            does not lead to an existing subscheme or trait. Default is False.
+        kwargs
+            Same as `other`.
+        """
+        if other is None:
+            other = {}
+        elif isinstance(other, Scheme):
+            other = other.traits_recursive(flatten=True)
+        else:
+            other = dict(other)
+        other |= kwargs
+
+        for fullkey, value in other.items():
+            fullpath = fullkey.split(".")
+            trait_name = fullpath[-1]
+
+            miss = False
+            subscheme = self
+            for name in fullpath[:-1]:
+                if name in subscheme._subschemes:
+                    subscheme = getattr(subscheme, name)
+                    continue
+                miss = True
+                if raise_on_miss:
+                    clsname = self.__class__.__name__
+                    raise KeyError(
+                        f"{fullkey} cannot be added to this Scheme ({clsname})"
+                    )
+
+            if miss:
+                continue
+            if trait_name in subscheme.trait_names():
+                if isinstance(value, TraitType):
+                    value = value.default
+                setattr(subscheme, trait_name, value)
+                continue
+
+            # The trait is unknown
+            if not allow_new:
+                if raise_on_miss:
+                    raise RuntimeError(
+                        f"Trait creation was not authorized for ({fullkey})"
+                    )
+                continue
+            if not isinstance(value, TraitType):
+                raise TypeError(
+                    f"Cannot add a trait from a simple value ({fullkey}: {value})"
+                )
+
+            subscheme.add_traits(**{trait_name: value})
+            setattr(subscheme, trait_name, value.default)
 
     @classmethod
     def class_resolve_key(
