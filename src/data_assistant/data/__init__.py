@@ -2,6 +2,7 @@
 
 from .data_manager import DataManagerBase
 from .loader import LoaderPluginAbstract
+from .params import ParamsMappingPlugin, ParamsSchemePlugin
 from .plugin import CachePlugin, Plugin, autocached
 from .register import DatasetStore
 from .source import FileFinderPlugin, GlobPlugin, MultiFilePluginAbstract
@@ -15,6 +16,9 @@ __all__ = [
     "FileFinderPlugin",
     "LoaderPluginAbstract",
     "MultiFilePluginAbstract",
+    "ParamsMap",
+    "ParamsMappingPlugin",
+    "ParamsSchemePlugin",
     "Plugin",
     "WriterMultiFilePluginAbstract",
     "WriterPluginAbstract",

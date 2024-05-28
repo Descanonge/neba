@@ -80,7 +80,9 @@ class ParamsPluginAbstract(Plugin):
         return _ParamsContext(self, save_cache)
 
 
-class ParamsPluginMapping(ParamsPluginAbstract):
+class ParamsMappingPlugin(ParamsPluginAbstract):
+    """Parameters are stored in a dictionary."""
+
     PARAMS_DEFAULTS: dict[str, t.Any] = {}
 
     def _init_params(self) -> None:
@@ -119,7 +121,7 @@ class ParamsPluginMapping(ParamsPluginAbstract):
         self.params = {}
 
 
-class ParamsPluginScheme(ParamsPluginAbstract):
+class ParamsSchemePlugin(ParamsPluginAbstract):
     """Parameters are stored in a Scheme object.
 
     The plugin does not initialize the :attr:`params` attribute. It is set by the first
