@@ -455,10 +455,7 @@ class ApplicationBase(Scheme, LoggingMixin):
                 for fullkey in self.resolve_class_key(key):
                     no_class_keys[fullkey] = val.copy(key=fullkey)
             else:
-                # euh whats the use ?
                 no_class_keys[key] = val
-
-        # assert no_class_keys empty or something maybe ?
 
         # Resolve fullpath for all keys
         output = {}
@@ -485,16 +482,6 @@ class ApplicationBase(Scheme, LoggingMixin):
             output[key] = val
 
         return output
-
-        # val.trait.
-        # gnee not sure what i'm doing. Changing the default value is dangerous ?
-        # like if there is some preprocessing in the trait __init__ ?
-        # would there be a way to track the instances of orphans...
-        # it would be easy if they are created with a decorator
-        # we can hijack the __init__ to register every new instance!
-        # and give our config as argument. if user does not want config (clean
-        # object without interference, just give explicit argument config={}?
-        # and we will know we must back off)
 
     def add_extra_parameter(self, *args, **kwargs):
         """Add a configurable trait to this application configuration.
