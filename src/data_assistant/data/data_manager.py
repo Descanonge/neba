@@ -22,9 +22,8 @@ import logging
 import typing as t
 from collections import abc
 
-from data_assistant.config import Scheme
-
-from .plugin import CachePlugin, Plugin
+from .params import ParamsPluginAbstract
+from .plugin import Plugin
 
 log = logging.getLogger(__name__)
 
@@ -54,7 +53,7 @@ def has_plugin(obj: DataManagerBase, cls: type[_P]) -> t.TypeGuard[_P]:
     return isinstance(obj, cls)
 
 
-class DataManagerBase(t.Generic[T_Source, T_Data]):
+class DataManagerBase(t.Generic[T_Source, T_Data], ParamsPluginAbstract):
     """DataManager base object.
 
     Add functionalities by subclassing it and adding mixin plugins.
@@ -91,20 +90,8 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
     ID: str | None = None
     """Long name to identify uniquely this data-manager class."""
 
-    PARAMS_NAMES: abc.Sequence[abc.Hashable] = []
-    """List of known parameters names."""
-    PARAMS_DEFAULTS: dict = {}
-    """Default values of parameters.
-
-    Optional. Can be used to define default values for parameters local to a
-    data-manager, (*ie* that are not defined in project-wide with
-    :mod:`data_assistant.config`).
-    """
-
-    def __init__(
-        self, params: abc.Mapping[str, t.Any] | Scheme | None = None, **kwargs
-    ) -> None:
-        self.params: dict[str, t.Any] = {}
+    def __init__(self, params: t.Any, **kwargs) -> None:
+        self.params: t.Any
         """Mapping of current parameters values.
 
         They should be changed by using :meth:`set_params` to void the cached values
@@ -118,37 +105,6 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
                 cls._init_plugin(self)  # type: ignore
 
         self.set_params(params, **kwargs)
-
-    def set_params(
-        self,
-        params: abc.Mapping[str, t.Any] | Scheme | None = None,
-        reset: bool | list[str] = True,
-        **kwargs,
-    ):
-        """Set parameters values.
-
-        Parameters
-        ----------
-        params:
-            Mapping of the parameters names to their values.
-        reset:
-            Passed to :meth:`reset_callback`.
-        kwargs:
-            Other parameters values in the form ``name=value``.
-            Parameters will be taken in order of first available in:
-            ``kwargs``, ``params``, :attr:`PARAMS_DEFAULTS`.
-        """
-        if params is None:
-            params = {}
-        elif isinstance(params, Scheme):
-            params = dict(params.values_recursive())
-        else:
-            params = dict(params)  # shallow copy
-        params = params | self.PARAMS_DEFAULTS
-        params.update(kwargs)
-
-        self.params.update(params)
-        self.reset_callback(reset, params=params)
 
     def reset_callback(self, reset: bool | list[str], **kwargs):
         """Call all registered callbacks when parameters are reset/changed.
@@ -220,36 +176,6 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
         :Not implemented: implement in your DataManager subclass or a plugin.
         """
         raise NotImplementedError("Implement in your DataManager subclass or a plugin.")
-
-    def save_excursion(self, save_cache: bool = False) -> _DataManagerContext:
-        """Save and restore current parameters after a with block.
-
-        For instance::
-
-            # we have some parameters, self.params["p"] = 0
-            with self.save_excursion():
-                # we change them
-                self.set_params(p=2)
-                self.get_data()
-
-            # we are back to self.params["p"] = 0
-
-        Any exception happening in the with block will be raised.
-
-        Parameters
-        ----------
-        save_cache:
-            If true, save and restore the cache. The context reset the parameters of the
-            data manager using :meth:`set_params` and then restore any saved key in the
-            cache, *without overwriting*. This may lead to unexpected behavior and is
-            disabled by default.
-
-        Returns
-        -------
-        context
-            Context object containing the original parameters.
-        """
-        return _DataManagerContext(self, save_cache)
 
     def get_data_sets(
         self,
@@ -335,43 +261,3 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
     #     for p in params:
     #         if p not in self.allowed_params:
     #             raise KeyError(f"Parameter '{p}' was not expected for dataset {self}")
-
-
-class _DataManagerContext:
-    def __init__(self, dm: DataManagerBase, save_cache: bool):
-        self.dm = dm
-        self.params = dm.params.copy()
-        self.cache: dict | None = None
-
-        if save_cache and isinstance(dm, CachePlugin):
-            self.cache = dict(dm.cache)
-
-    def repopulate_cache(self):
-        for key, val in self.cache.items():
-            # do not overwrite current cache
-            if not self.dm.is_cached(key):
-                self.dm.set_in_cache(key, val)
-                continue
-
-            # check that there is correspondance with saved and current cache
-            current_val = self.dm.get_cached(key)
-            if current_val != val:
-                log.warning(
-                    "Different value when restoring cache for key %s, "
-                    "saved '%s', has '%s'.",
-                    key,
-                    str(val),
-                    str(current_val),
-                )
-
-    def __enter__(self) -> t.Self:
-        return self
-
-    def __exit__(self, *exc):
-        self.dm.set_params(self.params)
-
-        if self.cache is not None:
-            self.repopulate_cache()
-
-        # return false to raise any exception that may have occured
-        return False
