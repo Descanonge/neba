@@ -209,6 +209,59 @@ class Scheme(Configurable):
         subschemes = set(self._subschemes.keys())
         return configurables | subschemes
 
+    # - Mapping methods
+
+    def keys(self) -> list[str]:
+        out = []
+        for name, trait in self.traits(subscheme=None).items():
+            if trait.this_class is not Configurable:
+                out.append(name)
+        for name in self._subschemes:
+            subscheme = getattr(self, name)
+            out += [f"{name}.{s}" for s in subscheme.keys()]
+        out = list(filter(lambda s: not s.startswith("_"), out))
+        return out
+
+    def values(self) -> list[t.Any]:
+        return [self[key] for key in self.keys()]
+
+    def items(self) -> dict[str, t.Any]:
+        return dict(zip(self.keys(), self.values()))
+
+    def get(self, key: str, default: t.Any | None = None) -> t.Any:
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+    def __getitem__(self, key: str) -> t.Any:
+        fullpath = key.split(".")
+        if len(fullpath) == 1:
+            if key in self.trait_names():
+                return getattr(self, key)
+            clsname = self.__class__.__name__
+            raise KeyError(f"No trait '{key}' in scheme {clsname}.")
+
+        subscheme = self
+        for name in fullpath[:-1]:
+            if name in self._subschemes:
+                subscheme = getattr(subscheme, name)
+            else:
+                raise KeyError(f"Could not resolve key {key}")
+
+        return subscheme[fullpath[-1]]
+
+    def __contains__(self, key: str) -> bool:
+        return key in self.keys()
+
+    def __iter__(self) -> abc.Iterable[str]:
+        return iter(self.keys())
+
+    def __len__(self) -> int:
+        return len(self.keys())
+
+    # - end of Mapping methods
+
     @classmethod
     def _subschemes_recursive(cls) -> abc.Iterator[type[Scheme]]:
         """Iterate recursively over all subschemes."""
@@ -350,19 +403,6 @@ class Scheme(Configurable):
 
         output = self.remap(f, config=config, flatten=flatten, **metadata)
         return output
-
-    def values(self, select: list[str] | None = None) -> dict[str, t.Any]:
-        """Return selection of parameters.
-
-        Only direct traits. Subschemes are ignored.
-        """
-        # get configurable, not subscheme traits
-        values = self.trait_values(config=True, subscheme=None)
-
-        # restrict to selection
-        if select is not None:
-            values = {k: v for k, v in values.items() if k in select}
-        return values
 
     def update(
         self,
