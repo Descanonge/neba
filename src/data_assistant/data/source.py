@@ -2,6 +2,7 @@
 
 Currently mainly give some basic options for the source being multiple files on disk.
 """
+
 from __future__ import annotations
 
 import logging
@@ -204,9 +205,7 @@ class FileFinderPlugin(MultiFilePluginAbstract, CachePlugin):
                 raise KeyError(f"Parameter {f} cannot be fixed '{self}'.")
 
         # In case params were changed sneakily and the cache was not invalidated
-        fixable_params = {
-            p: value for p, value in self.params.items() if p in self.fixable
-        }
+        fixable_params = {p: self.params[p] for p in self.fixable}
         fixes = fixable_params | fixes
 
         # Remove parameters set to None, FileFinder is not equipped for that
@@ -231,8 +230,8 @@ class FileFinderPlugin(MultiFilePluginAbstract, CachePlugin):
         # infinite recursion
         fixable = [g.name for g in finder.groups]
 
-        for p, value in self.params.items():
-            if p in fixable and value is not None:
+        for p in fixable:
+            if (value := self.params[p]) is not None:
                 finder.fix_group(p, value)
         return finder
 

@@ -26,7 +26,9 @@ class ParamsPluginAbstract(Plugin):
     :mod:`data_assistant.config`).
     """
 
-    def set_params(self, params: t.Any, reset: bool | list[str] = True, **kwargs):
+    def set_params(
+        self, params: t.Any | None = None, reset: bool | list[str] = True, **kwargs
+    ):
         """Set parameters values.
 
         :Not implemented: implement in a plugin subclass.

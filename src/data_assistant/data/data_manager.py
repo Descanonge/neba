@@ -90,7 +90,7 @@ class DataManagerBase(t.Generic[T_Source, T_Data], ParamsPluginAbstract):
     ID: str | None = None
     """Long name to identify uniquely this data-manager class."""
 
-    def __init__(self, params: t.Any, **kwargs) -> None:
+    def __init__(self, params: t.Any | None = None, **kwargs) -> None:
         self.params: t.Any
         """Mapping of current parameters values.
 
