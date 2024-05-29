@@ -22,7 +22,6 @@ import logging
 import typing as t
 from collections import abc
 
-from .params import ParamsPluginAbstract
 from .plugin import Plugin
 
 log = logging.getLogger(__name__)
@@ -53,7 +52,7 @@ def has_plugin(obj: DataManagerBase, cls: type[_P]) -> t.TypeGuard[_P]:
     return isinstance(obj, cls)
 
 
-class DataManagerBase(t.Generic[T_Source, T_Data], ParamsPluginAbstract):
+class DataManagerBase(t.Generic[T_Source, T_Data]):
     """DataManager base object.
 
     Add functionalities by subclassing it and adding mixin plugins.
@@ -90,6 +89,16 @@ class DataManagerBase(t.Generic[T_Source, T_Data], ParamsPluginAbstract):
     ID: str | None = None
     """Long name to identify uniquely this data-manager class."""
 
+    PARAMS_NAMES: abc.Sequence[abc.Hashable] = []
+    """List of known parameters names."""
+    PARAMS_DEFAULTS: t.Any
+    """Default values of parameters.
+
+    Optional. Can be used to define default values for parameters local to a
+    data-manager, (*ie* that are not defined in project-wide with
+    :mod:`data_assistant.config`).
+    """
+
     def __init__(self, params: t.Any | None = None, **kwargs) -> None:
         self.params: t.Any
         """Mapping of current parameters values.
@@ -105,6 +114,51 @@ class DataManagerBase(t.Generic[T_Source, T_Data], ParamsPluginAbstract):
                 cls._init_plugin(self)  # type: ignore
 
         self.set_params(params, **kwargs)
+
+    def set_params(
+        self, params: t.Any | None = None, reset: bool | list[str] = True, **kwargs
+    ):
+        """Set parameters values.
+
+        :Not implemented: implement in a plugin subclass.
+
+        Parameters
+        ----------
+        reset:
+            Passed to :meth:`reset_callback`.
+        kwargs:
+            Other parameters values in the form ``name=value``.
+            Parameters will be taken in order of first available in:
+            ``kwargs``, ``params``, :attr:`PARAMS_DEFAULTS`.
+        """
+        raise NotImplementedError("Implement in a plugin subclass.")
+
+    def reset_params(self) -> None:
+        """Reset parameters to their initial state (empty most likely).
+
+        :Not implemented: implement in a plugin subclass.
+        """
+        raise NotImplementedError("Implement in a plugin subclass.")
+
+    def save_excursion(self, save_cache: bool = False) -> t.ContextManager:
+        """Save and restore current parameters after a with block.
+
+        :Not implemented: implement in a plugin subclass.
+
+        Parameters
+        ----------
+        save_cache:
+            If true, save and restore the cache. The context reset the parameters of the
+            data manager using :meth:`set_params` and then restore any saved key in the
+            cache, *without overwriting*. This may lead to unexpected behavior and is
+            disabled by default.
+
+        Returns
+        -------
+        context
+            Context object containing the original parameters.
+        """
+        raise NotImplementedError("Implement in a plugin subclass.")
 
     def reset_callback(self, reset: bool | list[str], **kwargs):
         """Call all registered callbacks when parameters are reset/changed.

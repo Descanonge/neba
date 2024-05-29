@@ -16,41 +16,6 @@ log = logging.getLogger(__name__)
 class ParamsPluginAbstract(Plugin):
     """Abstract class for basic parameter management."""
 
-    PARAMS_NAMES: abc.Sequence[abc.Hashable] = []
-    """List of known parameters names."""
-    PARAMS_DEFAULTS: t.Any
-    """Default values of parameters.
-
-    Optional. Can be used to define default values for parameters local to a
-    data-manager, (*ie* that are not defined in project-wide with
-    :mod:`data_assistant.config`).
-    """
-
-    def set_params(
-        self, params: t.Any | None = None, reset: bool | list[str] = True, **kwargs
-    ):
-        """Set parameters values.
-
-        :Not implemented: implement in a plugin subclass.
-
-        Parameters
-        ----------
-        reset:
-            Passed to :meth:`reset_callback`.
-        kwargs:
-            Other parameters values in the form ``name=value``.
-            Parameters will be taken in order of first available in:
-            ``kwargs``, ``params``, :attr:`PARAMS_DEFAULTS`.
-        """
-        raise NotImplementedError("Implement in a plugin subclass.")
-
-    def reset_params(self) -> None:
-        """Reset parameters to their initial state (empty most likely).
-
-        :Not implemented: implement in a plugin subclass.
-        """
-        raise NotImplementedError("Implement in a plugin subclass.")
-
     def save_excursion(self, save_cache: bool = False) -> _ParamsContext:
         """Save and restore current parameters after a with block.
 
