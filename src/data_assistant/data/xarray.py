@@ -148,7 +148,7 @@ class XarrayWriterPlugin(WriterPluginAbstract):
         ds: xr.Dataset,
         /,
         *,
-        params: dict,
+        params: dict | None = None,
         **kwargs,
     ):
         """Write to netcdf file.
@@ -164,6 +164,8 @@ class XarrayWriterPlugin(WriterPluginAbstract):
             Passed to the function that writes to disk
             (:meth:`xarray.Dataset.to_netcdf`).
         """
+        if params is None:
+            params = {}
         outfile = self.get_source(**params)
         ds = self.set_metadata(ds, params=params)
         call = ds, outfile
