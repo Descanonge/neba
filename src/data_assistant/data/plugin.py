@@ -80,7 +80,7 @@ class CachePlugin(Plugin):
         def callback(dm: CachePlugin, **kwargs):
             dm.clean_cache()
 
-        self._RESET_CALLBACKS["void_cache"] = callback
+        self._reset_callbacks["void_cache"] = callback
 
     def clean_cache(self) -> None:
         """Clean the cache of all variables."""
