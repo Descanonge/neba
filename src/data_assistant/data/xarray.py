@@ -1,8 +1,10 @@
 """Plugin definitions for XArray."""
+
 from __future__ import annotations
 
 import itertools
 import logging
+import os
 import typing as t
 from collections import abc
 
@@ -19,6 +21,10 @@ if t.TYPE_CHECKING:
     except ImportError:
         Delayed = None  # type: ignore
         Client = None  # type: ignore
+    try:
+        from zarr.storage import BaseStore
+    except ImportError:
+        BaseStore = None  # type: ignore
 
     CallXr = tuple[xr.Dataset, str]
 
@@ -98,6 +104,9 @@ class XarrayWriterPlugin(WriterPluginAbstract):
     TO_NETCDF_KWARGS: dict[str, t.Any] = {}
     """Arguments passed to the function writing files."""
 
+    TO_ZARR_KWARGS: dict[str, t.Any] = {}
+    """Arguments passed to the writing function for zarr stores."""
+
     def set_metadata(
         self,
         ds: xr.Dataset,
@@ -161,7 +170,58 @@ class XarrayWriterPlugin(WriterPluginAbstract):
         self.check_directories([call])
         return self.send_single_call(call, **kwargs)
 
-    def send_single_call(self, call: CallXr, **kwargs) -> None | Delayed:
+    def _guess_format(self, filename: str) -> t.Literal["nc", "zarr"]:
+        _, ext = os.path.splitext(filename)
+        if ext:
+            format = ext.removeprefix(".")
+            if format not in ["nc", "zarr"]:
+                raise ValueError(f"Unsupported format extension '{ext}'")
+            return t.cast(t.Literal["nc", "zarr"], format)
+        raise ValueError(f"Could not find file extension for '{filename}'")
+
+    @t.overload
+    def send_single_call(
+        self,
+        call: CallXr,
+        format: t.Literal[None] = ...,
+        compute: t.Literal[True] = ...,
+        **kwargs,
+    ) -> None | BaseStore: ...
+
+    @t.overload
+    def send_single_call(
+        self,
+        call: CallXr,
+        format: t.Literal["nc"],
+        compute: t.Literal[True],
+        **kwargs,
+    ) -> None: ...
+
+    @t.overload
+    def send_single_call(
+        self,
+        call: CallXr,
+        format: t.Literal["zarr"],
+        compute: t.Literal[True],
+        **kwargs,
+    ) -> BaseStore: ...
+
+    @t.overload
+    def send_single_call(
+        self,
+        call: CallXr,
+        *,
+        compute: t.Literal[False],
+        **kwargs,
+    ) -> Delayed: ...
+
+    def send_single_call(
+        self,
+        call: CallXr,
+        format: t.Literal["nc", "zarr", None] = None,
+        compute: bool = True,
+        **kwargs,
+    ) -> Delayed | None | BaseStore:
         """Execute a single call.
 
         Parameters
@@ -169,13 +229,22 @@ class XarrayWriterPlugin(WriterPluginAbstract):
         kwargs
             Passed to the writing function.
         """
-        # To file
-        # TODO Out to deal with different files, we need different methods call :(
-        # That could be a dataset attribute, like OUTPUT_FORMAT
         ds, outfile = call
-        kwargs = self.TO_NETCDF_KWARGS | kwargs
+        if format is None:
+            format = self._guess_format(outfile)
+
+        kwargs["compute"] = compute
+
         log.debug("Sending single call to %s", outfile)
-        return ds.to_netcdf(outfile, **kwargs)
+        if format == "nc":
+            kwargs = self.TO_NETCDF_KWARGS | kwargs
+            return ds.to_netcdf(outfile, **kwargs)
+
+        if format == "zarr":
+            kwargs = self.TO_ZARR_KWARGS | kwargs
+            return ds.to_zarr(outfile, **kwargs)
+
+        t.assert_never(format)
 
 
 class XarrayMultiFileWriterPlugin(XarrayWriterPlugin, WriterMultiFilePluginAbstract):
@@ -186,6 +255,7 @@ class XarrayMultiFileWriterPlugin(XarrayWriterPlugin, WriterMultiFilePluginAbstr
         calls: abc.Sequence[CallXr],
         client: Client,
         chop: int | None = None,
+        format: t.Literal["nc", "zarr", None] = None,
         use_save_mfdataset: bool = True,
         **kwargs,
     ):

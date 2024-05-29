@@ -117,7 +117,7 @@ class WriterPluginAbstract(Plugin):
                 log.debug("Creating output directory %s", d)
                 os.makedirs(d)
 
-    def send_single_call(self, call, **kwargs) -> t.Any:
+    def send_single_call(self, call: Call, **kwargs) -> t.Any:
         """Execute a single call.
 
         :Not implemented: implement in plugin subclass.
