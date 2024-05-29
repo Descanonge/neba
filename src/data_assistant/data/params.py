@@ -87,6 +87,11 @@ class ParamsMappingPlugin(ParamsPluginAbstract):
         """Reset parameters to their initial state (empty dict)."""
         self.params = {}
 
+    @property
+    def params_as_dict(self) -> dict[str, t.Any]:
+        """Return the parameters as a dictionary."""
+        return self.params
+
 
 class ParamsSchemePlugin(ParamsPluginAbstract):
     """Parameters are stored in a Scheme object.
@@ -149,6 +154,11 @@ class ParamsSchemePlugin(ParamsPluginAbstract):
     def reset_params(self) -> None:
         """Reset parameters to their initial state (not `params` attribute)."""
         del self.params
+
+    @property
+    def params_as_dict(self) -> dict[str, t.Any]:
+        """Return the parameters as a dictionary."""
+        return dict(self.params)
 
 
 class _ParamsContext:

@@ -115,6 +115,14 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
 
         self.set_params(params, **kwargs)
 
+    @property
+    def params_as_dict(self) -> dict[str, t.Any]:
+        """Return the parameters as a dictionary.
+
+        :Not implemented: implement in a plugin subclass.
+        """
+        raise NotImplementedError("Implement in a plugin subclass.")
+
     def set_params(
         self, params: t.Any | None = None, reset: bool | list[str] = True, **kwargs
     ):

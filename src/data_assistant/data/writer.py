@@ -76,7 +76,7 @@ class WriterPluginAbstract(Plugin):
                 params_str = params
             else:
                 if add_dataset_params:
-                    params = dict(self.params) | params
+                    params = self.params_as_dict | params
                 try:
                     params_str = json.dumps(params)
                 except TypeError:
