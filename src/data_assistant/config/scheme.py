@@ -27,6 +27,9 @@ from .util import (
     wrap_text,
 )
 
+if t.TYPE_CHECKING:
+    from .application import ApplicationBase
+
 log = logging.getLogger(__name__)
 
 
@@ -71,7 +74,7 @@ class Scheme(Configurable):
     specific trait in the configuration tree (see :meth:`class_resolve_key`).
     """
 
-    _subschemes: dict[str, type[Scheme]]
+    _subschemes: dict[str, type[Scheme]] = {}
     """Mapping of nested Scheme classes."""
 
     _attr_completion_only_traits = Bool(
@@ -90,8 +93,6 @@ class Scheme(Configurable):
         some.deeply.nested.subscheme.my_parameter = 2
         short.my_parameter = 2
     """
-
-    _orphan_config: dict[str, t.Any] = {}
 
     def __init_subclass__(cls, /, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -137,10 +138,13 @@ class Scheme(Configurable):
 
         cls.setup_class(classdict)  # type: ignore
 
-    def __init__(self, *args, orphan_config: bool = True, **kwargs):
-        if orphan_config:
-            kwargs = self._orphan_config | kwargs
-        super().__init__(*args, **kwargs)
+    def __init__(self, app: ApplicationBase | None = None, *args, **kwargs):
+        clsname = self.__class__.__name__
+        if app is not None and clsname in app.orphans_keys:
+            keys = app.orphans_keys[clsname]
+        else:
+            keys = {}
+        super().__init__(*args, **keys, **kwargs)
         self.postinit()
 
     def postinit(self):

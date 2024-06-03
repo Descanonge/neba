@@ -8,12 +8,11 @@ import sys
 import typing as t
 from collections import abc
 from contextlib import suppress
-from copy import copy
 from logging.config import dictConfig
 from os import path
 
 from traitlets import Bool, Dict, Enum, List, Unicode, Union, default, observe
-from traitlets.config.configurable import LoggingConfigurable
+from traitlets.config.configurable import Configurable, LoggingConfigurable
 from traitlets.utils.bunch import Bunch
 from traitlets.utils.nested_update import nested_update
 
@@ -265,7 +264,18 @@ class ApplicationBase(Scheme, LoggingMixin):
 
     ignore_cli = Bool(False, help="If True, do not parse command line arguments.")
 
-    orphans: dict[str, type[Scheme]] = {}
+    orphans_keys: dict[str, dict[str, ConfigValue]] = {}
+    """Registered orphans and their configuration values."""
+
+    orphans_registered: abc.Sequence[str] = []
+    """Sequence of registered orphans. Even if the orphan class is not imported at
+    runtime, we know what class is valid, and what config key is not."""
+
+    orphan_classes: dict[str, type[Scheme]] = {}
+    """Mapping of names to classes.
+
+    Created at runtime. May not contain all registered orphans, only those imported.
+    """
 
     file_loaders: list[type[FileLoader]] = [TomlkitLoader, YamlLoader, PyLoader]
     """List of possible configuration loaders from file, for different formats.
@@ -330,7 +340,7 @@ class ApplicationBase(Scheme, LoggingMixin):
 
         self.conf = self.merge_configs(self.file_conf, self.cli_conf)
 
-        self.setup_orphans()
+        self.setup_orphan_keys()
 
         if instanciate is None:
             instanciate = self.auto_instanciate
@@ -444,7 +454,7 @@ class ApplicationBase(Scheme, LoggingMixin):
         orphan_keys: dict[str, ConfigValue] = {}
         for key, val in config.items():
             first = key.split(".")[0]
-            if first in self.orphans:
+            if first in self.orphans_registered:
                 orphan_keys[key] = val
             # Set the priority of class traits lower and duplicate them
             # for each instance of their class in the config tree
@@ -476,12 +486,40 @@ class ApplicationBase(Scheme, LoggingMixin):
                     raise ConfigError(
                         f"A parameter --Class.trait cannot be nested ({key})."
                     )
-                orphan = self.orphans[keypath[0]]
-                val.container_cls = orphan
-                val.trait = orphan.class_traits()[keypath[1]]
+                orphan, traitname = keypath
+                if orphan in self.orphan_classes:
+                    cls = self.orphan_classes[orphan]
+                    val.container_cls = cls
+                    val.trait = cls.class_traits()[traitname]
             output[key] = val
 
         return output
+
+    def setup_orphan_keys(self):
+        """Remove orphans' keys from :attr:`conf` and put them in :attr:`orphans_keys`."""
+        to_remove = []
+        for key, value in self.conf.items():
+            keypath = key.split(".")
+            orphan = keypath[0]
+            if len(keypath) == 2 and orphan in self.orphans_registered:
+                to_remove.append(key)
+                if orphan not in self.orphans_keys:
+                    self.orphans_keys[orphan] = {}
+                self.orphans_keys[orphan][keypath[1]] = value
+
+        for key in to_remove:
+            self.conf.pop(key)
+
+    @classmethod
+    def add_orphan(cls, scheme: type[S]) -> type[S]:
+        name = scheme.__name__
+        if name not in cls.orphans_registered:
+            raise ConfigError(
+                f"Class {name} is not a registered orphan. "
+                "Populate `Application.orphans_registered` beforehand."
+            )
+        cls.orphan_classes[name] = scheme
+        return scheme
 
     def add_extra_parameter(self, *args, **kwargs):
         """Add a configurable trait to this application configuration.
@@ -494,17 +532,15 @@ class ApplicationBase(Scheme, LoggingMixin):
         self._extra_parameters_args.append((args, kwargs))
 
     @classmethod
-    def add_orphan(cls, scheme: type[S]) -> type[S]:
-        """Add a scheme to the configuration as an orphan."""
-        cls.orphans[scheme.__name__] = scheme
-        return scheme
+    def _classes_inc_parents(
+        cls, classes: abc.Iterable[type[Scheme]] | None = None
+    ) -> abc.Generator[type[Configurable], None, None]:
+        if classes is None:
+            classes = itertools.chain(
+                cls._subschemes_recursive(), cls.orphan_classes.values()
+            )
 
-    def setup_orphans(self) -> None:
-        for key, val in self.conf.items():
-            keypath = key.split(".")
-            if keypath[0] in self.orphans:
-                orphan = self.orphans[keypath[0]]
-                orphan._orphan_config[keypath[1]] = val.get_value()
+        return super()._classes_inc_parents(classes)
 
     def write_config(
         self,
