@@ -7,6 +7,7 @@ import logging
 import typing as t
 from collections import abc
 
+from ..config.application import ApplicationBase
 from ..config.scheme import Scheme
 from .plugin import CachePlugin, Plugin
 
@@ -112,16 +113,21 @@ class ParamsSchemePlugin(ParamsPluginAbstract):
 
     RAISE_ON_MISS: bool = False
 
+    PARAMS_PATH: str | None = None
+
     def _init_params(self) -> None:
         self.params: Scheme
 
     def set_params(
         self,
-        params: Scheme | None = None,
+        params: ApplicationBase | Scheme | None = None,
         reset: bool | list[str] = True,
         **kwargs,
     ):
         """Set parameters values.
+
+        If :attr:`PARAMS_PATH` is not None, it will be used to obtain a sub-scheme
+        to use.
 
         Parameters
         ----------
@@ -135,8 +141,29 @@ class ParamsSchemePlugin(ParamsPluginAbstract):
             Additional parameters. Parameters will be taken in order of first available
             in: ``kwargs``, ``params``, :attr:`PARAMS_DEFAULTS`.
         """
+        # Save app if this is an orphan class
+        clsname = self.__class__.__name__
+        if isinstance(params, ApplicationBase) and clsname in params.orphans_keys:
+            app = params
+        else:
+            app = None
+
         if params is None:
             params = Scheme()
+        # Select subscheme
+        elif self.PARAMS_PATH is not None:
+            params = params[self.PARAMS_PATH]
+            if not isinstance(params, Scheme):
+                raise TypeError(f"'{self.PARAMS_PATH}' did not led to subscheme.")
+
+        # Add orphan keys to parameters, to be more explicit
+        if app is not None:
+            assert isinstance(self, Scheme), "orphan class must be a Scheme"
+            keys = app.orphans_keys[clsname]
+            to_add = [k for k in keys if k not in params.traits()]
+            params.add_traits(**{k: self.traits()[k] for k in to_add})
+            for k, v in keys.items():
+                setattr(params, k, v.get_value())
 
         params.update(
             self.PARAMS_DEFAULTS,
