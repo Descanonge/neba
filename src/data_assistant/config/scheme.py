@@ -141,7 +141,7 @@ class Scheme(Configurable):
     def __init__(self, app: ApplicationBase | None = None, *args, **kwargs):
         clsname = self.__class__.__name__
         if app is not None and clsname in app.orphans_keys:
-            keys = app.orphans_keys[clsname]
+            keys = {k: v.get_value() for k, v in app.orphans_keys[clsname].items()}
         else:
             keys = {}
         super().__init__(*args, **keys, **kwargs)
