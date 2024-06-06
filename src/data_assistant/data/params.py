@@ -9,7 +9,6 @@ from collections import abc
 
 from traitlets import TraitType
 
-from ..config.application import ApplicationBase
 from ..config.scheme import Scheme
 from .plugin import CachePlugin, Plugin
 
@@ -126,9 +125,7 @@ class ParamsSchemePlugin(ParamsPluginAbstract):
     """Parameters are stored in a Scheme object.
 
     The plugin does not initialize the :attr:`params` attribute. It is set by the first
-    call to :meth:`set_params` (which checks if the attribute exists).
-    Subsequent calls to :meth:`set_params` will only update the current attribute.
-
+    call to :meth:`set_params`.
     """
 
     PARAMS_DEFAULTS: dict[str, TraitType] = {}
@@ -147,10 +144,7 @@ class ParamsSchemePlugin(ParamsPluginAbstract):
         self.params: Scheme
 
     def set_params(
-        self,
-        params: ApplicationBase | Scheme | None = None,
-        reset: bool | list[str] = True,
-        **kwargs,
+        self, params: Scheme | None = None, reset: bool | list[str] = True, **kwargs
     ):
         """Set parameters values.
 
@@ -158,11 +152,8 @@ class ParamsSchemePlugin(ParamsPluginAbstract):
         ----------
         params
             Scheme to use as parameters. If :attr:`PARAMS_PATH` is not None, it will be
-            used to obtain a sub-scheme to use. If it is an
-            :class:`..config.application.ApplicationBase` and this class is registered
-            as an orphan, the corresponding configuration keys will be added to the
-            parameters. Traits that do not already exist in the current :attr:`params`
-            scheme will be added.
+            used to obtain a sub-scheme to use. Traits that do not already exist in the
+            current :attr:`params` scheme will be added.
         reset:
             Passed to :meth:`reset_callback`.
         kwargs:
@@ -175,10 +166,7 @@ class ParamsSchemePlugin(ParamsPluginAbstract):
         self.reset_callback(reset, params=params)
 
     def update_params(
-        self,
-        params: ApplicationBase | Scheme | None,
-        reset: bool | list[str] = True,
-        **kwargs,
+        self, params: Scheme | None, reset: bool | list[str] = True, **kwargs
     ):
         """Update one or more parameters values.
 
@@ -188,11 +176,8 @@ class ParamsSchemePlugin(ParamsPluginAbstract):
         ----------
         params
             Scheme to add values to current parameters. If :attr:`PARAMS_PATH` is not
-            None, it will be used to obtain a sub-scheme to use. If it is an
-            :class:`..config.application.ApplicationBase` and this class is registered
-            as an orphan, the corresponding configuration keys will be added to the
-            parameters. Traits that do not already exist in the current :attr:`params`
-            scheme will be added.
+            None, it will be used to obtain a sub-scheme to use. Traits that do not
+            already exist in the current :attr:`params` scheme will be added.
         reset:
             Passed to :meth:`reset_callback`.
         kwargs:
@@ -204,14 +189,7 @@ class ParamsSchemePlugin(ParamsPluginAbstract):
         self.params.update(params, allow_new=True, raise_on_miss=self.RAISE_ON_MISS)
         self.reset_callback(reset)
 
-    def _get_params(self, params: ApplicationBase | Scheme | None, **kwargs) -> Scheme:
-        # Save app if this is an orphan class
-        clsname = self.__class__.__name__
-        if isinstance(params, ApplicationBase) and clsname in params.orphans_keys:
-            app = params
-        else:
-            app = None
-
+    def _get_params(self, params: Scheme | None, **kwargs) -> Scheme:
         if params is None:
             params = Scheme()
         # Select subscheme
@@ -219,15 +197,6 @@ class ParamsSchemePlugin(ParamsPluginAbstract):
             params = params[self.PARAMS_PATH]
             if not isinstance(params, Scheme):
                 raise TypeError(f"'{self.PARAMS_PATH}' did not led to subscheme.")
-
-        # Add orphan keys to parameters, to be more explicit
-        if app is not None:
-            assert isinstance(self, Scheme), "orphan class must be a Scheme"
-            keys = app.orphans_keys[clsname]
-            to_add = [k for k in keys if k not in params.traits()]
-            params.add_traits(**{k: self.traits()[k] for k in to_add})
-            for k, v in keys.items():
-                setattr(params, k, v.get_value())
 
         params.update(
             self.PARAMS_DEFAULTS,

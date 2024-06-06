@@ -138,13 +138,8 @@ class Scheme(Configurable):
 
         cls.setup_class(classdict)  # type: ignore
 
-    def __init__(self, app: ApplicationBase | None = None, *args, **kwargs):
-        clsname = self.__class__.__name__
-        if app is not None and clsname in app.orphans_keys:
-            keys = {k: v.get_value() for k, v in app.orphans_keys[clsname].items()}
-        else:
-            keys = {}
-        super().__init__(*args, **keys, **kwargs)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.postinit()
 
     def postinit(self):
