@@ -931,7 +931,16 @@ class PyLoader(FileLoader):
             ``traitname = 2`` will be commented since we do not need to parse/load the
             default value.
         """
-        return self.serialize_scheme(self.app, [], comment)
+        lines = self.serialize_scheme(self.app, [], comment)
+
+        lines.append("")
+        for key, value in self.config.items():
+            lines.append(f"c.{key} = {value.get_value()!r}")
+
+        # newline at the end of file
+        lines.append("")
+
+        return lines
 
     def serialize_scheme(
         self, scheme: Scheme, fullpath: list[str], comment: str
@@ -950,16 +959,26 @@ class PyLoader(FileLoader):
         lines.append("")
 
         for name, trait in sorted(scheme.traits(config=True).items()):
+            try:
+                default = trait.default_value_repr()
+            except Exception:
+                default = repr(trait.default())
+
             if comment != "none":
                 typehint = get_trait_typehint(trait, "minimal")
-                lines.append(f"## {name} ({typehint})")
+                lines.append(f"## {name} ({typehint}) default: {default}")
 
             fullkey = ".".join(fullpath + [name])
-            try:
-                value = trait.default_value_repr()
-            except Exception:
-                value = repr(value)
-            lines.append(f"# c.{fullkey} = {value}")
+
+            key_exist = fullkey in self.config
+            if key_exist:
+                value = self.config.pop(fullkey).get_value()
+                default = repr(value)
+
+            keyval = f"c.{fullkey} = {default}"
+            if not key_exist:
+                keyval = "# " + keyval
+            lines.append(keyval)
 
             if comment != "none" and isinstance(trait, Enum):
                 lines.append("# Accepted values: " + repr(trait.values))
@@ -989,5 +1008,7 @@ class PyLoader(FileLoader):
         text = text.rstrip(" \n")
         lines = wrap_text(text)
         lines = [f"# {line}" for line in lines]
+
+        lines = [line.rstrip() for line in lines]
 
         return lines
