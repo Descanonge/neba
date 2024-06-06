@@ -184,7 +184,7 @@ class Scheme(Configurable):
             if value != default:
                 to_add += [f"default: {default}"]
             if isinstance(trait, Enum) and trait.values is not None:
-                to_add += [str(set(trait.values))]
+                to_add += [str(trait.values)]
 
             trait_str = f"{trait_cls}"
             if to_add:
@@ -216,6 +216,7 @@ class Scheme(Configurable):
     # - Mapping methods
 
     def keys(self) -> list[str]:
+        """List of keys leading to subschemes and traits."""
         out = []
         for name, trait in self.traits(subscheme=None).items():
             if trait.this_class is not Configurable:
@@ -223,22 +224,32 @@ class Scheme(Configurable):
         for name in self._subschemes:
             subscheme = getattr(self, name)
             out += [f"{name}.{s}" for s in subscheme.keys()]
-        out = list(filter(lambda s: not s.startswith("_"), out))
+        out = [s for s in out if not s.startswith("_")]
         return out
 
     def values(self) -> list[t.Any]:
+        """List of subschemes instances and trait values.
+
+        In the same order as :meth:`keys`.
+        """
         return [self[key] for key in self.keys()]
 
     def items(self) -> dict[str, t.Any]:
+        """Mapping of keys to values.
+
+        Keys can lead to subschemes instances or trait values.
+        """
         return dict(zip(self.keys(), self.values()))
 
     def get(self, key: str, default: t.Any | None = None) -> t.Any:
+        """Obtain value at `key`."""
         try:
             return self[key]
         except KeyError:
             return default
 
     def __getitem__(self, key: str) -> t.Any:
+        """Obtain value it `key`."""
         fullpath = key.split(".")
         if len(fullpath) == 1:
             if key in self.trait_names():
@@ -255,13 +266,42 @@ class Scheme(Configurable):
 
         return subscheme[fullpath[-1]]
 
+    def __setitem__(self, key: str, value: t.Any):
+        """Set a trait to a value.
+
+        Parameters
+        ----------
+        key
+            Path to leading to a trait.
+        """
+        fullpath = key.split(".")
+        subscheme = self
+        for name in fullpath[:-1]:
+            if name in self._subschemes:
+                subscheme = getattr(subscheme, name)
+            else:
+                raise KeyError(f"Could not resolve key {key}")
+        trait = fullpath[-1]
+
+        if trait not in subscheme.trait_names():
+            clsname = subscheme.__class__.__name__
+            raise KeyError(f"No trait '{trait}' in scheme {clsname}.")
+
+        setattr(subscheme, trait, value)
+
     def __contains__(self, key: str) -> bool:
+        """Return if key leads to an existing subscheme or trait."""
         return key in self.keys()
 
     def __iter__(self) -> abc.Iterable[str]:
+        """Iter over possible keys.
+
+        Simply iter :meth:`keys`.
+        """
         return iter(self.keys())
 
     def __len__(self) -> int:
+        """Return number of valid keys."""
         return len(self.keys())
 
     # - end of Mapping methods
