@@ -526,7 +526,9 @@ class Scheme(Configurable):
                 )
 
             subscheme.add_traits(**{trait_name: value})
-            setattr(subscheme, trait_name, value.default)
+            setattr(
+                subscheme, trait_name, other[fullkey] if input_scheme else value.default
+            )
 
     @classmethod
     def class_resolve_key(
