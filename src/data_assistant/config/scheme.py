@@ -467,18 +467,20 @@ class Scheme(Configurable):
             flat mapping of full path keys (``"some.path.to.trait"``) to values or
             trait instances, which default value will be used.
         allow_new
-            If True, allow creating new traits for this Scheme. A new trait must come
-            a Scheme object, or if from a mapping be a trait instance. Default is False.
+            If True, allow creating new traits for this Scheme. A new trait must can be
+            a trait in `other` if it is a Scheme; in a mapping it must be a trait
+            instance which default value will be used. Default is False.
         raise_on_miss
             If True, raise an exception if a trait in `other` is placed on a path that
             does not lead to an existing subscheme or trait. Default is False.
         kwargs
             Same as `other`.
         """
+        input_scheme = isinstance(other, Scheme)
         if other is None:
             other = {}
-        elif isinstance(other, Scheme):
-            other = other.traits_recursive(flatten=True)
+        elif input_scheme:
+            other = other.traits_recursive(flatten=True)  # type: ignore[union-attr]
         else:
             other = dict(other)
         other |= kwargs
@@ -504,7 +506,10 @@ class Scheme(Configurable):
                 continue
             if trait_name in subscheme.trait_names():
                 if isinstance(value, TraitType):
-                    value = value.default
+                    if input_scheme:
+                        value = other[fullkey]
+                    else:
+                        value = value.default
                 setattr(subscheme, trait_name, value)
                 continue
 
