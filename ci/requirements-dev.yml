@@ -26,4 +26,4 @@ dependencies:
     - pip
 
     - pip:
-        - filefinder = 1.0.*
+        - filefinder = 1.2.*

@@ -228,7 +228,7 @@ class FileFinderPlugin(MultiFilePluginAbstract, CachePlugin):
         # We now fix the parameters present in the filename (we don't have to worry
         # about them after that). We re-use code from self.fixable to avoid
         # infinite recursion
-        fixable = [g.name for g in finder.groups]
+        fixable = finder.get_group_names()
 
         for p in fixable:
             if (value := self.params[p]) is not None:
@@ -244,9 +244,7 @@ class FileFinderPlugin(MultiFilePluginAbstract, CachePlugin):
         This correspond to the list of the group names in the Finder (without
         duplicates).
         """
-        fixable = [g.name for g in self.filefinder.groups]
-        # remove duplicates
-        return list(set(fixable))
+        return list(self.filefinder.get_group_names())
 
     @property
     @autocached
