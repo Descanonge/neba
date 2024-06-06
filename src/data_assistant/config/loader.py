@@ -52,7 +52,7 @@ from .util import (
 
 if t.TYPE_CHECKING:
     from tomlkit.container import Container as TOMLContainer
-    from tomlkit.container import Table
+    from tomlkit.container import Item, Table
     from tomlkit.toml_document import TOMLDocument
 
     from .application import ApplicationBase
@@ -333,7 +333,13 @@ class ConfigLoader:
             raise MultipleConfigKeyError(key, [self.config[key], value])
         self.config[key] = value
 
-    def get_config(self, *args, **kwargs) -> dict[str, ConfigValue]:
+    def get_config(
+        self,
+        *args: t.Any,
+        apply_application_traits: bool = True,
+        resolve: bool = True,
+        **kwargs,
+    ) -> dict[str, ConfigValue]:
         """Load and return a proper configuration dict.
 
         This method clears the existing config, call :meth:`load_config` to populate the
@@ -354,7 +360,16 @@ class ConfigLoader:
         self.clear()
         self.load_config(*args, **kwargs)
 
-        # Apply config for Application
+        if apply_application_traits:
+            self.apply_application_traits()
+
+        if resolve:
+            self.config = self.app.resolve_config(self.config)
+
+        return self.config
+
+    def apply_application_traits(self) -> None:
+        """Apply config for Application."""
         for key, val in self.config.items():
             keypath = key.split(".")
             if (len(keypath) == 1 and key in self.app.trait_names()) or (
@@ -365,9 +380,6 @@ class ConfigLoader:
                 if val.value is Undefined:
                     val.parse()
                 setattr(self.app, traitname, val.get_value())
-
-        self.config = self.app.resolve_config(self.config)
-        return self.config
 
     def load_config(self) -> None:
         """Populate the config attribute from a source.
@@ -523,19 +535,14 @@ class CLILoader(ConfigLoader):
         # parser.set_action_creation(func)
         return parser
 
-    def get_config(self, argv: list[str] | None = None) -> dict[str, ConfigValue]:
+    def get_config(self, *args, **kwargs) -> dict[str, ConfigValue]:
         """Load and return a proper configuration dict.
 
         This overwrites the common method to parse all values. Since the config has
         been resolved, each config value should be associated to a trait, allowing
         parsing.
-
-        Parameters
-        ----------
-        argv
-            Arguments to parse. If None use the system ones.
         """
-        self.config = super().get_config(argv)
+        self.config = super().get_config(*args, **kwargs)
         # Parse values using the traits
         for key, val in self.config.items():
             with ConfigErrorHandler(self.app, key):
@@ -547,6 +554,11 @@ class CLILoader(ConfigLoader):
 
         Use argparser to obtain key/values.
         Deal with 'help' flags.
+
+        Parameters
+        ----------
+        argv
+            Arguments to parse. If None use the system ones.
         """
         # ArgumentParser does its job
         args = vars(self.parser.parse_args(argv))
@@ -690,6 +702,19 @@ class TomlkitLoader(FileLoader):
 
         self.serialize_scheme(self.app, [], comment, doc)
 
+        class_keys: dict[str, dict[str, t.Any]] = {}
+        for key, value in self.config.items():
+            cls, name = key.split(".")
+            if cls not in class_keys:
+                class_keys[cls] = {}
+            class_keys[cls][name] = value.get_value()
+
+        for cls in class_keys:
+            tab = self.backend.table()
+            for key, value in class_keys[cls].items():
+                tab.add(key, self._sanitize_item(value))
+            doc.add(cls, tab)
+
         return self.backend.dumps(doc).splitlines()
 
     @t.overload
@@ -729,18 +754,27 @@ class TomlkitLoader(FileLoader):
 
         if comment != "none":
             self.wrap_comment(t, scheme.emit_description())
-            t.add(self.backend.nl())
 
-        for name, trait in sorted(scheme.traits(config=True).items()):
+        for name, trait in scheme.traits(config=True).items():
+            if comment != "none":
+                t.add(self.backend.nl())
             lines: list[str] = []
+
+            fullkey = ".".join(fullpath + [name])
+            key_exist = fullkey in self.config
+            if key_exist:
+                value = self.config.pop(fullkey).get_value()
+                t.add(name, self._sanitize_item(value))
+
             # the actual toml code key = value
             # If anything goes wrong we just use str, it may not be valid toml but
             # the user will deal with it.
             try:
-                value = self.get_trait_keyval(trait)
+                default = self._sanitize_item(trait.default()).as_string()
             except Exception:
-                value = str(value)
-            lines.append(f"{name} = {value}")
+                default = str(trait.default())
+            if not key_exist:
+                lines.append(f"{name} = {default}")
 
             if comment == "full":
                 # a separator between the key = value and block of help/info
@@ -749,7 +783,7 @@ class TomlkitLoader(FileLoader):
             if comment != "none":
                 fullkey = ".".join(fullpath + [name])
                 typehint = get_trait_typehint(trait, "minimal")
-                lines.append(f"{fullkey} ({typehint})")
+                lines.append(f"{fullkey} ({typehint}) default: {default}")
 
                 if isinstance(trait, Enum):
                     lines.append("Accepted values: " + repr(trait.values))
@@ -758,33 +792,27 @@ class TomlkitLoader(FileLoader):
                 lines += wrap_text(trait.help)
 
             self.wrap_comment(t, lines)
-            if comment != "none":
-                t.add(self.backend.nl())
 
         for name, subscheme in sorted(scheme.trait_values(subscheme=True).items()):
-            t.add(self.backend.nl())
             t.add(name, self.serialize_scheme(subscheme, fullpath + [name], comment))
 
         return t
 
-    def get_trait_keyval(self, trait: TraitType) -> str:
-        """Return the value string to use for the line key = value.
+    def _sanitize_item(self, value: t.Any) -> Item:
+        """Return an Item to use for the line key = value.
 
-        Take care of specific cases when default value is None or a type, else use
-        :func:`tomlkit.item` and :meth:`tomlkit.items.Item.as_string`.
+        Take care of specific cases when default value is None or a type.
         """
-        # The actual toml code key = value.
-        value = trait.default()
-
         if value is None:
-            return ""
+            return self.backend.items.String.from_raw("")
 
         # convert types to string
         if isinstance(value, type):
-            return f'"{value.__module__}.{value.__name__}"'
+            return self.backend.items.String.from_raw(
+                f"{value.__module__}.{value.__name__}"
+            )
 
-        item = self.backend.item(value)
-        return item.as_string()
+        return self.backend.item(value)
 
     def wrap_comment(self, item: Table | TOMLContainer, text: str | list[str]):
         """Wrap text correctly and add it to a toml container as comment lines."""

@@ -18,7 +18,7 @@ from traitlets.utils.nested_update import nested_update
 
 from .loader import CLILoader, PyLoader, TomlkitLoader, YamlLoader, to_nested_dict
 from .scheme import Scheme
-from .util import ConfigErrorHandler
+from .util import ConfigError, ConfigErrorHandler
 
 if t.TYPE_CHECKING:
     from .loader import ConfigValue, FileLoader
@@ -507,7 +507,10 @@ class ApplicationBase(Scheme, LoggingMixin):
 
         filename = path.realpath(filename)
 
-        if path.exists(filename) and overwrite is None:
+        # TODO: ask for Overwrite/Abort/Merge
+
+        file_exist = path.exists(filename)
+        if file_exist and overwrite is None:
             print(f"Config file already exists '{filename}")
 
             def ask():
@@ -529,6 +532,27 @@ class ApplicationBase(Scheme, LoggingMixin):
             log.info("Overwriting configuration file %s.", filename)
 
         loader = self._select_file_loader(filename)(filename, self)
+
+        classes = {cls.__name__: cls for cls in self._classes_inc_parents()}
+        if file_exist:
+            conf = loader.get_config(apply_application_traits=False, resolve=False)
+            valid = {}
+            for key, value in conf.items():
+                keypath = key.split(".")
+                if (
+                    len(keypath) == 2
+                    and keypath[0] in classes
+                    and keypath[1] in classes[keypath[0]].class_trait_names(config=True)
+                ):
+                    valid[key] = value
+                    continue
+                try:
+                    fullkey, *_ = self.resolve_key(keypath)
+                    valid[key] = value
+                except ConfigError:
+                    pass
+            loader.config = valid
+
         lines = loader.to_lines(comment=comment)
 
         with open(filename, "w") as f:
