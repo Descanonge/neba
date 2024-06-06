@@ -128,6 +128,8 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
     ):
         """Set parameters values.
 
+        Old parameters values are discarded.
+
         :Not implemented: implement in a plugin subclass.
 
         Parameters
@@ -141,10 +143,21 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
         """
         raise NotImplementedError("Implement in a plugin subclass.")
 
-    def reset_params(self) -> None:
-        """Reset parameters to their initial state (empty most likely).
+    def update_params(
+        self, params: t.Any | None, reset: bool | list[str] = True, **kwargs
+    ):
+        """Update one or more parameters values.
+
+        Other parameters are kept.
 
         :Not implemented: implement in a plugin subclass.
+
+        Parameters
+        ----------
+        reset:
+            Passed to :meth:`reset_callback`.
+        kwargs:
+            Other parameters values in the form ``name=value``.
         """
         raise NotImplementedError("Implement in a plugin subclass.")
 

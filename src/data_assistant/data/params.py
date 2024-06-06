@@ -17,6 +17,13 @@ log = logging.getLogger(__name__)
 class ParamsPluginAbstract(Plugin):
     """Abstract class for basic parameter management."""
 
+    def _reset_params(self) -> None:
+        """Reset parameters to their initial state (empty most likely).
+
+        :Not implemented: implement in a plugin subclass.
+        """
+        raise NotImplementedError("Implement in a plugin subclass.")
+
     def save_excursion(self, save_cache: bool = False) -> _ParamsContext:
         """Save and restore current parameters after a with block.
 
@@ -74,6 +81,25 @@ class ParamsMappingPlugin(ParamsPluginAbstract):
             Additional parameters. Parameters will be taken in order of first available
             in: ``kwargs``, ``params``, :attr:`PARAMS_DEFAULTS`.
         """
+        self._reset_params()
+        self.update_params(params, reset=reset, **kwargs)
+
+    def update_params(
+        self, params: t.Any | None, reset: bool | list[str] = True, **kwargs
+    ):
+        """Update one or more parameters values.
+
+        Other parameters are kept.
+
+        :Not implemented: implement in a plugin subclass.
+
+        Parameters
+        ----------
+        reset:
+            Passed to :meth:`reset_callback`.
+        kwargs:
+            Other parameters values in the form ``name=value``.
+        """
         if params is None:
             params = {}
         else:
@@ -84,7 +110,7 @@ class ParamsMappingPlugin(ParamsPluginAbstract):
         self.params.update(params)
         self.reset_callback(reset, params=params)
 
-    def reset_params(self) -> None:
+    def _reset_params(self) -> None:
         """Reset parameters to their initial state (empty dict)."""
         self.params = {}
 
@@ -178,7 +204,7 @@ class ParamsSchemePlugin(ParamsPluginAbstract):
             self.params.update(params, allow_new=True, raise_on_miss=self.RAISE_ON_MISS)
         self.reset_callback(reset, params=params)
 
-    def reset_params(self) -> None:
+    def _reset_params(self) -> None:
         """Reset parameters to their initial state (not `params` attribute)."""
         del self.params
 
