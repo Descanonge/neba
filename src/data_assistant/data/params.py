@@ -7,6 +7,8 @@ import logging
 import typing as t
 from collections import abc
 
+from traitlets import TraitType
+
 from ..config.application import ApplicationBase
 from ..config.scheme import Scheme
 from .plugin import CachePlugin, Plugin
@@ -129,8 +131,8 @@ class ParamsSchemePlugin(ParamsPluginAbstract):
 
     """
 
-    PARAMS_DEFAULTS: dict[str, t.Any] = {}
-    """Default values of parameters or trait instance for new traits.
+    PARAMS_DEFAULTS: dict[str, TraitType] = {}
+    """Default values of new traits.
 
     Optional. Can be used to define default values for parameters local to a
     data-manager, (*ie* that are not defined in project-wide with
@@ -152,21 +154,57 @@ class ParamsSchemePlugin(ParamsPluginAbstract):
     ):
         """Set parameters values.
 
-        If :attr:`PARAMS_PATH` is not None, it will be used to obtain a sub-scheme
-        to use.
-
         Parameters
         ----------
-        params:
-            Scheme containing parameters.
-            Traits that do not already exist in the current :attr:`params` scheme will
-            be added.
+        params
+            Scheme to use as parameters. If :attr:`PARAMS_PATH` is not None, it will be
+            used to obtain a sub-scheme to use. If it is an
+            :class:`..config.application.ApplicationBase` and this class is registered
+            as an orphan, the corresponding configuration keys will be added to the
+            parameters. Traits that do not already exist in the current :attr:`params`
+            scheme will be added.
         reset:
             Passed to :meth:`reset_callback`.
         kwargs:
-            Additional parameters. Parameters will be taken in order of first available
-            in: ``kwargs``, ``params``, :attr:`PARAMS_DEFAULTS`.
+            Other parameters values in the form ``name=value``. The value can be
+            a :class:`~traitlets.TraitType` instance in which case it will be added
+            to the parameters scheme with its default value.
         """
+        self._reset_params()
+        self.params = self._get_params(params, **kwargs)
+        self.reset_callback(reset, params=params)
+
+    def update_params(
+        self,
+        params: ApplicationBase | Scheme | None,
+        reset: bool | list[str] = True,
+        **kwargs,
+    ):
+        """Update one or more parameters values.
+
+        Other parameters are kept.
+
+        Parameters
+        ----------
+        params
+            Scheme to add values to current parameters. If :attr:`PARAMS_PATH` is not
+            None, it will be used to obtain a sub-scheme to use. If it is an
+            :class:`..config.application.ApplicationBase` and this class is registered
+            as an orphan, the corresponding configuration keys will be added to the
+            parameters. Traits that do not already exist in the current :attr:`params`
+            scheme will be added.
+        reset:
+            Passed to :meth:`reset_callback`.
+        kwargs:
+            Other parameters values in the form ``name=value``. The value can be
+            a :class:`~traitlets.TraitType` instance in which case it will be added
+            to the parameters scheme with its default value.
+        """
+        params = self._get_params(params, **kwargs)
+        self.params.update(params, allow_new=True, raise_on_miss=self.RAISE_ON_MISS)
+        self.reset_callback(reset)
+
+    def _get_params(self, params: ApplicationBase | Scheme | None, **kwargs) -> Scheme:
         # Save app if this is an orphan class
         clsname = self.__class__.__name__
         if isinstance(params, ApplicationBase) and clsname in params.orphans_keys:
@@ -198,11 +236,7 @@ class ParamsSchemePlugin(ParamsPluginAbstract):
             **kwargs,
         )
 
-        if not hasattr(self, "params"):
-            self.params = params
-        else:
-            self.params.update(params, allow_new=True, raise_on_miss=self.RAISE_ON_MISS)
-        self.reset_callback(reset, params=params)
+        return params
 
     def _reset_params(self) -> None:
         """Reset parameters to their initial state (not `params` attribute)."""
