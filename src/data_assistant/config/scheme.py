@@ -528,7 +528,7 @@ class Scheme(Configurable):
     @classmethod
     def class_resolve_key(
         cls, key: str | list[str]
-    ) -> tuple[str, type[Scheme], TraitType | None]:
+    ) -> tuple[str, type[Scheme], TraitType]:
         """Resolve a key.
 
         This method is meant to be used pre-instanciation. Otherwise look to
@@ -582,7 +582,7 @@ class Scheme(Configurable):
 
         return ".".join(fullkey + [lastname]), subscheme, trait
 
-    def resolve_key(self, key: str | list[str]) -> tuple[str, Scheme, TraitType | None]:
+    def resolve_key(self, key: str | list[str]) -> tuple[str, Scheme, TraitType]:
         """Resolve a key.
 
         Parameters
