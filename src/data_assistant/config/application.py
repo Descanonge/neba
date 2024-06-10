@@ -475,7 +475,7 @@ class ApplicationBase(Scheme, LoggingMixin):
         self,
         filename: str | None = None,
         comment: str = "full",
-        overwrite: bool | None = None,
+        clobber: str | None = None,
     ):
         """(Over)write a configuration file.
 
@@ -494,11 +494,32 @@ class ApplicationBase(Scheme, LoggingMixin):
             Note that the line containing the key and default value, for instance
             ``traitname = 2`` will be commented since we do not need to parse/load the
             default value.
-        overwrite:
-            If the target file already exists: if None (default) ask whether to
-            overwrite, if a boolean either overwrite (True) the existing file, or not
-            (False).
+        clobber:
+            If the target file already exists, either:
+
+            * abort: the file is left as-is
+            * overwrite: the file is completely overwritten with the current
+              configuration
+            * update: the configuration keys specified in the existing file are kept
+              in the output and left uncommented. Everything else is replaced.
+              Class-keys are not resolved to full-keys.
+            * None: ask what to do interactively in the console
         """
+        options = dict(u="update", o="overwrite", a="abort")
+        default = "u"
+        inits = [i.upper() if i == default else i for i in options.keys()]
+
+        def ask() -> str:
+            prompt = (
+                ", ".join(f"({k}){v[1:]}" for k, v in options.items())
+                + f" [{'/'.join(inits)}]"
+            )
+            try:
+                return input(prompt[0]).lower() or default
+            except KeyboardInterrupt:
+                print("")  # empty line
+                return default
+
         if filename is None:
             if isinstance(self.config_files, list | tuple):
                 filename = self.config_files[0]
@@ -507,53 +528,37 @@ class ApplicationBase(Scheme, LoggingMixin):
 
         filename = path.realpath(filename)
 
-        # TODO: ask for Overwrite/Abort/Merge
+        loader = self._select_file_loader(filename)(filename, self)
+        show_existing_keys = False
 
         file_exist = path.exists(filename)
-        if file_exist and overwrite is None:
-            print(f"Config file already exists '{filename}")
+        if file_exist:
+            if clobber and clobber not in options.values():
+                raise ValueError(
+                    f"`clobber` argument must be in {list(options.values())}"
+                )
+            if not clobber:  # Nothing specified, ask the user interactively
+                print(f"Config file already exists '{filename}")
 
-            def ask():
-                prompt = "Overwrite with new config? [y/N]"
-                try:
-                    return input(prompt).lower() or "n"
-                except KeyboardInterrupt:
-                    print("")  # empty line
-                    return "n"
+                clobber = ask()
+                while clobber not in options:
+                    print(f"Please answer one of {'/'.join(options.keys())}")
+                    clobber = ask()
+                clobber = options[clobber]
 
-            answer = ask()
-            while not answer.startswith(("y", "n")):
-                print("Please answer 'yes' or 'no'")
-                answer = ask()
-            overwrite = not answer.startswith("n")
-            if not overwrite:
+            if clobber == "abort":
                 return
 
-            log.info("Overwriting configuration file %s.", filename)
+            log.info(
+                "%sing configuration file %s.",
+                clobber.title().removesuffix("e"),
+                filename,
+            )
 
-        loader = self._select_file_loader(filename)(filename, self)
+            if clobber == "update":
+                show_existing_keys = True
 
-        classes = {cls.__name__: cls for cls in self._classes_inc_parents()}
-        if file_exist:
-            conf = loader.get_config(apply_application_traits=False, resolve=False)
-            valid = {}
-            for key, value in conf.items():
-                keypath = key.split(".")
-                if (
-                    len(keypath) == 2
-                    and keypath[0] in classes
-                    and keypath[1] in classes[keypath[0]].class_trait_names(config=True)
-                ):
-                    valid[key] = value
-                    continue
-                try:
-                    fullkey, *_ = self.resolve_key(keypath)
-                    valid[key] = value
-                except ConfigError:
-                    pass
-            loader.config = valid
-
-        lines = loader.to_lines(comment=comment)
+        lines = loader.to_lines(comment=comment, show_existing_keys=show_existing_keys)
 
         with open(filename, "w") as f:
             f.write("\n".join(lines))

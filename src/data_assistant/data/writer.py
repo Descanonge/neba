@@ -51,8 +51,8 @@ class WriterPluginAbstract(Plugin):
             Presentely we first try a serialization using json, if that fails, `str()`.
         add_dataset_params
             Add the parent dataset parameters values to serialization if True (default)
-            and if ``parameters`` is not a string. The parent parameters won't overwrite
-            the values of ``parameters``.
+            and if ``params`` is not a string. The parent parameters won't overwrite the
+            values of ``params``.
         add_commit
             If True (default), try to find the current commit hash of the directory
             containing the script called.

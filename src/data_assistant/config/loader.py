@@ -42,6 +42,7 @@ from traitlets.traitlets import Container, Enum, HasTraits, TraitError, TraitTyp
 from traitlets.utils.sentinel import Sentinel
 
 from .util import (
+    ConfigError,
     ConfigErrorHandler,
     ConfigParsingError,
     MultipleConfigKeyError,
@@ -53,10 +54,11 @@ from .util import (
 if t.TYPE_CHECKING:
     from tomlkit.container import Container as TOMLContainer
     from tomlkit.container import Item, Table
-    from tomlkit.toml_document import TOMLDocument
 
     from .application import ApplicationBase
     from .scheme import Scheme
+
+    T = t.TypeVar("T", bound=TOMLContainer | Table)
 
 
 _DOT = "__DOT__"
@@ -178,6 +180,8 @@ class ConfigValue:
         This method tries to handles containers and union more gracefully. If all
         options have been tried and no parsing was successful the function will
         raise.
+
+        TODO More general approach
         """
         if self.trait is None:
             raise ConfigParsingError(
@@ -619,8 +623,13 @@ class FileLoader(ConfigLoader):
         _, ext = path.splitext(filename)
         return ext.lstrip(".") in cls.extensions
 
-    def to_lines(self, comment: t.Any = None) -> list[str]:
+    def to_lines(
+        self, comment: t.Any = None, show_existing_keys: bool = False
+    ) -> list[str]:
         """Generate lines of a configuration file corresponding to the app config tree.
+
+        If `show_existing_keys` is true, the keys present in the original file are
+        loaded into this instance :attr:`config` attribute.
 
         Parameters
         ----------
@@ -634,6 +643,56 @@ class FileLoader(ConfigLoader):
             Note that the line containing the key and default value, for instance
             ``traitname = 2`` will be commented since we do not need to parse/load the
             default value.
+        show_existing_keys
+            If True, do not comment ``key = value`` lines that are present in the
+            original file (default is False).
+        """
+        classes = {cls.__name__: cls for cls in self.app._classes_inc_parents()}
+        self.get_config(apply_application_traits=False, resolve=False)
+        valid = {}
+        for key, value in self.config.items():
+            keypath = key.split(".")
+            if (
+                len(keypath) == 2
+                and keypath[0] in classes
+                and keypath[1] in classes[keypath[0]].class_trait_names(config=True)
+            ):
+                valid[key] = value
+                continue
+            try:
+                fullkey, *_ = self.app.resolve_key(keypath)
+                valid[key] = value
+            except ConfigError:
+                pass
+        self.config = valid
+        return self._to_lines(comment=comment, show_existing_keys=show_existing_keys)
+
+    def _to_lines(
+        self, comment: t.Any = None, show_existing_keys: bool = False
+    ) -> list[str]:
+        """Generate lines of a configuration file corresponding to the app config tree.
+
+        If `show_existing_keys` is true, the keys present in the original file are
+        loaded into this instance :attr:`config` attribute.
+        This includes unresolved class-keys. It is advised to pop keys from the
+        configuration as the application config-tree is walked. At the end, only
+        class keys should be left.
+
+        Parameters
+        ----------
+        comment
+            Include more or less information as comments. Can be one of:
+
+            * full: all information about traits is included
+            * no-help: trait help attribute is not included
+            * none: no information is included, only the key and default value
+
+            Note that the line containing the key and default value, for instance
+            ``traitname = 2`` will be commented since we do not need to parse/load the
+            default value.
+        show_existing_keys
+            If True, do not comment ``key = value`` lines that are present in this
+            loader instance :attr:`config` attribute (default is False).
         """
         raise NotImplementedError("Implement for different file formats.")
 
@@ -682,76 +741,44 @@ class TomlkitLoader(FileLoader):
 
         recurse(root_table, [])
 
-    def to_lines(self, comment: str = "full") -> list[str]:
-        """Return lines of configuration file corresponding to the app config tree.
-
-        Parameters
-        ----------
-        comment
-            Include more or less information in comments. Can be one of:
-
-            * full: all information about traits is included
-            * no-help: trait help attribute is not included
-            * none: no information is included, only the key and default value
-
-            Note that the line containing the key and default value, for instance
-            ``traitname = 2`` will be commented since we do not need to parse/load the
-            default value.
-        """
+    def _to_lines(
+        self, comment: str = "full", show_existing_keys: bool = False
+    ) -> list[str]:
+        """Return lines of configuration file corresponding to the app config tree."""
         doc = self.backend.document()
 
-        self.serialize_scheme(self.app, [], comment, doc)
+        self.serialize_scheme(
+            doc, self.app, [], comment=comment, show_existing_keys=show_existing_keys
+        )
 
-        class_keys: dict[str, dict[str, t.Any]] = {}
-        for key, value in self.config.items():
-            cls, name = key.split(".")
-            if cls not in class_keys:
-                class_keys[cls] = {}
-            class_keys[cls][name] = value.get_value()
+        if show_existing_keys:
+            class_keys: dict[str, dict[str, t.Any]] = {}
+            for key, value in self.config.items():
+                cls, name = key.split(".")
+                if cls not in class_keys:
+                    class_keys[cls] = {}
+                class_keys[cls][name] = value.get_value()
 
-        for cls in class_keys:
-            tab = self.backend.table()
-            for key, value in class_keys[cls].items():
-                tab.add(key, self._sanitize_item(value))
-            doc.add(cls, tab)
+            for cls in class_keys:
+                tab = self.backend.table()
+                for key, value in class_keys[cls].items():
+                    tab.add(key, self._sanitize_item(value))
+                doc.add(cls, tab)
 
         return self.backend.dumps(doc).splitlines()
 
-    @t.overload
     def serialize_scheme(
         self,
-        scheme: ApplicationBase,
-        fullpath: list[str],
-        comment: str,
-        container: TOMLDocument,
-    ) -> TOMLDocument: ...
-
-    @t.overload
-    def serialize_scheme(
-        self,
+        t: T,
         scheme: Scheme,
         fullpath: list[str],
-        comment: str,
-        container: None = None,
-    ) -> Table: ...
-
-    def serialize_scheme(
-        self,
-        scheme: Scheme,
-        fullpath: list[str],
-        comment: str,
-        container: TOMLDocument | None = None,
-    ) -> Table | TOMLDocument:
+        comment: str = "full",
+        show_existing_keys: bool = False,
+    ) -> T:
         """Serialize a Scheme and its subschemes recursively.
 
         We use the extented capabilities of :mod:`tomlkit`.
         """
-        t: TOMLContainer | Table
-        if container is None:
-            t = self.backend.table()
-        else:
-            t = container
-
         if comment != "none":
             self.wrap_comment(t, scheme.emit_description())
 
@@ -761,7 +788,7 @@ class TomlkitLoader(FileLoader):
             lines: list[str] = []
 
             fullkey = ".".join(fullpath + [name])
-            key_exist = fullkey in self.config
+            key_exist = show_existing_keys and fullkey in self.config
             if key_exist:
                 value = self.config.pop(fullkey).get_value()
                 t.add(name, self._sanitize_item(value))
@@ -794,7 +821,16 @@ class TomlkitLoader(FileLoader):
             self.wrap_comment(t, lines)
 
         for name, subscheme in sorted(scheme.trait_values(subscheme=True).items()):
-            t.add(name, self.serialize_scheme(subscheme, fullpath + [name], comment))
+            t.add(
+                name,
+                self.serialize_scheme(
+                    self.backend.table(),
+                    subscheme,
+                    fullpath + [name],
+                    comment=comment,
+                    show_existing_keys=show_existing_keys,
+                ),
+            )
 
         return t
 
@@ -915,27 +951,18 @@ class PyLoader(FileLoader):
 
         recurse(read_config, [])
 
-    def to_lines(self, comment: str = "full") -> list[str]:
-        """Return lines of configuration file corresponding to the app config tree.
+    def _to_lines(
+        self, comment: str = "full", show_existing_keys: bool = False
+    ) -> list[str]:
+        """Return lines of configuration file corresponding to the app config tree."""
+        lines = self.serialize_scheme(
+            self.app, [], comment=comment, show_existing_keys=show_existing_keys
+        )
 
-        Parameters
-        ----------
-        comment
-            Include more or less information in comments. Can be one of:
-
-            * full: all information about traits is included
-            * no-help: trait help attribute is not included
-            * none: no information is included, only the key and default value
-
-            Note that the line containing the key and default value, for instance
-            ``traitname = 2`` will be commented since we do not need to parse/load the
-            default value.
-        """
-        lines = self.serialize_scheme(self.app, [], comment)
-
-        lines.append("")
-        for key, value in self.config.items():
-            lines.append(f"c.{key} = {value.get_value()!r}")
+        if show_existing_keys:
+            lines.append("")
+            for key, value in self.config.items():
+                lines.append(f"c.{key} = {value.get_value()!r}")
 
         # newline at the end of file
         lines.append("")
@@ -943,7 +970,11 @@ class PyLoader(FileLoader):
         return lines
 
     def serialize_scheme(
-        self, scheme: Scheme, fullpath: list[str], comment: str
+        self,
+        scheme: Scheme,
+        fullpath: list[str],
+        comment: str = "full",
+        show_existing_keys: bool = False,
     ) -> list[str]:
         """Serialize a Scheme and its subschemes recursively.
 
@@ -970,7 +1001,7 @@ class PyLoader(FileLoader):
 
             fullkey = ".".join(fullpath + [name])
 
-            key_exist = fullkey in self.config
+            key_exist = show_existing_keys and fullkey in self.config
             if key_exist:
                 value = self.config.pop(fullkey).get_value()
                 default = repr(value)
@@ -994,7 +1025,12 @@ class PyLoader(FileLoader):
             lines.append("")
             lines.append(f"## {subscheme.__class__.__name__} (.{name}) ##")
             underline(lines, "#")
-            lines += self.serialize_scheme(subscheme, fullpath + [name], comment)
+            lines += self.serialize_scheme(
+                subscheme,
+                fullpath + [name],
+                comment=comment,
+                show_existing_keys=show_existing_keys,
+            )
 
         return lines
 
