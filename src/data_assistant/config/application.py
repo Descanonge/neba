@@ -506,16 +506,16 @@ class ApplicationBase(Scheme, LoggingMixin):
             * None: ask what to do interactively in the console
         """
         options = dict(u="update", o="overwrite", a="abort")
-        default = "u"
+        default = "a"
         inits = [i.upper() if i == default else i for i in options.keys()]
 
         def ask() -> str:
             prompt = (
-                ", ".join(f"({k}){v[1:]}" for k, v in options.items())
+                ", ".join(f"({i}){options[i.lower()][1:]}" for i in inits)
                 + f" [{'/'.join(inits)}]"
             )
             try:
-                return input(prompt[0]).lower() or default
+                return input(prompt)[:1].lower() or default
             except KeyboardInterrupt:
                 print("")  # empty line
                 return default

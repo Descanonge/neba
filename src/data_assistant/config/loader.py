@@ -647,28 +647,29 @@ class FileLoader(ConfigLoader):
             If True, do not comment ``key = value`` lines that are present in the
             original file (default is False).
         """
-        classes = {cls.__name__: cls for cls in self.app._classes_inc_parents()}
-        self.get_config(apply_application_traits=False, resolve=False)
-        valid = {}
-        for key, value in self.config.items():
-            keypath = key.split(".")
-            if (
-                len(keypath) == 2
-                and keypath[0] in classes
-                and keypath[1] in classes[keypath[0]].class_trait_names(config=True)
-            ):
-                for fullkey in self.app.resolve_class_key(keypath):
-                    _, scheme, trait = self.app.resolve_key(fullkey)
-                    trait._validate(scheme, value)
-                valid[key] = value
-                continue
-            try:
-                fullkey, scheme, trait = self.app.resolve_key(keypath)
-                trait._validate(scheme, value)
-                valid[key] = value
-            except ConfigError:
-                pass
-        self.config = valid
+        if show_existing_keys:
+            classes = {cls.__name__: cls for cls in self.app._classes_inc_parents()}
+            self.get_config(apply_application_traits=False, resolve=False)
+            valid = {}
+            for key, value in self.config.items():
+                keypath = key.split(".")
+                if (
+                    len(keypath) == 2
+                    and keypath[0] in classes
+                    and keypath[1] in classes[keypath[0]].class_trait_names(config=True)
+                ):
+                    for fullkey in self.app.resolve_class_key(keypath):
+                        _, scheme, trait = self.app.resolve_key(fullkey)
+                        trait._validate(scheme, value.get_value())
+                    valid[key] = value
+                    continue
+                try:
+                    fullkey, scheme, trait = self.app.resolve_key(keypath)
+                    trait._validate(scheme, value.get_value())
+                    valid[key] = value
+                except ConfigError:
+                    pass
+            self.config = valid
         return self._to_lines(comment=comment, show_existing_keys=show_existing_keys)
 
     def _to_lines(
