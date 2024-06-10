@@ -657,10 +657,14 @@ class FileLoader(ConfigLoader):
                 and keypath[0] in classes
                 and keypath[1] in classes[keypath[0]].class_trait_names(config=True)
             ):
+                for fullkey in self.app.resolve_class_key(keypath):
+                    _, scheme, trait = self.app.resolve_key(fullkey)
+                    trait._validate(scheme, value)
                 valid[key] = value
                 continue
             try:
-                fullkey, *_ = self.app.resolve_key(keypath)
+                fullkey, scheme, trait = self.app.resolve_key(keypath)
+                trait._validate(scheme, value)
                 valid[key] = value
             except ConfigError:
                 pass
