@@ -172,79 +172,59 @@ class ConfigValue:
         :meth:`Container.from_string_list<traitlets.Container.from_string_list>` for
         container traits.
 
-        We have to choose the correct function, and :class:`traitlets.Union` traits do
-        not do that (if no correct parsing is found they just return the input string,
-        and if a correct value is extracted the trait tries to validate it and may
-        fail and raise).
+        We have to choose the correct function, and :class:`traitlets.Union` traits does
+        not do that (if no correct parsing is found it just return the input string, and
+        if a correct value is extracted the trait tries to validate it and may fail and
+        raise).
 
         This method tries to handles containers and union more gracefully. If all
         options have been tried and no parsing was successful the function will
         raise.
-
-        TODO More general approach
         """
         if self.trait is None:
             raise ConfigParsingError(
                 f"Cannot parse key '{self.key}', has no associated trait."
             )
 
-        def try_list(trait: Container, src: list[str]) -> bool:
-            """Try to parse a list of elements.
-
-            Trait must be Container, or at last have ``from_string_list``.
-
-            Return True if no error was encountered (parsing successful a priori), False
-            otherwise.
-            """
+        def _try(attr: str, trait: TraitType, src: str | list[str]) -> bool:
             try:
-                self.value = trait.from_string_list(src)
+                self.value = getattr(trait, attr)(src)
                 return True
-            except (TraitError, ValueError):
-                pass
-            return False
+            except (AttributeError, TraitError, ValueError):
+                return False
 
         def try_item(trait: TraitType, src: str) -> bool:
-            """Try to parse a single element.
+            return _try("from_string", trait, src)
 
-            Return True if no error was encountered (parsing successful a priori), False
-            otherwise.
-            """
-            try:
-                self.value = trait.from_string(src)
+        def try_list(trait: Container, src: list[str]) -> bool:
+            return _try("from_string_list", trait, src)
+
+        def _parse(trait: TraitType, src: str | list[str]) -> bool:
+            src = [src] if isinstance(src, str) else src
+
+            # Handle lists
+            if isinstance(trait, Container) and try_list(trait, src):
                 return True
-            except (TraitError, ValueError):
-                pass
+
+            # Handle Union with lists
+            if isinstance(trait, Union):
+                for trait_type in trait.trait_types:
+                    if _parse(trait_type, src):
+                        return True
+
+            # Handle everything else
+            if len(src) == 1 and try_item(trait, src[0]):
+                return True
+
             return False
 
-        src = [self.input] if isinstance(self.input, str) else self.input
-
-        # Handle lists
-        if isinstance(self.trait, Container) and try_list(self.trait, src):
-            return
-
-        # Handle Union with lists
-        if isinstance(self.trait, Union):
-            for trait_type in self.trait.trait_types:
-                if isinstance(trait_type, Container):
-                    if try_list(trait_type, src):
-                        return
-                if len(src) == 1:
-                    if try_item(trait_type, src[0]):
-                        return
-
-        # Handle everything else
-        if len(src) == 1 and try_item(self.trait, src[0]):
+        if _parse(self.trait, self.input):
             return
 
         traitname = self.trait.__class__.__name__
         raise ConfigParsingError(
             f"Could not parse '{self.input}' for trait '{self.key}' ({traitname})."
         )
-
-    # def apply(self) -> None:
-    #     if self.container is None:
-    #         raise RuntimeError(f"No container for key '{self.key_init}'")
-    #     setattr(self.container, self.lastname, self.value)
 
 
 def to_dict(config: dict[abc.Hashable, ConfigValue]) -> dict[abc.Hashable, t.Any]:
@@ -565,6 +545,7 @@ class CLILoader(ConfigLoader):
             Arguments to parse. If None use the system ones.
         """
         # ArgumentParser does its job
+        # We are expecting (action="append", type=str, nargs="*") ie list[list[str]]
         args = vars(self.parser.parse_args(argv))
 
         # convert to ConfigKey/Value objects
@@ -580,6 +561,8 @@ class CLILoader(ConfigLoader):
                 if len(value) > 1:
                     raise MultipleConfigKeyError(key, value)
                 value = value[0]
+                if len(value) == 1:
+                    value = value[0]
 
                 self.add(key, ConfigValue(value, key, origin="CLI"))
 
