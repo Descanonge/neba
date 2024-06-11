@@ -1,4 +1,5 @@
 """Various utilities."""
+
 from __future__ import annotations
 
 import logging
@@ -280,12 +281,12 @@ class FixableTrait(Union):
 
         # Create the types for Union
         traits = [trait]
-        if unicode:
-            traits.append(Unicode())
         if range and isinstance(trait, tuple(RangeTrait.allowed_traits)):
             traits.append(RangeTrait(trait))
         else:
             traits.append(List(trait))
+        if unicode:
+            traits.append(Unicode())
 
         super().__init__(
             traits, default_value=default_value, allow_none=allow_none, **kwargs
