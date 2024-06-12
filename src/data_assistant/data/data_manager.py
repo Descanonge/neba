@@ -181,7 +181,7 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
         """
         raise NotImplementedError("Implement in a plugin subclass.")
 
-    def reset_callback(self, reset: bool | list[str], **kwargs):
+    def reset_callback(self, reset: bool | list[str] = True, **kwargs):
         """Call all registered callbacks when parameters are reset/changed.
 
         Plugins should register callback in the dictionary :attr:`_RESET_CALLBACKS`
