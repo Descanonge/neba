@@ -208,31 +208,68 @@ class Scheme(Configurable):
 
     # - Mapping methods
 
-    def keys(self) -> list[str]:
-        """List of keys leading to subschemes and traits."""
+    def keys(self, subschemes: bool = True, recursive: bool = False) -> list[str]:
+        """List of keys leading to subschemes and traits.
+
+        Parameters
+        ----------
+        subschemes
+            If True (default), keys can lead to subschemes instances.
+        recursive
+            If True (default), return keys for parameters from all subschemes.
+        """
         out = []
-        for name, trait in self.traits(subscheme=None).items():
-            if trait.this_class is not Configurable:
-                out.append(name)
+        for name in self.trait_names(subscheme=None, config=True):
+            out.append(name)
         for name in self._subschemes:
             subscheme = getattr(self, name)
-            out += [f"{name}.{s}" for s in subscheme.keys()]
+            if subschemes:
+                out.append(name)
+            if recursive:
+                out += [f"{name}.{s}" for s in subscheme.keys()]
         out = [s for s in out if not s.startswith("_")]
         return out
 
-    def values(self) -> list[t.Any]:
+    def values(self, subschemes: bool = True, recursive: bool = True) -> list[t.Any]:
         """List of subschemes instances and trait values.
 
         In the same order as :meth:`keys`.
-        """
-        return [self[key] for key in self.keys()]
 
-    def items(self) -> dict[str, t.Any]:
-        """Mapping of keys to values.
+        Parameters
+        ----------
+        subschemes
+            If True (default), values include subschemes instances.
+        recursive
+            If True (default), return all subschemes.
+        """
+        return [
+            self[key] for key in self.keys(subschemes=subschemes, recursive=recursive)
+        ]
+
+    def items(
+        self, subschemes: bool = True, recursive: bool = True, flatten: bool = True
+    ) -> dict[str, t.Any]:
+        """Return mapping of keys to values.
 
         Keys can lead to subschemes instances or trait values.
+
+        Parameters
+        ----------
+        subschemes
+            If True (default), keys can map to subschemes instances.
+        recursive
+            If True (default), return keys mapping parameters from all subschemes.
+        flatten
+            If True (default), return a flat dictionnary with dot-separated keys.
+            Otherwise return a nested dictionnary.
         """
-        return dict(zip(self.keys(), self.values()))
+        keys = self.keys(subschemes=subschemes, recursive=recursive)
+        values = self.values(subschemes=subschemes, recursive=recursive)
+        assert len(keys) == len(values)
+        output = dict(zip(keys, values))
+        if not flatten:
+            output = nest_dict(output)
+        return output
 
     def get(self, key: str, default: t.Any | None = None) -> t.Any:
         """Obtain value at `key`."""
@@ -298,6 +335,23 @@ class Scheme(Configurable):
         return len(self.keys())
 
     # - end of Mapping methods
+
+    def select(self, *keys: str, flatten: bool = False) -> dict[str, t.Any]:
+        """Select parameters from this schemes or its subschemes.
+
+        Parameters
+        ----------
+        keys
+            Keys leading to parameters. To select parameters from subschemes, use
+            dot-separated syntax like ``"some.nested.parameter"``.
+        flatten
+            If True (default), return a flat dictionnary with dot-separated keys.
+            Otherwise return a nested dictionnary.
+        """
+        output = {k: self[k] for k in keys}
+        if not flatten:
+            output = nest_dict(output)
+        return output
 
     @classmethod
     def _subschemes_recursive(cls) -> abc.Iterator[type[Scheme]]:
