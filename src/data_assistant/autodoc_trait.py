@@ -7,6 +7,7 @@ minor thing (filter out unwanted *private* attributes from the documentation), s
 would be recommended to put this extension first, in case other extensions also replace
 the default documenter for more useful things...
 """
+
 from __future__ import annotations
 
 import sys

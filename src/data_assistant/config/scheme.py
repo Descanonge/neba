@@ -22,13 +22,11 @@ from .util import (
     add_spacer,
     get_trait_typehint,
     indent,
+    nest_dict,
     stringify,
     underline,
     wrap_text,
 )
-
-if t.TYPE_CHECKING:
-    from .application import ApplicationBase
 
 log = logging.getLogger(__name__)
 
@@ -289,7 +287,7 @@ class Scheme(Configurable):
         return key in self.keys()
 
     def __iter__(self) -> abc.Iterable[str]:
-        """Iter over possible keys.
+        """Iterate over possible keys.
 
         Simply iter :meth:`keys`.
         """

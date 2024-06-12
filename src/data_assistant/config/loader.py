@@ -227,49 +227,6 @@ class ConfigValue:
         )
 
 
-def to_dict(config: dict[abc.Hashable, ConfigValue]) -> dict[abc.Hashable, t.Any]:
-    """Transform ConfigValue instances into regular values.
-
-    Simply applies :meth:`ConfigValue.get_value()` to each dictionnary value.
-
-    Parameters
-    ----------
-    config
-        A flat dictionnary mapping keys to ConfigValues.
-
-    Returns
-    -------
-    config
-        A flat dictionnary mapping keys to values.
-    """
-    output = {key: val.get_value() for key, val in config.items()}
-    return output
-
-
-def to_nested_dict(config: dict[str, ConfigValue]) -> dict[str, t.Any]:
-    """Transform a flat configuration into a nested dictionnary of regular values.
-
-    Similar to :meth:`to_dict` but the result is a nested dictionnary.
-
-    Parameters
-    ----------
-    config
-        A flat dictionnary mapping keys to ConfigValues.
-
-    Returns
-    -------
-    config
-        A nested dictionnary mapping keys to sub-dictionnaries or values.
-    """
-    nested_conf: dict[str, t.Any] = {}
-    for key, val in config.items():
-        subconf = nested_conf
-        for subkey in key.split(".")[:-1]:
-            subconf = subconf.setdefault(subkey, {})
-        subconf[key.split(".")[-1]] = val
-    return nested_conf
-
-
 class ConfigLoader:
     """Abstract ConfigLoader.
 

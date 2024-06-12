@@ -16,9 +16,9 @@ from traitlets.config.configurable import LoggingConfigurable
 from traitlets.utils.bunch import Bunch
 from traitlets.utils.nested_update import nested_update
 
-from .loader import CLILoader, PyLoader, TomlkitLoader, YamlLoader, to_nested_dict
+from .loader import CLILoader, PyLoader, TomlkitLoader, YamlLoader
 from .scheme import Scheme
-from .util import ConfigError, ConfigErrorHandler
+from .util import ConfigErrorHandler, nest_dict
 
 if t.TYPE_CHECKING:
     from .loader import ConfigValue, FileLoader
@@ -330,7 +330,7 @@ class ApplicationBase(Scheme, LoggingMixin):
         if instanciate is None:
             instanciate = self.auto_instanciate
         if instanciate:
-            self.instanciate_subschemes(to_nested_dict(self.conf))
+            self.instanciate_subschemes(nest_dict(self.conf))
 
     def _create_cli_loader(
         self, argv: list[str] | None, log: logging.Logger | None = None, **kwargs

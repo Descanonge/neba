@@ -9,8 +9,6 @@ from .loader import (
     PyLoader,
     TomlkitLoader,
     YamlLoader,
-    to_dict,
-    to_nested_dict,
 )
 from .scheme import Scheme, subscheme
 from .util import FixableTrait, RangeTrait, tag_all_traits
@@ -30,6 +28,4 @@ __all__ = [
     "YamlLoader",
     "subscheme",
     "tag_all_traits",
-    "to_dict",
-    "to_nested_dict",
 ]
