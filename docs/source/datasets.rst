@@ -1,8 +1,9 @@
 
 .. currentmodule:: data_assistant.data
 
+******************
 Dataset management
-==================
+******************
 
 This package has a submodule :mod:`~data_assistant.data` to ease the creation
 and management of multiple dataset with different file format, structure, etc.
@@ -18,7 +19,7 @@ be used to change aspects of the dataset on the fly: choose only files for a
 specific year, change the method to open data, etc.
 
 Plugin system
--------------
+=============
 
 This framework tries to make those data managers objects as universal as
 reasonably possible.
@@ -86,7 +87,7 @@ inputs::
    modules in a simple manner.
 
 Plugin interplay
-----------------
+================
 
 For the most part, plugins are made to be independent of each others, but it can
 be useful to have interplay. We have already seen some communications between
@@ -124,7 +125,7 @@ is going to be done in parallel::
     )
 
 Cache plugin
-------------
+============
 
 Plugins can inherit from :class:`plugin.CachePlugin`, giving them access to
 a cache to store information (and hopefully speed things a bit).
@@ -146,7 +147,7 @@ plugins**.
     ``{plugin_class_name}::{property_name}``.
 
 Dataset parameters
-------------------
+==================
 
 .. currentmodule:: data_assistant.data.data_manager
 
@@ -178,3 +179,10 @@ save the initial parameters and restore them when exiting::
     activated with ``save_cache=True``. However, the logic behind the context
     manager is pretty simple and restoring the cache might lead to unforeseen
     consequences.
+
+The implementation of those functions are done in a ParamsPlugin. You must
+choose one.
+Available are ParamsMappingPlugin and ParamsSchemePlugin. Explain differences
+and gotchas with Scheme params.
+
+Is params_as_dict recommended ?

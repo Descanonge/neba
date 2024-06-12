@@ -136,15 +136,19 @@ class GlobPlugin(MultiFilePluginAbstract, CachePlugin):
 class FileFinderPlugin(MultiFilePluginAbstract, CachePlugin):
     """Multifiles manager using Filefinder.
 
-    Written for datasets comprising of many datafiles, either because of the have long
+    Written for datasets comprising of many datafiles, either because of they have long
     time series, or many parameters.
     The user has to define two methods. One returning the root directory containing
     all the datafiles (:meth:`get_root_directory`). And another one returning the
     filename pattern (:meth:`get_filename_pattern`). Using methods allows to return
     a different directory or pattern depending on the parameters.
 
-    TODO: only parameters in pattern can give multiple files openend together.
-          parameters from directory would require multiple get_data calls.
+    .. note::
+
+        It is important to note that only parameters in the filename pattern can take
+        multiple values in a single :meth:`~.data_manager.DataManagerBase.get_source`
+        call. To get files from different root directories and merge the results,
+        the current solution is to use :meth:`~.data_manager.DataManager.get_data_sets`.
 
     The filename pattern specify the parts of the datafiles that vary from file to file
     using a powerful syntax. See the filefinder package `documentation
@@ -156,9 +160,6 @@ class FileFinderPlugin(MultiFilePluginAbstract, CachePlugin):
     okay for finding files and opening the corresponding data. If the user 'fix' them to
     a value, only part of the files will be selected. Some operation require all
     parameters to be set, for instance to generate a specific filename.
-
-    The fixable parameters are added to the dataset allowed parameters uppon
-    initialization, which is important if parameters checking is enabled.
     """
 
     def get_filename_pattern(self) -> str:

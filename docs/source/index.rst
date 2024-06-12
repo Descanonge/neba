@@ -1,8 +1,9 @@
 
 .. currentmodule:: data_assistant
 
-data-assistant's documentation
-==============================
+###########################
+Data-Asistant documentation
+###########################
 
 ..
 
@@ -10,13 +11,13 @@ data-assistant's documentation
    parameters.
 
 Configuration
--------------
+=============
 
 It provides two independent modules. The first one for managing the
 :doc:`configuration<configuration>` of a project, providing the means to specify
-a structured, nested configuration in python code using the existing
-:mod:`traitlets` library. This allows type-checking, value validation and
-"on-change" callbacks.
+a structured, nested configuration in python code using the existing `traitlets
+<https://traitlets.readthedocs.io>`__ library. This allows type-checking, value
+validation and "on-change" callbacks.
 
 The parameters values can be retrieved from configuration files (TOML, YAML,
 or Python files), or from the command line.
@@ -28,11 +29,12 @@ extension.
 
 The submodule :mod:`.config.dask_config` is a show-case of using this for the
 different parameters necessary when deploying Dask on a local cluster or on
-distributed machines using :mod:`dask-jobqueue`.
-It also provides some convenience start-up functions to get setup quickly.
+distributed machines using `dask-jobqueue
+<https://jobqueue.dask.org/en/latest/>`__. It also provides some convenience
+start-up functions to get setup quickly.
 
 Dataset management
-------------------
+==================
 
 The second module aims to ease the creation and :doc:`management of
 datasets<datasets>` with different file format, structure, etc. that can all
@@ -63,13 +65,19 @@ input loaded into xarray.
 
    api
 
+.. toctree::
+   :maxdepth: 1
+
+   motivations
+
+
 Links
------
+=====
 
 Project home: https://gitlab.in2p3.fr/biofronts/data-assistant
 
 Indices and tables
-------------------
+==================
 
 * :ref:`genindex`
 * :ref:`modindex`

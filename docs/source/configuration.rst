@@ -1,25 +1,27 @@
 
 .. currentmodule:: data_assistant
 
+************************
 Configuration management
-------------------------
+************************
 
 This package provide a submodule :mod:`.config` to help managing the parameters
-of a project.
-It requires to specify the parameters in python code: their type, default value,
-help string, etc. It relies on the :mod:`traitlets` package to do this, in which
-we can define *traits*: class attributes that are type-checked.
+of a project. It requires to specify the parameters in python code: their type,
+default value, help string, etc. It relies on the
+`traitlets <https://traitlets.readthedocs.io>`__ package to do this, in which we
+can define *traits*: class attributes that are type-checked. More on the
+motivations behind the design choices :doc:`here<motivations>`.
 
 .. note::
 
-   This package extends functionality by allowing nested configurations. We
-   replace :class:`traitlets.config.Configurable` by our subclass
-   :class:`~config.scheme.Scheme` and use our own
+   The main difference with the "vanilla" traitlets package is that we allow
+   nested configurations. We replace :class:`traitlets.config.Configurable` by
+   our subclass :class:`~config.scheme.Scheme` and use our own
    :class:`~config.application.ApplicationBase` class.
 
 Once defined, the parameters values can be recovered from configuration files
 (python files like with traitlets, but also TOML or YAML files), and
-from the command line.
+from the command line as well.
 
 The help string of each trait is used to generate command line help,
 fully documented configuration files, and a the plugin :mod:`.autodoc_trait`
@@ -31,7 +33,7 @@ Specifying parameters
 =====================
 
 Parameters are specified as class attributes of a :class:`~.scheme.Scheme`
-class, and are of type :class:`traitlets.TraitType` (for instance
+class, and are subclasses of :class:`traitlets.TraitType` (for instance
 :class:`~traitlets.Float`, :class:`~traitlets.Unicode`, or
 :class:`~traitlets.List`).
 
@@ -41,7 +43,7 @@ class, and are of type :class:`traitlets.TraitType` (for instance
 
    Traits can be confusing at first. They are a sort of
    :external+python:doc:`descriptor<howto/descriptor>`. A trait is an
-   **instance** bound to a **class**. For instance::
+   **instance** bound to a **class**. Let's take for instance::
 
      class Container(Scheme):
          name = Float(default_value=1.)
@@ -66,8 +68,8 @@ class, and are of type :class:`traitlets.TraitType` (for instance
    is tied to the container instance ``c``.
 
 A scheme can contain other sub-schemes, allowing a tree-like, nested
-configuration. It can be done by simply using the :func:`~scheme.subscheme`
-function and setting it as an attribute in the parent scheme::
+configuration. It can be done by using the :func:`~scheme.subscheme` function
+and setting it as an attribute in the parent scheme::
 
     from data_assistant.config import subscheme
 
@@ -88,11 +90,11 @@ In the example above we have two parameters available at ``param_a`` and
 
      child = ChildScheme
 
-   which automatically transform the attribute in a :class:`traitlets.Instance`.
-   This is shorter but can be confusing, in particular for static type checkers.
+   which automatically call ``subscheme()`` under the hood. This is shorter but
+   can be confusing, in particular for static type checkers.
 
 The principal scheme, at the root of the configuration tree, is the
-:class:`Application<.application.ApplicationBase>`. It can hold directly all
+:class:`application<.application.ApplicationBase>`. It can hold directly all
 your parameters, or nested sub-schemes. It will be responsible to gather the
 parameters from configuration files and the command line.
 
@@ -128,7 +130,7 @@ Accessing parameters
 ====================
 
 As explained :ref:`above<traits-explain>`, the **value** of parameters can be
-accessed (or changed) as attributes of the scheme instance that contains them.
+accessed (or changed) like attributes of the scheme instance that contains them.
 This has the advantages to allow for deeply nested access::
 
   app.some.deeply.nested.trait = 2
@@ -136,15 +138,20 @@ This has the advantages to allow for deeply nested access::
 It also is still using the features of traitlets: type checking, value
 validation, "on-change" callbacks, dynamic default value generation. This can
 ensure for instance that a configuration stays valid.
+Refer to the :external+traitlets:doc:`traitlets documentation<using_traitlets>`
+for more details on how to use these features.
+
+Obtaining all parameters
+------------------------
 
 But of course, it is often necessary to pass parameters to code that is not
 supporting Schemes.
 Thus Schemes allow to obtain parameters in more universal python dictionaries.
 The methods :meth:`Scheme.values_recursive`, :meth:`Scheme.traits_recursive`,
-and :meth:`Scheme.defaults_recursive` return a nested or flat dictionary
+and :meth:`Scheme.defaults_recursive` return nested or flat dictionaries
 of all the parameters the scheme (and its sub-schemes) contains. To limit to
 only the parameters of this scheme (and *not* its sub-schemes) use
-:meth:`Scheme.values`.
+:meth:`Scheme.values` with arguments ``(subschemes=False, recursive=False)``.
 
 So for instance we can retrieve all our application parameters::
 
@@ -173,12 +180,47 @@ parameters::
       "n_cores": 1
   }
 
-Using :meth:`Scheme.values` we can select only some of the parameters by name::
+Mapping interface
+-----------------
 
-  >>> app.physical.values(select=["threshold", "data_name"])
+The Scheme class also implements the interface of a
+:external+python:ref:`mapping<collections-abstract-base-classes>` (notably for
+instance :meth:`~Scheme.keys`, :meth:`~Scheme.values`, :meth:`~Scheme.items`,
+:meth:`~Scheme.get`, as well as contains, iter, and len operations).
+The keys to access this mapping can directly lead to a deeply nested parameter,
+by joining the successive subschemes names with dots like so::
+
+    >>> app["some.deeply.nested.parameter"]
+    the parameter value
+
+To modify the parameter values, one can access to it directly as we have seen,
+but we can also use the set-item operation, both are equivalent::
+
+    app.some.deeply.nested.parameter = 3
+    app["some.deeply.nested.parameter"] = 3
+
+Additionally, it implements an :meth:`~Scheme.update` method allowing to modify
+a scheme with a mapping of several parameters::
+
+    app.update({"computation.n_cores": 10, "physical.threshold": 5.})
+
+It can add new traits to the scheme with some specific input, see the docstring
+for details. This should be considered experimental (even more so than the rest
+of this library anyway).
+
+Some other methods of :class:`dict`, such as binary-or, could be implemented in
+the future.
+
+
+Obtaining subsets of all parameters
+-----------------------------------
+
+Using :meth:`Scheme.select` we can select only some of the parameters by name::
+
+  >>> app.select("physical.threshold", "computation.n_cores", flatten=True)
   {
-      "threshold": 2.5,
-      "data_name": "SST"
+      "physical.threshold": 2.5,
+      "computation.n_cores": 1
   }
 
 .. note::
@@ -186,6 +228,9 @@ Using :meth:`Scheme.values` we can select only some of the parameters by name::
    Users wanting to automate some logic on nested dictionaries can lever the
    method :meth:`Scheme.remap` that map a user function on a nested (or flat)
    dictionary of traits.
+
+   Functions :func:`.util.nest_dict` and :func:`.util.flatten_dict` can also
+   be useful in manipulating dictionaries.
 
 Some parameters may be destined for a specific function. It is possible to
 select those by name as shown above, or one could tag the target traits during
@@ -198,7 +243,6 @@ of the function above (adding ``for_this_function=True`` to the call).
 Schemes also feature a specialized function for this use case:
 :meth:`Scheme.trait_values_from_func_signature` will find the parameters that
 share the same name as arguments in the function signature.
-
 
 Input parameters
 ================
@@ -235,7 +279,7 @@ More on aliases ? Not really implemented.
 Can be "Class keys": ``SomeSchemeClassName.trait_name``.
 
 From configuration files
-++++++++++++++++++++++++
+------------------------
 
 From configuration files.
 Basically we recover a nested dictionary from typical config file formats like
@@ -249,7 +293,7 @@ describe syntax.
 At the moment, no sub-config.
 
 From the command line
-+++++++++++++++++++++
+---------------------
 
 The traits are indicated following one or two hyphen. Any subsequent hyphen is
 replaced by an underscore. So ``-computation.n_corse`` and
@@ -264,7 +308,7 @@ indicated. Instead any parameter is accepted by argparser (there is a little
 trickery explained in the module :mod:`.config.loader`).
 
 Normalization of configuration keys
-+++++++++++++++++++++++++++++++++++
+-----------------------------------
 
 This is all for merging configs together.
 Question of order? We normalize config before merging them. Is there a specific
