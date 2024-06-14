@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import functools
 import logging
+import sys
 import typing as t
 from collections import abc
 
@@ -51,10 +52,23 @@ class Plugin(_DB):
 
 
 class CachePlugin(Plugin):
+    _CACHE_NAME: str
+
+    def _init_plugin(self) -> None:
+        name = self._CACHE_NAME
+        setattr(self, name, Cache(name))
+
+        def callback(dm: CachePlugin, **kwargs):
+            getattr(dm, name).clean()
+
+        self._reset_callbacks[f"void_cache[{name}]"] = callback
+
+
+class Cache:
     """Cache values.
 
-    Values are simply stored in a dictionnary (:attr:`cache`). But the cache should
-    be accessed via :meth:`get_cached` or modified with :meth:`set_in_cache`.
+    Values are simply stored in a dictionnary (:attr:`data`). But the cache should
+    be accessed via :meth:`get` or modified with :meth:`set`.
 
     Multiple plugins can have use of a cache, they then have to share the same cache.
     There are no specific safeties on the name of keys. A plugin could erase or replace
@@ -68,46 +82,44 @@ class CachePlugin(Plugin):
     automatically use the key ``{plugin class name}::{property name}``.
     """
 
-    def _init_plugin(self) -> None:
+    def __init__(self, name: str = "") -> None:
         """Create a cache if not already created by another plugin."""
-        super()._init_plugin()
-        # Multiple plugins might have a cache
-        # The cache is in common. Dangerous.
-        if not hasattr(self, "cache"):
-            self.cache: dict[str, t.Any] = {}
-            """Cache dictionnary."""
+        self.name = name
+        self.data: dict[str, t.Any] = {}
+        """Cache dictionnary."""
 
-        def callback(dm: CachePlugin, **kwargs):
-            dm.clean_cache()
+    def __str__(self) -> str:
+        return str(self.data)
 
-        self._reset_callbacks["void_cache"] = callback
+    def __repr__(self) -> str:
+        return repr(self.data)
 
-    def clean_cache(self) -> None:
+    def clean(self) -> None:
         """Clean the cache of all variables."""
-        self.cache.clear()
+        self.data.clear()
 
-    def set_in_cache(self, key: str, value: t.Any):
+    def set(self, key: str, value: t.Any):
         """Add value to the plugin cache."""
-        self.cache[key] = value
+        self.data[key] = value
 
-    def is_cached(self, key: str) -> bool:
+    def __contains__(self, key: str) -> bool:
         """Check if key is cached."""
-        return key in self.cache
+        return key in self.data
 
     def _key_error(self, key: str):
         """Raise slightly more informative message on cache miss."""
-        raise KeyError(f"Key '{key}' not found in cache of dataset '{self}'.")
+        raise KeyError(f"Key '{key}' not found in cache '{self.name}'.")
 
-    def get_cached(self, key: str) -> t.Any:
+    def get(self, key: str) -> t.Any:
         """Get value from the cache."""
-        if key in self.cache:
-            return self.cache[key]
+        if key in self.data:
+            return self.data[key]
         self._key_error(key)
 
-    def pop_from_cache(self, key: str) -> t.Any:
+    def pop(self, key: str) -> t.Any:
         """Remove key from the cache and return its value."""
-        if key in self.cache:
-            return self.cache.pop(key)
+        if key in self.data:
+            return self.data.pop(key)
         self._key_error(key)
 
 
@@ -117,26 +129,27 @@ R = t.TypeVar("R")
 
 # The `func` argument is typed as Any because technically Callable is contravariant
 # and typing it as Plugin would not allow subclasses.
-def autocached(func: abc.Callable[[t.Any], R]) -> abc.Callable[[t.Any], R]:
+def autocached(
+    func: abc.Callable[[t.Any], R], cache_name: str | None = None
+) -> abc.Callable[[t.Any], R]:
     """Make a property auto-cached.
 
     If the variable of the same name is in the cache, return its cached value
     immediately. Otherwise run the code of the property and cache the return value.
     """
-    try:
-        qualpath = func.__qualname__.split(".")[:-1]
-        qualname = ".".join(qualpath)
-    except Exception:
-        qualname = ""
+    if cache_name is None:
+        frame = sys._getframe(1)
+        cache_name = frame.f_locals["_CACHE_NAME"]
 
-    name = "::".join([qualname, func.__name__])
+    name = func.__name__
 
     @functools.wraps(func)
     def wrapper(self: t.Any) -> R:
-        if name in self.cache:
-            return self.get_cached(name)
+        cache = getattr(self, cache_name)
+        if name in cache:
+            return cache.get(name)
         value = func(self)
-        self.set_in_cache(name, value)
+        cache.set(name, value)
         return value
 
     return wrapper

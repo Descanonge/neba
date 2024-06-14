@@ -10,7 +10,7 @@ from collections import abc
 from os import PathLike, path
 from typing import TYPE_CHECKING
 
-from .plugin import CachePlugin, autocached
+from .plugin import Cache, CachePlugin, Plugin, autocached
 
 log = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from filefinder import Finder
 
 
-class MultiFilePluginAbstract(CachePlugin):
+class MultiFilePluginAbstract(Plugin):
     """Abstract class for source consisting of multiple files.
 
     It is easier to deal with multiple files when separating a root directory, and the
@@ -77,7 +77,6 @@ class MultiFilePluginAbstract(CachePlugin):
         return self.datafiles
 
     @property
-    @autocached
     def datafiles(self) -> list[str]:
         """Cached list of source files.
 
@@ -104,6 +103,9 @@ class GlobPlugin(MultiFilePluginAbstract, CachePlugin):
     If True, the pattern ``**`` will match any files and zero or more directories,
     subdirectories and symbolic links to directories.
     """
+
+    _CACHE_NAME = "_glob_cache"
+    _glob_cache: Cache
 
     def get_glob_pattern(self) -> str:
         """Return the glob pattern matching your files.
@@ -162,6 +164,9 @@ class FileFinderPlugin(MultiFilePluginAbstract, CachePlugin):
     parameters to be set, for instance to generate a specific filename.
     """
 
+    _CACHE_NAME = "_filefinder_cache"
+    _filefinder_cache: Cache
+
     def get_filename_pattern(self) -> str:
         """Return the filename pattern.
 
@@ -182,7 +187,7 @@ class FileFinderPlugin(MultiFilePluginAbstract, CachePlugin):
     def __repr__(self) -> str:
         s = super().__repr__().splitlines()
         # autocached prop has full qualified name
-        if "FileFinderPlugin::filefinder" in self.cache:
+        if "filefinder" in self._filefinder_cache:
             s.append("Filefinder:")
             s += [f"\t{line}" for line in str(self.filefinder).splitlines()]
         return "\n".join(s)
