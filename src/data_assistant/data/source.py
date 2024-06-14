@@ -189,7 +189,7 @@ class FileFinderPlugin(MultiFilePluginAbstract, CachePlugin):
         # autocached prop has full qualified name
         if "filefinder" in self._filefinder_cache:
             s.append("Filefinder:")
-            s += [f"\t{line}" for line in str(self.filefinder).splitlines()]
+            s += [f"\t{line}" for line in repr(self.filefinder).splitlines()]
         return "\n".join(s)
 
     def get_filename(self, **fixes) -> str:
@@ -211,7 +211,7 @@ class FileFinderPlugin(MultiFilePluginAbstract, CachePlugin):
                 raise KeyError(f"Parameter {f} cannot be fixed '{self}'.")
 
         # In case params were changed sneakily and the cache was not invalidated
-        fixable_params = {p: self.params[p] for p in self.fixable}
+        fixable_params = {p: self.params[p] for p in self.fixable if p in self.params}
         fixes = fixable_params | fixes
 
         # Remove parameters set to None, FileFinder is not equipped for that
@@ -237,7 +237,7 @@ class FileFinderPlugin(MultiFilePluginAbstract, CachePlugin):
         fixable = finder.get_group_names()
 
         for p in fixable:
-            if (value := self.params[p]) is not None:
+            if (value := self.params.get(p, None)) is not None:
                 finder.fix_group(p, value)
         return finder
 
