@@ -200,7 +200,7 @@ class TraitDocumenter(AttributeDocumenter):
         self.add_line("   :trait:", sourcename)
 
         if self.options.annotation:
-            self.add_line("   :annotation: %s" % self.options.annotation, sourcename)
+            self.add_line(f"   :annotation: {self.options.annotation}", sourcename)
             return
 
         if self.config.autodoc_typehints == "none":

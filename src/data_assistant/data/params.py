@@ -125,7 +125,8 @@ class ParamsSchemePlugin(ParamsPluginAbstract):
     """Parameters are stored in a Scheme object.
 
     The plugin does not initialize the :attr:`params` attribute. It is set by the first
-    call to :meth:`set_params`.
+    call to :meth:`set_params`. This is done during the
+    :class:`~.data_manager.DataManagerBase` initialization.
     """
 
     PARAMS_DEFAULTS: dict[str, TraitType] = {}

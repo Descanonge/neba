@@ -18,6 +18,6 @@ Modules
    :nosignatures:
    :recursive:
 
-   data
    config
+   data
    autodoc_trait

@@ -1,11 +1,13 @@
-from data_assistant.data import DataManagerBase
-from data_assistant.data.xarray import (
-    XarrayMultiFileLoaderPlugin,
-    XarraySplitWriterPlugin,
-)
+from data_assistant.data import DataManagerBase, GlobPlugin, ParamsMappingPlugin
 
 
-class DMSST(XarrayMultiFileLoaderPlugin, XarraySplitWriterPlugin, DataManagerBase):
+class DMSST(
+    GlobPlugin,
+    # XarrayMultiFileLoaderPlugin,
+    # XarraySplitWriterPlugin,
+    ParamsMappingPlugin,
+    DataManagerBase,
+):
     PARAMS_NAMES = ["days", "region"]
 
     PARAMS_DEFAULTS = dict(days=5)

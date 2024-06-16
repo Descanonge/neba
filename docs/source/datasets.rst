@@ -127,24 +127,75 @@ is going to be done in parallel::
 Cache plugin
 ============
 
-Plugins can inherit from :class:`plugin.CachePlugin`, giving them access to
-a cache to store information (and hopefully speed things a bit).
-However, we must not forget that plugins are mixins to the data manager claas.
-This means the cache is a simple dictionary attribute **that is shared by all
-plugins**.
+This section is for developers.
+
+It might help for some plugins to have a cache to write information to.
+Currently plugins dealing with multiple files as source leverage this. Caches
+need to be separated to avoid name clashes and other potential problems. However
+this pretty-much requires to hardcode the cache.
+
+To integrate a new cache into the rest of a DataManager compound, it is
+advised (but technically not required) to do the following when creating
+a :class:`~plugin.CachePlugin` subclass::
+
+
+* In ``_init_plugin``:
+
+    * create a cache attribute. A simple :class:`dict` suffices. Its name should
+      not clash with existing attributes.
+    * append this attribute name to :attr:`.CachePlugin._CACHE_LOCATION`, this
+      let know other plugins where are the different caches. Notably,
+      ``CachePlugin`` will automatically register a callback to clear the caches
+      after a parameters change.
+    * do not forget to call ``super().__init___`` to do this registration,
+      **after ``_CACHE_LOCATION`` has been updated**.
+
+* You can eventually create an *autocached* decorator using
+  :func:`plugin.get_autocached`. It will transform make and property
+  automatically cached: if a value exists in the cache it is returned
+  immediately, otherwise the code defined in the property is run and the result
+  is cached for later.
+
+
+Let's take all this into a simple example::
+
+    autocached = get_autocached("_mulfifile_cache")
+
+    class MultifilePlugin(CachePlugin):
+
+        # create a decorator, scope is the class
+
+        def _init_plugin(self) -> None:
+            self._multifile_cache = {}
+            self._CACHE_LOCATIONS.add("_multifile_cache")
+            super().__init__()
+
+        @property
+        @autocached
+        def datafiles(self) -> list[str]:
+            ...
+            # some long and complicated code to obtain our files
+            ....
+            return filelist
+
+
+We run here into a inherent problem of the plugin/mixin system. Attributes
+defined in subclasses of plugins can be somewhat complex because there is
+no easy way to know at runtime to which plugin an attribute is associated to.
+At runtime, everything is bound to the same object: a class with a
+DataManagerBase and multiple plugins as parents.
+
+For the cache this translates into a difficulty to separate different caches
+from different plugins.
 
 .. note::
 
-    A plugin could thus erase or replace keys from another plugin. Automatically
-    separating caches from different plugins is difficult, even with
-    introspection (at runtime, all methods are bound to the same data manager
-    object).
+   It is technically possible to do this programmatically using the
+   :mod:`inspect` module. But this is not trivial: we need to find the right
+   frame to find the information we need. Go back to
+   ``DataManagerBase.__init___`` to get the *cls* variable for instance. The
+   pitfalls far outweigh the benefits of having a little less to write.
 
-    There is currently no proposed solution other than hard-coded keys so that
-    they are attached to their plugin, using the plugin class name for instance.
-    This is done automatically when using the :func:`~.plugin.autocached`
-    decorator on properties. This automatically use the key
-    ``{plugin_class_name}::{property_name}``.
 
 Dataset parameters
 ==================

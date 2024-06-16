@@ -247,10 +247,21 @@ share the same name as arguments in the function signature.
 Input parameters
 ================
 
-Goal: fill the Schemes.
+The :class:`~.application.ApplicationBase` class allows to retrieve the values
+of parameters from configuration files or from command line arguments (CLI),
+when :meth:`.ApplicationBase.start` is launched.
 
-The application recovers configuration values from different sources, combines
-them, and when instanciating update the values of each Scheme instance.
+It first parses command line arguments (unless deactivated). It then load
+values from specified configuration files. Each time parameters are loaded from
+any kind of source, the parameters for the application are immediately applied
+to it, since they kind alter the rest of the process. The parameters found
+are then normalized: each resulting parameter key is unique and unambiguous.
+This provides a first layer of checking the input: keys that do not lead to
+a known parameter will raise errors.
+This permit to merge the parameters obtained from different files and CLI.
+Finally, the application will recursively instanciate all schemes while passing
+the configuration values. Unspecified values will take the trait default value.
+All values will undergo validation from traitlets.
 
 .. note::
 
@@ -260,23 +271,48 @@ them, and when instanciating update the values of each Scheme instance.
    However, a new value can only be fully verified by a trait when its
    container is instanciated. Thus it is recommended.
 
-A configuration is a **flat** dictionary whose keys indicate to which trait(s)
-this key correspond to.
+In all cases (files and CLI) the configuration values are retrieved by a
+:class:`~.loader.ConfigLoader` subclass adapted for the source. Its output
+will be a **flat** dictionary mapping *keys* to :class:`~.loader.ConfigValue`.
+
+A "resolved" key is a succession of attribute names pointing to a trait,
+starting from the application. It is thus unique. With the same example as above
+for instance: ``physical.years``. There can be more levels if the configuration
+is deeply nested ``scheme.subscheme.sub_subscheme.etc.traitname``.
 
 .. important::
 
+    It is possible to define aliases with the :attr:`.Scheme.aliases` attribute.
+    It is a mapping of shortcut names to a deeper subscheme::
+
+        {"short": "some.deeply.nested.subscheme"}
+
+    Aliases are expanded when the configuration is resolved.
+
+A parameter can also be input as a "class-key", as it was done in vanilla
+traitlets. It consist of the name of scheme class and a trait name:
+``SomeSchemeClassName.trait_name``. It cannot be nested further (this
+complicates how to do merging quite a bit). When the configuration is resolved,
+class-keys are transformed to the corresponding fully resolved key(s).
+Still with the same example: ``PhysicalParams.years`` will be resolved to
+``physical.years``.
+
+The value associated to a class-key, even after being resolved, is given a
+lower priority. So if given::
+
+    physical.threshold = 1
+    PhysicalParams.threshold = 5
+
+After merging configurations, the retained value will be 1, whatever the order
+the keys were given in.
+
+.. note::
+
    Unlike *vanilla* traitlets, the way we populate instances allows to have
-   multiple instances of the same Scheme with different configurations.
+   multiple instances of the same Scheme with different configurations. This
+   is why a single class-key can point to multiple locations in the
+   configuration tree.
 
-The key can be a succession of attribute names pointing to a trait, start from
-the application. With the same example as above for instance:
-``physical.years``. There can be more levels if the configuration is deeply
-nested ``scheme.subscheme.sub_subscheme.etc.traitname``.
-
-Some levels can be aliases.
-More on aliases ? Not really implemented.
-
-Can be "Class keys": ``SomeSchemeClassName.trait_name``.
 
 From configuration files
 ------------------------
@@ -301,27 +337,8 @@ replaced by an underscore. So ``-computation.n_corse`` and
 
 The parsing is done by the trait object using
 :meth:`traitlets.TraitType.from_string`. Each parameter can receive one or more
-values that will always be interpreted as a list.
+values that will always be interpreted as a list. Actually more complicated from_string_list.
 
 Implementation detail: it is difficult to account for every way a trait can be
 indicated. Instead any parameter is accepted by argparser (there is a little
 trickery explained in the module :mod:`.config.loader`).
-
-Normalization of configuration keys
------------------------------------
-
-This is all for merging configs together.
-Question of order? We normalize config before merging them. Is there a specific
-reason? It seems logical idk. It can technically be changed. TODO: Make it
-easier tho.
-
-A full-path key will have priority over other keys.
-
-Remove aliases, replace by full path.
-
-If a scheme class is contained in the configuration tree, ie the is a succession
-of attributes lead from the Application to a trait: the value corresponding to
-the key is duplicated for every scheme.
-
-If a scheme class is **detached** from the configuration tree, the key it is
-kept as is. (No full-path key can attain it).
