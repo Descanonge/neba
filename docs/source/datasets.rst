@@ -18,6 +18,8 @@ Each instance of this new subclass corresponds to a set of parameters that can
 be used to change aspects of the dataset on the fly: choose only files for a
 specific year, change the method to open data, etc.
 
+.. _plugin-system:
+
 Plugin system
 =============
 
@@ -195,6 +197,8 @@ to return the parameters as a dictionary, and others plugins are encouraged to
 use it to facilitate interface.
 
 .. currentmodule:: data_assistant.data
+
+.. _cache-plugin:
 
 Cache plugin
 ============
