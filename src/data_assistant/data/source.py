@@ -104,16 +104,12 @@ class GlobPlugin(MultiFilePluginAbstract, CachePlugin):
     subdirectories and symbolic links to directories.
     """
 
-    autocached = get_autocached("_glob_cached")
+    autocached = get_autocached("_glob_cache")
 
     def _init_plugin(self) -> None:
-        self._CACHE_LOCATIONS.append("_glob_cached")
+        super()._init_plugin()
+        self._CACHE_LOCATIONS.add("_glob_cache")
         self._glob_cache: dict[str, t.Any] = {}
-
-        def callback(dm, **kwargs):
-            dm._glob_cache.clear()
-
-        self._register_callback("void_cache[_glob_cache]", callback)
 
     def get_glob_pattern(self) -> str:
         """Return the glob pattern matching your files.
@@ -175,13 +171,9 @@ class FileFinderPlugin(MultiFilePluginAbstract, CachePlugin):
     autocached = get_autocached("_filefinder_cache")
 
     def _init_plugin(self) -> None:
-        self._CACHE_LOCATIONS.append("_filefinder_cache")
+        super()._init_plugin()
+        self._CACHE_LOCATIONS.add("_filefinder_cache")
         self._filefinder_cache: dict[str, t.Any] = {}
-
-        def callback(dm, **kwargs):
-            dm._filefinder_cache.clear()
-
-        self._register_callback("void_cache[_filefinder_cache]", callback)
 
     def get_filename_pattern(self) -> str:
         """Return the filename pattern.

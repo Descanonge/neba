@@ -51,12 +51,21 @@ class Plugin(_DB):
 
 
 class CachePlugin(Plugin):
-    """Plugin containing a cache.
+    """Plugin containing a cache."""
 
-    Simply exists to indicate a plugin contains a cache when using *isinstance*.
-    """
+    _CACHE_LOCATIONS: set[str] = set()
+    """List of cache attributes of the various plugins."""
 
-    _CACHE_LOCATIONS: list[str] = []
+    def _init_plugin(self) -> None:
+        for attr in self._CACHE_LOCATIONS:
+            call_name = f"void_cache[{attr}]"
+            if call_name in self._reset_callbacks:
+                continue
+
+            def callback(dm, **kwargs) -> None:
+                getattr(dm, attr).clear()
+
+            self._register_callback(call_name, callback)
 
 
 # Typevar to preserve autocached properties' type.
