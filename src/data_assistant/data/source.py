@@ -107,9 +107,9 @@ class GlobPlugin(MultiFilePluginAbstract, CachePlugin):
     autocached = get_autocached("_glob_cache")
 
     def _init_plugin(self) -> None:
-        super()._init_plugin()
         self._CACHE_LOCATIONS.add("_glob_cache")
         self._glob_cache: dict[str, t.Any] = {}
+        super()._init_plugin()
 
     def get_glob_pattern(self) -> str:
         """Return the glob pattern matching your files.
@@ -171,9 +171,9 @@ class FileFinderPlugin(MultiFilePluginAbstract, CachePlugin):
     autocached = get_autocached("_filefinder_cache")
 
     def _init_plugin(self) -> None:
-        super()._init_plugin()
         self._CACHE_LOCATIONS.add("_filefinder_cache")
         self._filefinder_cache: dict[str, t.Any] = {}
+        super()._init_plugin()
 
     def get_filename_pattern(self) -> str:
         """Return the filename pattern.
