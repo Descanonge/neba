@@ -3,7 +3,7 @@
 from .data_manager import DataManagerBase
 from .loader import LoaderPluginAbstract
 from .params import ParamsMappingPlugin, ParamsSchemePlugin
-from .plugin import CachePlugin, Plugin, autocached
+from .plugin import CachePlugin, Plugin, get_autocached
 from .register import DatasetStore
 from .source import FileFinderPlugin, GlobPlugin, MultiFilePluginAbstract
 from .writer import WriterMultiFilePluginAbstract, WriterPluginAbstract
@@ -22,5 +22,5 @@ __all__ = [
     "Plugin",
     "WriterMultiFilePluginAbstract",
     "WriterPluginAbstract",
-    "autocached",
+    "get_autocached",
 ]

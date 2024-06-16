@@ -181,6 +181,14 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
         """
         raise NotImplementedError("Implement in a plugin subclass.")
 
+    def _register_callback(self, key: str, func: abc.Callable[..., None]):
+        """Register a new callback. Throw error if it already exists."""
+        if key in self._reset_callbacks:
+            raise KeyError(
+                f"Reset callback '{key}' already exists ({self._reset_callbacks[key]})."
+            )
+        self._reset_callbacks[key] = func
+
     def reset_callback(self, reset: bool | list[str] = True, **kwargs):
         """Call all registered callbacks when parameters are reset/changed.
 

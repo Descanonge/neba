@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import functools
 import logging
-import sys
 import typing as t
 from collections import abc
 
@@ -52,75 +51,12 @@ class Plugin(_DB):
 
 
 class CachePlugin(Plugin):
-    _CACHE_NAME: str
+    """Plugin containing a cache.
 
-    def _init_plugin(self) -> None:
-        name = self._CACHE_NAME
-        setattr(self, name, Cache(name))
-
-        def callback(dm: CachePlugin, **kwargs):
-            getattr(dm, name).clean()
-
-        self._reset_callbacks[f"void_cache[{name}]"] = callback
-
-
-class Cache:
-    """Cache values.
-
-    Values are simply stored in a dictionnary (:attr:`data`). But the cache should
-    be accessed via :meth:`get` or modified with :meth:`set`.
-
-    Multiple plugins can have use of a cache, they then have to share the same cache.
-    There are no specific safeties on the name of keys. A plugin could erase or replace
-    keys from another plugin. Automatically separating caches from different plugins
-    is difficult, even with introspection (at runtime, all methods are bound to the
-    same DataManager object!).
-
-    There is currently no proposed solution other than hard-coded keys so that they are
-    attached to their plugin, using the plugin class name for instance. This is done
-    automatically when using the :func:`autocached` decorator on properties. This
-    automatically use the key ``{plugin class name}::{property name}``.
+    Simply exists to indicate a plugin contains a cache when using *isinstance*.
     """
 
-    def __init__(self, name: str = "") -> None:
-        """Create a cache if not already created by another plugin."""
-        self.name = name
-        self.data: dict[str, t.Any] = {}
-        """Cache dictionnary."""
-
-    def __str__(self) -> str:
-        return str(self.data)
-
-    def __repr__(self) -> str:
-        return repr(self.data)
-
-    def clean(self) -> None:
-        """Clean the cache of all variables."""
-        self.data.clear()
-
-    def set(self, key: str, value: t.Any):
-        """Add value to the plugin cache."""
-        self.data[key] = value
-
-    def __contains__(self, key: str) -> bool:
-        """Check if key is cached."""
-        return key in self.data
-
-    def _key_error(self, key: str):
-        """Raise slightly more informative message on cache miss."""
-        raise KeyError(f"Key '{key}' not found in cache '{self.name}'.")
-
-    def get(self, key: str) -> t.Any:
-        """Get value from the cache."""
-        if key in self.data:
-            return self.data[key]
-        self._key_error(key)
-
-    def pop(self, key: str) -> t.Any:
-        """Remove key from the cache and return its value."""
-        if key in self.data:
-            return self.data.pop(key)
-        self._key_error(key)
+    _CACHE_LOCATIONS: list[str] = []
 
 
 # Typevar to preserve autocached properties' type.
@@ -129,27 +65,22 @@ R = t.TypeVar("R")
 
 # The `func` argument is typed as Any because technically Callable is contravariant
 # and typing it as Plugin would not allow subclasses.
-def autocached(
-    func: abc.Callable[[t.Any], R], cache_name: str | None = None
-) -> abc.Callable[[t.Any], R]:
-    """Make a property auto-cached.
+def get_autocached(
+    name: str,
+) -> abc.Callable[[abc.Callable[[t.Any], R]], abc.Callable[[t.Any], R]]:
+    def decorator(func: abc.Callable[[t.Any], R]) -> abc.Callable[[t.Any], R]:
+        """Automatically cache a property."""
+        property_name = func.__name__
 
-    If the variable of the same name is in the cache, return its cached value
-    immediately. Otherwise run the code of the property and cache the return value.
-    """
-    if cache_name is None:
-        frame = sys._getframe(1)
-        cache_name = frame.f_locals["_CACHE_NAME"]
+        @functools.wraps(func)
+        def wrap(self: t.Any) -> R:
+            cache = getattr(self, name)
+            if property_name in cache:
+                return cache[property_name]
+            result = func(self)
+            cache[property_name] = result
+            return result
 
-    name = func.__name__
+        return wrap
 
-    @functools.wraps(func)
-    def wrapper(self: t.Any) -> R:
-        cache = getattr(self, cache_name)
-        if name in cache:
-            return cache.get(name)
-        value = func(self)
-        cache.set(name, value)
-        return value
-
-    return wrapper
+    return decorator

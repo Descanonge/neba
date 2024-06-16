@@ -6,15 +6,15 @@ Currently mainly give some basic options for the source being multiple files on 
 from __future__ import annotations
 
 import logging
+import typing as t
 from collections import abc
 from os import PathLike, path
-from typing import TYPE_CHECKING
 
-from .plugin import Cache, CachePlugin, Plugin, autocached
+from .plugin import CachePlugin, Plugin, get_autocached
 
 log = logging.getLogger(__name__)
 
-if TYPE_CHECKING:
+if t.TYPE_CHECKING:
     from filefinder import Finder
 
 
@@ -104,8 +104,16 @@ class GlobPlugin(MultiFilePluginAbstract, CachePlugin):
     subdirectories and symbolic links to directories.
     """
 
-    _CACHE_NAME = "_glob_cache"
-    _glob_cache: Cache
+    autocached = get_autocached("_glob_cached")
+
+    def _init_plugin(self) -> None:
+        self._CACHE_LOCATIONS.append("_glob_cached")
+        self._glob_cache: dict[str, t.Any] = {}
+
+        def callback(dm, **kwargs):
+            dm._glob_cache.clear()
+
+        self._register_callback("void_cache[_glob_cache]", callback)
 
     def get_glob_pattern(self) -> str:
         """Return the glob pattern matching your files.
@@ -164,8 +172,16 @@ class FileFinderPlugin(MultiFilePluginAbstract, CachePlugin):
     parameters to be set, for instance to generate a specific filename.
     """
 
-    _CACHE_NAME = "_filefinder_cache"
-    _filefinder_cache: Cache
+    autocached = get_autocached("_filefinder_cache")
+
+    def _init_plugin(self) -> None:
+        self._CACHE_LOCATIONS.append("_filefinder_cache")
+        self._filefinder_cache: dict[str, t.Any] = {}
+
+        def callback(dm, **kwargs):
+            dm._filefinder_cache.clear()
+
+        self._register_callback("void_cache[_filefinder_cache]", callback)
 
     def get_filename_pattern(self) -> str:
         """Return the filename pattern.

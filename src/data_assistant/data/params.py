@@ -221,28 +221,31 @@ class _ParamsContext:
     def __init__(self, dm: ParamsPluginAbstract, save_cache: bool):
         self.dm = dm
         self.params = copy.deepcopy(dm.params)
-        self.cache: dict | None = None
+        self.caches: dict | None = None
 
         if save_cache and isinstance(dm, CachePlugin):
-            self.cache = dict(dm.cache)
+            self.caches = {key: getattr(dm, key) for key in dm._CACHE_LOCATIONS}
 
     def repopulate_cache(self):
-        for key, val in self.cache.items():
-            # do not overwrite current cache
-            if not self.dm.is_cached(key):
-                self.dm.set_in_cache(key, val)
-                continue
+        for loc, save in self.caches.items():
+            cache = getattr(self.dm, loc)
+            for key, val in save.items():
+                # do not overwrite current cache
+                if key not in cache:
+                    cache[key] = val
+                    continue
 
-            # check that there is correspondance with saved and current cache
-            current_val = self.dm.get_cached(key)
-            if current_val != val:
-                log.warning(
-                    "Different value when restoring cache for key %s, "
-                    "saved '%s', has '%s'.",
-                    key,
-                    str(val),
-                    str(current_val),
-                )
+                # check that there is correspondance with saved and current cache
+                current_val = save[key]
+                if current_val != val:
+                    log.warning(
+                        "Different value when restoring cache %s for key %s: "
+                        "saved '%s', has '%s'.",
+                        loc,
+                        key,
+                        str(val),
+                        str(current_val),
+                    )
 
     def __enter__(self) -> t.Self:
         return self
@@ -251,7 +254,7 @@ class _ParamsContext:
         self.reset_params()
         self.dm.set_params(self.params)
 
-        if self.cache is not None:
+        if self.caches is not None:
             self.repopulate_cache()
 
         # return false to raise any exception that may have occured

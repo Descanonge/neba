@@ -41,6 +41,10 @@ plugins = 'numpy.typing.mypy_plugin'
 ignore_missing_imports = true
 
 [tool.ruff]
+line-length = 88
+target-version = 'py311'
+
+[tool.ruff.lint]
 select = [
        'E',  # pycodestyle
        'W',  # pycodestyle
@@ -52,8 +56,6 @@ select = [
        'UP',  #pyupgrade
        'D',  #pydocstyle
 ]
-line-length = 88
-target-version = 'py311'
 
 ignore = [
        'D105', # missing docstring on magic methods
@@ -64,10 +66,10 @@ ignore = [
        'B905', # zip without strict parameter
 ]
 
-[tool.ruff.pycodestyle]
+[tool.ruff.lint.pycodestyle]
 max-line-length = 90
 
-[tool.ruff.pydocstyle]
+[tool.ruff.lint.pydocstyle]
 convention = 'numpy'
 
 [tool.ruff.format]
