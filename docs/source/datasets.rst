@@ -22,11 +22,10 @@ Plugin system
 =============
 
 This framework tries to make those data managers objects as universal as
-reasonably possible.
-The base classes do not have a data source (it could be one file, multiple
-files, network datastore, ...) or a data type specified.
-Features can be added to the data manager class as needed via a system of
-independent plugins.
+reasonably possible. The base class do not specify a data source (it could be
+one file, multiple files, network datastore, ...) or a data type. The management
+of parameters is also not implemented. Features can be added to the data manager
+class as needed via a system of independent plugins.
 
 .. note::
 
@@ -39,28 +38,36 @@ independent plugins.
    initialize every plugin.
 
 For example, we can make a straightforward dataset class by having the plugins
+:class:`params.ParamsMappingPlugin` to store parameters in a dictionary,
 :class:`xarray.XarrayFileLoaderPlugin` and :class:`xarray.XarrayWriterPlugin` to
-load and write data using :mod:`xarray`.
-For finding our data file, we will directly overwrite
-:meth:`DataManagerBase.get_source<data_manager.DataManagerBase.get_source>`,
-which will be used by
-:meth:`LoaderPluginAbstract.get_data<loader.LoaderPluginAbstract.get_data>` (and
-from which other loaders are derived)::
+load and write data using :mod:`xarray`. For finding our data file, we will
+directly overwrite :meth:`.DataManagerBase.get_source`, which will be used by
+:meth:`.LoaderPluginAbstract.get_data` (and from which other loaders are
+derived)::
 
     class DatasetSimple(
-        XarrayFileLoaderPlugin, XarrayWriterPlugin, DataManagerBase
+        XarrayFileLoaderPlugin,
+        XarrayWriterPlugin,
+        ParamsMappingPlugin,
+        DataManagerBase
     ):
 
         def get_source(self):
             """Should return a file for XarrayFileLoaderPlugin."""
-            # we can use the parameters stored by DataManagerBase
+            # we can use the parameters stored DataManagerBase
             if self.params["method"] == 1:
                 return "file_1"
             else:
                 return "file_2"
-      
+
+.. note::
+
+   Remember that for multiple inheritance, parent classes on the left have
+   higher priority. The DataManagerBase thus should be the last base class.
+   See :external+python:ref:`tut-inheritance`.
+
 Let's switch to datasets that comprise of multiple files, we can use either
-:class:`source.GlobPlugin` or :class:`source.FileFinderPlugin` to find and
+:class:`source.GlobPlugin`, or :class:`source.FileFinderPlugin` to find and
 manage datafiles using the simple syntax of :mod:`filefinder`. We appropriately
 switch to :class:`xarray.XarrayMultiFileLoaderPlugin` to deal with multi-file
 inputs::
@@ -69,6 +76,7 @@ inputs::
         XarrayMultiFileLoaderPlugin,
         XarrayWriterPlugin,
         FileFinderPlugin,
+        ParamsMappingPlugin,
         DatasetBase,
     ):
         OPEN_MFDATASET_KWARGS = dict(parallel=True)
@@ -82,18 +90,21 @@ inputs::
 
 .. note::
 
-   You may have noticed that plugins that depend on a optional packages are
-   put in separate submodules. This helps with loading only the necessary
-   modules in a simple manner.
+   Non-essential dependencies are loaded lazily as much as possible. This is
+   why all xarray related plugins are put in their own submodule
+   :mod:`.data.xarray` (that is not imported in the top-level `__init__`).
 
 Plugin interplay
 ================
 
 For the most part, plugins are made to be independent of each others, but it can
 be useful to have interplay. We have already seen some communications between
-plugins via abstract methods of the data managers like
-:meth:`~data_manager.DataManagerBase.get_source` or
-:meth:`~data_manager.DataManagerBase.get_data`.
+plugins via abstract methods of the data manager like
+:meth:`.DataManagerBase.get_source` or
+:meth:`.DataManagerBase.get_data`.
+The same goes for parameters management: abstract methods are defined directly
+in the DataManagerBase, since they are necessary.
+
 We also have seen that plugins can inherit from abstract classes, such that
 it can be expected that they implement some specific methods: see
 :class:`loader.LoaderPluginAbstract`, :class:`writer.WriterPluginAbstract`,
@@ -101,12 +112,12 @@ it can be expected that they implement some specific methods: see
 :class:`source.MultiFilePluginAbstract`.
 
 If two specific plugins must directly interact, we can check the presence of a
-specific plugin via ``isinstance(self, SpecificPlugin)``. To avoid that, we can
-also simply create a "merger" plugin that inherits from the two plugins that
-need to interact.
-For instance we combine the writing plugin with the filefinder one, giving
-:class:`xarray.XarraySplitWriterPlugin`, so that we can automatically split data
-to different files when writing to disk using the specified filename pattern::
+specific plugin via ``isinstance(self, SpecificPlugin)``. We can also simply
+create a "merger" plugin that inherits from the two plugins that need to
+interact. For instance we combine the writing plugin with the filefinder one,
+giving :class:`xarray.XarraySplitWriterPlugin`, so that we can automatically
+split data to different files when writing to disk using the specified filename
+pattern::
 
     class DatasetMultifile(
         XarrayMultiFileLoaderPlugin, XarraySplitWriterPlugin, DatasetBase
@@ -124,46 +135,106 @@ is going to be done in parallel::
         client=client
     )
 
+
+Dataset parameters
+==================
+
+.. currentmodule:: data_assistant.data.data_manager
+
+A dataset instance is supposed to represent a specific set of parameters.
+Changing parameters might affect plugins, and thus it is recommended to change
+parameters using :class:`DataManagerBase.set_params`.
+After the parameters have been modified, this function will launch all callbacks
+that have been registered by plugins. For instance, some plugins may use a cache
+and need to void it after a parameters change.
+
+It might be useful to quickly change parameters, eventually multiple times,
+before returning to the initial set of parameters. To this end, the method
+:meth:`DataManagerBase.save_excursion` will return a context manager that will
+save the initial parameters and restore them when exiting::
+
+    # we have some parameters, self.params["p"] = 0
+
+    with self.save_excursion():
+        # we change them
+        self.set_params(p=2)
+        self.get_data()
+
+    # we are back to self.params["p"] = 0
+
+.. note::
+
+    If there are caches, their contents will not be saved by default. This can
+    be activated with ``save_cache=True``. However, the logic behind the context
+    manager is pretty simple and restoring caches might lead to unforeseen
+    consequences.
+
+As noted above, how parameters are stored and managed is to be specified by
+choosing a plugin. The simplest is :class:`.ParamsMappingPlugin` that
+stores parameters in a dictionary attribute ``params``.
+
+The package also provides :class:`.ParamsSchemePlugin` where parameters are
+stored in a :class:`data_assistant.config.scheme.Scheme` object. By specifying
+the exact expected type of the parameters, this can ensure the existence of
+parameters::
+
+    class MyParameters(Scheme):
+        threshold = Float(0.5)
+
+    class Dataset(ParamsSchemePlugin, DataManagerBase):
+
+        params: MyParameters
+
+Now we are sure that ``Dataset().params`` will contain a ``threshold``
+attribute. This comes at the cost of flexibility since schemes are not as
+malleable as other mapping types as it only implements :meth:`~.Scheme.update`
+(see :ref:`mapping-interface`).
+
+The parameters plugins should implement :meth:`~.DataManagerBase.params_as_dict`
+to return the parameters as a dictionary, and others plugins are encouraged to
+use it to facilitate interface.
+
+.. currentmodule:: data_assistant.data
+
 Cache plugin
 ============
 
-This section is for developers.
+.. note::
 
-It might help for some plugins to have a cache to write information to.
-Currently plugins dealing with multiple files as source leverage this. Caches
-need to be separated to avoid name clashes and other potential problems. However
-this pretty-much requires to hardcode the cache.
+   This section is aimed at plugin writers. Users can safely ignore it.
+
+It might help for some plugins to have a cache to write information into. For
+instance plugins managing source consisting of multiple files leverage this. The
+caches of different plugins need to be separated to avoid name clashes and other
+potential problems. However this pretty much requires to hardcode the cache
+location.
 
 To integrate a new cache into the rest of a DataManager compound, it is
 advised (but technically not required) to do the following when creating
-a :class:`~plugin.CachePlugin` subclass::
-
+a :class:`~plugin.CachePlugin` subclass:
 
 * In ``_init_plugin``:
 
-    * create a cache attribute. A simple :class:`dict` suffices. Its name should
-      not clash with existing attributes.
-    * append this attribute name to :attr:`.CachePlugin._CACHE_LOCATION`, this
-      let know other plugins where are the different caches. Notably,
-      ``CachePlugin`` will automatically register a callback to clear the caches
-      after a parameters change.
-    * do not forget to call ``super().__init___`` to do this registration,
-      **after ``_CACHE_LOCATION`` has been updated**.
+  * create a cache attribute. A simple :class:`dict` suffices. Its name should
+    not clash with existing attributes.
+  * append this attribute name to :attr:`.CachePlugin._CACHE_LOCATION`, this
+    let know other plugins where are the different caches. Notably,
+    :class:`.CachePlugin` will automatically register a callback to clear the
+    caches after a parameters change.
+  * do not forget to call ``super().__init___`` to do this registration,
+    **after _CACHE_LOCATION has been updated**.
 
 * You can eventually create an *autocached* decorator using
-  :func:`plugin.get_autocached`. It will transform make and property
-  automatically cached: if a value exists in the cache it is returned
-  immediately, otherwise the code defined in the property is run and the result
-  is cached for later.
-
+  :func:`.plugin.get_autocached`. It will make any property automatically
+  cached: if a value exists in the cache it is returned immediately, otherwise
+  the code defined in the property is run and the result is cached for later.
 
 Let's take all this into a simple example::
-
-    autocached = get_autocached("_mulfifile_cache")
 
     class MultifilePlugin(CachePlugin):
 
         # create a decorator, scope is the class
+        _autocached = get_autocached("_mulfifile_cache")
 
         def _init_plugin(self) -> None:
             self._multifile_cache = {}
@@ -171,7 +242,7 @@ Let's take all this into a simple example::
             super().__init__()
 
         @property
-        @autocached
+        @_autocached
         def datafiles(self) -> list[str]:
             ...
             # some long and complicated code to obtain our files
@@ -194,46 +265,4 @@ from different plugins.
    :mod:`inspect` module. But this is not trivial: we need to find the right
    frame to find the information we need. Go back to
    ``DataManagerBase.__init___`` to get the *cls* variable for instance. The
-   pitfalls far outweigh the benefits of having a little less to write.
-
-
-Dataset parameters
-==================
-
-.. currentmodule:: data_assistant.data.data_manager
-
-A dataset instance is supposed to represent a specific set of parameters.
-Changing parameters might affect plugins, and thus it is recommended to change
-parameters using
-:class:`DataManagerBase.set_params`.
-This will ensure that all callbacks registered by plugins are called. Most
-pro-eminently, **changing parameters will void the cache** (if there is a
-cache plugin).
-
-It might be useful to quickly change parameters, eventually multiple times,
-before returning to the initial set of parameters. To this end, the method
-:meth:`DataManagerBase.save_excursion` will return a context manager that will
-save the initial parameters and restore them when exiting::
-
-    # we have some parameters, self.params["p"] = 0
-
-    with self.save_excursion():
-        # we change them
-        self.set_params(p=2)
-        self.get_data()
-
-    # we are back to self.params["p"] = 0
-
-.. note::
-
-    If there is a cache, its contents will not be saved by default. This can be
-    activated with ``save_cache=True``. However, the logic behind the context
-    manager is pretty simple and restoring the cache might lead to unforeseen
-    consequences.
-
-The implementation of those functions are done in a ParamsPlugin. You must
-choose one.
-Available are ParamsMappingPlugin and ParamsSchemePlugin. Explain differences
-and gotchas with Scheme params.
-
-Is params_as_dict recommended ?
+   pitfalls far outweigh the benefit of having a little less to write.

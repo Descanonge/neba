@@ -180,6 +180,8 @@ parameters::
       "n_cores": 1
   }
 
+.. _mapping-interface:
+
 Mapping interface
 -----------------
 
@@ -272,8 +274,8 @@ All values will undergo validation from traitlets.
    container is instanciated. Thus it is recommended.
 
 In all cases (files and CLI) the configuration values are retrieved by a
-:class:`~.loader.ConfigLoader` subclass adapted for the source. Its output
-will be a **flat** dictionary mapping *keys* to :class:`~.loader.ConfigValue`.
+:class:`.ConfigLoader` subclass adapted for the source. Its output
+will be a **flat** dictionary mapping *keys* to :class:`.ConfigValue`.
 
 A "resolved" key is a succession of attribute names pointing to a trait,
 starting from the application. It is thus unique. With the same example as above
