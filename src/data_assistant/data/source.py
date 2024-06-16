@@ -104,7 +104,7 @@ class GlobPlugin(MultiFilePluginAbstract, CachePlugin):
     subdirectories and symbolic links to directories.
     """
 
-    autocached = get_autocached("_glob_cache")
+    _autocached = get_autocached("_glob_cache")
 
     def _init_plugin(self) -> None:
         self._CACHE_LOCATIONS.add("_glob_cache")
@@ -121,7 +121,7 @@ class GlobPlugin(MultiFilePluginAbstract, CachePlugin):
         raise NotImplementedError("Implement in your DataManager subclass.")
 
     @property
-    @autocached
+    @_autocached
     def datafiles(self) -> list[str]:
         """Cached list of files found by using glob."""
         import glob
@@ -168,7 +168,7 @@ class FileFinderPlugin(MultiFilePluginAbstract, CachePlugin):
     parameters to be set, for instance to generate a specific filename.
     """
 
-    autocached = get_autocached("_filefinder_cache")
+    _autocached = get_autocached("_filefinder_cache")
 
     def _init_plugin(self) -> None:
         self._CACHE_LOCATIONS.add("_filefinder_cache")
@@ -229,7 +229,7 @@ class FileFinderPlugin(MultiFilePluginAbstract, CachePlugin):
         return filename
 
     @property
-    @autocached
+    @_autocached
     def filefinder(self) -> Finder:
         """Filefinder instance to scan for datafiles.
 
@@ -250,7 +250,7 @@ class FileFinderPlugin(MultiFilePluginAbstract, CachePlugin):
         return finder
 
     @property
-    @autocached
+    @_autocached
     def fixable(self) -> list[str]:
         """List of parameters that can vary in the filename.
 
@@ -261,7 +261,7 @@ class FileFinderPlugin(MultiFilePluginAbstract, CachePlugin):
         return list(self.filefinder.get_group_names())
 
     @property
-    @autocached
+    @_autocached
     def unfixed(self) -> list[str]:
         """List of varying parameters whose value is not fixed.
 
@@ -278,7 +278,7 @@ class FileFinderPlugin(MultiFilePluginAbstract, CachePlugin):
         return list(set(unfixed))
 
     @property
-    @autocached
+    @_autocached
     def datafiles(self) -> list[str]:
         """Datafiles available.
 

@@ -115,6 +115,8 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
 
         self.set_params(params, **kwargs)
 
+    # - Parameters methods
+
     @property
     def params_as_dict(self) -> dict[str, t.Any]:
         """Return the parameters as a dictionary.
@@ -180,6 +182,8 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
             Context object containing the original parameters.
         """
         raise NotImplementedError("Implement in a plugin subclass.")
+
+    # - end of parameters methods
 
     def _register_callback(self, key: str, func: abc.Callable[..., None]):
         """Register a new callback. Throw error if it already exists."""
