@@ -124,8 +124,6 @@ Here is a rather simple example::
      >>> app = App()
      >>> app.physical.years = [2023, 2024]
 
-.. currentmodule:: data_assistant.config.scheme
-
 Accessing parameters
 ====================
 
@@ -147,11 +145,11 @@ Obtaining all parameters
 But of course, it is often necessary to pass parameters to code that is not
 supporting Schemes.
 Thus Schemes allow to obtain parameters in more universal python dictionaries.
-The methods :meth:`Scheme.values_recursive`, :meth:`Scheme.traits_recursive`,
-and :meth:`Scheme.defaults_recursive` return nested or flat dictionaries
+The methods :meth:`.Scheme.values_recursive`, :meth:`.Scheme.traits_recursive`,
+and :meth:`.Scheme.defaults_recursive` return nested or flat dictionaries
 of all the parameters the scheme (and its sub-schemes) contains. To limit to
 only the parameters of this scheme (and *not* its sub-schemes) use
-:meth:`Scheme.values` with arguments ``(subschemes=False, recursive=False)``.
+:meth:`.Scheme.values` with arguments ``(subschemes=False, recursive=False)``.
 
 So for instance we can retrieve all our application parameters::
 
@@ -187,8 +185,8 @@ Mapping interface
 
 The Scheme class also implements the interface of a
 :external+python:ref:`mapping<collections-abstract-base-classes>` (notably for
-instance :meth:`~Scheme.keys`, :meth:`~Scheme.values`, :meth:`~Scheme.items`,
-:meth:`~Scheme.get`, as well as contains, iter, and len operations).
+instance :meth:`~.Scheme.keys`, :meth:`~.Scheme.values`, :meth:`~.Scheme.items`,
+:meth:`~.Scheme.get`, as well as contains, iter, and len operations).
 The keys to access this mapping can directly lead to a deeply nested parameter,
 by joining the successive subschemes names with dots like so::
 
@@ -201,7 +199,7 @@ but we can also use the set-item operation, both are equivalent::
     app.some.deeply.nested.parameter = 3
     app["some.deeply.nested.parameter"] = 3
 
-Additionally, it implements an :meth:`~Scheme.update` method allowing to modify
+Additionally, it implements an :meth:`~.Scheme.update` method allowing to modify
 a scheme with a mapping of several parameters::
 
     app.update({"computation.n_cores": 10, "physical.threshold": 5.})
@@ -217,7 +215,7 @@ the future.
 Obtaining subsets of all parameters
 -----------------------------------
 
-Using :meth:`Scheme.select` we can select only some of the parameters by name::
+Using :meth:`.Scheme.select` we can select only some of the parameters by name::
 
   >>> app.select("physical.threshold", "computation.n_cores", flatten=True)
   {
@@ -228,7 +226,7 @@ Using :meth:`Scheme.select` we can select only some of the parameters by name::
 .. note::
 
    Users wanting to automate some logic on nested dictionaries can lever the
-   method :meth:`Scheme.remap` that map a user function on a nested (or flat)
+   method :meth:`.Scheme.remap` that map a user function on a nested (or flat)
    dictionary of traits.
 
    Functions :func:`.util.nest_dict` and :func:`.util.flatten_dict` can also
@@ -243,13 +241,16 @@ definition like so::
 These traits can then automatically be retrieved using the `metadata` argument
 of the function above (adding ``for_this_function=True`` to the call).
 Schemes also feature a specialized function for this use case:
-:meth:`Scheme.trait_values_from_func_signature` will find the parameters that
+:meth:`.Scheme.trait_values_from_func_signature` will find the parameters that
 share the same name as arguments in the function signature.
 
 Input parameters
 ================
 
-The :class:`~.application.ApplicationBase` class allows to retrieve the values
+Procedure
+---------
+
+The :class:`.ApplicationBase` class allows to retrieve the values
 of parameters from configuration files or from command line arguments (CLI),
 when :meth:`.ApplicationBase.start` is launched.
 
@@ -319,22 +320,95 @@ the keys were given in.
 From configuration files
 ------------------------
 
-From configuration files.
-Basically we recover a nested dictionary from typical config file formats like
-YAML and TOML.
+The application can take parameter values from configuration files by invoking
+:meth:`.ApplicationBase.load_config_files`. It will load the file (or files)
+specified in :attr:`.ApplicationBase.config_files`. If multiple files are
+specified, the parameter from one file will replace those from the previous file
+in the list. Different file formats require specific subclasses of
+:class:`~.FileLoader`. For each file, the first FileLoader subclass in
+:attr:`.ApplicationBase.file_loaders` to be adequate will be used.
 
-TOML: we use tomlkit. A different library could be used as a backend.
-yaml: its in standard python.
+.. note::
 
-Python: like traitlets, we run a python file.
-describe syntax.
-At the moment, no sub-config.
+   The class method :meth:`.FileLoader.can_load` returns whether it is capable
+   of handling a file. Currently, it only looks at the file extension, but more
+   advanced logic could be implemented if necessary.
+
+As any other subclass of :class:`.ConfigLoader`, :class:`.FileLoader` needs only
+to implement the :meth:`~.ConfigLoader.load_config` method that needs to
+populate the flat configuration dictionary at :attr:`~.ConfigLoader.config`.
+ConfigLoader will ensure that configuration is cleaned-up and ready to be used
+by the application.
+
+.. note::
+
+   A "flat configuration dictionary" is a simple dictionary mapping keys
+   leading to traits in the configuration tree to :class:`.ConfigValue`
+   instances. The keys can contains aliases or be class-keys that will be
+   automatically resolved.
+
+   The :class:`.ConfigValue` class allows to store some more information about
+   the value: its provenance, the original string and parsed value if
+   applicable, and a priority value used when merging configs. To obtain a
+   value, simply use :meth:`.ConfigValue.get_value`.
+
+The file loaders have an additional feature in the :meth:`.FileLoader.to_lines`
+method. It generates the lines for a valid configuration file of the
+corresponding format, following the default values of the application
+subschemes. If the file loader has its :attr:`~.ConfigLoader.config` dictionary
+populated (manually or by reading from an existing file) it will use these
+values instead. This allows to generate lengthy configuration files, with
+different amounts of additional information in comments. The end user can simply
+use :meth:`.ApplicationBase.write_config` which automatically deals with an
+existing configuration file that may need to be updated, while keeping its
+current value (or not).
+
+Currently, the package supports and recommends `TOML <https://toml.io>`__
+configuration files. It is both easily readable and unambiguous. Despite
+allowing nested configuration, it can be written without indentation, allowing
+to add long comments for each parameters. The :external+python:mod:`tomllib`
+module does not support writing, so we use (for both reading and writing) one of
+the recommended replacement: `tomlkit <https://pypi.org/project/tomlkit>`__ in
+:class:`.TomlkitLoader`.
+
+.. important::
+
+   This third-party package is only loaded and instanciating the file loader,
+   meaning that it is **not required** if other formats are used instead.
+
+The package also support python scripts as configuration files, similarly to how
+traitlets is doing it. To load a configuration file, the file loader
+:class:`.PyLoader` creates a :class:`.PyConfigContainer` object. That object
+will be bound to the ``c`` variable in the script. It allows arbitrarily nested
+attribute setting so that the following syntax is valid::
+
+    c.group.subgroup.parameter = 5
+    c.ClassName.parameter = True
+
+.. important::
+
+    Remember that this script will be **executed**, so arbitrary code can be run
+    inside, maybe changing some value depending on the OS, the hostname, or more
+    advanced logic.
+
+    Of course running arbitrary code dynamically is a security liability, do not
+    load parameters from a python script unless you trust it.
+
+The loader do not support the traitlets feature of configuration file
+inheritance via (in the config file) ``load_subconfig("some_other_script.py")``.
+This would be doable, but for the moment we recommend instead that you specify
+multiple configuration files in :attr:`.ApplicationBase.config_files`,
+remembering that each configuration file replaces the values of the previous one
+in the list.
+
+The Yaml format will soon be supported via :class:`.YamlLoader` and a third
+party module to be chosen.
 
 From the command line
 ---------------------
 
 The traits are indicated following one or two hyphen. Any subsequent hyphen is
-replaced by an underscore. So ``-computation.n_corse`` and
+replaced by an underscore. So ``-computation.n_cores`` and
 ``--computation.n-cores`` are equivalent.
 
 The parsing is done by the trait object using

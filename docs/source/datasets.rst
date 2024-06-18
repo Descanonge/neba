@@ -10,13 +10,12 @@ and management of multiple dataset with different file format, structure, etc.
 that can all depend on various parameters.
 
 Each new dataset is specified by creating a new subclass of
-:class:`~data_manager.DataManagerBase`.
-Relevant attributes or methods are overridden to provide information on this
-dataset. For example a method that return the data files can be overwritten by
-the user to cater to *this dataset*.
-Each instance of this new subclass corresponds to a set of parameters that can
-be used to change aspects of the dataset on the fly: choose only files for a
-specific year, change the method to open data, etc.
+:class:`~.DataManagerBase`. Relevant attributes or methods are overridden to
+provide information on this dataset. For example a method that return the data
+files can be overwritten by the user to cater to *this dataset*. Each instance
+of this new subclass corresponds to a set of parameters that can be used to
+change aspects of the dataset on the fly: choose only files for a specific year,
+change the method to open data, etc.
 
 .. _plugin-system:
 
@@ -34,8 +33,8 @@ class as needed via a system of independent plugins.
    Each plugin is a mixin: a class that is not intended to work on its own, but
    as a additional parent of the user data manager class.
 
-   Plugins are subclasses of :class:`~plugin.Plugin`. On instanciation, the
-   data manager detects them and call :meth:`plugin.Plugin._init_plugin` on
+   Plugins are subclasses of :class:`.Plugin`. On instanciation, the
+   data manager detects them and call :meth:`.Plugin._init_plugin` on
    every plugin that is a direct parent of the manager class. This allows to
    initialize every plugin.
 
@@ -141,18 +140,16 @@ is going to be done in parallel::
 Dataset parameters
 ==================
 
-.. currentmodule:: data_assistant.data.data_manager
-
 A dataset instance is supposed to represent a specific set of parameters.
 Changing parameters might affect plugins, and thus it is recommended to change
-parameters using :class:`DataManagerBase.set_params`.
+parameters using :class:`.DataManagerBase.set_params`.
 After the parameters have been modified, this function will launch all callbacks
 that have been registered by plugins. For instance, some plugins may use a cache
 and need to void it after a parameters change.
 
 It might be useful to quickly change parameters, eventually multiple times,
 before returning to the initial set of parameters. To this end, the method
-:meth:`DataManagerBase.save_excursion` will return a context manager that will
+:meth:`.DataManagerBase.save_excursion` will return a context manager that will
 save the initial parameters and restore them when exiting::
 
     # we have some parameters, self.params["p"] = 0
@@ -196,8 +193,6 @@ The parameters plugins should implement :meth:`~.DataManagerBase.params_as_dict`
 to return the parameters as a dictionary, and others plugins are encouraged to
 use it to facilitate interface.
 
-.. currentmodule:: data_assistant.data
-
 .. _cache-plugin:
 
 Cache plugin
@@ -215,7 +210,7 @@ location.
 
 To integrate a new cache into the rest of a DataManager compound, it is
 advised (but technically not required) to do the following when creating
-a :class:`~plugin.CachePlugin` subclass:
+a :class:`.CachePlugin` subclass:
 
 * In ``_init_plugin``:
 
