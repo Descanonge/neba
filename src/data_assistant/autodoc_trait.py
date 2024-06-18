@@ -44,7 +44,7 @@ class TraitDocumenter(AttributeDocumenter):
     """Documenter for Trait objects."""
 
     objtype = "trait"
-    directivetype = "trait"
+    directivetype = "attribute"
     priority = AttributeDocumenter.priority + 10
 
     metadata_properties = [
@@ -217,9 +217,15 @@ class TraitDocumenter(AttributeDocumenter):
         self.add_line("   :type: " + objrepr, sourcename)
 
 
-class PyTrait(PyAttribute):
+class PyAttributeWithTrait(PyAttribute):
+    """Attribute with option to add 'trait' before signature."""
+
     option_spec: t.ClassVar[OptionSpec] = PyAttribute.option_spec.copy()
-    option_spec.update({"trait": directives.flag})
+    option_spec.update(
+        {
+            "trait": directives.flag,
+        }
+    )
 
     def get_signature_prefix(self, sig: str) -> list[nodes.Node]:
         prefix = super().get_signature_prefix(sig)
@@ -298,9 +304,12 @@ class SchemeDocumenter(ClassDocumenter):
 
 def setup(app: Sphinx):  # noqa: D103
     app.setup_extension("sphinx.ext.autodoc")
+
+    # Replace attribute directive to deal with new :trait: option
+    app.add_directive_to_domain("py", "attribute", PyAttributeWithTrait)
+
+    app.add_autodocumenter(SchemeDocumenter)
     app.add_autodocumenter(TraitDocumenter)
-    directives.register_directive("py:trait", PyTrait)
-    app.add_autodocumenter(SchemeDocumenter, False)
     app.connect("autodoc-skip-member", skip_trait_member)
 
     return dict(
