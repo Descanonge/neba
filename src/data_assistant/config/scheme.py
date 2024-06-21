@@ -221,7 +221,7 @@ class Scheme(Configurable):
     # - Mapping methods
 
     def keys(
-        self, subschemes: bool = True, recursive: bool = False, aliases: bool = True
+        self, subschemes: bool = True, recursive: bool = True, aliases: bool = True
     ) -> list[str]:
         """List of keys leading to subschemes and traits.
 
