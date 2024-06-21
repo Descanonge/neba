@@ -136,6 +136,17 @@ class Scheme(Configurable):
 
         cls.setup_class(classdict)  # type: ignore
 
+        # Check aliases
+        for short, alias in cls.aliases.items():
+            subscheme_cls = cls
+            for key in alias.split("."):
+                try:
+                    subscheme_cls = subscheme_cls._subschemes[key]
+                except KeyError as err:
+                    raise KeyError(
+                        f"Alias '{short}:{alias}' in {cls.__name__} malformed."
+                    ) from err
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.postinit()
