@@ -382,7 +382,7 @@ class ApplicationBase(Scheme, LoggingMixin):
                 continue
 
             loader_cls = self._select_file_loader(filepath)
-            loader = loader_cls(filepath, self)
+            loader = loader_cls(self, filepath)
             file_confs[filepath] = loader.get_config()
 
         if len(file_confs) == 0:
@@ -532,7 +532,7 @@ class ApplicationBase(Scheme, LoggingMixin):
 
         filename = path.realpath(filename)
 
-        loader = self._select_file_loader(filename)(filename, self)
+        loader = self._select_file_loader(filename)(self, filename)
         show_existing_keys = False
 
         file_exist = path.exists(filename)

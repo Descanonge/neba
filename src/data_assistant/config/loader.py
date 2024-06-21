@@ -30,6 +30,7 @@ types of keys:
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import re
 import typing as t
@@ -54,8 +55,6 @@ from .util import (
 )
 
 if t.TYPE_CHECKING:
-    from json import JSONDecoder, JSONEncoder
-
     from tomlkit.container import Container as TOMLContainer
     from tomlkit.container import Item, Table
 
@@ -464,8 +463,8 @@ class CLILoader(ConfigLoader):
 
     parser_class: type[ArgumentParser] = GreedyArgumentParser
 
-    def __init__(self, app: ApplicationBase, **kwargs):
-        super().__init__(app, **kwargs)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.parser = self.create_parser()
 
     def create_parser(self, **kwargs) -> ArgumentParser:
@@ -550,8 +549,8 @@ class FileLoader(ConfigLoader):
     extensions: list[str] = []
     """File extensions that are supported by this loader."""
 
-    def __init__(self, filename: str, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
+    def __init__(self, app: ApplicationBase, filename: str, *args, **kwargs) -> None:
+        super().__init__(app, *args, **kwargs)
         self.filename = filename
         self.full_filename = path.abspath(filename)
 
@@ -1048,6 +1047,15 @@ class YamlLoader(DictLikeLoaderMixin, FileLoader):
         raise NotImplementedError()
 
 
+class JsonEncoderTypes(json.JSONEncoder):
+    def default(self, o: t.Any) -> t.Any:
+        if isinstance(o, type):
+            mod = o.__module__
+            name = o.__name__
+            return f"{mod}.{name}"
+        return super().default(o)
+
+
 class JsonLoader(DictLikeLoaderMixin, FileLoader):
     """Loader for JSON files.
 
@@ -1056,14 +1064,14 @@ class JsonLoader(DictLikeLoaderMixin, FileLoader):
 
     extensions = ["json"]
 
-    JSON_DECODER: type[JSONDecoder] | None = None
+    JSON_DECODER: type[json.JSONDecoder] | None = None
     """Custom json decoder to use."""
-    JSON_ENCODER: type[JSONEncoder] | None = None
+    JSON_ENCODER: type[json.JSONEncoder] | None = JsonEncoderTypes
     """Custom json encoder to use."""
 
     def __init__(self, *args, **kwargs) -> None:
-        self.app.log.warning("%s loader is experimental.", self.__class__)
         super().__init__(*args, **kwargs)
+        self.app.log.warning("%s loader is experimental.", self.__class__)
         import json
 
         self.backend = json
@@ -1075,7 +1083,7 @@ class JsonLoader(DictLikeLoaderMixin, FileLoader):
         specified by :attr:`JSON_DECODER`.
         """
         with open(self.full_filename) as fp:
-            input = self.backend.load(fp, cls=self.JSON_DECODER)
+            input = json.load(fp, cls=self.JSON_DECODER)
 
         self.resolve_mapping(input, origin=self.filename)
 
@@ -1089,6 +1097,6 @@ class JsonLoader(DictLikeLoaderMixin, FileLoader):
         output = self.app.values_recursive()
         # TODO Merge with self.config
         # TODO Options: maybe only show values differing from default?
-        dump = self.backend.dumps(output, cls=self.JSON_ENCODER)
+        dump = json.dumps(output, cls=self.JSON_ENCODER, indent=2)
 
         return dump.splitlines()

@@ -1,5 +1,6 @@
 from data_assistant.config.application import ApplicationBase
 from data_assistant.config.dask_config import DaskConfig
+from data_assistant.config.loader import JsonLoader
 from data_assistant.config.scheme import Scheme
 from data_assistant.config.util import FixableTrait
 from traitlets import Enum, Float, Int, Unicode
@@ -22,6 +23,9 @@ class App(ApplicationBase):
     parameters = Parameters
     dask = DaskConfig
     auto_aliases = [Parameters]
+
+    file_loaders = ApplicationBase.file_loaders
+    file_loaders.append(JsonLoader)
 
 
 if __name__ == "__main__":
