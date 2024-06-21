@@ -356,7 +356,8 @@ class DefaultOptionDict(dict[str, Action]):
 
         Default action is "append", of type ``str``, with ``nargs=*`` (any number of
         arguments). The destination is the argument name, stripped of leading hyphens,
-        and with dots "." replaced by :attr:`_DOT` (``__DOT__``).
+        with dots "." replaced by :attr:`_DOT` (``__DOT__``) and hyphens replaced by
+        underscores.
 
         Action is "append" to allow to check how many times the user has specified a
         key. This avoids ``--param.one 1 ... --param.one 2`` where the second key
@@ -365,7 +366,7 @@ class DefaultOptionDict(dict[str, Action]):
         """
         action = _AppendAction(
             option_strings=[key],
-            dest=key.lstrip("-").replace(".", _DOT),
+            dest=key.lstrip("-").replace("-", "_").replace(".", _DOT),
             type=str,
             nargs="*",
         )
