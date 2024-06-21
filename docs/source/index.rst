@@ -68,6 +68,8 @@ input loaded into xarray.
 .. toctree::
    :maxdepth: 1
 
+   extending
+
    motivations
 
 

@@ -77,14 +77,15 @@ napoleon_preprocess_type = False
 
 ## Intersphinx config
 intersphinx_mapping = {
-    "python": ("https://docs.python.org/3/", None),
-    "numpy": ("https://numpy.org/doc/stable", None),
     "dask": ("https://docs.dask.org/en/latest", None),
-    "xarray": ("https://docs.xarray.dev/en/stable/", None),
-    "filefinder": ("https://filefinder.readthedocs.io/en/latest", None),
-    "traitlets": ("https://traitlets.readthedocs.io/en/stable", None),
-    "tomlkit": ("https://tomlkit.readthedocs.io/en/latest/", None),
     "dask-jobqueue": ("https://jobqueue.dask.org/en/latest/", None),
+    "filefinder": ("https://filefinder.readthedocs.io/en/latest", None),
+    "numpy": ("https://numpy.org/doc/stable", None),
+    "omegaconf": ("https://omegaconf.readthedocs.io/en/latest", None),
+    "python": ("https://docs.python.org/3/", None),
+    "tomlkit": ("https://tomlkit.readthedocs.io/en/latest/", None),
+    "traitlets": ("https://traitlets.readthedocs.io/en/stable", None),
+    "xarray": ("https://docs.xarray.dev/en/stable/", None),
     "zarr": ("https://zarr.readthedocs.io/en/stable/", None),
 }
 

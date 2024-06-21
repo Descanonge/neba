@@ -250,33 +250,33 @@ Input parameters
 Procedure
 ---------
 
-The :class:`.ApplicationBase` class allows to retrieve the values
-of parameters from configuration files or from command line arguments (CLI),
-when :meth:`.ApplicationBase.start` is launched.
+The :class:`.ApplicationBase` class allows to retrieve the values of parameters
+from configuration files or from command line arguments (CLI), when
+:meth:`.ApplicationBase.start` is launched. It first parses command line
+arguments (unless deactivated) and then load values from specified configuration
+files. Each time parameters are loaded from any kind of source, the parameters
+for the application object are immediately applied to it, since they can alter
+the rest of the process.
 
-It first parses command line arguments (unless deactivated). It then load
-values from specified configuration files. Each time parameters are loaded from
-any kind of source, the parameters for the application are immediately applied
-to it, since they kind alter the rest of the process. The parameters found
-are then normalized: each resulting parameter key is unique and unambiguous.
-This provides a first layer of checking the input: keys that do not lead to
-a known parameter will raise errors.
-This permit to merge the parameters obtained from different files and CLI.
-Finally, the application will recursively instanciate all schemes while passing
-the configuration values. Unspecified values will take the trait default value.
-All values will undergo validation from traitlets.
+The parameters found are then normalized: each resulting parameter key is unique
+and unambiguous. This provides a first layer of checking the input: keys that do
+not lead to a known parameter will raise errors. This permit to merge the
+parameters obtained from different files and CLI. Finally, the application will
+recursively instanciate all schemes while passing the configuration values.
+Unspecified values will take the trait default value. All values will undergo
+validation from traitlets.
 
 .. note::
 
-   Instanciating the whole configuration tree could be costly in particular
-   use cases, and can be bypassed.
-
-   However, a new value can only be fully verified by a trait when its
-   container is instanciated. Thus it is recommended.
+   In some specific cases, instanciating the whole configuration tree could be
+   costly. It is thus possible to deactivate the automatic instanciation with
+   :attr:`.ApplicationBase.auto_instanciate` and arguments to
+   :attr:`.ApplicationBase.start`. However, a parameters value can only be
+   verified by a trait if its container is instanciated.
 
 In all cases (files and CLI) the configuration values are retrieved by a
-:class:`.ConfigLoader` subclass adapted for the source. Its output
-will be a **flat** dictionary mapping *keys* to :class:`.ConfigValue`.
+:class:`.ConfigLoader` subclass adapted for the source. Its output will be a
+**flat** dictionary mapping *resolved keys* to :class:`.ConfigValue`.
 
 A "resolved" key is a succession of attribute names pointing to a trait,
 starting from the application. It is thus unique. With the same example as above
@@ -292,16 +292,16 @@ is deeply nested ``scheme.subscheme.sub_subscheme.etc.traitname``.
 
     Aliases are expanded when the configuration is resolved.
 
-A parameter can also be input as a "class-key", as it was done in vanilla
-traitlets. It consist of the name of scheme class and a trait name:
+A parameter can also be input as a "class-key", similarly to how it is done in
+vanilla traitlets. It consists of the name of scheme class and a trait name:
 ``SomeSchemeClassName.trait_name``. It cannot be nested further (this
 complicates how to do merging quite a bit). When the configuration is resolved,
-class-keys are transformed to the corresponding fully resolved key(s).
-Still with the same example: ``PhysicalParams.years`` will be resolved to
+class-keys are transformed to the corresponding fully resolved key(s). Still
+with the same example: ``PhysicalParams.years`` will be resolved to
 ``physical.years``.
 
 The value associated to a class-key, even after being resolved, is given a
-lower priority. So if given::
+lower priority. So if we somehow input::
 
     physical.threshold = 1
     PhysicalParams.threshold = 5
@@ -311,7 +311,7 @@ the keys were given in.
 
 .. note::
 
-   Unlike *vanilla* traitlets, the way we populate instances allows to have
+   Unlike vanilla traitlets, the way we populate instances allows to have
    multiple instances of the same Scheme with different configurations. This
    is why a single class-key can point to multiple locations in the
    configuration tree.
@@ -323,10 +323,12 @@ From configuration files
 The application can take parameter values from configuration files by invoking
 :meth:`.ApplicationBase.load_config_files`. It will load the file (or files)
 specified in :attr:`.ApplicationBase.config_files`. If multiple files are
-specified, the parameter from one file will replace those from the previous file
-in the list. Different file formats require specific subclasses of
-:class:`~.FileLoader`. For each file, the first FileLoader subclass in
-:attr:`.ApplicationBase.file_loaders` to be adequate will be used.
+specified, the parameter from one file will replace those from the previous
+files in the list. The resulting configuration will be stored in the
+:attr:`~.ApplicationBase.file_conf` attribute. Different file formats require
+specific subclasses of :class:`~.FileLoader`. For each file, the first
+FileLoader subclass in :attr:`.ApplicationBase.file_loaders` to be adequate will
+be used.
 
 .. note::
 
@@ -337,20 +339,20 @@ in the list. Different file formats require specific subclasses of
 As any other subclass of :class:`.ConfigLoader`, :class:`.FileLoader` needs only
 to implement the :meth:`~.ConfigLoader.load_config` method that needs to
 populate the flat configuration dictionary at :attr:`~.ConfigLoader.config`.
-ConfigLoader will ensure that configuration is cleaned-up and ready to be used
-by the application.
+ConfigLoader will ensure that the configuration is resolved, cleaned-up and
+ready to be used by the application.
 
 .. note::
 
    A "flat configuration dictionary" is a simple dictionary mapping keys
    leading to traits in the configuration tree to :class:`.ConfigValue`
    instances. The keys can contains aliases or be class-keys that will be
-   automatically resolved.
+   automatically resolved later.
 
-   The :class:`.ConfigValue` class allows to store some more information about
-   the value: its provenance, the original string and parsed value if
-   applicable, and a priority value used when merging configs. To obtain a
-   value, simply use :meth:`.ConfigValue.get_value`.
+   The :class:`.ConfigValue` class allows to store more information about the
+   value: its provenance, the original string and parsed value if applicable,
+   and a priority value used when merging configs. To obtain a value, simply use
+   :meth:`.ConfigValue.get_value`.
 
 The file loaders have an additional feature in the :meth:`.FileLoader.to_lines`
 method. It generates the lines for a valid configuration file of the
@@ -361,7 +363,7 @@ values instead. This allows to generate lengthy configuration files, with
 different amounts of additional information in comments. The end user can simply
 use :meth:`.ApplicationBase.write_config` which automatically deals with an
 existing configuration file that may need to be updated, while keeping its
-current value (or not).
+current values (or not).
 
 Currently, the package supports and recommends `TOML <https://toml.io>`__
 configuration files. It is both easily readable and unambiguous. Despite
@@ -373,14 +375,14 @@ the recommended replacement: `tomlkit <https://pypi.org/project/tomlkit>`__ in
 
 .. important::
 
-   This third-party package is only loaded and instanciating the file loader,
+   This third-party package is only loaded when instanciating the file loader,
    meaning that it is **not required** if other formats are used instead.
 
 The package also support python scripts as configuration files, similarly to how
 traitlets is doing it. To load a configuration file, the file loader
 :class:`.PyLoader` creates a :class:`.PyConfigContainer` object. That object
-will be bound to the ``c`` variable in the script. It allows arbitrarily nested
-attribute setting so that the following syntax is valid::
+will be bound to the ``c`` variable in the script/configuration file. It allows
+arbitrarily nested attribute setting so that the following syntax is valid::
 
     c.group.subgroup.parameter = 5
     c.ClassName.parameter = True
@@ -407,14 +409,59 @@ party module to be chosen.
 From the command line
 ---------------------
 
-The traits are indicated following one or two hyphen. Any subsequent hyphen is
+Parameters can be set from parsing command line arguments, although it can be
+skipped by either setting the :attr:`.ApplicationBase.ignore_cli` trait or
+the `ignore_cli` argument to :meth:`.ApplicationBase.start`. The configuration
+obtained will be stored in the :attr:`~.ApplicationBase.cli_conf` attribute and
+will take priority over parameters from configuration files.
+
+The keys are indicated following one or two hyphen. Any subsequent hyphen is
 replaced by an underscore. So ``-computation.n_cores`` and
-``--computation.n-cores`` are equivalent.
+``--computation.n-cores`` are equivalent. As already node, parameters keys can
+be dot-separated paths leading to a trait. Aliases can be used for brevity.
+Class-keys are input with the same syntax (``--ClassName.trait_name``).
 
-The parsing is done by the trait object using
-:meth:`traitlets.TraitType.from_string`. Each parameter can receive one or more
-values that will always be interpreted as a list. Actually more complicated from_string_list.
+.. note ::
 
-Implementation detail: it is difficult to account for every way a trait can be
-indicated. Instead any parameter is accepted by argparser (there is a little
-trickery explained in the module :mod:`.config.loader`).
+    The list of command line arguments is obtained by
+    :meth:`.ApplicationBase.get_argv`. By default, it returns None, so that it
+    is left to the underlying parser to do it. But more logic could be input
+    there, for instance to deal with multiple layers of arguments separated by
+    double hyphens.
+
+The loading of command line parameters is done by :class:`.CLILoader`. One of
+the main differences with other loaders is that all arguments need to be parsed.
+This is done by :meth:`.ConfigValue.parse` that, at the time of parsing, should
+have a reference to the corresponding trait (which itself has methods
+``from_string`` and ``from_string_list`` for containers).
+
+TODO Extra parameters.
+
+:Implementation detail: :class:`.CLILoader` relies on the builtin
+    :external+python:mod:`argparse`. Rather than listing all possible keys to
+    every parameters (accounting for aliases and class-keys) as would normally
+    be required, we borrow some trickery from traitlets. The dictionaries
+    holding the actions (``argparse.ArgumentParser._option_string_actions`` and
+    ``argparse.ArgumentParser._optionals._option_string_actions``) are replaced
+    by a dict subclass :class:`.DefaultOptionDict` that creates a new action if
+    a key is missing (ie whenever a parameter is given).
+
+So for any and every parameter, the argument :external+python:ref:`action` is
+"append", with type :class:`str` (since the parsing is left to traitlets), and
+``nargs="*"`` meaning that any parameter can receive any number of values.
+To indicate multiple values, for a list trait for instance, the following syntax
+is to be used::
+
+    --physical.years 2015 2016 2017
+
+**and not** as is the case with vanilla traitlets::
+
+    --physical.years 2015 --physical.years 2016 ...
+
+This will raise an error, to avoid possible errors in user input due to
+inattention.
+
+.. note::
+
+   The default action can be changed, check the documentation and code of
+   :mod:`.config.loader` for more details.
