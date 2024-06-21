@@ -237,7 +237,7 @@ class Scheme(Configurable):
         out = []
         for name in self.trait_names(subscheme=None, config=True):
             out.append(name)
-        for name in itertools.chain(self._subschemes, self.aliases.values()):
+        for name in itertools.chain(self._subschemes, self.aliases.keys()):
             subscheme = self[name]
             if subschemes:
                 out.append(name)
@@ -312,22 +312,23 @@ class Scheme(Configurable):
     def __getitem__(self, key: str) -> t.Any:
         """Obtain value it `key`."""
         fullpath = key.split(".")
-        if len(fullpath) == 1:
-            if key in self.trait_names():
-                return getattr(self, key)
-            clsname = self.__class__.__name__
-            raise KeyError(f"No trait '{key}' in scheme {clsname}.")
-
         subscheme = self
-        for name in fullpath[:-1]:
-            if name in self._subschemes:
+        for i, name in enumerate(fullpath):
+            if name in subscheme._subschemes:
                 subscheme = getattr(subscheme, name)
-            elif name in self.aliases:
-                subscheme = self[name]
-            else:
-                raise KeyError(f"Could not resolve key {key}")
+                continue
+            elif name in subscheme.aliases:
+                subscheme = subscheme[subscheme.aliases[name]]
+                continue
+            if i == len(fullpath) - 1 and name in subscheme.trait_names(config=True):
+                return getattr(subscheme, name)
+                continue
+            raise KeyError(
+                f"Could not resolve key {key} "
+                f"('{name}' not in {subscheme.__class__.__name__})"
+            )
 
-        return subscheme[fullpath[-1]]
+        return subscheme
 
     def __setitem__(self, key: str, value: t.Any):
         """Set a trait to a value.

@@ -17,6 +17,8 @@ class Parameters(Scheme):
 
 
 class App(ApplicationBase):
+    aliases = dict(p="parameters")
+
     parameters = Parameters
     dask = DaskConfig
     auto_aliases = [Parameters]
