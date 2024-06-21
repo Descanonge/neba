@@ -46,12 +46,16 @@ from .util import (
     ConfigErrorHandler,
     ConfigParsingError,
     MultipleConfigKeyError,
+    flatten_dict,
     get_trait_typehint,
+    nest_dict,
     underline,
     wrap_text,
 )
 
 if t.TYPE_CHECKING:
+    from json import JSONDecoder, JSONEncoder
+
     from tomlkit.container import Container as TOMLContainer
     from tomlkit.container import Item, Table
 
@@ -296,7 +300,6 @@ class ConfigLoader:
         ----------
         args, kwargs
             Passed to :meth:`load_config`.
-
         """
         self.clear()
         self.load_config(*args, **kwargs)
@@ -322,7 +325,7 @@ class ConfigLoader:
                     val.parse()
                 setattr(self.app, traitname, val.get_value())
 
-    def load_config(self) -> None:
+    def load_config(self, *args, **kwargs) -> None:
         """Populate the config attribute from a source.
 
         :Not implemented:
@@ -810,15 +813,6 @@ class TomlkitLoader(FileLoader):
             item.add(self.backend.comment(line))
 
 
-class YamlLoader(FileLoader):
-    """Loader for Yaml files.
-
-    Not implemented yet.
-    """
-
-    extensions = ["yaml", "yml"]
-
-
 class PyConfigContainer:
     """Object that can define attributes recursively on the fly.
 
@@ -994,3 +988,107 @@ class PyLoader(FileLoader):
         lines = [line.rstrip() for line in lines]
 
         return lines
+
+
+class DictLikeLoaderMixin(ConfigLoader):
+    """Load a configuration from a mapping.
+
+    As there are no way to differentiate between a mapping for a dictionary trait and
+    one for a nested scheme, we need to check the existing keys before resolving. We
+    only look for existing subschemes and aliases, otherwise we assume this is a
+    dict-like value.
+    """
+
+    def resolve_mapping(self, input: abc.Mapping, origin: str | None = None):
+        """Flatten an input nested mapping."""
+        # Some keys might be dot-separated. To make sure we are completely nested:
+        input = flatten_dict(input)
+        input = nest_dict(input)
+
+        def recurse(d: abc.Mapping, scheme: type[Scheme], key: list[str]):
+            for k, v in d.items():
+                if k in scheme._subschemes:
+                    assert isinstance(v, abc.Mapping)
+                    recurse(v, scheme._subschemes[k], key + [k])
+                elif k in scheme.aliases:
+                    assert isinstance(v, abc.Mapping)
+                    # resolve alias
+                    sub = scheme
+                    alias = scheme.aliases[k].split(".")
+                    for al in alias:
+                        sub = sub._subschemes[al]
+                    recurse(v, sub, key + alias)
+                else:
+                    fullkey = ".".join(key + [k])
+                    value = ConfigValue(v, fullkey, origin=origin)
+                    # no parsing, directly to values
+                    value.value = value.input
+                    self.add(fullkey, value)
+
+        recurse(input, self.app.__class__, [])
+
+
+class DictLikeLoader(DictLikeLoaderMixin):
+    """Loader for mappings."""
+
+    def load_config(self, input: abc.Mapping) -> None:
+        """Populate the config attribute from a nested mapping."""
+        self.config = self.resolve_mapping(input)
+
+
+class YamlLoader(DictLikeLoaderMixin, FileLoader):
+    """Loader for Yaml files.
+
+    Not implemented yet.
+    """
+
+    extensions = ["yaml", "yml"]
+
+    def load_config(self) -> None:
+        raise NotImplementedError()
+
+
+class JsonLoader(DictLikeLoaderMixin, FileLoader):
+    """Loader for JSON files.
+
+    :Experimental:
+    """
+
+    extensions = ["json"]
+
+    JSON_DECODER: type[JSONDecoder] | None = None
+    """Custom json decoder to use."""
+    JSON_ENCODER: type[JSONEncoder] | None = None
+    """Custom json encoder to use."""
+
+    def __init__(self, *args, **kwargs) -> None:
+        self.app.log.warning("%s loader is experimental.", self.__class__)
+        super().__init__(*args, **kwargs)
+        import json
+
+        self.backend = json
+
+    def load_config(self) -> None:
+        """Populate the config attribute from TOML file.
+
+        We use builtin :mod:`json` to parse file, with eventually a custom decoder
+        specified by :attr:`JSON_DECODER`.
+        """
+        with open(self.full_filename) as fp:
+            input = self.backend.load(fp, cls=self.JSON_DECODER)
+
+        self.resolve_mapping(input, origin=self.filename)
+
+    def _to_lines(
+        self, comment: str = "full", show_existing_keys: bool = False
+    ) -> list[str]:
+        """Serialize configuration."""
+        if comment != "none":
+            self.app.log.warning("No comments possible in JSON format.")
+
+        output = self.app.values_recursive()
+        # TODO Merge with self.config
+        # TODO Options: maybe only show values differing from default?
+        dump = self.backend.dumps(output, cls=self.JSON_ENCODER)
+
+        return dump.splitlines()

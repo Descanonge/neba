@@ -462,12 +462,16 @@ class ApplicationBase(Scheme, LoggingMixin):
         return output
 
     def add_extra_parameter(self, *args, **kwargs):
-        """Add a configurable trait to this application configuration.
+        """Add an extra parameter to the CLI argument parser.
+
+        Extra parameters will be available after CLI parsing in
+        :attr:`extra_parameters`.
 
         Parameters
         ----------
         args, kwargs
             Passed to :meth:`argparse.ArgumentParser.add_argument`.
+
         """
         self._extra_parameters_args.append((args, kwargs))
 

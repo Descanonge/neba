@@ -403,6 +403,10 @@ multiple configuration files in :attr:`.ApplicationBase.config_files`,
 remembering that each configuration file replaces the values of the previous one
 in the list.
 
+Despite not being easily readable, the JSON format is supported via
+:class:`.JsonLoader` and the builtin module :external+python:mod:`json`. The
+decoder and encoder class can be customized.
+
 The Yaml format will soon be supported via :class:`.YamlLoader` and a third
 party module to be chosen.
 
@@ -435,13 +439,17 @@ This is done by :meth:`.ConfigValue.parse` that, at the time of parsing, should
 have a reference to the corresponding trait (which itself has methods
 ``from_string`` and ``from_string_list`` for containers).
 
-TODO Extra parameters.
+Extra parameters to the argument parser can be added using
+:meth:`.ApplicationBase.add_extra_parameter`. The values will be available after
+CLI parsing in :attr:`.ApplicationBase.extra_parameters`.
 
-:Implementation detail: :class:`.CLILoader` relies on the builtin
-    :external+python:mod:`argparse`. Rather than listing all possible keys to
-    every parameters (accounting for aliases and class-keys) as would normally
-    be required, we borrow some trickery from traitlets. The dictionaries
-    holding the actions (``argparse.ArgumentParser._option_string_actions`` and
+.. note:: Implementation details
+
+    :class:`.CLILoader` relies on the builtin :external+python:mod:`argparse`.
+    Rather than listing all possible keys to every parameters (accounting for
+    aliases and class-keys) as would normally be required, we borrow some
+    trickery from traitlets. The dictionaries holding the actions
+    (``argparse.ArgumentParser._option_string_actions`` and
     ``argparse.ArgumentParser._optionals._option_string_actions``) are replaced
     by a dict subclass :class:`.DefaultOptionDict` that creates a new action if
     a key is missing (ie whenever a parameter is given).
@@ -465,3 +473,21 @@ inattention.
 
    The default action can be changed, check the documentation and code of
    :mod:`.config.loader` for more details.
+
+
+From a dictionary
+-----------------
+
+The loader :class:`.DictLikeLoader` can transform any nested mapping into a
+proper configuration object (flat dictionary mapping do-separated keys to
+:class:`.ConfigValue`). It deals in a quite straightforward manner with the
+issue of differentiating between a nested mapping corresponding to an eventual
+trait and one corresponding to further nesting in a subscheme. It simply checks
+if the key is a known subscheme or alias, otherwise it assumes the key
+corresponds to a parameter value.
+
+.. note::
+
+    The file loaders :class:`.YamlLoader` and :class:`.JsonLoader` are based on
+    it, as they only return a nested mapping without means to differentiate the
+    two types of nesting.
