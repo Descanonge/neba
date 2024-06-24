@@ -62,10 +62,11 @@ class CachePlugin(Plugin):
             if call_name in self._reset_callbacks:
                 continue
 
-            def callback(dm, **kwargs) -> None:
-                getattr(dm, attr).clear()
+            # we make sure to avoid late-binding by using functools.partial
+            def callback(attr_loc, dm, **kwargs) -> None:
+                getattr(dm, attr_loc).clear()
 
-            self._register_callback(call_name, callback)
+            self._register_callback(call_name, functools.partial(callback, attr))
 
 
 # Typevar to preserve autocached properties' type.
@@ -77,6 +78,14 @@ R = t.TypeVar("R")
 def get_autocached(
     name: str,
 ) -> abc.Callable[[abc.Callable[[t.Any], R]], abc.Callable[[t.Any], R]]:
+    """Generate decorator to make a property autocached.
+
+    Parameters
+    ----------
+    name
+        Attribute name where the cache is located.
+    """
+
     def decorator(func: abc.Callable[[t.Any], R]) -> abc.Callable[[t.Any], R]:
         """Automatically cache a property."""
         property_name = func.__name__
