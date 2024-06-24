@@ -365,18 +365,29 @@ use :meth:`.ApplicationBase.write_config` which automatically deals with an
 existing configuration file that may need to be updated, while keeping its
 current values (or not).
 
-Currently, the package supports and recommends `TOML <https://toml.io>`__
-configuration files. It is both easily readable and unambiguous. Despite
-allowing nested configuration, it can be written without indentation, allowing
-to add long comments for each parameters. The :external+python:mod:`tomllib`
-module does not support writing, so we use (for both reading and writing) one of
-the recommended replacement: `tomlkit <https://pypi.org/project/tomlkit>`__ in
+.. note::
+
+    To avoid importing too much automatically, especially since some loaders
+    rely on third-party libraries that may be missing, and to avoid having to
+    resort to some kind of lazy-loading (slightly more cumbersome to write),
+    file loaders are placed in their own sub-module. So to allow TOML and Python
+    configuration files, we would need to do::
+
+        from data_assistant.config.loaders.python import PyFileLoader
+        from data_assistant.config.loaders.toml import TomlkitLoader
+
+        class Application(ApplicationBase):
+            file_loaders = [PyFileLoader, TomlkitLoader]
+
+            ...
+
+The package supports and recommends `TOML <https://toml.io>`__ configuration
+files. It is both easily readable and unambiguous. Despite allowing nested
+configuration, it can be written without indentation, allowing to add long
+comments for each parameters. The :external+python:mod:`tomllib` builtin module
+does not support writing, so we use (for both reading and writing) one of the
+recommended replacement: `tomlkit <https://pypi.org/project/tomlkit>`__ in
 :class:`.TomlkitLoader`.
-
-.. important::
-
-   This third-party package is only loaded when instanciating the file loader,
-   meaning that it is **not required** if other formats are used instead.
 
 The package also support python scripts as configuration files, similarly to how
 traitlets is doing it. To load a configuration file, the file loader
@@ -407,8 +418,8 @@ Despite not being easily readable, the JSON format is supported via
 :class:`.JsonLoader` and the builtin module :external+python:mod:`json`. The
 decoder and encoder class can be customized.
 
-The Yaml format will soon be supported via :class:`.YamlLoader` and a third
-party module to be chosen.
+It is planned to add support for Yaml format via :class:`.YamlLoader` and a
+third party module to be chosen.
 
 From the command line
 ---------------------
