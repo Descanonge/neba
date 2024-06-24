@@ -21,7 +21,7 @@ from .util import ConfigErrorHandler, nest_dict
 if t.TYPE_CHECKING:
     from traitlets.utils.bunch import Bunch
 
-    from .loader import CLILoader, ConfigValue, FileLoader
+    from .loaders import CLILoader, ConfigValue, FileLoader
 
 log = logging.getLogger(__name__)
 

@@ -16,7 +16,7 @@ from textwrap import dedent
 from traitlets import Bool, Enum, Instance, TraitType, Undefined
 from traitlets.config import Configurable
 
-from .loader import ConfigValue
+from .loaders import ConfigValue
 from .util import (
     ConfigError,
     UnknownConfigKeyError,
@@ -767,7 +767,7 @@ class Scheme(Configurable):
         there is a conflict between values, configurations specified *later* in the
         argument list will take priority (ie last one wins). The value from the
         precedent config is replaced if the :attr:`value's
-        priority<.config.loader.ConfigValue.priority>` is equal or higher.
+        priority<.ConfigValue.priority>` is equal or higher.
         """
         out: dict[str, ConfigValue] = {}
         for c in configs:

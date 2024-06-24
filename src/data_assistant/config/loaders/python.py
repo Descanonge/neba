@@ -1,5 +1,7 @@
 """Python configuration file loader."""
 
+from __future__ import annotations
+
 import typing as t
 from textwrap import dedent
 
@@ -9,7 +11,7 @@ from ..util import get_trait_typehint, underline, wrap_text
 from .core import ConfigValue, FileLoader
 
 if t.TYPE_CHECKING:
-    from .scheme import Scheme
+    from ..scheme import Scheme
 
 
 class PyConfigContainer:
