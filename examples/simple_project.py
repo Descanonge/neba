@@ -1,6 +1,7 @@
 from data_assistant.config.application import ApplicationBase
 from data_assistant.config.dask_config import DaskConfig
-from data_assistant.config.loader import JsonLoader
+from data_assistant.config.loaders.json import JsonLoader
+from data_assistant.config.loaders.toml import TomlkitLoader
 from data_assistant.config.scheme import Scheme
 from data_assistant.config.util import FixableTrait
 from traitlets import Enum, Float, Int, Unicode
@@ -24,8 +25,7 @@ class App(ApplicationBase):
     dask = DaskConfig
     auto_aliases = [Parameters]
 
-    file_loaders = ApplicationBase.file_loaders
-    file_loaders.append(JsonLoader)
+    file_loaders = [TomlkitLoader, JsonLoader]
 
 
 if __name__ == "__main__":

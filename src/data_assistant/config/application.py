@@ -13,15 +13,15 @@ from os import path
 
 from traitlets import Bool, Dict, Enum, List, Unicode, Union, default, observe
 from traitlets.config.configurable import LoggingConfigurable
-from traitlets.utils.bunch import Bunch
 from traitlets.utils.nested_update import nested_update
 
-from .loader import CLILoader, PyLoader, TomlkitLoader, YamlLoader
 from .scheme import Scheme
 from .util import ConfigErrorHandler, nest_dict
 
 if t.TYPE_CHECKING:
-    from .loader import ConfigValue, FileLoader
+    from traitlets.utils.bunch import Bunch
+
+    from .loader import CLILoader, ConfigValue, FileLoader
 
 log = logging.getLogger(__name__)
 
@@ -243,7 +243,7 @@ class ApplicationBase(Scheme, LoggingMixin):
 
     config_files = Union(
         [Unicode(), List(Unicode())],
-        default_value=["config.toml", "config.py"],
+        default_value=["config.toml"],
         help=(
             "Path to configuration files. Either relative from interpreter "
             "working directory or absolute."
