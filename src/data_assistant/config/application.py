@@ -264,7 +264,7 @@ class ApplicationBase(Scheme, LoggingMixin):
 
     ignore_cli = Bool(False, help="If True, do not parse command line arguments.")
 
-    file_loaders: list[type[FileLoader]] = [TomlkitLoader, YamlLoader, PyLoader]
+    file_loaders: list[type[FileLoader]] = []
     """List of possible configuration loaders from file, for different formats.
 
     Each will be tried until an appropriate loader is found. Currently, loaders only
@@ -313,17 +313,15 @@ class ApplicationBase(Scheme, LoggingMixin):
         """
         # Parse CLI first
         #  -> needed for help, or setting config filenames
-        # This sets self.cli_conf
         if ignore_cli is None:
             ignore_cli = self.ignore_cli
         if not ignore_cli:
-            self.parse_command_line(argv)
+            self.cli_conf = self.parse_command_line(argv)
             log.debug("Found config keys from CLI: %s", ", ".join(self.cli_conf.keys()))
 
         # Read config files
-        # This sets self.file_conf
         if self.config_files:
-            self.load_config_files()
+            self.file_conf = self.load_config_files()
 
         self.conf = self.merge_configs(self.file_conf, self.cli_conf)
 
@@ -340,8 +338,8 @@ class ApplicationBase(Scheme, LoggingMixin):
 
     def parse_command_line(
         self, argv: list[str] | None = None, log: logging.Logger | None = None, **kwargs
-    ):
-        """Parse command line arguments and populate :attr:`cli_conf`.
+    ) -> dict[str, ConfigValue]:
+        """Return configuration parsed from command line arguments.
 
         Parameters
         ----------
@@ -356,7 +354,7 @@ class ApplicationBase(Scheme, LoggingMixin):
         for args, kwargs in self._extra_parameters_args:
             action = loader.parser.add_argument(*args, **kwargs)
             self.extra_parameters[action.dest] = action.default
-        self.cli_conf = loader.get_config()
+        return loader.get_config()
 
     def get_argv(self) -> list[str] | None:
         """Return command line arguments.
@@ -368,14 +366,15 @@ class ApplicationBase(Scheme, LoggingMixin):
         """
         return None
 
-    def load_config_files(self) -> None:
-        """Load configuration values from files and populate :attr:`config_files`."""
+    def load_config_files(self) -> dict[str, ConfigValue]:
+        """Return configuration loaded from files."""
         if isinstance(self.config_files, str):
             self.config_files = [self.config_files]
 
         if not self.config_files:
-            return
+            return {}
 
+        file_conf = {}
         file_confs: dict[str, dict[str, ConfigValue]] = {}
         for filepath in self.config_files:
             if not path.isfile(filepath):
@@ -388,9 +387,11 @@ class ApplicationBase(Scheme, LoggingMixin):
         if len(file_confs) == 0:
             log.info("No config files found (%s)", str(self.config_files))
         elif len(file_confs) == 1:
-            self.file_conf = list(file_confs.values())[0]
+            file_conf = list(file_confs.values())[0]
         else:
-            self.file_conf = self.merge_configs(*file_confs.values())
+            file_conf = self.merge_configs(*file_confs.values())
+
+        return file_conf
 
     def _select_file_loader(self, filename: str) -> type[FileLoader]:
         """Return the first appropriate FileLoader for this file."""
