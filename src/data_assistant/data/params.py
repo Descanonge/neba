@@ -210,7 +210,8 @@ class ParamsSchemePlugin(ParamsPluginAbstract):
 
     def _reset_params(self) -> None:
         """Reset parameters to their initial state (not `params` attribute)."""
-        del self.params
+        if hasattr(self, "params"):
+            del self.params
 
     @property
     def params_as_dict(self) -> dict[str, t.Any]:
