@@ -15,13 +15,14 @@ from traitlets import Bool, Dict, Enum, List, Unicode, Union, default, observe
 from traitlets.config.configurable import LoggingConfigurable
 from traitlets.utils.nested_update import nested_update
 
+from .loaders import CLILoader
 from .scheme import Scheme
 from .util import ConfigErrorHandler, nest_dict
 
 if t.TYPE_CHECKING:
     from traitlets.utils.bunch import Bunch
 
-    from .loaders import CLILoader, ConfigValue, FileLoader
+    from .loaders import ConfigValue, FileLoader
 
 log = logging.getLogger(__name__)
 
@@ -167,7 +168,7 @@ class LoggingMixin(LoggingConfigurable):
     def _log_default(self) -> logging.Logger | logging.LoggerAdapter[t.Any]:
         """Start logging for this application."""
         log = logging.getLogger(self.__class__.__name__)
-        log.propagate = False
+        log.propagate = True
         _log = log  # copied from Logger.hasHandlers() (new in Python 3.2)
         while _log is not None:
             if _log.handlers:
