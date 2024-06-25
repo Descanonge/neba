@@ -145,6 +145,7 @@ class LoggingMixin(LoggingConfigurable):
             "loggers": {
                 self.__class__.__name__: {
                     "level": logging.getLevelName(self.log_level),  # type:ignore[arg-type]
+                    "propagate": False,
                     "handlers": ["console"],
                 },
                 "data_assistant": {
@@ -168,29 +169,26 @@ class LoggingMixin(LoggingConfigurable):
     def _log_default(self) -> logging.Logger | logging.LoggerAdapter[t.Any]:
         """Start logging for this application."""
         log = logging.getLogger(self.__class__.__name__)
-        log.propagate = True
-        _log = log  # copied from Logger.hasHandlers() (new in Python 3.2)
-        while _log is not None:
-            if _log.handlers:
-                return log
-            if not _log.propagate:
-                break
-            else:
-                _log = _log.parent  # type:ignore[assignment]
+        log.propagate = False
         return log
 
     @observe(
         "log_datefmt", "log_format", "log_level", "lib_log_level", "logging_config"
     )
     def _observe_logging_change(self, change: Bunch) -> None:
-        # convert log level strings to ints
-        log_level = self.log_level
-        if isinstance(log_level, str):
-            self.log_level = t.cast(int, getattr(logging, log_level))
-        lib_log_level = self.lib_log_level
-        if isinstance(lib_log_level, str):
-            self.lib_log_level = t.cast(int, getattr(logging, lib_log_level))
-        self._configure_logging()
+        def to_int(level: str | int) -> int:
+            if isinstance(level, str):
+                return getattr(logging, level.upper())
+            return level
+
+        # Pass log levels from strings to ints
+        new, old = change.new, change.old
+        if change.name in ["log_level", "lib_log_level"]:
+            new, old = to_int(new), to_int(old)
+            setattr(self, change.name, new)
+
+        if new != old:
+            self._configure_logging()
 
     @observe("log", type="default")
     def _observe_logging_default(self, change: Bunch) -> None:
@@ -273,6 +271,12 @@ class ApplicationBase(Scheme, LoggingMixin):
     """
 
     def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        # Useless-ish but we need to initialize the logger
+        # otherwise it is going to be modified on its first access in __del__
+        # which will trigger the logging configuration at a bad time
+        self.log.debug("Starting applications")
+
         self.cli_conf: dict[str, ConfigValue] = {}
         """Configuration values obtained from command line arguments."""
         self.file_conf: dict[str, ConfigValue] = {}
