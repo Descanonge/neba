@@ -11,7 +11,6 @@ from collections import abc
 import xarray as xr
 
 from .loader import LoaderPluginAbstract
-from .source import FileFinderPlugin
 from .writer import WriterPluginAbstract
 
 if t.TYPE_CHECKING:
@@ -377,16 +376,50 @@ class XarrayMultiFileWriterPlugin(XarrayWriterPlugin):
         return self.send_calls_together(calls, client, **kwargs)
 
 
-# Note that we inherit from FileFinderMixin, but it could be changed to any
-# MultiFileMixin that has an attribute `unfixed: list[str]`.
-# Can't be bothered to deal with mypy antics now though.
+T = t.TypeVar("T", covariant=True)
 
 
-class XarraySplitWriterPlugin(XarrayMultiFileWriterPlugin, FileFinderPlugin):
+class HasUnfixed(t.Protocol[T]):
+    """Protocol for a source plugin that can split datasets.
+
+    The plugin manages input/output sources. Initially made for multifile datasets.
+    A number of parameters can be left :meth:`unfixed` which allows to have many files
+    (for instance, if we do not "fix" the parameter *year*, we can have files for any
+    year we want).
+
+    It must also implement a :meth:`get_filename` method that returns a filename when
+    given a specific set of values that were left unfixed.
+
+    The idea is that a plugin can split data according to the parameters that are left
+    unfixed (example by year), once the data is split we find the associated filename
+    for each year and we then write to file.
+
+    The protocol is generic and allows for any type of source.
+    """
+
+    @property
+    def unfixed(self) -> abc.Iterable[T]:
+        """Iterable of parameters that are not fixed.
+
+        This must take into account the values that are specified (or not) in the
+        data-manager parameters.
+        """
+        ...
+
+    def get_filename(self, **fixes: t.Any) -> T:
+        """Return a filename corresponding to this set of values.
+
+        This must also take into account values that are already specified in the
+        data-manager parameters (that are not present in the *fixes* argument).
+        """
+
+
+class XarraySplitWriterPlugin(XarrayMultiFileWriterPlugin, HasUnfixed[str]):
     """Writer for Xarray datasets in multifiles.
 
     Can automatically split a dataset to the corresponding files by communicating
-    directory with a :class:`FileFinderManager`.
+    with a source plugin that implement the :class:`HasUnfixed` protocol.
+    This is meant to work for :class:`.FileFinderManager`.
 
     The time dimension is treated on its own because of its complexity and because
     the user can manually specify the desired time resolution of the files (otherwise
