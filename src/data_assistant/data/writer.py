@@ -11,17 +11,14 @@ import subprocess
 import typing as t
 from collections import abc
 from datetime import datetime
-from os import path
+from os import PathLike, path
 
-from .data_manager import Plugin, T_Data
-
-Call = tuple[T_Data, str]
-"""Tuple of data and filename to write it to."""
+from .data_manager import Plugin, T_Data, T_Source
 
 log = logging.getLogger(__name__)
 
 
-class WriterPluginAbstract(Plugin):
+class WriterPluginAbstract(t.Generic[T_Source, T_Data], Plugin):
     """Abstract class of Writer plugin.
 
     Manages metadata to (eventually) add to data before writing.
@@ -29,7 +26,6 @@ class WriterPluginAbstract(Plugin):
 
     def get_metadata(
         self,
-        params: dict | str | None = None,
         add_dataset_params: bool = True,
         add_commit: bool = True,
     ) -> dict[str, t.Any]:
@@ -50,9 +46,8 @@ class WriterPluginAbstract(Plugin):
             as a string. Can also be a custom string.
             Presentely we first try a serialization using json, if that fails, `str()`.
         add_dataset_params
-            Add the parent dataset parameters values to serialization if True (default)
-            and if ``params`` is not a string. The parent parameters won't overwrite the
-            values of ``params``.
+            If True (default), add the parent dataset parameters values to metadata.
+            Parameters "as dict" are serialized using json, and if that fails `str()`.
         add_commit
             If True (default), try to find the current commit hash of the directory
             containing the script called.
@@ -71,16 +66,12 @@ class WriterPluginAbstract(Plugin):
         meta["created_by"] = f"{hostname}:{script}"
 
         # Get parameters as string
-        if params is not None:
-            if isinstance(params, str):
-                params_str = params
-            else:
-                if add_dataset_params:
-                    params = self.params_as_dict | params
-                try:
-                    params_str = json.dumps(params)
-                except TypeError:
-                    params_str = str(params)
+        if add_dataset_params:
+            params = self.params_as_dict
+            try:
+                params_str = json.dumps(params)
+            except TypeError:
+                params_str = str(params)
 
             meta["created_with_params"] = params_str
 
@@ -101,15 +92,18 @@ class WriterPluginAbstract(Plugin):
 
         return meta
 
-    def check_directories(self, calls: Call | abc.Sequence[Call]):
+    def check_directories(
+        self, calls: tuple[T_Source, T_Data] | abc.Sequence[tuple[T_Source, T_Data]]
+    ):
         """Check if directories are missing, and create them if necessary."""
         if isinstance(calls, tuple):
             calls = [calls]
-        files = [f for _, f in calls]
+        files = [f for f, _ in calls]
 
         # Keep only the containing directories, with no duplicate
         directories = set()
         for f in files:
+            assert isinstance(f, str | PathLike)
             directories.add(path.dirname(f))
 
         for d in directories:
@@ -117,7 +111,7 @@ class WriterPluginAbstract(Plugin):
                 log.debug("Creating output directory %s", d)
                 os.makedirs(d)
 
-    def send_single_call(self, call: Call, **kwargs) -> t.Any:
+    def send_single_call(self, call: tuple[T_Source, T_Data], **kwargs) -> t.Any:
         """Execute a single call.
 
         :Not implemented: implement in plugin subclass.
@@ -129,6 +123,26 @@ class WriterPluginAbstract(Plugin):
         """
         raise NotImplementedError("Implement in plugin subclass.")
 
+    def write(
+        self,
+        data: T_Data,
+        target: T_Source | abc.Sequence[T_Source] | None = None,
+        **kwargs,
+    ) -> t.Any:
+        """Write data to file or store.
+
+        :Not implemented: implement in plugin subclass.
+
+        Parameters
+        ----------
+        data
+            Data to write.
+        target
+            If None, target location(s) should be obtained via
+            :meth:`.DataManagerBase.get_source`.
+        """
+        raise NotImplementedError("Implement in plugin subclass.")
+
 
 class WriterMultiFilePluginAbstract(WriterPluginAbstract):
     """Add basic functionalities for multifile datasets.
@@ -137,9 +151,9 @@ class WriterMultiFilePluginAbstract(WriterPluginAbstract):
     between calls, and a method to send calls one after another.
     """
 
-    def check_overwriting_calls(self, calls: abc.Sequence[Call]):
+    def check_overwriting_calls(self, calls: abc.Sequence[tuple[T_Source, T_Data]]):
         """Check if some calls have the same filename."""
-        outfiles = [f for _, f in calls]
+        outfiles = [f for f, _ in calls]
         duplicates = []
         for f in set(outfiles):
             if outfiles.count(f) > 1:
@@ -150,7 +164,7 @@ class WriterMultiFilePluginAbstract(WriterPluginAbstract):
                 f"Multiple writing calls to the same filename·s: {duplicates}"
             )
 
-    def send_calls(self, calls: abc.Sequence[Call], **kwargs):
+    def send_calls(self, calls: abc.Sequence[tuple[T_Source, T_Data]], **kwargs):
         """Send multiple calls serially.
 
         Check beforehand if there are filename conflicts betwen calls, and make

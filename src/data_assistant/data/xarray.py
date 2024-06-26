@@ -26,7 +26,7 @@ if t.TYPE_CHECKING:
     except ImportError:
         BaseStore = None  # type: ignore
 
-    CallXr = tuple[xr.Dataset, str]
+    CallXr = tuple[str, xr.Dataset]
 
 
 log = logging.getLogger(__name__)
@@ -94,11 +94,10 @@ class XarrayMultiFileLoaderPlugin(LoaderPluginAbstract[abc.Sequence[str], xr.Dat
 ## Writing
 
 
-class XarrayWriterPlugin(WriterPluginAbstract):
-    """Writer for Xarray datasets.
+class XarrayWriterPlugin(WriterPluginAbstract[str, xr.Dataset]):
+    """Write Xarray dataset to single target.
 
-    For simple unique calls.
-    The source should be compatible with a unique :meth:`xr.Dataset.to_netcdf` call.
+    Implement the single call method, and common features for other
     """
 
     TO_NETCDF_KWARGS: dict[str, t.Any] = {}
@@ -106,71 +105,6 @@ class XarrayWriterPlugin(WriterPluginAbstract):
 
     TO_ZARR_KWARGS: dict[str, t.Any] = {}
     """Arguments passed to the writing function for zarr stores."""
-
-    def set_metadata(
-        self,
-        ds: xr.Dataset,
-        /,
-        params: dict | str | None = None,
-        add_dataset_parameters: bool = True,
-        add_commit: bool = True,
-    ) -> xr.Dataset:
-        """Set some dataset attributes with information on how it was created.
-
-        Wrapper around :meth:`get_metadata`.
-
-        Parameters
-        ----------
-        ds
-            Dataset to add global attributes to. This is done in-place.
-        params
-            A dictionnary of the parameters used, that will automatically be serialized
-            as a string. Can also be a custom string.
-            Presentely we first try a serialization using json, if that fails, `str()`.
-        add_dataset_params
-            Add the parent dataset parameters values to serialization if True (default)
-            and if ``parameters`` is not a string. The parent parameters won't overwrite
-            the values of ``parameters``.
-        add_commit
-            If True (default), try to find the current commit hash of the directory
-            containing the script called.
-        """
-        meta = self.get_metadata(
-            params=params,
-            add_dataset_params=add_dataset_parameters,
-            add_commit=add_commit,
-        )
-        ds.attrs.update(meta)
-        return ds
-
-    def write(
-        self,
-        ds: xr.Dataset,
-        /,
-        *,
-        params: dict | None = None,
-        **kwargs,
-    ):
-        """Write to netcdf file.
-
-        File is obtained from parent dataset. Directories are created as needed.
-        Metadata is added to the dataset.
-
-        Parameters
-        ----------
-        params:
-            Mapping of parameters to obtain filename.
-        kwargs:
-            Passed to the function that writes to disk
-            (:meth:`xarray.Dataset.to_netcdf`).
-        """
-        if params is None:
-            params = {}
-        outfile = self.get_source(**params)
-        ds = self.set_metadata(ds, params=params)
-        call = ds, outfile
-        self.check_directories([call])
-        return self.send_single_call(call, **kwargs)
 
     def _guess_format(self, filename: str) -> t.Literal["nc", "zarr"]:
         _, ext = os.path.splitext(filename)
@@ -231,7 +165,7 @@ class XarrayWriterPlugin(WriterPluginAbstract):
         kwargs
             Passed to the writing function.
         """
-        ds, outfile = call
+        outfile, ds = call
         if format is None:
             format = self._guess_format(outfile)
 
@@ -248,13 +182,79 @@ class XarrayWriterPlugin(WriterPluginAbstract):
 
         t.assert_never(format)
 
+    def set_metadata(
+        self,
+        ds: xr.Dataset,
+        params: dict | str | None = None,
+        add_dataset_parameters: bool = True,
+        add_commit: bool = True,
+    ) -> xr.Dataset:
+        """Set some dataset attributes with information on how it was created.
+
+        Wrapper around :meth:`get_metadata`.
+        Attributes already present will not be overwritten.
+
+        Parameters
+        ----------
+        ds
+            Dataset to add global attributes to. This is **not** done in-place.
+        params
+            A dictionnary of the parameters used, that will automatically be serialized
+            as a string. Can also be a custom string.
+            Presentely we first try a serialization using json, if that fails, `str()`.
+        add_dataset_params
+            Add the parent dataset parameters values to serialization if True (default)
+            and if ``parameters`` is not a string. The parent parameters won't overwrite
+            the values of ``parameters``.
+        add_commit
+            If True (default), try to find the current commit hash of the directory
+            containing the script called.
+        """
+        meta = self.get_metadata(
+            add_dataset_params=add_dataset_parameters,
+            add_commit=add_commit,
+        )
+        # Do not overwrite attributes.
+        for k in set(ds.attrs.keys()) & set(meta.keys()):
+            meta.pop(k)
+        return ds.assign_attrs(**meta)
+
+    def write(
+        self,
+        data: xr.Dataset,
+        target: str | None = None,  # type: ignore[override]
+        **kwargs,
+    ) -> t.Any:
+        """Write to netcdf file.
+
+        Directories are created as needed. Metadata is added to the dataset.
+
+        Parameters
+        ----------
+        data
+            Data to write.
+        target
+            If None (default), target location are automatically obtained via
+            :meth:`.DataManagerBase.get_source`.
+        kwargs
+            Passed to the function that writes to disk
+            (:meth:`xarray.Dataset.to_netcdf`).
+        """
+        if target is None:
+            target = self.get_source()
+
+        data = self.set_metadata(data)
+        call = target, data
+        self.check_directories([call])
+        return self.send_single_call(call, **kwargs)
+
 
 class XarrayMultiFileWriterPlugin(XarrayWriterPlugin, WriterMultiFilePluginAbstract):
     """Write from an xarray dataset to multiple files using Dask."""
 
     def send_calls_together(
         self,
-        calls: abc.Sequence[CallXr],
+        calls: abc.Sequence[tuple[str, xr.Dataset]],
         client: Client,
         chop: int | None = None,
         format: t.Literal["nc", "zarr", None] = None,
@@ -328,6 +328,53 @@ class XarrayMultiFileWriterPlugin(XarrayWriterPlugin, WriterMultiFilePluginAbstr
             for future in distributed.as_completed(client.compute(delayed)):
                 log.debug("\t\tfuture completed: %s", future)
 
+    def write(  # type: ignore[override]
+        self,
+        data: abc.Sequence[xr.Dataset],
+        target: list[str] | None = None,
+        client: Client | None = None,
+        **kwargs,
+    ) -> t.Any:
+        """Write to netcdf file.
+
+        Metadata is added to the dataset.
+        Each dataset is written to its corresponding filename. Directories will
+        automatically be created if necessary.
+
+        Parameters
+        ----------
+        data
+            Data to write.
+        target
+            If None (default), target locations are automatically obtained via
+            :meth:`.DataManagerBase.get_source`.
+        client:
+            Dask :class:`distributed.Client` instance. If present multiple write calls
+            will be send in parallel. See :meth:`send_calls_together` for details.
+            If left to None, the write calls will be sent serially.
+        kwargs
+            Passed to the function that writes to disk
+            (:meth:`xarray.Dataset.to_netcdf`).
+        """
+        if target is None:
+            target = self.get_source()
+
+        data = [self.set_metadata(d) for d in data]
+
+        if len(target) != len(data):
+            raise IndexError(
+                f"Number of writing targets ({len(target)}) differing from "
+                f"number of datasets ({len(data)})"
+            )
+        calls = list(zip(target, data))
+
+        self.check_directories(calls)
+        self.check_overwriting_calls(calls)
+        if client is None:
+            # TODO no return value
+            return self.send_calls(calls, **kwargs)
+        return self.send_calls_together(calls, client, **kwargs)
+
 
 # Note that we inherit from FileFinderMixin, but it could be changed to any
 # MultiFileMixin that has an attribute `unfixed: list[str]`.
@@ -374,11 +421,10 @@ class XarraySplitWriterPlugin(XarrayMultiFileWriterPlugin, FileFinderPlugin):
     The pattern names are arranged in increasing order.
     """
 
-    def write(
+    def write(  # type: ignore[override]
         self,
-        ds: xr.Dataset,
-        /,
-        *,
+        data: xr.Dataset,
+        target: None = None,
         time_freq: str | bool = True,
         squeeze: bool | str | abc.Mapping[abc.Hashable, bool | str] = False,
         client: Client | None = None,
@@ -397,6 +443,10 @@ class XarraySplitWriterPlugin(XarrayMultiFileWriterPlugin, FileFinderPlugin):
 
         Parameters
         ----------
+        data
+            Data to write.
+        target:
+            Cannot be used here. Use :class:`.XarrayMultiFileWriterPlugin` instead.
         time_freq:
             If it is a string, use it as a frequency/period for
             :meth:`xarray.Dataset.resample`. For example ``M`` will return datasets
@@ -431,7 +481,10 @@ class XarraySplitWriterPlugin(XarrayMultiFileWriterPlugin, FileFinderPlugin):
             Passed to the function that writes to disk
             (:meth:`xarray.Dataset.to_netcdf`).
         """
-        datasets_by_fix = self.split_by_unfixed(ds)
+        if target is not None:
+            raise ValueError("Target files cannot be specified using the SplitWriter.")
+
+        datasets_by_fix = self.split_by_unfixed(data)
 
         datasets_by_all = []
         for dataset in datasets_by_fix:
@@ -470,6 +523,8 @@ class XarraySplitWriterPlugin(XarrayMultiFileWriterPlugin, FileFinderPlugin):
 
             If True the frequency will be guessed from the filename pattern. The
             smallest period present will be used.
+        params:
+            Parameters to replace for writing data.
 
         Returns
         -------
@@ -600,7 +655,7 @@ class XarraySplitWriterPlugin(XarrayMultiFileWriterPlugin, FileFinderPlugin):
                 if squeeze:
                     ds = ds.squeeze(None, drop=(squeeze == "drop"))
 
-            calls.append((ds, outfile))
+            calls.append((outfile, ds))
 
         return calls
 
