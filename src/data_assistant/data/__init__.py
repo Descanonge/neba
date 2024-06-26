@@ -6,7 +6,7 @@ from .params import ParamsMappingPlugin, ParamsSchemePlugin
 from .plugin import CachePlugin, Plugin, get_autocached
 from .register import DatasetStore
 from .source import FileFinderPlugin, GlobPlugin, MultiFilePluginAbstract
-from .writer import WriterMultiFilePluginAbstract, WriterPluginAbstract
+from .writer import WriterPluginAbstract
 
 __all__ = [
     "CachePlugin",
@@ -20,7 +20,6 @@ __all__ = [
     "ParamsMappingPlugin",
     "ParamsSchemePlugin",
     "Plugin",
-    "WriterMultiFilePluginAbstract",
     "WriterPluginAbstract",
     "get_autocached",
 ]

@@ -123,34 +123,6 @@ class WriterPluginAbstract(t.Generic[T_Source, T_Data], Plugin):
         """
         raise NotImplementedError("Implement in plugin subclass.")
 
-    def write(
-        self,
-        data: T_Data,
-        target: T_Source | abc.Sequence[T_Source] | None = None,
-        **kwargs,
-    ) -> t.Any:
-        """Write data to file or store.
-
-        :Not implemented: implement in plugin subclass.
-
-        Parameters
-        ----------
-        data
-            Data to write.
-        target
-            If None, target location(s) should be obtained via
-            :meth:`.DataManagerBase.get_source`.
-        """
-        raise NotImplementedError("Implement in plugin subclass.")
-
-
-class WriterMultiFilePluginAbstract(WriterPluginAbstract):
-    """Add basic functionalities for multifile datasets.
-
-    Allow to deal with multiple calls: check if there is some conflict of filename
-    between calls, and a method to send calls one after another.
-    """
-
     def check_overwriting_calls(self, calls: abc.Sequence[tuple[T_Source, T_Data]]):
         """Check if some calls have the same filename."""
         outfiles = [f for f, _ in calls]
@@ -180,3 +152,18 @@ class WriterMultiFilePluginAbstract(WriterPluginAbstract):
 
         for call in calls:
             self.send_single_call(call, **kwargs)
+
+    def write(self, data: T_Data | abc.Sequence[T_Data], **kwargs) -> t.Any:
+        """Write data to file or store.
+
+        :Not implemented: implement in plugin subclass.
+
+        Parameters
+        ----------
+        data
+            Data to write.
+        target
+            If None, target location(s) should be obtained via
+            :meth:`.DataManagerBase.get_source`.
+        """
+        raise NotImplementedError("Implement in plugin subclass.")

@@ -12,7 +12,7 @@ import xarray as xr
 
 from .loader import LoaderPluginAbstract
 from .source import FileFinderPlugin
-from .writer import WriterMultiFilePluginAbstract, WriterPluginAbstract
+from .writer import WriterPluginAbstract
 
 if t.TYPE_CHECKING:
     try:
@@ -219,26 +219,27 @@ class XarrayWriterPlugin(WriterPluginAbstract[str, xr.Dataset]):
             meta.pop(k)
         return ds.assign_attrs(**meta)
 
-    def write(
+    def write(  # type: ignore[override]
         self,
         data: xr.Dataset,
-        target: str | None = None,  # type: ignore[override]
+        target: str | None = None,
         **kwargs,
     ) -> t.Any:
-        """Write to netcdf file.
+        """Write data to target.
 
+        Currently, target can be a netcdf file, or zarr store.
         Directories are created as needed. Metadata is added to the dataset.
 
         Parameters
         ----------
         data
-            Data to write.
+            Dataset to write.
         target
-            If None (default), target location are automatically obtained via
+            If None (default), target location is automatically obtained via
             :meth:`.DataManagerBase.get_source`.
         kwargs
             Passed to the function that writes to disk
-            (:meth:`xarray.Dataset.to_netcdf`).
+            (:meth:`xarray.Dataset.to_netcdf` or :meth:`xarray.Dataset.to_zarr`).
         """
         if target is None:
             target = self.get_source()
@@ -249,7 +250,7 @@ class XarrayWriterPlugin(WriterPluginAbstract[str, xr.Dataset]):
         return self.send_single_call(call, **kwargs)
 
 
-class XarrayMultiFileWriterPlugin(XarrayWriterPlugin, WriterMultiFilePluginAbstract):
+class XarrayMultiFileWriterPlugin(XarrayWriterPlugin):
     """Write from an xarray dataset to multiple files using Dask."""
 
     def send_calls_together(
@@ -335,16 +336,16 @@ class XarrayMultiFileWriterPlugin(XarrayWriterPlugin, WriterMultiFilePluginAbstr
         client: Client | None = None,
         **kwargs,
     ) -> t.Any:
-        """Write to netcdf file.
+        """Write datasets to multiple targets.
 
-        Metadata is added to the dataset.
-        Each dataset is written to its corresponding filename. Directories will
-        automatically be created if necessary.
+        Each dataset is written to its corresponding target (filename or store
+        location). Directories will automatically be created if necessary. Metadata is
+        added to the dataset.
 
         Parameters
         ----------
         data
-            Data to write.
+            Sequence of datasets to write.
         target
             If None (default), target locations are automatically obtained via
             :meth:`.DataManagerBase.get_source`.
@@ -354,7 +355,7 @@ class XarrayMultiFileWriterPlugin(XarrayWriterPlugin, WriterMultiFilePluginAbstr
             If left to None, the write calls will be sent serially.
         kwargs
             Passed to the function that writes to disk
-            (:meth:`xarray.Dataset.to_netcdf`).
+            (:meth:`xarray.Dataset.to_netcdf` or :meth:`xarray.Dataset.to_zarr`).
         """
         if target is None:
             target = self.get_source()
