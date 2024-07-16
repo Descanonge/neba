@@ -17,6 +17,8 @@ class LoaderPluginAbstract(t.Generic[T_Source, T_Data], Plugin):
 
     def get_data(
         self,
+        /,
+        *,
         source: T_Source | None = None,
         ignore_postprocess: bool = False,
         load_kwargs: abc.Mapping[str, t.Any] | None = None,

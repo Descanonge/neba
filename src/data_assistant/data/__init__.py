@@ -6,10 +6,11 @@ from .params import ParamsMappingPlugin, ParamsSchemePlugin
 from .plugin import CachePlugin, Plugin, get_autocached
 from .register import DatasetStore
 from .source import FileFinderPlugin, GlobPlugin, MultiFilePluginAbstract
-from .writer import WriterPluginAbstract
+from .writer import CachedWriterPlugin, WriterPluginAbstract
 
 __all__ = [
     "CachePlugin",
+    "CachedWriterPlugin",
     "DataManagerBase",
     "DatasetStore",
     "GlobPlugin",

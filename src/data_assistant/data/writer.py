@@ -14,6 +14,7 @@ from datetime import datetime
 from os import PathLike, path
 
 from .data_manager import Plugin, T_Data, T_Source
+from .loader import LoaderPluginAbstract
 
 log = logging.getLogger(__name__)
 
@@ -153,7 +154,12 @@ class WriterPluginAbstract(t.Generic[T_Source, T_Data], Plugin):
         for call in calls:
             self.send_single_call(call, **kwargs)
 
-    def write(self, data: T_Data | abc.Sequence[T_Data], **kwargs) -> t.Any:
+    def write(
+        self,
+        data: T_Data | abc.Sequence[T_Data],
+        target: T_Source | None = None,
+        **kwargs,
+    ) -> t.Any:
         """Write data to file or store.
 
         :Not implemented: implement in plugin subclass.
@@ -167,3 +173,75 @@ class WriterPluginAbstract(t.Generic[T_Source, T_Data], Plugin):
             :meth:`.DataManagerBase.get_source`.
         """
         raise NotImplementedError("Implement in plugin subclass.")
+
+
+class CachedWriterPlugin(
+    WriterPluginAbstract[T_Source, T_Data], LoaderPluginAbstract[T_Source, T_Data]
+):
+    """Generate data and save it to source if it does not already exist.
+
+    When loading data (with :meth:`get_data`), if the source does not exist:
+
+    * generate the data with :meth:`generate_data` (to be defined by the user)
+    * write it to the source with :meth:`_write_cached_data` which by default simply
+      calls ``write()`` but can be specialized in a subclass.
+    * load the data back from the source using
+      :meth:`super().get_data<.loader.LoaderPluginAbstract.get_data>` which will apply
+      post-processing if defined.
+
+    If you use a loader plugin subclass that overwrites ``get_data()`` it should be
+    placed **after** ``CachedWriterPlugin`` in the data manager bases. The placement of
+    the writer plugin is not constrained::
+
+        class MyDataManager(
+            WriterPlugin, CachedWriterPlugin, LoaderPlugin, SourcePlugin, DataManagerBase
+        ):
+            def generate_data():
+                ...
+    """
+
+    def generate_data(self) -> T_Data:
+        """Generate data.
+
+        This function will be used to obtain data if it is not found in the source (ie
+        in a file or data store). It will automatically be written to that source.
+
+        :Not implemented: implement in your DataManager subclass.
+
+        """
+        raise NotImplementedError("Implement in your DataManager subclass.")
+
+    def get_data(self, /, *, source: T_Source | None = None, **kwargs) -> T_Data:
+        """Load or generate data.
+
+        Parameters
+        ----------
+        source
+            Source location of the data to load. If left to None,
+            :meth:`~.data_manager.DataManagerBase.get_source` is used.
+        """
+        if source is None:
+            source = self.get_source()
+
+        if not self._source_exists(source):
+            data = self.generate_data()
+            self._write_cached_data(source, data)
+
+        return super().get_data(source=source, **kwargs)
+
+    def _source_exists(self, source: T_Source) -> bool:
+        """Return if given source exists.
+
+        If not, the data will be generated. By default, check for existence of a single
+        file.
+        """
+        return path.isfile(t.cast(str, source))
+
+    def _write_cached_data(self, source: T_Source, data: T_Data):
+        """Write generated data to source.
+
+        By default simply call :meth:`~WriterPluginAbstract.write`. This method can be
+        specialized in subclasses.
+
+        """
+        self.write(data, target=source)
