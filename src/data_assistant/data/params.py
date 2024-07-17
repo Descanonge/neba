@@ -48,8 +48,6 @@ class ParamsMappingPlugin(Plugin):
 
         Other parameters are kept.
 
-        :Not implemented: implement in a plugin subclass.
-
         Parameters
         ----------
         reset:
@@ -80,12 +78,11 @@ class ParamsMappingPlugin(Plugin):
 class ParamsSchemePlugin(Plugin):
     """Parameters are stored in a Scheme object.
 
-    The plugin does not initialize the :attr:`params` attribute. It is set by the first
-    call to :meth:`set_params`. This is done during the
-    :class:`~.data_manager.DataManagerBase` initialization.
+    Set and update methods rely on :meth:`.Scheme.update` to merge the new parameters
+    values to :attr:`params`.
     """
 
-    PARAMS_DEFAULTS: dict[str, TraitType] = {}
+    PARAMS_DEFAULTS: dict[str, t.Any] = {}
     """Default values of new traits.
 
     Optional. Can be used to define default values for parameters local to a
@@ -96,9 +93,16 @@ class ParamsSchemePlugin(Plugin):
     RAISE_ON_MISS: bool = False
 
     PARAMS_PATH: str | None = None
+    """Path (dot-separated keys) that lead to the subscheme containing parameters."""
 
-    def _init_params(self) -> None:
-        self.params: Scheme
+    SCHEME: type[Scheme] = Scheme
+    """Scheme class to use as parameters.
+
+    This is *after* following :attr:`.PARAMS_PATH` on an input argument.
+    """
+
+    def _init_plugin(self) -> None:
+        self._reset_params()
 
     def set_params(
         self, params: Scheme | None = None, reset: bool | list[str] = True, **kwargs
@@ -107,10 +111,11 @@ class ParamsSchemePlugin(Plugin):
 
         Parameters
         ----------
-        params
+        params:
             Scheme to use as parameters. If :attr:`PARAMS_PATH` is not None, it will be
-            used to obtain a sub-scheme to use. Traits that do not already exist in the
-            current :attr:`params` scheme will be added.
+            used to obtain a sub-scheme to use. If None, the default scheme class
+            (:attr:`SCHEME`) will be used (with :attr:`PARAMS_DEFAULTS` added). Traits
+            that do not already exist in the :attr:`params` scheme will be added.
         reset:
             Passed to :meth:`reset_callback`.
         kwargs:
@@ -119,7 +124,7 @@ class ParamsSchemePlugin(Plugin):
             to the parameters scheme with its default value.
         """
         self._reset_params()
-        self.params = self._get_params(params, **kwargs)
+        self.update_params(params, reset=reset, **kwargs)
         self.reset_callback(reset, params=params)
 
     def update_params(
@@ -131,10 +136,8 @@ class ParamsSchemePlugin(Plugin):
 
         Parameters
         ----------
-        params
-            Scheme to add values to current parameters. If :attr:`PARAMS_PATH` is not
-            None, it will be used to obtain a sub-scheme to use. Traits that do not
-            already exist in the current :attr:`params` scheme will be added.
+        params:
+            Scheme to add values to current parameters. Same as for :meth:`set_params`.
         reset:
             Passed to :meth:`reset_callback`.
         kwargs:
@@ -142,11 +145,6 @@ class ParamsSchemePlugin(Plugin):
             a :class:`~traitlets.TraitType` instance in which case it will be added
             to the parameters scheme with its default value.
         """
-        params = self._get_params(params, **kwargs)
-        self.params.update(params, allow_new=True, raise_on_miss=self.RAISE_ON_MISS)
-        self.reset_callback(reset)
-
-    def _get_params(self, params: Scheme | None, **kwargs) -> Scheme:
         if params is None:
             params = Scheme()
         # Select subscheme
@@ -155,19 +153,16 @@ class ParamsSchemePlugin(Plugin):
             if not isinstance(params, Scheme):
                 raise TypeError(f"'{self.PARAMS_PATH}' did not led to subscheme.")
 
-        params.update(
-            self.PARAMS_DEFAULTS,
-            allow_new=True,
-            raise_on_miss=self.RAISE_ON_MISS,
-            **kwargs,
+        self.params.update(
+            params, allow_new=True, raise_on_miss=self.RAISE_ON_MISS, **kwargs
         )
-
-        return params
+        self.reset_callback(reset, params=params)
 
     def _reset_params(self) -> None:
-        """Reset parameters to their initial state (not `params` attribute)."""
-        if hasattr(self, "params"):
-            del self.params
+        self.params = self.SCHEME()
+        self.params.update(
+            self.PARAMS_DEFAULTS, allow_new=True, raise_on_miss=self.RAISE_ON_MISS
+        )
 
     @property
     def params_as_dict(self) -> dict[str, t.Any]:
