@@ -17,7 +17,7 @@ class ParamsMappingPlugin(Plugin):
 
     PARAMS_DEFAULTS: dict[str, t.Any] = {}
 
-    def _init_params(self) -> None:
+    def _init_plugin(self) -> None:
         self.params: dict[str, t.Any] = {}
 
     def set_params(
