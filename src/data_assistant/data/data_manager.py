@@ -381,7 +381,6 @@ class _ParamsContext:
         return self
 
     def __exit__(self, *exc):
-        self.reset_params()
         self.dm.set_params(self.params)
 
         if self.caches is not None:

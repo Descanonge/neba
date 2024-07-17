@@ -61,6 +61,11 @@ input loaded into xarray.
    datasets
 
 .. toctree::
+   :maxdepth: 2
+
+   existing_plugins
+
+.. toctree::
    :maxdepth: 3
 
    api
