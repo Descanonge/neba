@@ -2,61 +2,17 @@
 
 from __future__ import annotations
 
-import copy
 import logging
 import typing as t
 from collections import abc
 
-from traitlets import TraitType
-
 from ..config.scheme import Scheme
-from .plugin import CachePlugin, Plugin
+from .plugin import Plugin
 
 log = logging.getLogger(__name__)
 
 
-class ParamsPluginAbstract(Plugin):
-    """Abstract class for basic parameter management."""
-
-    def _reset_params(self) -> None:
-        """Reset parameters to their initial state (empty most likely).
-
-        :Not implemented: implement in a plugin subclass.
-        """
-        raise NotImplementedError("Implement in a plugin subclass.")
-
-    def save_excursion(self, save_cache: bool = False) -> _ParamsContext:
-        """Save and restore current parameters after a with block.
-
-        For instance::
-
-            # we have some parameters, self.params["p"] = 0
-            with self.save_excursion():
-                # we change them
-                self.set_params(p=2)
-                self.get_data()
-
-            # we are back to self.params["p"] = 0
-
-        Any exception happening in the with block will be raised.
-
-        Parameters
-        ----------
-        save_cache:
-            If true, save and restore the cache. The context reset the parameters of the
-            data manager using :meth:`set_params` and then restore any saved key in the
-            cache, *without overwriting*. This may lead to unexpected behavior and is
-            disabled by default.
-
-        Returns
-        -------
-        context
-            Context object containing the original parameters.
-        """
-        return _ParamsContext(self, save_cache)
-
-
-class ParamsMappingPlugin(ParamsPluginAbstract):
+class ParamsMappingPlugin(Plugin):
     """Parameters are stored in a dictionary."""
 
     PARAMS_DEFAULTS: dict[str, t.Any] = {}
@@ -121,7 +77,7 @@ class ParamsMappingPlugin(ParamsPluginAbstract):
         return self.params
 
 
-class ParamsSchemePlugin(ParamsPluginAbstract):
+class ParamsSchemePlugin(Plugin):
     """Parameters are stored in a Scheme object.
 
     The plugin does not initialize the :attr:`params` attribute. It is set by the first
@@ -217,47 +173,3 @@ class ParamsSchemePlugin(ParamsPluginAbstract):
     def params_as_dict(self) -> dict[str, t.Any]:
         """Return the parameters as a dictionary."""
         return dict(self.params)
-
-
-class _ParamsContext:
-    def __init__(self, dm: ParamsPluginAbstract, save_cache: bool):
-        self.dm = dm
-        self.params = copy.deepcopy(dm.params)
-        self.caches: dict | None = None
-
-        if save_cache and isinstance(dm, CachePlugin):
-            self.caches = {key: getattr(dm, key) for key in dm._CACHE_LOCATIONS}
-
-    def repopulate_cache(self):
-        for loc, save in self.caches.items():
-            cache = getattr(self.dm, loc)
-            for key, val in save.items():
-                # do not overwrite current cache
-                if key not in cache:
-                    cache[key] = val
-                    continue
-
-                # check that there is correspondance with saved and current cache
-                current_val = save[key]
-                if current_val != val:
-                    log.warning(
-                        "Different value when restoring cache %s for key %s: "
-                        "saved '%s', has '%s'.",
-                        loc,
-                        key,
-                        str(val),
-                        str(current_val),
-                    )
-
-    def __enter__(self) -> t.Self:
-        return self
-
-    def __exit__(self, *exc):
-        self.reset_params()
-        self.dm.set_params(self.params)
-
-        if self.caches is not None:
-            self.repopulate_cache()
-
-        # return false to raise any exception that may have occured
-        return False

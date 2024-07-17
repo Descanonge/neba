@@ -18,11 +18,12 @@ could be done by a plugin of its own, if this is necessary.
 
 from __future__ import annotations
 
+import copy
 import logging
 import typing as t
 from collections import abc
 
-from .plugin import Plugin
+from .plugin import CachePlugin, Plugin
 
 log = logging.getLogger(__name__)
 
@@ -163,10 +164,20 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
         """
         raise NotImplementedError("Implement in a plugin subclass.")
 
-    def save_excursion(self, save_cache: bool = False) -> t.ContextManager:
+    def save_excursion(self, save_cache: bool = False) -> _ParamsContext:
         """Save and restore current parameters after a with block.
 
-        :Not implemented: implement in a plugin subclass.
+        For instance::
+
+            # we have some parameters, self.params["p"] = 0
+            with self.save_excursion():
+                # we change them
+                self.set_params(p=2)
+                self.get_data()
+
+            # we are back to self.params["p"] = 0
+
+        Any exception happening in the with block will be raised.
 
         Parameters
         ----------
@@ -181,7 +192,7 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
         context
             Context object containing the original parameters.
         """
-        raise NotImplementedError("Implement in a plugin subclass.")
+        return _ParamsContext(self, save_cache)
 
     # - end of parameters methods
 
@@ -335,16 +346,46 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
 
         return data
 
-    # def check_known_param(self, params: Iterable[str]):
-    #     """Check if the parameters are known to this data-manager class.
 
-    #     A 'known parameter' is one present in :attr:`PARAMS_NAMES` or defined
-    #     in the filename pattern (as a varying group).
+class _ParamsContext:
+    def __init__(self, dm: DataManagerBase, save_cache: bool):
+        self.dm = dm
+        self.params = copy.deepcopy(dm.params)
+        self.caches: dict | None = None
 
-    #     Only run the check if :attr:`exact_params` is True.
-    #     """
-    #     if not self.exact_params:
-    #         return
-    #     for p in params:
-    #         if p not in self.allowed_params:
-    #             raise KeyError(f"Parameter '{p}' was not expected for dataset {self}")
+        if save_cache and isinstance(dm, CachePlugin):
+            self.caches = {key: getattr(dm, key) for key in dm._CACHE_LOCATIONS}
+
+    def repopulate_cache(self):
+        for loc, save in self.caches.items():
+            cache = getattr(self.dm, loc)
+            for key, val in save.items():
+                # do not overwrite current cache
+                if key not in cache:
+                    cache[key] = val
+                    continue
+
+                # check that there is correspondance with saved and current cache
+                current_val = save[key]
+                if current_val != val:
+                    log.warning(
+                        "Different value when restoring cache %s for key %s: "
+                        "saved '%s', has '%s'.",
+                        loc,
+                        key,
+                        str(val),
+                        str(current_val),
+                    )
+
+    def __enter__(self) -> t.Self:
+        return self
+
+    def __exit__(self, *exc):
+        self.reset_params()
+        self.dm.set_params(self.params)
+
+        if self.caches is not None:
+            self.repopulate_cache()
+
+        # return false to raise any exception that may have occured
+        return False
