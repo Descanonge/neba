@@ -23,10 +23,10 @@ Plugin system
 =============
 
 This framework tries to make those data managers objects as universal as
-reasonably possible. The base class do not specify a data source (it could be
-one file, multiple files, network datastore, ...) or a data type. The management
-of parameters is also not implemented. Features can be added to the data manager
-class as needed via a system of independent plugins.
+reasonably possible. The base class does not specify a data source (it could be
+one file, multiple files, a remote datastore, ...) or a data type. The
+management of parameters is also not implemented. Features can be added to the
+data manager class as needed via a system of independent plugins.
 
 .. note::
 
@@ -42,9 +42,7 @@ For example, we can make a straightforward dataset class by having the plugins
 :class:`params.ParamsMappingPlugin` to store parameters in a dictionary,
 :class:`xarray.XarrayFileLoaderPlugin` and :class:`xarray.XarrayWriterPlugin` to
 load and write data using :mod:`xarray`. For finding our data file, we will
-directly overwrite :meth:`.DataManagerBase.get_source`, which will be used by
-:meth:`.LoaderPluginAbstract.get_data` (and from which other loaders are
-derived)::
+simply overwrite :meth:`.DataManagerBase.get_source`::
 
     class DatasetSimple(
         XarrayFileLoaderPlugin,
@@ -67,7 +65,7 @@ derived)::
    higher priority. The DataManagerBase thus should be the last base class.
    See :external+python:ref:`tut-inheritance`.
 
-Let's switch to datasets that comprise of multiple files, we can use either
+Let's switch to a dataset split across multiple files: we can use either
 :class:`source.GlobPlugin`, or :class:`source.FileFinderPlugin` to find and
 manage datafiles using the simple syntax of :mod:`filefinder`. We appropriately
 switch to :class:`xarray.XarrayMultiFileLoaderPlugin` to deal with multi-file
@@ -93,32 +91,27 @@ inputs::
 
    Non-essential dependencies are loaded lazily as much as possible. This is
    why all xarray related plugins are put in their own submodule
-   :mod:`.data.xarray` (that is not imported in the top-level `__init__`).
+   :mod:`.data.xarray` (which is not imported in the top-level `__init__`).
 
 Plugin interplay
 ================
 
 For the most part, plugins are made to be independent of each others, but it can
-be useful to have interplay. We have already seen some communications between
-plugins via abstract methods of the data manager like
-:meth:`.DataManagerBase.get_source` or
-:meth:`.DataManagerBase.get_data`.
-The same goes for parameters management: abstract methods are defined directly
-in the DataManagerBase, since they are necessary.
-
-We also have seen that plugins can inherit from abstract classes, such that
-it can be expected that they implement some specific methods: see
-:class:`loader.LoaderPluginAbstract`, :class:`writer.WriterPluginAbstract`,
-:class:`writer.WriterMultiFilePluginAbstract`, or
-:class:`source.MultiFilePluginAbstract`.
+be useful to have interplay. The data-manager provides some basic API that
+plugins can leverage like :meth:`.DataManagerBase.get_source` or
+:meth:`.DataManagerBase.get_data`. For more specific features the package
+contains some abstract base classes that define the methods to be expected: for
+instance :class:`loader.LoaderPluginAbstract`,
+:class:`writer.WriterPluginAbstract`. See :doc:`existing-plugin` for a list of
+available plugins.
 
 If two specific plugins must directly interact, we can check the presence of a
 specific plugin via ``isinstance(self, SpecificPlugin)``. We can also simply
 create a "merger" plugin that inherits from the two plugins that need to
-interact. For instance we combine the writing plugin with the filefinder one,
-giving :class:`xarray.XarraySplitWriterPlugin`, so that we can automatically
-split data to different files when writing to disk using the specified filename
-pattern::
+interact. For instance we can combine the multifile writing plugin with the
+filefinder one, giving :class:`xarray.XarraySplitWriterPlugin`, so that we can
+automatically split data to different files when writing to disk using the
+specified filename pattern::
 
     class DatasetMultifile(
         XarrayMultiFileLoaderPlugin, XarraySplitWriterPlugin, DatasetBase

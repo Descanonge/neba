@@ -25,7 +25,7 @@ Parameters
 
 The first and **mandatory** plugin manages the parameters of the ``DataManager``
 instance. As it is considered mandatory there is no abstract class: the abstract
-methods to implement are defined in :class:`.DataManagerBase`:
+methods to implement are already defined in :class:`.DataManagerBase`:
 
 * :meth:`~.DataManagerBase.set_params`
 * :meth:`~.DataManagerBase.update_params`
@@ -36,18 +36,10 @@ methods to implement are defined in :class:`.DataManagerBase`:
 The most straightforward way to manager parameters is to store theme into a
 dictionary, which is what :class:`.ParamsMappingPlugin` does.
 
-.. important::
-
-   Currently there is no API to retrieve parameters values. That leaves freedom
-   to the type of :attr:`.DataManagerBase.params`. However to allow other plugin
-   to retrieve parameters it is advised that ``params`` implements the interface
-   of a mapping (at least ``__getitem__``), which should be universal enough.
-   This may be formalized more cleanly in the future.
-
 A :class:`.Scheme` can be used to store parameters using
-:class:`.ParamsSchemePlugin`. It allows to plug-in the parameters retrieve from
-the :doc:`configuration<configuration>`, while restricting to only statically
-defined parameters. Parameters can be added to the scheme at runtime though at
+:class:`.ParamsSchemePlugin`. It allows to use the parameters retrieval from
+the :doc:`configuration<configuration>`, and restrict parameters to those
+statically defined. Parameters can be added to the scheme at runtime though at
 the plugin relies on :meth:`.Scheme.update`. The scheme to use must be specified
 as a class attribute::
 
@@ -56,6 +48,19 @@ as a class attribute::
 
     class MyDataManager(ParamsSchemePlugin, DataManagerBase):
         SCHEME = Parameters
+
+.. important::
+
+   Using a scheme is not extensively tested.
+
+.. note:: For developers
+
+   Currently there is no API to retrieve parameters values. That leaves freedom
+   to the type of :attr:`.DataManagerBase.params`. However to allow other plugin
+   to retrieve parameters it is advised that ``params`` implements the interface
+   of a mapping (at least ``__getitem__``), which should be universal enough.
+   This may be formalized more cleanly in the future.
+
 
 Source
 ======
@@ -124,20 +129,43 @@ documentation for more details on its features.
 Loading and writing data
 ========================
 
-Deal with loading data.
-:class:`.LoaderPluginAbstract`
-get_data
-postprocess_data
-load_data_concrete
+When loading data, the end goal is typically to overwrite
+:meth:`.DataManagerBase.get_data`, to adapt for different libraries to use,
+data formats, etc. Plugins can inherit from :class:`.LoaderPluginAbstract`.
+This abstract plugin implement ``get_data`` to include postprocessing.
+If a method :meth:`~.LoaderPluginAbstract.postprocess_data` is defined on the
+data manager (and it does not raise a ``NotImplementedError``), it will
+automatically be run on loaded data. This can be bypassed by passing
+``ignore_postprocess=True`` to ``get_data()``.
+The abstract plugin relies on :meth:`~.LoaderPluginAbstract.load_data_concrete`
+to actually load the data. This method can be implemented in different plugins
+dealing with different libraries, formats, etc.
 
-Deal with writing data.
-:class:`.WriterPluginAbstract`
-get_metadata
-write
+On the other end, plugins to write data to a store (to disk or on a remote data
+store) inherict from :class:`.WriterPluginAbstract`. This abstract plugin define
+the :meth:`~.WriterPluginAbstract.write` method. Subclasses are expected to
+implement it. It implements a method to retrieve metadata that can be added to
+the data stored if possible.
 
-Calls.
+.. note::
+
+    By default, this metadata includes the parameters of the data manager, the
+    current running script, the date, and if the script is part of a git project
+    the last commit hash of that project.
+
+    Additional metadata could be included. Planned future additions are more
+    details on the current state of the git project (diff to HEAD for instance).
+
+The writing of data is formalized as the execution of "writing calls". Each call
+consist of data (array, dataset,...) to write to a target (file,
+data-store,...). The ``write`` function a plugin can call to more specialized
+functions that act on calls. The simplest would be
+:meth:`.WriterPluginAbstract.send_single_call`, but more complex one can be used
+like :meth:`.WriterPluginAbstract.send_calls` that send multiple calls serially
+or :meth:`.XarrayMultiFileWriterPlugin.send_calls_together` that can send
+multiple calls in parallel using Dask.
+
 check_directories
-send_single_call and send_calls
 
 Automatically generate and save data if the source does not exist.
 :class:`.CachedWriterPlugin`
