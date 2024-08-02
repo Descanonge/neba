@@ -245,7 +245,7 @@ class XarrayWriterPlugin(WriterPluginAbstract[str, xr.Dataset]):
 
         data = self.set_metadata(data)
         call = target, data
-        self.check_directories([call])
+        self.check_directory(call)
         return self.send_single_call(call, **kwargs)
 
 
