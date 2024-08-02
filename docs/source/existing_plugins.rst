@@ -165,37 +165,102 @@ like :meth:`.WriterPluginAbstract.send_calls` that send multiple calls serially
 or :meth:`.XarrayMultiFileWriterPlugin.send_calls_together` that can send
 multiple calls in parallel using Dask.
 
-check_directories
+The library actually writing the data may fail if the containing directories do
+not already exist. To this end, the methods
+:meth:`~.WriterPluginAbstract.check_directory` and
+:meth:`~.WriterPluginAbstract.check_directories` will check that the
+directory or directories containing the call(s) target(s) exist, and if not
+create them. The ``write()`` method may automatically call them, depending on
+the plugin implementation.
 
-Automatically generate and save data if the source does not exist.
-:class:`.CachedWriterPlugin`
-generate_data
+Some data may be generated quickly but could still benefit from being
+saved/cached on disk. The plugin :class:`.CachedWriterPlugin` will call its
+method :meth:`~.CachedWriterPlugin.generate_data` if the source file does not
+exists.
 
 
 Xarray
 ======
 
-Everything is in :mod:`data_assistant.data.xarray`. Xarray not imported
-otherwise (sort of lazy loading).
+A compilation of plugin for interfacing with `Xarray
+<https://xarray.pydata.org/>`__ is available in
+:mod:`data_assistant.data.xarray`. This submodule is not imported in the top
+level package to avoid importing Xarray unless needed.
 
-Load from single file/store.
-:class:`.XarrayFileLoaderPlugin`
-Load from multiple files.
-:class:`.XarrayMultiFileLoaderPlugin`
+To load data,:class:`.XarrayFileLoaderPlugin` will load from a single file or
+store with :external+xarray:func:`~xarray.open_dataset` and
+:class:`.XarrayMultiFileLoaderPlugin` from multiple files using
+:external+xarray:func:`~xarray.open_mfdataset`.
 
-Write to a single file/store.
-:class:`.XarrayWriterPlugin`
-seng_single_call guess the format from filename. Use Zarr or Netcdf
-corresponding function.
-set_metadata
+To write data to a single file or store, use :class:`.XarrayWriterPlugin`. It
+will guess to function to use from the file extension. It currently supports
+Zarr and Netcdf.
 
-Write to multiple files in parallel (or series).
-:class:`.XarrayMultiFileWriterPlugin`
-with send_calls_together (redefine write to use this)
-under the hood use dask (if given a client)
-difficulties of doing this. Some filesystems might not work (use scratch!)
+.. note::
 
-Split a single dataset across multiple files automatically!
-It is meant to work with :class:`.FileFinderPlugin`, but it could be paired
-with any source plugin that implements the :class:`.HasUnfixed` protocol.
-:class:`.XarraySplitWriterPlugin`
+   The ``write()`` method will automatically add metadata to the dataset
+   attributes via ``.XarrayWriterPlugin.set_metadata``. This is true for the
+   other writer plugins below.
+
+For data that is to be written across multiple files or stores, the plugin
+:class:`.XarrayMultiFileWriterPlugin` will execute several writing calls either
+one after the other, or in parallel. If given a :class:`Dask
+client<distributed.Client>` argument,
+:meth:`~.XarrayMultiFileWriterPlugin.write` will use
+:meth:`~.XarrayMultiFileWriterPlugin.send_calls_together` to execute multiple
+writing operations in parallel.
+
+.. important::
+
+    Doing so is not so straightforward. It may fail on some filesystems with
+    permisssion errors. Using the scratch filesystem on a cluster might solve
+    this issue. See :meth:`~.XarrayMultiFileWriterPlugin.send_calls_together`
+    documentation for details on the implementation.
+
+The :class:`.XarrayMultiFileWriterPlugin` plugin needs multiple datasets and
+their respective target file. :class:`.XarraySplitWriterPlugin` intends to
+simplify further the writing process by splitting automatically a dataset across
+files. It must be paired with a source-managing plugin that implements the
+:class:`.Splitable` protocol. Which means that some parameters can be left
+unspecified and along which the dataset will be split. It must also be able to
+return a filename given values for those unspecified parameters. The
+:class:`.FileFinderPlugin` can be used to that purpose. For instance we can
+split a dataset along its depth dimension and automatically group by month,
+using a dataset along the lines of::
+
+    >>> ds
+    <xarray.Dataset>
+    Dimensions:              (time: 365, depth: 50, lat: 4320, lon: 8640)
+    Coordinates:
+    * time                 (time) datetime64[ns] 2020-01-01 ... 2020-12-31
+    * depth                (depth) int64 0 1 5 10 20 40 ... 500 750 1000
+    * lat                  (lat) float32 89.98 89.94 89.9 ... -89.9 -89.94 -89.98
+    * lon                  (lon) float32 -180.0 -179.9 -179.9 ... 179.9 180.0
+    Data variables:
+        temp                  (time, depth, lat, lon) float32 dask.array<chunksize=(1, 1, 4320, 8640), meta=np.ndarray>
+
+
+and a data manager defined as::
+
+    class DataManager(XarraySplitWriterPlugin, FileFinderPlugin, DataManagerBase):
+
+        def get_root_directory(self):
+            return "/data/directory/"
+
+        def get_filename_pattern(self):
+            """Yearly folders, date as YYYYMM and depth as integer."""
+            return "%(Y)/temp_%(Y)%(m)_depth_%(depth:fmt=d).nc"
+
+by calling ``DataManager().write(ds)``. Note this will detect that the smallest
+time parameter in the pattern is the month and split the dataset appropriately
+using :external+xarray:meth:`.Dataset.resample`. This can be specified manually
+or avoided alltogether. See :meth:`.XarraySplitWriterPlugin.write` documentation
+for details.
+
+.. note::
+
+    If the overall :meth:`~.XarraySplitWriterPlugin.write` implementation is not
+    appropriate, it is possible to control more finely the splitting process by
+    using :meth:`~.XarraySplitWriterPlugin.split_by_unfixed` and
+    :meth:`~.XarraySplitWriterPlugin.split_by_time`. The "time" dimension and
+    its related parameters are split

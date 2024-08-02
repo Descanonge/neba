@@ -379,8 +379,8 @@ class XarrayMultiFileWriterPlugin(XarrayWriterPlugin):
 T = t.TypeVar("T", covariant=True)
 
 
-class HasUnfixed(t.Protocol[T]):
-    """Protocol for a source plugin that can split datasets.
+class Splitable(t.Protocol[T]):
+    """Protocol for a source plugin that can split data into multiple sources.
 
     The plugin manages input/output sources. Initially made for multifile datasets.
     A number of parameters can be left :meth:`unfixed` which allows to have many files
@@ -388,11 +388,11 @@ class HasUnfixed(t.Protocol[T]):
     year we want).
 
     It must also implement a :meth:`get_filename` method that returns a filename when
-    given a specific set of values that were left unfixed.
+    given a specific set of values (those that were left unfixed).
 
     The idea is that a plugin can split data according to the parameters that are left
     unfixed (example by year), once the data is split we find the associated filename
-    for each year and we then write to file.
+    for each year and we then write to files.
 
     The protocol is generic and allows for any type of source.
     """
@@ -414,7 +414,7 @@ class HasUnfixed(t.Protocol[T]):
         """
 
 
-class XarraySplitWriterPlugin(XarrayMultiFileWriterPlugin, HasUnfixed[str]):
+class XarraySplitWriterPlugin(XarrayMultiFileWriterPlugin, Splitable[str]):
     """Writer for Xarray datasets in multifiles.
 
     Can automatically split a dataset to the corresponding files by communicating
