@@ -552,59 +552,71 @@ class Scheme(Configurable):
         kwargs
             Same as `other`.
         """
-        input_scheme = isinstance(other, Scheme)
+        input_scheme: Scheme | None = None
+        if isinstance(other, Scheme):
+            input_scheme = other
         if other is None:
             other = {}
-        elif input_scheme:
-            other = other.traits_recursive(flatten=True)  # type: ignore[union-attr]
+        elif input_scheme is not None:
+            other = other.values_recursive(flatten=True)  # type: ignore[union-attr]
         else:
             other = dict(other)
         other |= kwargs
+
+        clsname = self.__class__.__name__
 
         for fullkey, value in other.items():
             fullpath = fullkey.split(".")
             trait_name = fullpath[-1]
 
-            miss = False
-            subscheme = self
+            scheme = self
             for name in fullpath[:-1]:
-                if name in subscheme._subschemes:
-                    subscheme = getattr(subscheme, name)
-                    continue
-                miss = True
-                if raise_on_miss:
-                    clsname = self.__class__.__name__
+                if name in scheme._subschemes:
+                    pass
+                # subscheme does not exist
+                elif raise_on_miss:
                     raise KeyError(
                         f"{fullkey} cannot be added to this Scheme ({clsname})"
                     )
-
-            if miss:
-                continue
-            if trait_name in subscheme.trait_names():
-                if isinstance(value, TraitType):
-                    if input_scheme:
-                        value = other[fullkey]
-                    else:
-                        value = value.default
-                setattr(subscheme, trait_name, value)
-                continue
-
-            # The trait is unknown
-            if not allow_new:
-                if raise_on_miss:
+                elif not allow_new:
                     raise RuntimeError(
-                        f"Trait creation was not authorized for ({fullkey})"
+                        f"Scheme creation '{name}' was not authorized ({fullkey})"
                     )
-                continue
-            if not isinstance(value, TraitType):
-                raise TypeError(
-                    f"Cannot add a trait from a simple value ({fullkey}: {value})"
-                )
+                else:
+                    scheme.add_traits(**{name: subscheme(Scheme)})
+                    scheme._subschemes[name] = Scheme
 
-            subscheme.add_traits(**{trait_name: value})
-            setattr(
-                subscheme, trait_name, other[fullkey] if input_scheme else value.default
-            )
+                # scheme exists or has been added
+                scheme = getattr(scheme, name)
+
+            if trait_name in scheme.trait_names():
+                pass
+            # trait does not exist
+            elif raise_on_miss:
+                raise KeyError(f"{fullkey} cannot be added to this Scheme ({clsname})")
+            elif not allow_new:
+                raise RuntimeError(
+                    f"Trait creation '{trait_name}' was not authorized ({fullkey})"
+                )
+            else:
+                if isinstance(value, TraitType):
+                    newtrait = value
+                elif input_scheme is not None:
+                    newtrait = input_scheme.traits_recursive(flatten=True)[fullkey]
+                else:
+                    raise TypeError(
+                        "A new trait must be specified as a TraitType or from a Scheme "
+                        f"({fullkey}: {type(value)})"
+                    )
+                scheme.add_traits(**{trait_name: newtrait})
+
+            # trait exists or has been added
+            if input_scheme is not None:
+                value = input_scheme[fullkey]
+            elif isinstance(value, TraitType):
+                value = value.default
+
+            setattr(scheme, trait_name, value)
 
     @classmethod
     def class_resolve_key(
