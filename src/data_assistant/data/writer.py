@@ -93,12 +93,8 @@ class WriterPluginAbstract(t.Generic[T_Source, T_Data], Plugin):
 
         return meta
 
-    def check_directories(
-        self, calls: tuple[T_Source, T_Data] | abc.Sequence[tuple[T_Source, T_Data]]
-    ):
+    def check_directories(self, calls: abc.Sequence[tuple[T_Source, T_Data]]):
         """Check if directories are missing, and create them if necessary."""
-        if isinstance(calls, tuple):
-            calls = [calls]
         files = [f for f, _ in calls]
 
         # Keep only the containing directories, with no duplicate
@@ -111,6 +107,10 @@ class WriterPluginAbstract(t.Generic[T_Source, T_Data], Plugin):
             if not path.isdir(d):
                 log.debug("Creating output directory %s", d)
                 os.makedirs(d)
+
+    def check_directory(self, call: tuple[T_Source, T_Data]):
+        """Check if directory is missing, and create it if necessary."""
+        self.check_directories([call])
 
     def send_single_call(self, call: tuple[T_Source, T_Data], **kwargs) -> t.Any:
         """Execute a single call.
