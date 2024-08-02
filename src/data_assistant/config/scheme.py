@@ -46,7 +46,7 @@ def subscheme(scheme: type[Scheme]) -> Instance:
         subgroup = subscheme(MySubgroupScheme)
 
     """
-    return Instance(scheme, args=(), kw={}).tag(subscheme=True)
+    return Instance(scheme, args=(), kw={}).tag(subscheme=True, config=False)
 
 
 class Scheme(Configurable):
