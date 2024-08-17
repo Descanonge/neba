@@ -137,7 +137,9 @@ class WriterPluginAbstract(t.Generic[T_Source, T_Data], Plugin):
                 f"Multiple writing calls to the same filename·s: {duplicates}"
             )
 
-    def send_calls(self, calls: abc.Sequence[tuple[T_Source, T_Data]], **kwargs):
+    def send_calls(
+        self, calls: abc.Sequence[tuple[T_Source, T_Data]], **kwargs
+    ) -> list[t.Any]:
         """Send multiple calls serially.
 
         Check beforehand if there are filename conflicts betwen calls, and make
@@ -151,8 +153,7 @@ class WriterPluginAbstract(t.Generic[T_Source, T_Data], Plugin):
         self.check_overwriting_calls(calls)
         self.check_directories(calls)
 
-        for call in calls:
-            self.send_single_call(call, **kwargs)
+        return [self.send_single_call(call, **kwargs) for call in calls]
 
     def write(
         self,
