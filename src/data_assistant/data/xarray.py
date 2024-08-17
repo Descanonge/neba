@@ -512,10 +512,9 @@ class XarraySplitWriterPlugin(XarrayMultiFileWriterPlugin, Splitable[str]):
 
         calls = self.to_calls(datasets_by_all, squeeze=squeeze)
 
-        if client is None:
-            self.send_calls(calls, **kwargs)
-        else:
-            self.send_calls_together(calls, client, chop=chop, **kwargs)
+        if client is not None:
+            return self.send_calls_together(calls, client, chop=chop, **kwargs)
+        return self.send_calls(calls, **kwargs)
 
     def split_by_time(
         self,
