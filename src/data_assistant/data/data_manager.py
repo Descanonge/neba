@@ -108,11 +108,16 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
         any number of keyword arguments.
         """
 
-        # Initianlize plugins in base classes
-        # Only check bases, the plugin then propagate the call to its parents with super
-        for cls in self.__class__.__bases__:
+        # Initialize plugins
+        initialized = []
+        for cls in self.__class__.__mro__:
+            if cls in initialized:
+                continue
             if issubclass(cls, Plugin):
+                log.debug("Run '_init_plugin' from '%s'", cls.__name__)
                 cls._init_plugin(self)  # type: ignore
+                # mark all ancestors as initialized
+                initialized += list(cls.__mro__)
 
         self.set_params(params, **kwargs)
 
