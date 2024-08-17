@@ -258,7 +258,6 @@ class XarrayMultiFileWriterPlugin(XarrayWriterPlugin):
         client: Client,
         chop: int | None = None,
         format: t.Literal["nc", "zarr", None] = None,
-        use_save_mfdataset: bool = True,
         **kwargs,
     ):
         """Send multiple calls together.
@@ -282,11 +281,6 @@ class XarrayMultiFileWriterPlugin(XarrayWriterPlugin):
             If None (default), all calls are sent together. If chop is an integer,
             groups of calls of size ``chop`` (at most) will be sent one after the other,
             calls within each group being run in parallel.
-        use_save_mfdataset
-            If true (default) simply use :func:`xarray.save_mfdataset`. Otherwise
-            manually create delayed objects from :meth:`xarray.Dataset.to_netcdf` and
-            send them to Dask in a "fire and forget" manner to avoid data lingering in
-            memory.
         kwargs
             Passed to writing function. Overwrites the defaults from
             :attr:`TO_NETCDF_KWARGS`, whatever the value of `function` is.
@@ -295,6 +289,7 @@ class XarrayMultiFileWriterPlugin(XarrayWriterPlugin):
 
         self.check_overwriting_calls(calls)
         self.check_directories(calls)
+
         ncalls = len(calls)
         if chop is None:
             chop = ncalls
@@ -303,21 +298,12 @@ class XarrayMultiFileWriterPlugin(XarrayWriterPlugin):
         log.info("%d total calls in %d groups.", ncalls, len(slices))
 
         kwargs = self.TO_NETCDF_KWARGS | kwargs
-
-        # with save_mfdataset, we want to trigger computation
-        # with to_netcdf, we want to delay
-        kwargs["compute"] = use_save_mfdataset
+        kwargs["compute"] = False
 
         for slc in slices:
             log.info("\tslice %s", slc)
 
             grouped_calls = calls[slc]
-
-            if use_save_mfdataset:
-                datasets, paths = zip(*grouped_calls)
-                xr.save_mfdataset(datasets, paths, **kwargs)
-                continue
-
             delayed = [self.send_single_call(c, **kwargs) for c in grouped_calls]
 
             # Compute them all at once

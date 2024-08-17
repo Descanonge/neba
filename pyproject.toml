@@ -65,6 +65,7 @@ ignore = [
        'D417', # not all parameters need doc
        'B905', # zip without strict parameter
 ]
+unfixable = ["F401"]
 
 [tool.ruff.lint.pycodestyle]
 max-line-length = 90
