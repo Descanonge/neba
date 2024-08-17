@@ -285,7 +285,7 @@ class FixableTrait(Union):
             traits.append(RangeTrait(trait))
         else:
             traits.append(List(trait))
-        if unicode:
+        if unicode and not isinstance(trait, Unicode):
             traits.append(Unicode())
 
         super().__init__(
