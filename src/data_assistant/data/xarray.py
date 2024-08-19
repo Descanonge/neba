@@ -356,10 +356,9 @@ class XarrayMultiFileWriterPlugin(XarrayWriterPlugin):
 
         self.check_directories(calls)
         self.check_overwriting_calls(calls)
-        if client is None:
-            # TODO no return value
-            return self.send_calls(calls, **kwargs)
-        return self.send_calls_together(calls, client, **kwargs)
+        if client is not None:
+            return self.send_calls_together(calls, client, **kwargs)
+        return self.send_calls(calls, **kwargs)
 
 
 T = t.TypeVar("T", covariant=True)
