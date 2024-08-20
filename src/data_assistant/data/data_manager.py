@@ -1,20 +1,4 @@
-"""DataManager base: the main class for your dataset.
-
-The DataManager object is the main entry point for the user. The base object
-(:class:`DataManagerBase`) should be completed with mixins classes called
-:class:`plugins<plugin.Plugin>` that add various functionalities. The user can choose
-plugins, or/and then overwrite methods and attributes of a single class to adapt it to
-their data quickly.
-
-The DataManager base and the plugins were made to be as agnostic as possible concerning
-the data type, source format, etc. A minimal API is written in each abstract class that
-should allow inter-operation between different plugins. Hopefully this can accomodate a
-variety of datasets, and it should be possible to swap plugins without breaking
-everything.
-
-The parameters management is kept in the DataManager object for simplicity, maybe it
-could be done by a plugin of its own, if this is necessary.
-"""
+"""DataManager base: the main class for your dataset."""
 
 from __future__ import annotations
 
@@ -23,7 +7,7 @@ import logging
 import typing as t
 from collections import abc
 
-from .plugin import CachePlugin, Plugin
+# from .plugin import CachePlugin, Plugin
 
 log = logging.getLogger(__name__)
 
@@ -32,20 +16,31 @@ T_Data = t.TypeVar("T_Data")
 T_Source = t.TypeVar("T_Source")
 """Type of the data source (filename, URL, object, etc.)."""
 
-"""
-Note on this mixins architecture.
 
-I tried to use what could be thought as a more natural structure using composition and
-by making plugins attributes of the datamanager base, instead of mixins.
-Problem is if the user wants to overwrite a method to adapt to their dataset, it would
-be logically bound in a plugin: difficult to overwrite quickly to create a new
-data-manager class. The solution was to allow plugins to state methods to be defined on
-the data-manager. The plugin would keep a reference of the central data-manager object
-and execute methods on it. But this makes it difficult to specify
-the methods precise signature, and is quite confusing in the end...
-"""
+_P = t.TypeVar("_P")
 
-_P = t.TypeVar("_P", bound=Plugin)
+
+class Module:
+    _attr_name: str
+
+    def __init__(self, dm: DataManagerBase, *args, **kwargs):
+        self.dm = dm
+
+
+class ParamsModule(Module):
+    _attr_name: str = "params"
+
+
+class SourceModule(Module):
+    _attr_name: str = "source"
+
+
+class LoaderModule(Module):
+    _attr_name: str = "loader"
+
+
+class WriterModule(Module):
+    _attr_name: str = "writer"
 
 
 def has_plugin(obj: DataManagerBase, cls: type[_P]) -> t.TypeGuard[_P]:
@@ -83,8 +78,6 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
     ID: str | None = None
     """Long name to identify uniquely this data-manager class."""
 
-    PARAMS_NAMES: abc.Sequence[abc.Hashable] = []
-    """List of known parameters names."""
     PARAMS_DEFAULTS: t.Any
     """Default values of parameters.
 
@@ -93,6 +86,25 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
     :mod:`data_assistant.config`).
     """
 
+    _module_classes: dict[str, type[Module]] = dict(
+        params=ParamsModule,
+        loader=LoaderModule,
+        source=SourceModule,
+        writer=WriterModule,
+    )
+
+    # For mypy
+    params: ParamsModule
+    loader: LoaderModule
+    source: SourceModule
+    writer: WriterModule
+
+    def __init_subclass__(cls) -> None:
+        super().__init_subclass__()
+        for attr in cls.__dict__.values():
+            if isinstance(attr, type) and issubclass(attr, Module):
+                cls._module_classes[attr._attr_name] = attr
+
     def __init__(self, params: t.Any | None = None, **kwargs) -> None:
         self.params: t.Any
         """Mapping of current parameters values.
@@ -100,6 +112,8 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
         They should be changed by using :meth:`set_params` to void the cached values
         appropriately.
         """
+        for name, cls in self._module_classes.items():
+            setattr(self, name, cls(self))
 
         self._reset_callbacks: dict[str, abc.Callable[..., None]] = {}
         """Dictionary of callbacks to run when parameters are changed/reset.
@@ -108,28 +122,7 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
         any number of keyword arguments.
         """
 
-        # Initialize plugins
-        initialized = []
-        for cls in self.__class__.__mro__:
-            if cls in initialized:
-                continue
-            if issubclass(cls, Plugin):
-                log.debug("Run '_init_plugin' from '%s'", cls.__name__)
-                cls._init_plugin(self)  # type: ignore
-                # mark all ancestors as initialized
-                initialized += list(cls.__mro__)
-
         self.set_params(params, **kwargs)
-
-    # - Parameters methods
-
-    @property
-    def params_as_dict(self) -> dict[str, t.Any]:
-        """Return the parameters as a dictionary.
-
-        :Not implemented: implement in a plugin subclass.
-        """
-        raise NotImplementedError("Implement in a plugin subclass.")
 
     def set_params(
         self, params: t.Any | None = None, reset: bool | list[str] = True, **kwargs
@@ -149,7 +142,8 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
             Parameters will be taken in order of first available in:
             ``kwargs``, ``params``, :attr:`PARAMS_DEFAULTS`.
         """
-        raise NotImplementedError("Implement in a plugin subclass.")
+        pass
+        # raise NotImplementedError("Implement in a plugin subclass.")
 
     def update_params(
         self, params: t.Any | None, reset: bool | list[str] = True, **kwargs
@@ -209,7 +203,7 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
             )
         self._reset_callbacks[key] = func
 
-    def reset_callback(self, reset: bool | list[str] = True, **kwargs):
+    def reset(self, callbacks: bool | list[str] = True, **kwargs):
         """Call all registered callbacks when parameters are reset/changed.
 
         Plugins should register callback in the dictionary :attr:`_RESET_CALLBACKS`
@@ -219,17 +213,17 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
 
         Parameters
         ----------
-        reset
+        callbacks
             If True all callbacks are run (default), if False none are run. Can also
             be a list of specific callback names to run (keys in the dictionary
             :attr:`_RESET_CALLBACKS`).
         """
-        if reset is False:
+        if callbacks is False:
             return
-        if reset is True:
-            reset = list(self._reset_callbacks.keys())
+        if callbacks is True:
+            callbacks = list(self._reset_callbacks.keys())
 
-        for key in reset:
+        for key in callbacks:
             callback = self._reset_callbacks[key]
             callback(self, **kwargs)
 
@@ -256,12 +250,9 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
         s = []
         s.append(self.__str__())
         s.append("Parameters:")
-        s.append(f"\tdefined: {self.PARAMS_NAMES}")
         if self.PARAMS_DEFAULTS:
             s.append(f"\tdefaults: {self.PARAMS_DEFAULTS}")
-        # s.append(f"\tallowed: {self.allowed_params}")
         s.append(f"\tset: {self.params}")
-
         return "\n".join(s)
 
     def get_source(self) -> T_Source:
@@ -358,8 +349,8 @@ class _ParamsContext:
         self.params = copy.deepcopy(dm.params)
         self.caches: dict | None = None
 
-        if save_cache and isinstance(dm, CachePlugin):
-            self.caches = {key: getattr(dm, key) for key in dm._CACHE_LOCATIONS}
+        # if save_cache and isinstance(dm, CachePlugin):
+        #     self.caches = {key: getattr(dm, key) for key in dm._CACHE_LOCATIONS}
 
     def repopulate_cache(self):
         for loc, save in self.caches.items():
@@ -393,3 +384,8 @@ class _ParamsContext:
 
         # return false to raise any exception that may have occured
         return False
+
+
+class Test(DataManagerBase):
+    class _ReTest(ParamsModule):
+        nodiff = 2
