@@ -39,23 +39,23 @@ class Module:
         pass
 
 
-class CachePlugin:
+class CachedModule(Module):
     """Plugin containing a cache."""
 
-    _CACHE_LOCATIONS: set[str] = set()
-    """List of cache attributes of the various plugins."""
+    def _init_module(self) -> None:
+        self.cache: dict[str, t.Any] = {}
 
-    def _init_plugin(self) -> None:
-        for attr in self._CACHE_LOCATIONS:
-            call_name = f"void_cache[{attr}]"
-            if call_name in self._reset_callbacks:
-                continue
+        # Voiding callback
+        # we make sure to avoid late-binding by using functools.partial
+        def callback(dm, **kwargs) -> None:
+            mod = getattr(dm, self._attr_name)
+            mod.void_cache()
 
-            # we make sure to avoid late-binding by using functools.partial
-            def callback(attr_loc, dm, **kwargs) -> None:
-                getattr(dm, attr_loc).clear()
+        key = f"void_cache[{self.__class__.__name__}]"
+        self.dm._register_callback(key, callback)
 
-            self._register_callback(call_name, functools.partial(callback, attr))
+    def void_cache(self) -> None:
+        self.cache.clear()
 
 
 # Typevar to preserve autocached properties' type.
