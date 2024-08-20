@@ -27,30 +27,19 @@ log = logging.getLogger(__name__)
 if t.TYPE_CHECKING:
     from .data_manager import DataManagerBase
 
-    _DB = DataManagerBase
-else:
-    _DB = object
 
+class Module:
+    _attr_name: str
 
-class Plugin(_DB):
-    """Plugin base class."""
+    def __init__(self, dm: DataManagerBase, *args, **kwargs):
+        self.dm = dm
+        self._init_module()
 
-    def _init_plugin(self) -> None:
-        """Initialize the plugin.
-
-        Because there can be any number of plugins in a dataset parent classes, only
-        the first ``__init__`` method found in the mro is run.
-
-        This method however, is run for all plugins that are parent classes. (Not
-        all classes in mro, so make sure to propagate the call to the plugin
-        parent using ``super()._init_plugin()``).
-
-        By default, does nothing.
-        """
+    def _init_module(self) -> None:
         pass
 
 
-class CachePlugin(Plugin):
+class CachePlugin:
     """Plugin containing a cache."""
 
     _CACHE_LOCATIONS: set[str] = set()

@@ -7,18 +7,28 @@ import typing as t
 from collections import abc
 
 from ..config.scheme import Scheme
-from .plugin import Plugin
+from .module import Module
 
 log = logging.getLogger(__name__)
 
 
-class ParamsMappingPlugin(Plugin):
+class ParamsManagerModule(Module):
     """Parameters are stored in a dictionary."""
 
-    PARAMS_DEFAULTS: dict[str, t.Any] = {}
+    _attr_name: str = "params_manager"
 
-    def _init_plugin(self) -> None:
-        self.params: dict[str, t.Any] = {}
+    PARAMS_DEFAULTS: abc.Mapping[str, t.Any]
+    """Default values of parameters.
+
+    Optional. Can be used to define default values for parameters local to a
+    data-manager, (*ie* that are not defined in project-wide with
+    :mod:`data_assistant.config`).
+    """
+
+    params: abc.MutableMapping[str, t.Any]
+
+    def _init_module(self) -> None:
+        self.params = {}
 
     def set_params(
         self,
@@ -57,25 +67,16 @@ class ParamsMappingPlugin(Plugin):
         """
         if params is None:
             params = {}
-        else:
-            params = dict(params)  # shallow copy
-        params = params | self.PARAMS_DEFAULTS
         params.update(kwargs)
-
         self.params.update(params)
-        self.reset_callback(reset, params=params)
+        self.dm.reset(reset, params=params)
 
     def _reset_params(self) -> None:
         """Reset parameters to their initial state (empty dict)."""
         self.params = {}
 
-    @property
-    def params_as_dict(self) -> dict[str, t.Any]:
-        """Return the parameters as a dictionary."""
-        return self.params
 
-
-class ParamsSchemePlugin(Plugin):
+class ParamsManagerSchemeModule(ParamsManagerModule):
     """Parameters are stored in a Scheme object.
 
     Set and update methods rely on :meth:`.Scheme.update` to merge the new parameters
@@ -101,11 +102,16 @@ class ParamsSchemePlugin(Plugin):
     This is *after* following :attr:`.PARAMS_PATH` on an input argument.
     """
 
-    def _init_plugin(self) -> None:
+    params: Scheme
+
+    def _init_module(self) -> None:
         self._reset_params()
 
     def set_params(
-        self, params: Scheme | None = None, reset: bool | list[str] = True, **kwargs
+        self,
+        params: Scheme | abc.Mapping[str, t.Any] | None = None,
+        reset: bool | list[str] = True,
+        **kwargs,
     ):
         """Set parameters values.
 
@@ -125,10 +131,13 @@ class ParamsSchemePlugin(Plugin):
         """
         self._reset_params()
         self.update_params(params, reset=reset, **kwargs)
-        self.reset_callback(reset, params=params)
+        self.dm.reset(reset, params=params)
 
     def update_params(
-        self, params: Scheme | None, reset: bool | list[str] = True, **kwargs
+        self,
+        params: Scheme | abc.Mapping[str, t.Any] | None,
+        reset: bool | list[str] = True,
+        **kwargs,
     ):
         """Update one or more parameters values.
 
@@ -146,9 +155,9 @@ class ParamsSchemePlugin(Plugin):
             to the parameters scheme with its default value.
         """
         if params is None:
-            params = Scheme()
+            params = {}
         # Select subscheme
-        elif self.PARAMS_PATH is not None:
+        elif isinstance(params, Scheme) and self.PARAMS_PATH is not None:
             params = params[self.PARAMS_PATH]
             if not isinstance(params, Scheme):
                 raise TypeError(f"'{self.PARAMS_PATH}' did not led to subscheme.")
@@ -156,15 +165,10 @@ class ParamsSchemePlugin(Plugin):
         self.params.update(
             params, allow_new=True, raise_on_miss=self.RAISE_ON_MISS, **kwargs
         )
-        self.reset_callback(reset, params=params)
+        self.dm.reset(reset, params=params)
 
     def _reset_params(self) -> None:
         self.params = self.SCHEME()
         self.params.update(
             self.PARAMS_DEFAULTS, allow_new=True, raise_on_miss=self.RAISE_ON_MISS
         )
-
-    @property
-    def params_as_dict(self) -> dict[str, t.Any]:
-        """Return the parameters as a dictionary."""
-        return dict(self.params)

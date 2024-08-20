@@ -8,6 +8,8 @@ import typing as t
 from collections import abc
 
 # from .plugin import CachePlugin, Plugin
+from .module import Module
+from .params import ParamsManagerModule
 
 log = logging.getLogger(__name__)
 
@@ -20,17 +22,6 @@ T_Source = t.TypeVar("T_Source")
 _P = t.TypeVar("_P")
 
 
-class Module:
-    _attr_name: str
-
-    def __init__(self, dm: DataManagerBase, *args, **kwargs):
-        self.dm = dm
-
-
-class ParamsModule(Module):
-    _attr_name: str = "params"
-
-
 class SourceModule(Module):
     _attr_name: str = "source"
 
@@ -41,11 +32,6 @@ class LoaderModule(Module):
 
 class WriterModule(Module):
     _attr_name: str = "writer"
-
-
-def has_plugin(obj: DataManagerBase, cls: type[_P]) -> t.TypeGuard[_P]:
-    """Return if the DataManager contains a plugin."""
-    return isinstance(obj, cls)
 
 
 class DataManagerBase(t.Generic[T_Source, T_Data]):
@@ -78,23 +64,15 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
     ID: str | None = None
     """Long name to identify uniquely this data-manager class."""
 
-    PARAMS_DEFAULTS: t.Any
-    """Default values of parameters.
-
-    Optional. Can be used to define default values for parameters local to a
-    data-manager, (*ie* that are not defined in project-wide with
-    :mod:`data_assistant.config`).
-    """
-
     _module_classes: dict[str, type[Module]] = dict(
-        params=ParamsModule,
+        params_manager=ParamsManagerModule,
         loader=LoaderModule,
         source=SourceModule,
         writer=WriterModule,
     )
 
     # For mypy
-    params: ParamsModule
+    params_manager: ParamsManagerModule
     loader: LoaderModule
     source: SourceModule
     writer: WriterModule
@@ -124,14 +102,16 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
 
         self.set_params(params, **kwargs)
 
+    @property
+    def params(self) -> abc.Mapping[str, t.Any]:
+        return self.params_manager.params
+
     def set_params(
         self, params: t.Any | None = None, reset: bool | list[str] = True, **kwargs
     ):
         """Set parameters values.
 
         Old parameters values are discarded.
-
-        :Not implemented: implement in a plugin subclass.
 
         Parameters
         ----------
@@ -142,8 +122,7 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
             Parameters will be taken in order of first available in:
             ``kwargs``, ``params``, :attr:`PARAMS_DEFAULTS`.
         """
-        pass
-        # raise NotImplementedError("Implement in a plugin subclass.")
+        self.params_manager.set_params(params, reset=reset, **kwargs)
 
     def update_params(
         self, params: t.Any | None, reset: bool | list[str] = True, **kwargs
@@ -152,8 +131,6 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
 
         Other parameters are kept.
 
-        :Not implemented: implement in a plugin subclass.
-
         Parameters
         ----------
         reset:
@@ -161,7 +138,7 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
         kwargs:
             Other parameters values in the form ``name=value``.
         """
-        raise NotImplementedError("Implement in a plugin subclass.")
+        self.params_manager.update_params(params, reset=reset, **kwargs)
 
     def save_excursion(self, save_cache: bool = False) -> _ParamsContext:
         """Save and restore current parameters after a with block.
