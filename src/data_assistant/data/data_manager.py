@@ -84,12 +84,6 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
                 cls._module_classes[attr._attr_name] = attr
 
     def __init__(self, params: t.Any | None = None, **kwargs) -> None:
-        self.params: t.Any
-        """Mapping of current parameters values.
-
-        They should be changed by using :meth:`set_params` to void the cached values
-        appropriately.
-        """
         for name, cls in self._module_classes.items():
             setattr(self, name, cls(self))
 
@@ -116,13 +110,14 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
         Parameters
         ----------
         reset:
-            Passed to :meth:`reset_callback`.
+            Passed to :meth:`reset`.
         kwargs:
             Other parameters values in the form ``name=value``.
             Parameters will be taken in order of first available in:
             ``kwargs``, ``params``, :attr:`PARAMS_DEFAULTS`.
         """
-        self.params_manager.set_params(params, reset=reset, **kwargs)
+        self.params_manager.set_params(params, **kwargs)
+        self.reset(reset)
 
     def update_params(
         self, params: t.Any | None, reset: bool | list[str] = True, **kwargs
@@ -134,11 +129,12 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
         Parameters
         ----------
         reset:
-            Passed to :meth:`reset_callback`.
+            Passed to :meth:`reset`.
         kwargs:
             Other parameters values in the form ``name=value``.
         """
-        self.params_manager.update_params(params, reset=reset, **kwargs)
+        self.params_manager.update_params(params, **kwargs)
+        self.reset(reset)
 
     def save_excursion(self, save_cache: bool = False) -> _ParamsContext:
         """Save and restore current parameters after a with block.

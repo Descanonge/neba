@@ -30,38 +30,27 @@ class ParamsManagerModule(Module):
     def _init_module(self) -> None:
         self.params = {}
 
-    def set_params(
-        self,
-        params: abc.Mapping[str, t.Any] | None = None,
-        reset: bool | list[str] = True,
-        **kwargs,
-    ):
+    def set_params(self, params: abc.Mapping[str, t.Any] | None = None, **kwargs):
         """Set parameters values.
 
         Parameters
         ----------
         params:
             Mapping of parameters values.
-        reset:
-            Passed to :meth:`reset_callback`.
         kwargs:
             Additional parameters. Parameters will be taken in order of first available
             in: ``kwargs``, ``params``, :attr:`PARAMS_DEFAULTS`.
         """
         self._reset_params()
-        self.update_params(params, reset=reset, **kwargs)
+        self.update_params(params, **kwargs)
 
-    def update_params(
-        self, params: t.Any | None, reset: bool | list[str] = True, **kwargs
-    ):
+    def update_params(self, params: t.Any | None, **kwargs):
         """Update one or more parameters values.
 
         Other parameters are kept.
 
         Parameters
         ----------
-        reset:
-            Passed to :meth:`reset_callback`.
         kwargs:
             Other parameters values in the form ``name=value``.
         """
@@ -69,7 +58,6 @@ class ParamsManagerModule(Module):
             params = {}
         params.update(kwargs)
         self.params.update(params)
-        self.dm.reset(reset, params=params)
 
     def _reset_params(self) -> None:
         """Reset parameters to their initial state (empty dict)."""
@@ -110,7 +98,6 @@ class ParamsManagerSchemeModule(ParamsManagerModule):
     def set_params(
         self,
         params: Scheme | abc.Mapping[str, t.Any] | None = None,
-        reset: bool | list[str] = True,
         **kwargs,
     ):
         """Set parameters values.
@@ -122,21 +109,17 @@ class ParamsManagerSchemeModule(ParamsManagerModule):
             used to obtain a sub-scheme to use. If None, the default scheme class
             (:attr:`SCHEME`) will be used (with :attr:`PARAMS_DEFAULTS` added). Traits
             that do not already exist in the :attr:`params` scheme will be added.
-        reset:
-            Passed to :meth:`reset_callback`.
         kwargs:
             Other parameters values in the form ``name=value``. The value can be
             a :class:`~traitlets.TraitType` instance in which case it will be added
             to the parameters scheme with its default value.
         """
         self._reset_params()
-        self.update_params(params, reset=reset, **kwargs)
-        self.dm.reset(reset, params=params)
+        self.update_params(params, **kwargs)
 
     def update_params(
         self,
         params: Scheme | abc.Mapping[str, t.Any] | None,
-        reset: bool | list[str] = True,
         **kwargs,
     ):
         """Update one or more parameters values.
@@ -147,8 +130,6 @@ class ParamsManagerSchemeModule(ParamsManagerModule):
         ----------
         params:
             Scheme to add values to current parameters. Same as for :meth:`set_params`.
-        reset:
-            Passed to :meth:`reset_callback`.
         kwargs:
             Other parameters values in the form ``name=value``. The value can be
             a :class:`~traitlets.TraitType` instance in which case it will be added
@@ -165,7 +146,6 @@ class ParamsManagerSchemeModule(ParamsManagerModule):
         self.params.update(
             params, allow_new=True, raise_on_miss=self.RAISE_ON_MISS, **kwargs
         )
-        self.dm.reset(reset, params=params)
 
     def _reset_params(self) -> None:
         self.params = self.SCHEME()
