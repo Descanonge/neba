@@ -1007,4 +1007,4 @@ def _subscheme_clsname(scheme: type[Scheme] | Scheme, module: bool = True) -> st
     return ".".join([mod, name])
 
 
-abc.MutableMapping.register(Scheme)
+abc.MutableMapping[str, t.Any].register(Scheme)

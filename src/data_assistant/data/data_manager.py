@@ -8,30 +8,16 @@ import typing as t
 from collections import abc
 
 # from .plugin import CachePlugin, Plugin
+from .loader import LoaderModule
 from .module import Module
 from .params import ParamsManagerModule
+from .source import SourceModule
+from .util import T_Data, T_Source
+from .writer import WriterModule
 
 log = logging.getLogger(__name__)
 
-T_Data = t.TypeVar("T_Data")
-"""Type of data (numpy, pandas, xarray, etc.)."""
-T_Source = t.TypeVar("T_Source")
-"""Type of the data source (filename, URL, object, etc.)."""
-
-
 _P = t.TypeVar("_P")
-
-
-class SourceModule(Module):
-    _attr_name: str = "source"
-
-
-class LoaderModule(Module):
-    _attr_name: str = "loader"
-
-
-class WriterModule(Module):
-    _attr_name: str = "writer"
 
 
 class DataManagerBase(t.Generic[T_Source, T_Data]):
@@ -74,7 +60,7 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
     # For mypy
     params_manager: ParamsManagerModule
     loader: LoaderModule
-    source: SourceModule
+    source: SourceModule[T_Source]
     writer: WriterModule
 
     def __init_subclass__(cls) -> None:
@@ -228,21 +214,28 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
         s.append(f"\tset: {self.params}")
         return "\n".join(s)
 
-    def get_source(self) -> T_Source:
+    def get_source(self, *args, **kwargs) -> T_Source:
         """Return source for the data.
 
         Can be filenames, URL, store object, etc.
 
-        :Not implemented: implement in your DataManager subclass or a plugin.
+        Wraps around ``source.get_source()``.
         """
-        raise NotImplementedError("Implement in your DataManager subclass or a plugin.")
+        return self.source.get_source(*args, **kwargs)
 
-    def get_data(self) -> T_Data:
+    def get_data(self, *args, **kwargs) -> T_Data:
         """Return data object.
 
-        :Not implemented: implement in your DataManager subclass or a plugin.
+        Wraps around ``loader.get_data()``.
         """
-        raise NotImplementedError("Implement in your DataManager subclass or a plugin.")
+        return self.loader.get_data(*args, **kwargs)
+
+    def write(self, *args, **kwargs) -> t.Any:
+        """Write data to target.
+
+        Wraps around ``writer.write()``.
+        """
+        return self.writer.write(*args, **kwargs)
 
     def get_data_sets(
         self,
@@ -357,8 +350,3 @@ class _ParamsContext:
 
         # return false to raise any exception that may have occured
         return False
-
-
-class Test(DataManagerBase):
-    class _ReTest(ParamsModule):
-        nodiff = 2

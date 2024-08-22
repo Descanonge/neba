@@ -13,13 +13,14 @@ from collections import abc
 from datetime import datetime
 from os import PathLike, path
 
-from .data_manager import Plugin, T_Data, T_Source
-from .loader import LoaderPluginAbstract
+from .loader import LoaderModule
+from .module import Module
+from .util import T_Data, T_Source
 
 log = logging.getLogger(__name__)
 
 
-class WriterPluginAbstract(t.Generic[T_Source, T_Data], Plugin):
+class WriterModule(t.Generic[T_Source, T_Data], Module):
     """Abstract class of Writer plugin.
 
     Manages metadata to (eventually) add to data before writing.
@@ -176,9 +177,7 @@ class WriterPluginAbstract(t.Generic[T_Source, T_Data], Plugin):
         raise NotImplementedError("Implement in plugin subclass.")
 
 
-class CachedWriterPlugin(
-    WriterPluginAbstract[T_Source, T_Data], LoaderPluginAbstract[T_Source, T_Data]
-):
+class CachedWriter(WriterModule[T_Source, T_Data], LoaderModule[T_Source, T_Data]):
     """Generate data and save it to source if it does not already exist.
 
     When loading data (with :meth:`get_data`), if the source does not exist:

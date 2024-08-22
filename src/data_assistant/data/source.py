@@ -10,15 +10,42 @@ import typing as t
 from collections import abc
 from os import PathLike, path
 
-from .plugin import CachePlugin, Plugin, get_autocached
+from .module import CachedModule, Module, autocached
+from .util import T_Source
 
 log = logging.getLogger(__name__)
 
 if t.TYPE_CHECKING:
     from filefinder import Finder
 
+T_MultiSource = t.TypeVar("T_MultiSource", bound=abc.Sequence)
 
-class MultiFilePluginAbstract(Plugin):
+
+class SourceModule(t.Generic[T_Source], Module):
+    _attr_name: str = "source"
+
+    def get_source(self) -> T_Source:
+        """Return source of data.
+
+        :Not Implemented: Implement in Module subclass
+        """
+        raise NotImplementedError("Implement in Module subclass.")
+
+
+class SimpleSource(SourceModule[T_Source]):
+    """Simple module where data source is specified by class attribute.
+
+    The source is specified in :attr:`source_loc`.
+    """
+
+    source_loc: T_Source
+
+    def get_source(self) -> T_Source:
+        """Return source specified by :attr:`source_loc` attribute."""
+        return self.source_loc
+
+
+class MultiFileSource(SourceModule[list[str]]):
     """Abstract class for source consisting of multiple files.
 
     It is easier to deal with multiple files when separating a root directory, and the
@@ -85,7 +112,7 @@ class MultiFilePluginAbstract(Plugin):
         raise NotImplementedError("Implement in plugin subclass.")
 
 
-class GlobPlugin(MultiFilePluginAbstract, CachePlugin):
+class GlobSource(MultiFileSource, CachedModule):
     """Find files using glob patterns.
 
     Relies on the function :func:`glob.glob`.
@@ -104,13 +131,6 @@ class GlobPlugin(MultiFilePluginAbstract, CachePlugin):
     subdirectories and symbolic links to directories.
     """
 
-    _autocached = get_autocached("_glob_cache")
-
-    def _init_plugin(self) -> None:
-        self._CACHE_LOCATIONS.add("_glob_cache")
-        self._glob_cache: dict[str, t.Any] = {}
-        super()._init_plugin()
-
     def get_glob_pattern(self) -> str:
         """Return the glob pattern matching your files.
 
@@ -121,7 +141,7 @@ class GlobPlugin(MultiFilePluginAbstract, CachePlugin):
         raise NotImplementedError("Implement in your DataManager subclass.")
 
     @property
-    @_autocached
+    @autocached
     def datafiles(self) -> list[str]:
         """Cached list of files found by using glob."""
         import glob
@@ -139,7 +159,7 @@ class GlobPlugin(MultiFilePluginAbstract, CachePlugin):
         return files
 
 
-class FileFinderPlugin(MultiFilePluginAbstract, CachePlugin):
+class FileFinderSource(MultiFileSource, CachedModule):
     """Multifiles manager using Filefinder.
 
     Written for datasets comprising of many datafiles, either because of they have long
@@ -168,8 +188,6 @@ class FileFinderPlugin(MultiFilePluginAbstract, CachePlugin):
     parameters to be set, for instance to generate a specific filename.
     """
 
-    _autocached = get_autocached("_filefinder_cache")
-
     def _init_plugin(self) -> None:
         self._CACHE_LOCATIONS.add("_filefinder_cache")
         self._filefinder_cache: dict[str, t.Any] = {}
@@ -186,16 +204,10 @@ class FileFinderPlugin(MultiFilePluginAbstract, CachePlugin):
         """
         raise NotImplementedError("Implement in your DataManager class.")
 
-    # def _init_plugin(self) -> None:
-    #     super()._init_plugin()
-
-    #     Add fixable_params to the dataset allowed_params
-    #     self.allowed_params |= set(self.fixable)
-
     def __repr__(self) -> str:
         s = super().__repr__().splitlines()
         # autocached prop has full qualified name
-        if "filefinder" in self._filefinder_cache:
+        if "filefinder" in self.cache:
             s.append("Filefinder:")
             s += [f"\t{line}" for line in repr(self.filefinder).splitlines()]
         return "\n".join(s)
@@ -229,7 +241,7 @@ class FileFinderPlugin(MultiFilePluginAbstract, CachePlugin):
         return filename
 
     @property
-    @_autocached
+    @autocached
     def filefinder(self) -> Finder:
         """Filefinder instance to scan for datafiles.
 
@@ -250,7 +262,7 @@ class FileFinderPlugin(MultiFilePluginAbstract, CachePlugin):
         return finder
 
     @property
-    @_autocached
+    @autocached
     def fixable(self) -> list[str]:
         """List of parameters that can vary in the filename.
 
@@ -261,7 +273,7 @@ class FileFinderPlugin(MultiFilePluginAbstract, CachePlugin):
         return list(self.filefinder.get_group_names())
 
     @property
-    @_autocached
+    @autocached
     def unfixed(self) -> list[str]:
         """List of varying parameters whose value is not fixed.
 
@@ -278,7 +290,7 @@ class FileFinderPlugin(MultiFilePluginAbstract, CachePlugin):
         return list(set(unfixed))
 
     @property
-    @_autocached
+    @autocached
     def datafiles(self) -> list[str]:
         """Datafiles available.
 
@@ -308,7 +320,7 @@ class climato:  # noqa: N801
     def __init__(self, append_folder: str | None = None):
         self.append_folder = append_folder
 
-    def __call__(self, cls: FileFinderPlugin):
+    def __call__(self, cls: FileFinderSource):
         """Apply decorator."""
         from filefinder import Finder
 

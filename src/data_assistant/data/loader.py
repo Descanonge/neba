@@ -5,15 +5,18 @@ from __future__ import annotations
 import typing as t
 from collections import abc
 
-from .data_manager import Plugin, T_Data, T_Source
+from .module import Module
+from .util import T_Data, T_Source
 
 
-class LoaderPluginAbstract(t.Generic[T_Source, T_Data], Plugin):
+class LoaderModule(t.Generic[T_Source, T_Data], Module):
     """Abstract class of Loader plugin.
 
     The Loader is tasked with opening the data into Python.
     It may run post-processing if defined by the user.
     """
+
+    _attr_name: str = "loader"
 
     def get_data(
         self,

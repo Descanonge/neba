@@ -63,31 +63,26 @@ R = t.TypeVar("R")
 
 
 # The `func` argument is typed as Any because technically Callable is contravariant
-# and typing it as Plugin would not allow subclasses.
-def get_autocached(
-    name: str,
-) -> abc.Callable[[abc.Callable[[t.Any], R]], abc.Callable[[t.Any], R]]:
-    """Generate decorator to make a property autocached.
+# and typing it as Module would not allow subclasses.
+def autocached(func: abc.Callable[[t.Any], R]) -> abc.Callable[[t.Any], R]:
+    """Make a property autocached.
 
-    Parameters
-    ----------
-    name
-        Attribute name where the cache is located.
+    When the property is accessed, it will first check if a key with the same name (as
+    the property) exists in the module cache. If yes, it directly returns the cached
+    values, otherwise it runs the code of the property, caches the result and returns
+    it.
+
+    There is no check on the module containing a cache. If not it will raise an
+    AttributeError on accessing the property.
     """
+    property_name = func.__name__
 
-    def decorator(func: abc.Callable[[t.Any], R]) -> abc.Callable[[t.Any], R]:
-        """Automatically cache a property."""
-        property_name = func.__name__
+    @functools.wraps(func)
+    def wrap(self: t.Any) -> R:
+        if property_name in self.cache:
+            return self.cache[property_name]
+        result = func(self)
+        self.cache[property_name] = result
+        return result
 
-        @functools.wraps(func)
-        def wrap(self: t.Any) -> R:
-            cache = getattr(self, name)
-            if property_name in cache:
-                return cache[property_name]
-            result = func(self)
-            cache[property_name] = result
-            return result
-
-        return wrap
-
-    return decorator
+    return wrap

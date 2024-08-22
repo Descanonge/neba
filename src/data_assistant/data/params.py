@@ -64,7 +64,11 @@ class ParamsManagerModule(Module):
         self.params = {}
 
 
-class ParamsManagerSchemeModule(ParamsManagerModule):
+# Alias
+ParamsManager = ParamsManagerModule
+
+
+class ParamsManagerScheme(ParamsManagerModule):
     """Parameters are stored in a Scheme object.
 
     Set and update methods rely on :meth:`.Scheme.update` to merge the new parameters
