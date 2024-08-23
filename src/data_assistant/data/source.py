@@ -10,7 +10,7 @@ import typing as t
 from collections import abc
 from os import PathLike, path
 
-from .module import CachedModule, Module, autocached
+from .module import CachedModule, Module, ModuleMix, autocached
 from .util import T_Source
 
 log = logging.getLogger(__name__)
@@ -43,6 +43,9 @@ class SimpleSource(SourceAbstract[T_Source]):
     def get_source(self) -> T_Source:
         """Return source specified by :attr:`source_loc` attribute."""
         return self.source_loc
+
+    def _lines(self) -> list[str]:
+        return [f"Source directly specified: {self.get_source()}"]
 
 
 class MultiFileSource(SourceAbstract[list[str]]):
@@ -399,6 +402,13 @@ class _SourceMix(SourceAbstract, ModuleMix[SourceAbstract]):
             groups.append(source)
         return groups
 
+    def _lines(self) -> list[str]:
+        s = []
+        for mod in self.base_modules:
+            s.append(mod.__class__.__name__)
+            s += [f"\t{line}" for line in mod._lines()]
+        return s
+
 
 class SourceUnion(_SourceMix):
     def get_source(self) -> list[t.Any]:
@@ -406,9 +416,19 @@ class SourceUnion(_SourceMix):
         union = set().union(*[set(g) for g in groups])
         return list(union)
 
+    def _lines(self) -> list[str]:
+        s = super()._lines()
+        s.insert(0, "Union of sources from modules:")
+        return s
+
 
 class SourceIntersection(_SourceMix):
     def get_source(self) -> list[t.Any]:
         groups = self._get_source_groups()
         inter: set[t.Any] = set().intersection(*[set(g) for g in groups])
         return list(inter)
+
+    def _lines(self) -> list[str]:
+        s = super()._lines()
+        s.insert(0, "Intersection of sources from modules:")
+        return s
