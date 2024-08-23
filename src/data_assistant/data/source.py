@@ -158,6 +158,14 @@ class GlobSource(MultiFileSource, CachedModule):
             log.warning("No file found for pattern %s", pattern)
         return files
 
+    def _lines(self) -> list[str]:
+        """Human readable description."""
+        s = [
+            f"Glob pattern '{self.get_glob_pattern()}'",
+            f"In root directory '{self.root_directory}'",
+        ]
+        return s
+
 
 class FileFinderSource(MultiFileSource, CachedModule):
     """Multifiles manager using Filefinder.
@@ -184,14 +192,9 @@ class FileFinderSource(MultiFileSource, CachedModule):
     variations from file to file (the date in daily datafiles for instance) are called
     'fixables'. If they are not set, the filemanager will select all files, which is
     okay for finding files and opening the corresponding data. If the user 'fix' them to
-    a value, only part of the files will be selected. Some operation require all
     parameters to be set, for instance to generate a specific filename.
+    a value, only part of the files will be selected. Some operation require all
     """
-
-    def _init_plugin(self) -> None:
-        self._CACHE_LOCATIONS.add("_filefinder_cache")
-        self._filefinder_cache: dict[str, t.Any] = {}
-        super()._init_plugin()
 
     def get_filename_pattern(self) -> str:
         """Return the filename pattern.
@@ -231,7 +234,9 @@ class FileFinderSource(MultiFileSource, CachedModule):
                 raise KeyError(f"Parameter {f} cannot be fixed '{self}'.")
 
         # In case params were changed sneakily and the cache was not invalidated
-        fixable_params = {p: self.params[p] for p in self.fixable if p in self.params}
+        fixable_params = {
+            p: self.dm.params[p] for p in self.fixable if p in self.dm.params
+        }
         fixes = fixable_params | fixes
 
         # Remove parameters set to None, FileFinder is not equipped for that
@@ -257,7 +262,7 @@ class FileFinderSource(MultiFileSource, CachedModule):
         fixable = finder.get_group_names()
 
         for p in fixable:
-            if (value := self.params.get(p, None)) is not None:
+            if (value := self.dm.params.get(p, None)) is not None:
                 finder.fix_group(p, value)
         return finder
 
@@ -301,6 +306,24 @@ class FileFinderSource(MultiFileSource, CachedModule):
         if len(files) == 0:
             log.warning("No file found for finder:\n%s", self.filefinder)
         return files
+
+    def _lines(self) -> list[str]:
+        """Human readable description."""
+        s = [f"FileFinder pattern '{self.get_filename_pattern()}'"]
+        if "filefinder" in self.cache:
+            fixes = {}
+            for grp in self.filefinder.groups:
+                if grp.fixed:
+                    fixes[grp.name] = grp.fixed_value
+            if fixes:
+                s.append(
+                    "\twith fixed values: "
+                    + ", ".join([f"{name}: {value}" for name, value in fixes.items()])
+                )
+        s.append(f"In root directory '{self.root_directory}'")
+        if "datafiles" in self.cache:
+            s.append(f"Found {len(self.datafiles)} files")
+        return s
 
 
 class climato:  # noqa: N801
