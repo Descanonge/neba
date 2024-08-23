@@ -9,11 +9,11 @@ from collections import abc
 
 # from .plugin import CachePlugin, Plugin
 from .loader import LoaderAbstract
-from .module import Module
+from .module import CachedModule, Module
 from .params import ParamsManagerAbstract
 from .source import SourceAbstract
 from .util import T_Data, T_Source
-from .writer import WriterModule
+from .writer import WriterAbstract
 
 log = logging.getLogger(__name__)
 
@@ -57,11 +57,11 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
         writer=WriterAbstract,
     )
 
-    # For mypy
+    # For mypy, those are dynamically set
     params_manager: ParamsManagerAbstract
-    loader: LoaderAbstract
+    loader: LoaderAbstract[T_Source, T_Data]
     source: SourceAbstract[T_Source]
-    writer: WriterAbstract
+    writer: WriterAbstract[T_Source, T_Data]
 
     def __init_subclass__(cls) -> None:
         super().__init_subclass__()
@@ -70,8 +70,12 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
                 cls._module_classes[attr._attr_name] = attr
 
     def __init__(self, params: t.Any | None = None, **kwargs) -> None:
+        self._modules: dict[str, Module] = {}
+
         for name, cls in self._module_classes.items():
-            setattr(self, name, cls(self))
+            mod = cls(self, params, **kwargs)
+            setattr(self, name, mod)
+            self._modules[name] = mod
 
         self._reset_callbacks: dict[str, abc.Callable[..., None]] = {}
         """Dictionary of callbacks to run when parameters are changed/reset.
@@ -82,9 +86,38 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
 
         self.set_params(params, **kwargs)
 
+    @t.overload
+    def _mod(self, module: t.Literal["params_manager"]) -> ParamsManagerAbstract: ...
+
+    @t.overload
+    def _mod(self, module: t.Literal["source"]) -> SourceAbstract[T_Source]: ...
+
+    @t.overload
+    def _mod(self, module: t.Literal["loader"]) -> LoaderAbstract[T_Source, T_Data]: ...
+
+    @t.overload
+    def _mod(self, module: t.Literal["writer"]) -> WriterAbstract[T_Source, T_Data]: ...
+
+    def _mod(self, module: str) -> Module:
+        """Return a given module or raise a helpful message.
+
+        Should be better than a simple AttributeError. Developers should be encouraged
+        to use ``self._mod("loader")`` rather than ``self.loader``.
+        """
+        mod = self._modules.get(module, None)
+        if mod is not None:
+            return mod
+        clsname = self.__class__.__name__
+        raise AttributeError(
+            f"This DataManager '{self!s}' has no module '{module}'. "
+            f"It should be registered in the '{clsname}._module_classes' dictionnary. "
+            f"Please check the documentation on how to easily register new modules."
+        )
+
     @property
     def params(self) -> abc.Mapping[str, t.Any]:
-        return self.params_manager.params
+        """Parameters values for this instance."""
+        return self._mod("params_manager").params
 
     def set_params(
         self, params: t.Any | None = None, reset: bool | list[str] = True, **kwargs
@@ -102,7 +135,7 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
             Parameters will be taken in order of first available in:
             ``kwargs``, ``params``, :attr:`PARAMS_DEFAULTS`.
         """
-        self.params_manager.set_params(params, **kwargs)
+        self._mod("params_manager").set_params(params, **kwargs)
         self.reset(reset)
 
     def update_params(
@@ -119,7 +152,7 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
         kwargs:
             Other parameters values in the form ``name=value``.
         """
-        self.params_manager.update_params(params, **kwargs)
+        self._mod("params_manager").update_params(params, **kwargs)
         self.reset(reset)
 
     def save_excursion(self, save_cache: bool = False) -> _ParamsContext:
@@ -221,21 +254,21 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
 
         Wraps around ``source.get_source()``.
         """
-        return self.source.get_source(*args, **kwargs)
+        return self._mod("source").get_source(*args, **kwargs)
 
     def get_data(self, *args, **kwargs) -> T_Data:
         """Return data object.
 
         Wraps around ``loader.get_data()``.
         """
-        return self.loader.get_data(*args, **kwargs)
+        return self._mod("loader").get_data(*args, **kwargs)
 
     def write(self, *args, **kwargs) -> t.Any:
         """Write data to target.
 
         Wraps around ``writer.write()``.
         """
-        return self.writer.write(*args, **kwargs)
+        return self._mod("writer").write(*args, **kwargs)
 
     def get_data_sets(
         self,
@@ -315,12 +348,16 @@ class _ParamsContext:
         self.params = copy.deepcopy(dm.params)
         self.caches: dict | None = None
 
-        # if save_cache and isinstance(dm, CachePlugin):
-        #     self.caches = {key: getattr(dm, key) for key in dm._CACHE_LOCATIONS}
+        if save_cache:
+            self.caches = {
+                name: mod.cache
+                for name, mod in dm._modules.items()
+                if isinstance(mod, CachedModule)
+            }
 
     def repopulate_cache(self):
-        for loc, save in self.caches.items():
-            cache = getattr(self.dm, loc)
+        for module, save in self.caches.items():
+            cache = self._mod(module).cache
             for key, val in save.items():
                 # do not overwrite current cache
                 if key not in cache:
@@ -331,9 +368,9 @@ class _ParamsContext:
                 current_val = save[key]
                 if current_val != val:
                     log.warning(
-                        "Different value when restoring cache %s for key %s: "
+                        "Different value when restoring module %s cache for key %s: "
                         "saved '%s', has '%s'.",
-                        loc,
+                        module,
                         key,
                         str(val),
                         str(current_val),
