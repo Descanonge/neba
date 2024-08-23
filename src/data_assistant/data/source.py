@@ -387,3 +387,28 @@ class climato:  # noqa: N801
         newcls = type(f"{cls.__name__}Climatology", (cls,), changes)
 
         return newcls
+
+
+class _SourceMix(SourceAbstract, ModuleMix[SourceAbstract]):
+    def _get_source_groups(self) -> list[t.Any]:
+        groups: list[t.Any] = []
+        for mod in self.base_modules:
+            source = mod.get_source()
+            if not isinstance(source, list | tuple):
+                source = [source]
+            groups.append(source)
+        return groups
+
+
+class SourceUnion(_SourceMix):
+    def get_source(self) -> list[t.Any]:
+        groups = self._get_source_groups()
+        union = set().union(*[set(g) for g in groups])
+        return list(union)
+
+
+class SourceIntersection(_SourceMix):
+    def get_source(self) -> list[t.Any]:
+        groups = self._get_source_groups()
+        inter: set[t.Any] = set().intersection(*[set(g) for g in groups])
+        return list(inter)

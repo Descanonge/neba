@@ -90,3 +90,34 @@ def autocached(func: abc.Callable[[t.Any], R]) -> abc.Callable[[t.Any], R]:
         return result
 
     return wrap
+
+
+T_Mod = t.TypeVar("T_Mod", bound=Module)
+
+
+class ModuleMix(t.Generic[T_Mod], Module):
+    _base_modules: tuple[type[T_Mod], ...] = ()
+
+    base_modules: list[T_Mod]
+
+    def __init__(self, dm: DataManagerBase, *args, **kwargs):
+        super().__init__(dm, *args, **kwargs)
+        # initialize every base module
+        self.base_modules = []
+        for cls in self._base_modules:
+            self.base_modules.append(cls(dm, *args, **kwargs))
+
+    @classmethod
+    def create(cls, bases: abc.Sequence[type[T_Mod]]) -> type[t.Self]:
+        """Create a new mix-class from base module."""
+        cls._base_modules = tuple(bases)
+        cls._attr_name = bases[0]._attr_name
+
+        names = [b._attr_name for b in bases]
+        if any(n != n[0] for n in names):
+            log.warning(
+                "Mix of modules have differing attributes names (%s). Taking first one. ",
+                ", ".join(names),
+            )
+
+        return cls
