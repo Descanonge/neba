@@ -38,6 +38,10 @@ class Module:
     def _init_module(self) -> None:
         pass
 
+    def _lines(self) -> list[str]:
+        """Lines to show in DataManager repr (human readable)."""
+        return []
+
 
 class CachedModule(Module):
     """Plugin containing a cache."""

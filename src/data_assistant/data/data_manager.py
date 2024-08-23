@@ -239,12 +239,9 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
 
     def __repr__(self) -> str:
         """Return a human readable representation."""
-        s = []
-        s.append(self.__str__())
-        s.append("Parameters:")
-        if self.PARAMS_DEFAULTS:
-            s.append(f"\tdefaults: {self.PARAMS_DEFAULTS}")
-        s.append(f"\tset: {self.params}")
+        s = [self.__str__()]
+        for mod in self._modules.values():
+            s += mod._lines()
         return "\n".join(s)
 
     def get_source(self, *args, **kwargs) -> T_Source:
