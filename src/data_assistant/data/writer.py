@@ -13,14 +13,14 @@ from collections import abc
 from datetime import datetime
 from os import PathLike, path
 
-from .loader import LoaderModule
+from .loader import LoaderAbstract
 from .module import Module
 from .util import T_Data, T_Source
 
 log = logging.getLogger(__name__)
 
 
-class WriterModule(t.Generic[T_Source, T_Data], Module):
+class WriterAbstract(t.Generic[T_Source, T_Data], Module):
     """Abstract class of Writer plugin.
 
     Manages metadata to (eventually) add to data before writing.
@@ -58,8 +58,8 @@ class WriterModule(t.Generic[T_Source, T_Data], Module):
 
         # Name of class
         cls_name = self.__class__.__name__
-        if self.ID:
-            cls_name += f":{self.ID}"
+        if self.dm.ID:
+            cls_name += f":{self.dm.ID}"
         meta["written_as_dataset"] = cls_name
 
         # Get hostname and script name
@@ -69,7 +69,7 @@ class WriterModule(t.Generic[T_Source, T_Data], Module):
 
         # Get parameters as string
         if add_dataset_params:
-            params = self.params_as_dict
+            params = self.dm.params
             try:
                 params_str = json.dumps(params)
             except TypeError:
@@ -177,7 +177,7 @@ class WriterModule(t.Generic[T_Source, T_Data], Module):
         raise NotImplementedError("Implement in plugin subclass.")
 
 
-class CachedWriter(WriterModule[T_Source, T_Data], LoaderModule[T_Source, T_Data]):
+class CachedWriter(WriterAbstract[T_Source, T_Data], LoaderAbstract[T_Source, T_Data]):
     """Generate data and save it to source if it does not already exist.
 
     When loading data (with :meth:`get_data`), if the source does not exist:
@@ -221,7 +221,7 @@ class CachedWriter(WriterModule[T_Source, T_Data], LoaderModule[T_Source, T_Data
             :meth:`~.data_manager.DataManagerBase.get_source` is used.
         """
         if source is None:
-            source = self.get_source()
+            source = self.dm.get_source()
 
         if not self._source_exists(source):
             data = self.generate_data()

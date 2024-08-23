@@ -8,10 +8,10 @@ import typing as t
 from collections import abc
 
 # from .plugin import CachePlugin, Plugin
-from .loader import LoaderModule
+from .loader import LoaderAbstract
 from .module import Module
-from .params import ParamsManagerModule
-from .source import SourceModule
+from .params import ParamsManagerAbstract
+from .source import SourceAbstract
 from .util import T_Data, T_Source
 from .writer import WriterModule
 
@@ -51,17 +51,17 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
     """Long name to identify uniquely this data-manager class."""
 
     _module_classes: dict[str, type[Module]] = dict(
-        params_manager=ParamsManagerModule,
-        loader=LoaderModule,
-        source=SourceModule,
-        writer=WriterModule,
+        params_manager=ParamsManagerAbstract,
+        loader=LoaderAbstract,
+        source=SourceAbstract,
+        writer=WriterAbstract,
     )
 
     # For mypy
-    params_manager: ParamsManagerModule
-    loader: LoaderModule
-    source: SourceModule[T_Source]
-    writer: WriterModule
+    params_manager: ParamsManagerAbstract
+    loader: LoaderAbstract
+    source: SourceAbstract[T_Source]
+    writer: WriterAbstract
 
     def __init_subclass__(cls) -> None:
         super().__init_subclass__()

@@ -10,8 +10,8 @@ from collections import abc
 
 import xarray as xr
 
-from .loader import LoaderPluginAbstract
-from .writer import WriterPluginAbstract
+from .loader import LoaderAbstract
+from .writer import WriterAbstract
 
 if t.TYPE_CHECKING:
     try:
@@ -33,8 +33,8 @@ log = logging.getLogger(__name__)
 ## Loading
 
 
-class XarrayFileLoaderPlugin(LoaderPluginAbstract[str, xr.Dataset]):
-    """Loader for a single file to Xarray.
+class XarrayLoader(LoaderAbstract[str, xr.Dataset]):
+    """Load from single source with Xarray.
 
     Uses :func:`xarray.open_dataset` to open data.
     """
@@ -61,8 +61,8 @@ class XarrayFileLoaderPlugin(LoaderPluginAbstract[str, xr.Dataset]):
         return ds
 
 
-class XarrayMultiFileLoaderPlugin(LoaderPluginAbstract[abc.Sequence[str], xr.Dataset]):
-    """Loader for multiple files to Xarray.
+class XarrayMultiFileLoader(LoaderAbstract[abc.Sequence[str], xr.Dataset]):
+    """Load from multiple files to Xarray.
 
     Uses :func:`xarray.open_mfdataset` to open data.
     """
@@ -93,7 +93,7 @@ class XarrayMultiFileLoaderPlugin(LoaderPluginAbstract[abc.Sequence[str], xr.Dat
 ## Writing
 
 
-class XarrayWriterPlugin(WriterPluginAbstract[str, xr.Dataset]):
+class XarrayWriterPlugin(WriterAbstract[str, xr.Dataset]):
     """Write Xarray dataset to single target.
 
     Implement the single call method, and common features for other
@@ -241,7 +241,7 @@ class XarrayWriterPlugin(WriterPluginAbstract[str, xr.Dataset]):
             (:meth:`xarray.Dataset.to_netcdf` or :meth:`xarray.Dataset.to_zarr`).
         """
         if target is None:
-            target = self.get_source()
+            target = self.dm.get_source()
 
         data = self.set_metadata(data)
         call = target, data
@@ -249,7 +249,7 @@ class XarrayWriterPlugin(WriterPluginAbstract[str, xr.Dataset]):
         return self.send_single_call(call, **kwargs)
 
 
-class XarrayMultiFileWriterPlugin(XarrayWriterPlugin):
+class XarrayMultiFileWriter(XarrayWriterPlugin):
     """Write from an xarray dataset to multiple files using Dask."""
 
     def send_calls_together(
@@ -343,7 +343,7 @@ class XarrayMultiFileWriterPlugin(XarrayWriterPlugin):
             (:meth:`xarray.Dataset.to_netcdf` or :meth:`xarray.Dataset.to_zarr`).
         """
         if target is None:
-            target = self.get_source()
+            target = self.dm.get_source()
 
         data = [self.set_metadata(d) for d in data]
 
@@ -399,7 +399,7 @@ class Splitable(t.Protocol[T]):
         """
 
 
-class XarraySplitWriterPlugin(XarrayMultiFileWriterPlugin, Splitable[str]):
+class XarraySplitWriter(XarrayMultiFileWriter, Splitable[str]):
     """Writer for Xarray datasets in multifiles.
 
     Can automatically split a dataset to the corresponding files by communicating

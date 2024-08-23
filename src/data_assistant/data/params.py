@@ -12,7 +12,7 @@ from .module import Module
 log = logging.getLogger(__name__)
 
 
-class ParamsManagerModule(Module):
+class ParamsManagerAbstract(Module):
     """Parameters are stored in a dictionary."""
 
     _attr_name: str = "params_manager"
@@ -65,10 +65,10 @@ class ParamsManagerModule(Module):
 
 
 # Alias
-ParamsManager = ParamsManagerModule
+ParamsManager = ParamsManagerAbstract
 
 
-class ParamsManagerScheme(ParamsManagerModule):
+class ParamsManagerScheme(ParamsManager):
     """Parameters are stored in a Scheme object.
 
     Set and update methods rely on :meth:`.Scheme.update` to merge the new parameters

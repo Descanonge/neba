@@ -9,7 +9,7 @@ from .module import Module
 from .util import T_Data, T_Source
 
 
-class LoaderModule(t.Generic[T_Source, T_Data], Module):
+class LoaderAbstract(t.Generic[T_Source, T_Data], Module):
     """Abstract class of Loader plugin.
 
     The Loader is tasked with opening the data into Python.
@@ -49,7 +49,7 @@ class LoaderModule(t.Generic[T_Source, T_Data], Module):
 
         """
         if source is None:
-            source = self.get_source()
+            source = self.dm.get_source()
 
         if load_kwargs is None:
             load_kwargs = {}

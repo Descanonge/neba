@@ -21,7 +21,7 @@ if t.TYPE_CHECKING:
 T_MultiSource = t.TypeVar("T_MultiSource", bound=abc.Sequence)
 
 
-class SourceModule(t.Generic[T_Source], Module):
+class SourceAbstract(t.Generic[T_Source], Module):
     _attr_name: str = "source"
 
     def get_source(self) -> T_Source:
@@ -32,7 +32,7 @@ class SourceModule(t.Generic[T_Source], Module):
         raise NotImplementedError("Implement in Module subclass.")
 
 
-class SimpleSource(SourceModule[T_Source]):
+class SimpleSource(SourceAbstract[T_Source]):
     """Simple module where data source is specified by class attribute.
 
     The source is specified in :attr:`source_loc`.
@@ -45,7 +45,7 @@ class SimpleSource(SourceModule[T_Source]):
         return self.source_loc
 
 
-class MultiFileSource(SourceModule[list[str]]):
+class MultiFileSource(SourceAbstract[list[str]]):
     """Abstract class for source consisting of multiple files.
 
     It is easier to deal with multiple files when separating a root directory, and the
