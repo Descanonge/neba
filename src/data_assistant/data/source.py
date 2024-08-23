@@ -326,10 +326,14 @@ class FileFinderSource(MultiFileSource, CachedModule):
         return s
 
 
+# maybe try better way to deal with this since now we can modify the source module
+# at runtime with an eventual parameter 'climato=something' ?
+
+
 class climato:  # noqa: N801
     """Create a Dataset subclass for climatology.
 
-    Generate new subclass of a dataset that correspond to its climatology.
+    Generate new subclass of a source module that correspond to its climatology.
     Have to wrap around base class get_root and get_pattern.
     Pattern is not easy, we have to get rid of time related groups.
 
@@ -343,24 +347,19 @@ class climato:  # noqa: N801
     def __init__(self, append_folder: str | None = None):
         self.append_folder = append_folder
 
-    def __call__(self, cls: FileFinderSource):
+    def __call__(self, cls: type[FileFinderSource]):
         """Apply decorator."""
         from filefinder import Finder
 
         time_pattern_names = "SXMHjdxFmBY"
 
-        # Change get_root_directory
-        if self.append_folder:
-
-            def get_root_dir_wrapped(obj):
-                root_dir = super(cls, obj).get_root_directory()
-                if isinstance(root_dir, str | PathLike):
-                    root_dir = path.join(root_dir, self.append_folder)
-                else:
-                    root_dir.append(self.append_folder)
-                return root_dir
-
-            cls.get_root_directory = get_root_dir_wrapped  # type: ignore
+        def get_root_dir_wrapped(obj):
+            root_dir = super(cls, obj).get_root_directory()
+            if isinstance(root_dir, str | PathLike):
+                root_dir = path.join(root_dir, self.append_folder)
+            else:
+                root_dir.append(self.append_folder)
+            return root_dir
 
         # Change get_filename_pattern
         def get_filename_pattern_wrapped(obj):
@@ -380,11 +379,11 @@ class climato:  # noqa: N801
             pattern = infile + ext
             return pattern
 
-        cls.get_filename_pattern = get_filename_pattern_wrapped  # type: ignore
+        changes: dict[str, t.Any] = {}
+        changes["get_filename_pattern"] = get_filename_pattern_wrapped
+        if self.append_folder:
+            changes["get_root_directory"] = get_root_dir_wrapped
 
-        if cls.ID:
-            cls.ID = f"{cls.ID}_cli"
-        if cls.SHORTNAME:
-            cls.SHORTNAME = f"{cls.SHORTNAME}_cli"
+        newcls = type(f"{cls.__name__}Climatology", (cls,), changes)
 
-        return cls
+        return newcls
