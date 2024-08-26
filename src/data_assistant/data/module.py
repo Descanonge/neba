@@ -35,6 +35,10 @@ class Module:
         self.dm = dm
         self._init_module()
 
+    @property
+    def params(self) -> abc.MutableMapping[str, t.Any]:
+        return self.dm.params_manager.params
+
     def _init_module(self) -> None:
         pass
 
@@ -111,9 +115,9 @@ class ModuleMix(t.Generic[T_Mod], Module):
     def create(cls, bases: abc.Sequence[type[T_Mod]]) -> type[t.Self]:
         """Create a new mix-class from base module."""
         cls._base_modules = tuple(bases)
-        cls._attr_name = bases[0]._attr_name
+        cls._ATTR_NAME = bases[0]._ATTR_NAME
 
-        names = [b._attr_name for b in bases]
+        names = [b._ATTR_NAME for b in bases]
         if any(n != n[0] for n in names):
             log.warning(
                 "Mix of modules have differing attributes names (%s). Taking first one. ",

@@ -25,10 +25,14 @@ class ParamsManagerAbstract(Module):
     :mod:`data_assistant.config`).
     """
 
-    params: abc.MutableMapping[str, t.Any]
+    _params: abc.MutableMapping[str, t.Any]
 
     def _init_module(self) -> None:
-        self.params = {}
+        self._params = {}
+
+    @property
+    def params(self) -> abc.MutableMapping[str, t.Any]:
+        return self._params
 
     def set_params(self, params: abc.Mapping[str, t.Any] | None = None, **kwargs):
         """Set parameters values.
@@ -61,7 +65,7 @@ class ParamsManagerAbstract(Module):
 
     def _reset_params(self) -> None:
         """Reset parameters to their initial state (empty dict)."""
-        self.params = {}
+        self._params = {}
 
 
 # Alias
@@ -94,7 +98,7 @@ class ParamsManagerScheme(ParamsManager):
     This is *after* following :attr:`.PARAMS_PATH` on an input argument.
     """
 
-    params: Scheme
+    _params: Scheme
 
     def _init_module(self) -> None:
         self._reset_params()
@@ -147,12 +151,12 @@ class ParamsManagerScheme(ParamsManager):
             if not isinstance(params, Scheme):
                 raise TypeError(f"'{self.PARAMS_PATH}' did not led to subscheme.")
 
-        self.params.update(
+        self._params.update(
             params, allow_new=True, raise_on_miss=self.RAISE_ON_MISS, **kwargs
         )
 
     def _reset_params(self) -> None:
-        self.params = self.SCHEME()
-        self.params.update(
+        self._params = self.SCHEME()
+        self._params.update(
             self.PARAMS_DEFAULTS, allow_new=True, raise_on_miss=self.RAISE_ON_MISS
         )

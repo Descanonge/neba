@@ -8,7 +8,7 @@ import typing as t
 from collections import abc
 
 from .loader import LoaderAbstract
-from .module import CachedModule, Module, T_Mod
+from .module import CachedModule, Module
 from .params import ParamsManagerAbstract
 from .source import SourceAbstract
 from .util import T_Data, T_Source
@@ -115,12 +115,6 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
 
     def __init__(self, params: t.Any | None = None, **kwargs) -> None:
         self._modules: dict[str, Module] = {}
-
-        for name, cls in self._module_classes.items():
-            mod = cls(self, params, **kwargs)
-            setattr(self, name, mod)
-            self._modules[name] = mod
-
         self._reset_callbacks: dict[str, abc.Callable[..., None]] = {}
         """Dictionary of callbacks to run when parameters are changed/reset.
 
@@ -128,12 +122,17 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
         any number of keyword arguments.
         """
 
+        for name, cls in self._module_classes.items():
+            mod = cls(self, params, **kwargs)
+            setattr(self, name, mod)
+            self._modules[name] = mod
+
         self.set_params(params, **kwargs)
 
     @property
-    def params(self) -> abc.Mapping[str, t.Any]:
+    def params(self) -> abc.MutableMapping[str, t.Any]:
         """Parameters values for this instance."""
-        return self.params_manager.params
+        return self.params_manager._params
 
     def set_params(
         self, params: t.Any | None = None, reset: bool | list[str] = True, **kwargs
