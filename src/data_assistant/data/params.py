@@ -8,16 +8,17 @@ from collections import abc
 
 from ..config.scheme import Scheme
 from .module import Module
+from .util import T_Params
 
 log = logging.getLogger(__name__)
 
 
-class ParamsManagerAbstract(Module):
-    """Parameters are stored in a dictionary."""
+class ParamsManagerAbstract(t.Generic[T_Params], Module):
+    """Abstract of paramaters manager."""
 
     _ATTR_NAME: str = "params_manager"
 
-    PARAMS_DEFAULTS: abc.Mapping[str, t.Any]
+    PARAMS_DEFAULTS: abc.Mapping[str, t.Any] = {}
     """Default values of parameters.
 
     Optional. Can be used to define default values for parameters local to a
@@ -25,14 +26,42 @@ class ParamsManagerAbstract(Module):
     :mod:`data_assistant.config`).
     """
 
-    _params: abc.MutableMapping[str, t.Any]
+    _params: T_Params
+
+    @property
+    def params(self) -> T_Params:
+        """Parameters currently stored."""
+        return self._params
+
+    def set_params(self, params=None, **kwargs):
+        """Set parameters values.
+
+        :Not Implemented: Implement in a subclass of this module.
+        """
+        raise NotImplementedError("Implement in a subclass of this module.")
+
+    def update_params(self, params: t.Any | None, **kwargs):
+        """Update one or more parameters values.
+
+        Other parameters are kept.
+
+        :Not Implemented: Implement in a subclass of this module.
+        """
+        raise NotImplementedError("Implement in a subclass of this module.")
+
+    def _reset_params(self) -> None:
+        """Reset parameters to their initial state (empty dict).
+
+        :Not Implemented: Implement in a subclass of this module.
+        """
+        raise NotImplementedError("Implement in a subclass of this module.")
+
+
+class ParamsManager(ParamsManagerAbstract[dict[str, t.Any]]):
+    """Parameters stored in a dictionnary."""
 
     def _init_module(self) -> None:
         self._params = {}
-
-    @property
-    def params(self) -> abc.MutableMapping[str, t.Any]:
-        return self._params
 
     def set_params(self, params: abc.Mapping[str, t.Any] | None = None, **kwargs):
         """Set parameters values.
@@ -68,11 +97,10 @@ class ParamsManagerAbstract(Module):
         self._params = {}
 
 
-# Alias
-ParamsManager = ParamsManagerAbstract
+T_Scheme = t.TypeVar("T_Scheme", bound=Scheme)
 
 
-class ParamsManagerScheme(ParamsManager):
+class ParamsManagerScheme(ParamsManagerAbstract[T_Scheme]):
     """Parameters are stored in a Scheme object.
 
     Set and update methods rely on :meth:`.Scheme.update` to merge the new parameters
@@ -85,6 +113,8 @@ class ParamsManagerScheme(ParamsManager):
     Optional. Can be used to define default values for parameters local to a
     data-manager, (*ie* that are not defined in project-wide with
     :mod:`data_assistant.config`).
+
+    TODO Explain how to add traits.
     """
 
     RAISE_ON_MISS: bool = False
@@ -92,13 +122,14 @@ class ParamsManagerScheme(ParamsManager):
     PARAMS_PATH: str | None = None
     """Path (dot-separated keys) that lead to the subscheme containing parameters."""
 
-    SCHEME: type[Scheme] = Scheme
+    # Fix ignore with default kwarg in TypeVar in python3.13
+    SCHEME: type[T_Scheme] = Scheme  # type: ignore
     """Scheme class to use as parameters.
 
     This is *after* following :attr:`.PARAMS_PATH` on an input argument.
     """
 
-    _params: Scheme
+    _params: T_Scheme
 
     def _init_module(self) -> None:
         self._reset_params()

@@ -11,7 +11,7 @@ from .loader import LoaderAbstract
 from .module import CachedModule, Module
 from .params import ParamsManagerAbstract
 from .source import SourceAbstract
-from .util import T_Data, T_Source
+from .util import T_Data, T_Params, T_Source
 from .writer import WriterAbstract
 
 log = logging.getLogger(__name__)
@@ -19,7 +19,7 @@ log = logging.getLogger(__name__)
 _P = t.TypeVar("_P")
 
 
-class DataManagerBase(t.Generic[T_Source, T_Data]):
+class DataManagerBase(t.Generic[T_Params, T_Source, T_Data]):
     """DataManager base object.
 
     Add functionalities by subclassing it and adding mixin plugins.
@@ -70,7 +70,7 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
     """Long name to identify uniquely this data-manager class."""
 
     # For mypy (those are dynamically set because there are in _module_classes)
-    params_manager: ParamsManagerAbstract
+    params_manager: ParamsManagerAbstract[T_Params]
     loader: LoaderAbstract[T_Source, T_Data]
     source: SourceAbstract[T_Source]
     writer: WriterAbstract[T_Source, T_Data]
@@ -130,7 +130,7 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
         self.set_params(params, **kwargs)
 
     @property
-    def params(self) -> abc.MutableMapping[str, t.Any]:
+    def params(self) -> T_Params:
         """Parameters values for this instance."""
         return self.params_manager._params
 

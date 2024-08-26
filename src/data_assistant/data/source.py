@@ -22,6 +22,8 @@ T_MultiSource = t.TypeVar("T_MultiSource", bound=abc.Sequence)
 
 
 class SourceAbstract(t.Generic[T_Source], Module):
+    """Abstract of source managing module."""
+
     _ATTR_NAME: str = "source"
 
     def get_source(self) -> T_Source:
@@ -393,7 +395,13 @@ class climato:  # noqa: N801
 
 
 class _SourceMix(SourceAbstract, ModuleMix[SourceAbstract]):
+    """Mix of multiple source modules to make a new module."""
+
     def _get_source_groups(self) -> list[t.Any]:
+        """Return output source of all module.
+
+        Every output is put in a list if not already.
+        """
         groups: list[t.Any] = []
         for mod in self.base_modules:
             source = mod.get_source()
@@ -411,6 +419,18 @@ class _SourceMix(SourceAbstract, ModuleMix[SourceAbstract]):
 
 
 class SourceUnion(_SourceMix):
+    """Sources are the union of that obtained by multiple modules.
+
+    Pass the different source modules to "combine" to
+    :meth:`SourceUnion.create()<.ModuleMix.create>` which will return a new module
+    class. As so::
+
+        MyUnion = SourceUnion.create([Source1, Source2])
+
+    The union module will output all the files found by any of the initial modules,
+    without duplicates, in the order of how the modules were given to ``create``.
+    """
+
     def get_source(self) -> list[t.Any]:
         groups = self._get_source_groups()
         union = set().union(*[set(g) for g in groups])
@@ -423,6 +443,18 @@ class SourceUnion(_SourceMix):
 
 
 class SourceIntersection(_SourceMix):
+    """Sources are the intersection of that obtained by multiple modules.
+
+    Pass the different source modules to "combine" to
+    :meth:`SourceIntersection.create()<.ModuleMix.create>` which will return a new
+    module class. As so::
+
+        MyIntersection = SourceIntersection.create([Source1, Source2])
+
+    The intersection module will only output the files found by all of the initial
+    modules.
+    """
+
     def get_source(self) -> list[t.Any]:
         groups = self._get_source_groups()
         inter: set[t.Any] = set().intersection(*[set(g) for g in groups])

@@ -36,7 +36,7 @@ class Module:
         self._init_module()
 
     @property
-    def params(self) -> abc.MutableMapping[str, t.Any]:
+    def params(self) -> t.Any:
         return self.dm.params_manager.params
 
     def _init_module(self) -> None:
