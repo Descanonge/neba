@@ -130,38 +130,10 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
 
         self.set_params(params, **kwargs)
 
-    @t.overload
-    def _mod(self, module: t.Literal["params_manager"]) -> ParamsManagerAbstract: ...
-
-    @t.overload
-    def _mod(self, module: t.Literal["source"]) -> SourceAbstract[T_Source]: ...
-
-    @t.overload
-    def _mod(self, module: t.Literal["loader"]) -> LoaderAbstract[T_Source, T_Data]: ...
-
-    @t.overload
-    def _mod(self, module: t.Literal["writer"]) -> WriterAbstract[T_Source, T_Data]: ...
-
-    def _mod(self, module: str) -> Module:
-        """Return a given module or raise a helpful message.
-
-        Should be better than a simple AttributeError. Developers should be encouraged
-        to use ``self._mod("loader")`` rather than ``self.loader``.
-        """
-        mod = self._modules.get(module, None)
-        if mod is not None:
-            return mod
-        clsname = self.__class__.__name__
-        raise AttributeError(
-            f"This DataManager '{self!s}' has no module '{module}'. "
-            f"It should be registered in the '{clsname}._module_classes' dictionnary. "
-            f"Please check the documentation on how to easily register new modules."
-        )
-
     @property
     def params(self) -> abc.Mapping[str, t.Any]:
         """Parameters values for this instance."""
-        return self._mod("params_manager").params
+        return self.params_manager.params
 
     def set_params(
         self, params: t.Any | None = None, reset: bool | list[str] = True, **kwargs
@@ -179,7 +151,7 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
             Parameters will be taken in order of first available in:
             ``kwargs``, ``params``, :attr:`PARAMS_DEFAULTS`.
         """
-        self._mod("params_manager").set_params(params, **kwargs)
+        self.params_manager.set_params(params, **kwargs)
         self.reset(reset)
 
     def update_params(
@@ -196,7 +168,7 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
         kwargs:
             Other parameters values in the form ``name=value``.
         """
-        self._mod("params_manager").update_params(params, **kwargs)
+        self.params_manager.update_params(params, **kwargs)
         self.reset(reset)
 
     def save_excursion(self, save_cache: bool = False) -> _ParamsContext:
@@ -295,21 +267,21 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
 
         Wraps around ``source.get_source()``.
         """
-        return self._mod("source").get_source(*args, **kwargs)
+        return self.source.get_source(*args, **kwargs)
 
     def get_data(self, *args, **kwargs) -> T_Data:
         """Return data object.
 
         Wraps around ``loader.get_data()``.
         """
-        return self._mod("loader").get_data(*args, **kwargs)
+        return self.loader.get_data(*args, **kwargs)
 
     def write(self, *args, **kwargs) -> t.Any:
         """Write data to target.
 
         Wraps around ``writer.write()``.
         """
-        return self._mod("writer").write(*args, **kwargs)
+        return self.writer.write(*args, **kwargs)
 
     def get_data_sets(
         self,
