@@ -22,7 +22,7 @@ T_MultiSource = t.TypeVar("T_MultiSource", bound=abc.Sequence)
 
 
 class SourceAbstract(t.Generic[T_Source], Module):
-    _attr_name: str = "source"
+    _ATTR_NAME: str = "source"
 
     def get_source(self) -> T_Source:
         """Return source of data.

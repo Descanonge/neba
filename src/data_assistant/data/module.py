@@ -29,7 +29,7 @@ if t.TYPE_CHECKING:
 
 
 class Module:
-    _attr_name: str
+    _ATTR_NAME: str
 
     def __init__(self, dm: DataManagerBase, *args, **kwargs):
         self.dm = dm
@@ -52,7 +52,7 @@ class CachedModule(Module):
         # Voiding callback
         # we make sure to avoid late-binding by using functools.partial
         def callback(dm, **kwargs) -> None:
-            mod = getattr(dm, self._attr_name)
+            mod = getattr(dm, self._ATTR_NAME)
             mod.void_cache()
 
         key = f"void_cache[{self.__class__.__name__}]"

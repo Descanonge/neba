@@ -44,31 +44,74 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
     block.
     """
 
-    _module_classes: dict[str, type[Module]] = dict(
-        # params_manager=ParamsManagerAbstract,
+    _REGISTERED_MODULES: dict[str, type[Module]] = dict(
+        params_manager=ParamsManagerAbstract,
         loader=LoaderAbstract,
-        # source=SourceAbstract,
-        # writer=WriterAbstract,
+        source=SourceAbstract,
+        writer=WriterAbstract,
     )
+    """Registered modules that define what type of module gets which attribute name."""
+    _STRICT_REGISTRATION: bool = True
+    """If True, only Modules with attribute name in it and which is a subclass of the
+    corresponding module can be added.
+    """
+
+    _module_classes: dict[str, type[Module]] = dict(
+        params_manager=ParamsManagerAbstract,
+        loader=LoaderAbstract,
+        source=SourceAbstract,
+        writer=WriterAbstract,
+    )
+    """Mapping of attribute names to Module types. It will be used to instanciate them."""
 
     SHORTNAME: str | None = None
     """Short name to refer to this data-manager class."""
     ID: str | None = None
     """Long name to identify uniquely this data-manager class."""
 
-    # # For mypy, those are dynamically set
-    # params_manager: ParamsManagerAbstract
+    # For mypy (those are dynamically set because there are in _module_classes)
+    params_manager: ParamsManagerAbstract
     loader: LoaderAbstract[T_Source, T_Data]
-    # source: SourceAbstract[T_Source]
-    # writer: WriterAbstract[T_Source, T_Data]
+    source: SourceAbstract[T_Source]
+    writer: WriterAbstract[T_Source, T_Data]
 
     def __init_subclass__(cls) -> None:
         super().__init_subclass__()
+
+        def check_registration(mod: type[Module]):
+            if cls._STRICT_REGISTRATION:
+                return
+            registered = cls._REGISTERED_MODULES.get(mod._ATTR_NAME, None)
+            if registered is None:
+                raise TypeError(
+                    f"Found module type '{mod}' in class definition but its "
+                    f"attribute name '{mod._ATTR_NAME}' is not registered. "
+                    "Please check the data-manager attribute '_REGISTERED_MODULES'."
+                )
+            if not issubclass(cls, registered):
+                raise TypeError(
+                    f"Found module type '{mod}' in class definition but it is not a "
+                    f"subclass of the registered '{registered}' for '{mod._ATTR_NAME}'. "
+                    "Please check the data-manager attribute '_REGISTERED_MODULES'."
+                )
+
         cls._module_classes = dict(cls._module_classes)
         # copy for it to be unique to each subclass
-        for attr in cls.__dict__.values():
+
+        priority: dict[str, type[Module]] = {}
+
+        # Add anything that looks like a module
+        for name, attr in cls.__dict__.items():
             if isinstance(attr, type) and issubclass(attr, Module):
-                cls._module_classes[attr._attr_name] = attr
+                # Check if its ancestor type is defined/registered
+                check_registration(attr)
+                cls._module_classes[attr._ATTR_NAME] = attr
+
+                if name in cls._REGISTERED_MODULES:
+                    priority[name] = attr
+
+        for name, mod in priority.items():
+            cls._module_classes[name] = mod
 
     def __init__(self, params: t.Any | None = None, **kwargs) -> None:
         self._modules: dict[str, Module] = {}
@@ -338,63 +381,6 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
                 data.append(self.get_data(**kwargs))
 
         return data
-
-
-def register_module(
-    mod: type[Module],
-    name: str,
-    generic: abc.Sequence[type | t.TypeVar | str] | None = None,
-) -> None:
-    if generic is None:
-        generic = []
-
-    DataManagerBase._module_classes[name] = mod
-
-    annotation = mod.__name__
-    params = getattr(mod, "__parameters__", None)
-    output = []
-    if params is not None:
-        output += [str(t).lstrip("-+~") for t in params]
-    for i, g in enumerate(generic):
-        if i < len(output):
-            output.append(str(g))
-        else:
-            output[i] = str(g)
-    if output:
-        annotation += f"[{', '.join(output)}]"
-    DataManagerBase.__annotations__[name] = annotation
-
-
-register_module(ParamsManagerAbstract, "params_manager")
-register_module(SourceAbstract, "source")
-
-
-class register:  # noqa: N801
-    def __init__(
-        self, name: str, generic: abc.Sequence[type | t.TypeVar] | None = None
-    ):
-        self.name = name
-        if generic is None:
-            generic = []
-        self.generic = generic
-
-    def __call__(self, cls: type[T_Mod]) -> type[T_Mod]:
-        DataManagerBase._module_classes[self.name] = cls
-
-        annotation = cls.__name__
-        params = getattr(cls, "__parameters__", None)
-        generic = []
-        if params is not None:
-            generic += [str(t).lstrip("-+~") for t in params]
-        for i, g in enumerate(self.generic):
-            if i < len(generic):
-                generic.append(str(g))
-            else:
-                generic[i] = str(g)
-        if generic:
-            annotation += f"[{', '.join(generic)}]"
-        DataManagerBase.__annotations__[self.name] = annotation
-        return cls
 
 
 class _ParamsContext:

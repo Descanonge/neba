@@ -15,7 +15,7 @@ log = logging.getLogger(__name__)
 class ParamsManagerAbstract(Module):
     """Parameters are stored in a dictionary."""
 
-    _attr_name: str = "params_manager"
+    _ATTR_NAME: str = "params_manager"
 
     PARAMS_DEFAULTS: abc.Mapping[str, t.Any]
     """Default values of parameters.

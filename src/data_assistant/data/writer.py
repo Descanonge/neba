@@ -26,6 +26,8 @@ class WriterAbstract(t.Generic[T_Source, T_Data], Module):
     Manages metadata to (eventually) add to data before writing.
     """
 
+    _ATTR_NAME: str = "writer"
+
     def get_metadata(
         self,
         add_dataset_params: bool = True,
