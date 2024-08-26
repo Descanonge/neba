@@ -2,21 +2,21 @@
 
 from .data_manager import DataManagerBase
 from .loader import LoaderAbstract
-from .module import Abstract, CachedAbstract, autocached
+from .module import CachedModule, Module, autocached
 from .params import ParamsManager, ParamsManagerAbstract, ParamsManagerScheme
 from .register import DatasetStore
 from .source import FileFinderSource, GlobSource, MultiFileSource, SimpleSource
 from .writer import CachedWriter, WriterAbstract
 
 __all__ = [
-    "CachedAbstract",
+    "CachedModule",
     "CachedWriter",
     "DataManagerBase",
     "DatasetStore",
     "FileFinderSource",
     "GlobSource",
     "LoaderAbstract",
-    "Abstract",
+    "Module",
     "MultiFileSource",
     "ParamsManager",
     "ParamsManagerAbstract",

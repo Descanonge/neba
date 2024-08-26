@@ -7,9 +7,8 @@ import logging
 import typing as t
 from collections import abc
 
-# from .plugin import CachePlugin, Plugin
 from .loader import LoaderAbstract
-from .module import CachedModule, Module
+from .module import CachedModule, Module, T_Mod
 from .params import ParamsManagerAbstract
 from .source import SourceAbstract
 from .util import T_Data, T_Source
@@ -45,26 +44,28 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
     block.
     """
 
+    _module_classes: dict[str, type[Module]] = dict(
+        # params_manager=ParamsManagerAbstract,
+        loader=LoaderAbstract,
+        # source=SourceAbstract,
+        # writer=WriterAbstract,
+    )
+
     SHORTNAME: str | None = None
     """Short name to refer to this data-manager class."""
     ID: str | None = None
     """Long name to identify uniquely this data-manager class."""
 
-    _module_classes: dict[str, type[Module]] = dict(
-        params_manager=ParamsManagerAbstract,
-        loader=LoaderAbstract,
-        source=SourceAbstract,
-        writer=WriterAbstract,
-    )
-
-    # For mypy, those are dynamically set
-    params_manager: ParamsManagerAbstract
+    # # For mypy, those are dynamically set
+    # params_manager: ParamsManagerAbstract
     loader: LoaderAbstract[T_Source, T_Data]
-    source: SourceAbstract[T_Source]
-    writer: WriterAbstract[T_Source, T_Data]
+    # source: SourceAbstract[T_Source]
+    # writer: WriterAbstract[T_Source, T_Data]
 
     def __init_subclass__(cls) -> None:
         super().__init_subclass__()
+        cls._module_classes = dict(cls._module_classes)
+        # copy for it to be unique to each subclass
         for attr in cls.__dict__.values():
             if isinstance(attr, type) and issubclass(attr, Module):
                 cls._module_classes[attr._attr_name] = attr
@@ -337,6 +338,63 @@ class DataManagerBase(t.Generic[T_Source, T_Data]):
                 data.append(self.get_data(**kwargs))
 
         return data
+
+
+def register_module(
+    mod: type[Module],
+    name: str,
+    generic: abc.Sequence[type | t.TypeVar | str] | None = None,
+) -> None:
+    if generic is None:
+        generic = []
+
+    DataManagerBase._module_classes[name] = mod
+
+    annotation = mod.__name__
+    params = getattr(mod, "__parameters__", None)
+    output = []
+    if params is not None:
+        output += [str(t).lstrip("-+~") for t in params]
+    for i, g in enumerate(generic):
+        if i < len(output):
+            output.append(str(g))
+        else:
+            output[i] = str(g)
+    if output:
+        annotation += f"[{', '.join(output)}]"
+    DataManagerBase.__annotations__[name] = annotation
+
+
+register_module(ParamsManagerAbstract, "params_manager")
+register_module(SourceAbstract, "source")
+
+
+class register:  # noqa: N801
+    def __init__(
+        self, name: str, generic: abc.Sequence[type | t.TypeVar] | None = None
+    ):
+        self.name = name
+        if generic is None:
+            generic = []
+        self.generic = generic
+
+    def __call__(self, cls: type[T_Mod]) -> type[T_Mod]:
+        DataManagerBase._module_classes[self.name] = cls
+
+        annotation = cls.__name__
+        params = getattr(cls, "__parameters__", None)
+        generic = []
+        if params is not None:
+            generic += [str(t).lstrip("-+~") for t in params]
+        for i, g in enumerate(self.generic):
+            if i < len(generic):
+                generic.append(str(g))
+            else:
+                generic[i] = str(g)
+        if generic:
+            annotation += f"[{', '.join(generic)}]"
+        DataManagerBase.__annotations__[self.name] = annotation
+        return cls
 
 
 class _ParamsContext:
