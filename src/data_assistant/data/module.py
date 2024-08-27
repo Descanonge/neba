@@ -61,11 +61,8 @@ class CachedModule(Module):
     def _init_module(self) -> None:
         self.cache: dict[str, t.Any] = {}
 
-        # Voiding callback
-        # we make sure to avoid late-binding by using functools.partial
         def callback(dm, **kwargs) -> None:
-            mod = getattr(dm, self._ATTR_NAME)
-            mod.void_cache()
+            self.void_cache()
 
         key = f"void_cache[{self.__class__.__name__}]"
         self.dm._register_callback(key, callback)
