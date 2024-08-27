@@ -21,22 +21,26 @@ import logging
 import typing as t
 from collections import abc
 
-log = logging.getLogger(__name__)
-
-
 if t.TYPE_CHECKING:
     from .data_manager import DataManagerBase
 
+log = logging.getLogger(__name__)
+
 
 class Module:
+    """Module to which the data-manager delegates some functionality."""
+
     _ATTR_NAME: str
+    """Attribute name to use in the data-manager."""
 
     def __init__(self, dm: DataManagerBase, *args, **kwargs):
         self.dm = dm
+        """Backref to the container data-manager."""
         self._init_module()
 
     @property
     def params(self) -> t.Any:
+        """Parameters of the data manager."""
         return self.dm.params_manager.params
 
     def _init_module(self) -> None:
@@ -48,7 +52,11 @@ class Module:
 
 
 class CachedModule(Module):
-    """Plugin containing a cache."""
+    """Plugin containing a cache.
+
+    The every cached-module cache is voided on a call of :meth:`.DataManagerBase.reset`.
+    This is typically done everytime the parameters change.
+    """
 
     def _init_module(self) -> None:
         self.cache: dict[str, t.Any] = {}
@@ -63,16 +71,20 @@ class CachedModule(Module):
         self.dm._register_callback(key, callback)
 
     def void_cache(self) -> None:
+        """Clear the cache."""
         self.cache.clear()
 
 
 # Typevar to preserve autocached properties' type.
 R = t.TypeVar("R")
+T_CachedMod = t.TypeVar("T_CachedMod", bound=CachedModule)
 
 
 # The `func` argument is typed as Any because technically Callable is contravariant
 # and typing it as Module would not allow subclasses.
-def autocached(func: abc.Callable[[t.Any], R]) -> abc.Callable[[t.Any], R]:
+def autocached(
+    func: abc.Callable[[T_CachedMod], R],
+) -> abc.Callable[[T_CachedMod], R]:
     """Make a property autocached.
 
     When the property is accessed, it will first check if a key with the same name (as
@@ -86,7 +98,7 @@ def autocached(func: abc.Callable[[t.Any], R]) -> abc.Callable[[t.Any], R]:
     property_name = func.__name__
 
     @functools.wraps(func)
-    def wrap(self: t.Any) -> R:
+    def wrap(self: T_CachedMod) -> R:
         if property_name in self.cache:
             return self.cache[property_name]
         result = func(self)
@@ -100,14 +112,22 @@ T_Mod = t.TypeVar("T_Mod", bound=Module)
 
 
 class ModuleMix(t.Generic[T_Mod], Module):
+    """A module containing multiple other modules.
+
+    This can allow to combine modules to collect different sources, write multiple
+    time in different manners, etc.
+
+    This is an abstract class and should be used as a base for creating specific mixes.
+    This abstract class initialize every module in the mix.
+    Mixes are intended to be instanciated with the class method :meth:`create`.
+    """
+
     _base_modules: tuple[type[T_Mod], ...] = ()
 
-    base_modules: list[T_Mod]
-
-    def __init__(self, dm: DataManagerBase, *args, **kwargs):
+    def __init__(self, dm, *args, **kwargs) -> None:
         super().__init__(dm, *args, **kwargs)
         # initialize every base module
-        self.base_modules = []
+        self.base_modules: list[T_Mod] = []
         for cls in self._base_modules:
             self.base_modules.append(cls(dm, *args, **kwargs))
 
