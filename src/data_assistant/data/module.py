@@ -138,7 +138,7 @@ class ModuleMix(t.Generic[T_Mod], Module):
         cls._ATTR_NAME = bases[0]._ATTR_NAME
 
         names = [b._ATTR_NAME for b in bases]
-        if any(n != n[0] for n in names):
+        if any(n != names[0] for n in names):
             log.warning(
                 "Mix of modules have differing attributes names (%s). Taking first one. ",
                 ", ".join(names),
