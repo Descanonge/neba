@@ -444,7 +444,9 @@ class Scheme(Configurable):
             input_scheme = other
         if other is None:
             other = {}
-        elif input_scheme is not None:
+        # it seems the isinstancen fails sometimes, not sure why
+        # at least we try to flatten the values.
+        elif input_scheme is not None or hasattr(other, "values_recursive"):
             other = other.values_recursive(flatten=True)  # type: ignore[union-attr]
         else:
             other = dict(other)
@@ -498,9 +500,7 @@ class Scheme(Configurable):
                 scheme.add_traits(**{trait_name: newtrait})
 
             # trait exists or has been added
-            if input_scheme is not None:
-                value = input_scheme[fullkey]
-            elif isinstance(value, TraitType):
+            if isinstance(value, TraitType):
                 value = value.default
 
             setattr(scheme, trait_name, value)

@@ -158,7 +158,7 @@ class ParamsManagerScheme(ParamsManagerAbstract[T_Scheme]):
 
     def update_params(
         self,
-        params: Scheme | abc.Mapping[str, t.Any] | None,
+        params: Scheme | abc.Mapping[str, t.Any] | None = None,
         **kwargs,
     ):
         """Update one or more parameters values.

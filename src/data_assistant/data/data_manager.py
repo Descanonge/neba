@@ -140,7 +140,7 @@ class DataManagerBase(t.Generic[T_Params, T_Source, T_Data]):
         self.reset(reset)
 
     def update_params(
-        self, params: t.Any | None, reset: bool | list[str] = True, **kwargs
+        self, params: t.Any | None = None, reset: bool | list[str] = True, **kwargs
     ):
         """Update one or more parameters values.
 
