@@ -119,6 +119,9 @@ class ModuleMix(t.Generic[T_Mod], Module):
     Mixes are intended to be instanciated with the class method :meth:`create`.
     """
 
+    # TODO Way to orient a call to one of the modules
+    # use a user-defined function that uses the parameters ?
+
     _base_modules: tuple[type[T_Mod], ...] = ()
 
     def __init__(self, dm, *args, **kwargs) -> None:

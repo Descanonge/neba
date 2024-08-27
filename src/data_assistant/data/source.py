@@ -5,6 +5,7 @@ Currently mainly give some basic options for the source being multiple files on 
 
 from __future__ import annotations
 
+import itertools
 import logging
 import typing as t
 from collections import abc
@@ -433,8 +434,9 @@ class SourceUnion(_SourceMix):
 
     def get_source(self) -> list[t.Any]:
         groups = self._get_source_groups()
-        union = set().union(*[set(g) for g in groups])
-        return list(union)
+        # use fromkeys to remove duplicates. dict keep order which is nice
+        union = list(dict.fromkeys(itertools.chain(*groups)))
+        return union
 
     def _lines(self) -> list[str]:
         s = super()._lines()
