@@ -16,10 +16,8 @@ from .writer import WriterAbstract
 
 log = logging.getLogger(__name__)
 
-_P = t.TypeVar("_P")
 
-
-class AutoModules:
+class AutoModulesMixin:
     """Automatically detect modules defined in the class definition."""
 
     _module_classes: dict[str, type[Module]] = dict()
@@ -63,12 +61,15 @@ class DataManagerBase(t.Generic[T_Params, T_Source, T_Data]):
     ID: str | None = None
     """Long name to identify uniquely this data-manager class."""
 
-    params_mod: type[ParamsManagerAbstract]
-    source_mod: type[SourceAbstract]
-    loader_mod: type[LoaderAbstract]
-    writer_mod: type[WriterAbstract]
+    params_mod: type[ParamsManagerAbstract] = ParamsManagerAbstract
+    source_mod: type[SourceAbstract] = SourceAbstract
+    loader_mod: type[LoaderAbstract] = LoaderAbstract
+    writer_mod: type[WriterAbstract] = WriterAbstract
 
-    params_manager: ParamsManagerAbstract[t.Self]
+    params_manager: ParamsManagerAbstract[T_Params]
+    source: SourceAbstract[T_Source]
+    loader: LoaderAbstract[T_Source, T_Data]
+    writer: WriterAbstract[T_Source, T_Data]
 
     def __init__(self, params: t.Any | None = None, **kwargs) -> None:
         self._reset_callbacks: dict[str, abc.Callable[..., None]] = {}
