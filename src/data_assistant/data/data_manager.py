@@ -19,21 +19,35 @@ log = logging.getLogger(__name__)
 _P = t.TypeVar("_P")
 
 
+class AutoModules:
+    """Automatically detect modules defined in the class definition."""
+
+    _module_classes: dict[str, type[Module]] = dict()
+
+    def __init_subclass__(cls) -> None:
+        super().__init_subclass__()
+
+        cls._module_classes = dict(cls._module_classes)
+        # copy for it to be unique to each subclass
+
+        # Add anything that looks like a module
+        for attr in cls.__dict__.values():
+            if isinstance(attr, type) and issubclass(attr, Module):
+                # Check if its ancestor type is defined/registered
+                cls._module_classes[attr._ATTR_NAME] = attr
+
+    def _init_modules(
+        self, dm: DataManagerBase, params: t.Any | None = None, **kwargs
+    ) -> None:
+        self._modules: dict[str, Module] = {}
+        for name, cls in self._module_classes.items():
+            mod = cls(dm, params, **kwargs)
+            setattr(dm, name, mod)
+            self._modules[name] = mod
+
+
 class DataManagerBase(t.Generic[T_Params, T_Source, T_Data]):
     """DataManager base object.
-
-    Add functionalities by subclassing it and adding mixin plugins.
-
-    The base class manages the parameters mainly via :meth:`set_params`, and specify two
-    API methods to be implemented by plugins: :meth:`get_source` (that can be used
-    by other plugin to access the source) and :meth:`get_data` to load data.
-
-    It is excepected that the user chooses plugins adapted to their needs and dataset
-    formats, and create their own subclasses, overwritting methods to further specify
-    details about their datasets.
-    Each subclass is thus associated to a particular dataset. Each instance of that
-    subclass is associated to specific parameters: only one year, or one value of
-    this or that parameter, etc.
 
     The parameters (stored in :attr:`params`) are treated as global across the instance,
     and those are the value that will be used when calling various methods. Few
@@ -44,77 +58,19 @@ class DataManagerBase(t.Generic[T_Params, T_Source, T_Data]):
     block.
     """
 
-    _REGISTERED_MODULES: dict[str, type[Module]] = dict(
-        params_manager=ParamsManagerAbstract,
-        loader=LoaderAbstract,
-        source=SourceAbstract,
-        writer=WriterAbstract,
-    )
-    """Registered modules that define what type of module gets which attribute name."""
-    _STRICT_REGISTRATION: bool = True
-    """If True, only Modules with attribute name in it and which is a subclass of the
-    corresponding module can be added.
-    """
-
-    _module_classes: dict[str, type[Module]] = dict(
-        params_manager=ParamsManagerAbstract,
-        loader=LoaderAbstract,
-        source=SourceAbstract,
-        writer=WriterAbstract,
-    )
-    """Mapping of attribute names to Module types. It will be used to instanciate them."""
-
     SHORTNAME: str | None = None
     """Short name to refer to this data-manager class."""
     ID: str | None = None
     """Long name to identify uniquely this data-manager class."""
 
-    # For mypy (those are dynamically set because there are in _module_classes)
-    params_manager: ParamsManagerAbstract[T_Params]
-    loader: LoaderAbstract[T_Source, T_Data]
-    source: SourceAbstract[T_Source]
-    writer: WriterAbstract[T_Source, T_Data]
+    params_mod: type[ParamsManagerAbstract]
+    source_mod: type[SourceAbstract]
+    loader_mod: type[LoaderAbstract]
+    writer_mod: type[WriterAbstract]
 
-    def __init_subclass__(cls) -> None:
-        super().__init_subclass__()
-
-        def check_registration(mod: type[Module]):
-            if cls._STRICT_REGISTRATION:
-                return
-            registered = cls._REGISTERED_MODULES.get(mod._ATTR_NAME, None)
-            if registered is None:
-                raise TypeError(
-                    f"Found module type '{mod}' in class definition but its "
-                    f"attribute name '{mod._ATTR_NAME}' is not registered. "
-                    "Please check the data-manager attribute '_REGISTERED_MODULES'."
-                )
-            if not issubclass(cls, registered):
-                raise TypeError(
-                    f"Found module type '{mod}' in class definition but it is not a "
-                    f"subclass of the registered '{registered}' for '{mod._ATTR_NAME}'. "
-                    "Please check the data-manager attribute '_REGISTERED_MODULES'."
-                )
-
-        cls._module_classes = dict(cls._module_classes)
-        # copy for it to be unique to each subclass
-
-        priority: dict[str, type[Module]] = {}
-
-        # Add anything that looks like a module
-        for name, attr in cls.__dict__.items():
-            if isinstance(attr, type) and issubclass(attr, Module):
-                # Check if its ancestor type is defined/registered
-                check_registration(attr)
-                cls._module_classes[attr._ATTR_NAME] = attr
-
-                if name in cls._REGISTERED_MODULES:
-                    priority[name] = attr
-
-        for name, mod in priority.items():
-            cls._module_classes[name] = mod
+    params_manager: ParamsManagerAbstract[t.Self]
 
     def __init__(self, params: t.Any | None = None, **kwargs) -> None:
-        self._modules: dict[str, Module] = {}
         self._reset_callbacks: dict[str, abc.Callable[..., None]] = {}
         """Dictionary of callbacks to run when parameters are changed/reset.
 
@@ -122,12 +78,42 @@ class DataManagerBase(t.Generic[T_Params, T_Source, T_Data]):
         any number of keyword arguments.
         """
 
-        for name, cls in self._module_classes.items():
-            mod = cls(self, params, **kwargs)
-            setattr(self, name, mod)
-            self._modules[name] = mod
-
+        self.params_manager = self.params_mod(self, params, **kwargs)
+        self.source = self.source_mod(self, params, **kwargs)
+        self.loader = self.loader_mod(self, params, **kwargs)
+        self.writer = self.writer_mod(self, params, **kwargs)
+        self._modules: dict[str, Module] = dict(
+            params_manager=self.params_manager,
+            source=self.source,
+            loader=self.loader,
+            writer=self.writer,
+        )
         self.set_params(params, **kwargs)
+
+    def __str__(self) -> str:
+        """Return a string representation."""
+        name = []
+        if self.SHORTNAME is not None:
+            name.append(self.SHORTNAME)
+        if self.ID is not None:
+            name.append(self.ID)
+
+        try:
+            cls = self.__class__
+            clsname = f"{cls.__module__}.{cls.__name__}"
+            if name:
+                clsname = f" ({clsname})"
+        except AttributeError:
+            clsname = ""
+
+        return ":".join(name) + clsname
+
+    def __repr__(self) -> str:
+        """Return a human readable representation."""
+        s = [self.__str__()]
+        for mod in self._modules.values():
+            s += mod._lines()
+        return "\n".join(s)
 
     @property
     def params(self) -> T_Params:
@@ -233,31 +219,6 @@ class DataManagerBase(t.Generic[T_Params, T_Source, T_Data]):
         for key in callbacks:
             callback = self._reset_callbacks[key]
             callback(self, **kwargs)
-
-    def __str__(self) -> str:
-        """Return a string representation."""
-        name = []
-        if self.SHORTNAME is not None:
-            name.append(self.SHORTNAME)
-        if self.ID is not None:
-            name.append(self.ID)
-
-        try:
-            cls = self.__class__
-            clsname = f"{cls.__module__}.{cls.__name__}"
-            if name:
-                clsname = f" ({clsname})"
-        except AttributeError:
-            clsname = ""
-
-        return ":".join(name) + clsname
-
-    def __repr__(self) -> str:
-        """Return a human readable representation."""
-        s = [self.__str__()]
-        for mod in self._modules.values():
-            s += mod._lines()
-        return "\n".join(s)
 
     def get_source(self, *args, **kwargs) -> T_Source:
         """Return source for the data.

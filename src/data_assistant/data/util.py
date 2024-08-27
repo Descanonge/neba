@@ -1,8 +1,6 @@
 import typing as t
 from collections import abc
 
-from ..config import Scheme
-
 T_Data = t.TypeVar("T_Data")
 """Type of data (numpy, pandas, xarray, etc.)."""
 T_Source = t.TypeVar("T_Source")
