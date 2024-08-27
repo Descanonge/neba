@@ -119,6 +119,8 @@ class ModuleMix(t.Generic[T_Mod], Module):
     Mixes are intended to be instanciated with the class method :meth:`create`.
     """
 
+    T_Self = t.TypeVar("T_Self", bound="ModuleMix[T_Mod]")
+
     # TODO Way to orient a call to one of the modules
     # use a user-defined function that uses the parameters ?
 
@@ -132,7 +134,7 @@ class ModuleMix(t.Generic[T_Mod], Module):
             self.base_modules.append(cls(dm, *args, **kwargs))
 
     @classmethod
-    def create(cls, bases: abc.Sequence[type[T_Mod]]) -> type[t.Self]:
+    def create(cls: type[T_Self], bases: abc.Sequence[type[T_Mod]]) -> type[T_Self]:
         """Create a new mix-class from base module."""
         cls._base_modules = tuple(bases)
         cls._ATTR_NAME = bases[0]._ATTR_NAME

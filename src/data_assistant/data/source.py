@@ -395,7 +395,10 @@ class climato:  # noqa: N801
         return newcls
 
 
-class _SourceMix(SourceAbstract, ModuleMix[SourceAbstract]):
+T_ModSource = t.TypeVar("T_ModSource", bound=SourceAbstract)
+
+
+class _SourceMix(SourceAbstract, ModuleMix[T_ModSource]):
     """Mix of multiple source modules to make a new module."""
 
     def _get_source_groups(self) -> list[t.Any]:
@@ -419,7 +422,7 @@ class _SourceMix(SourceAbstract, ModuleMix[SourceAbstract]):
         return s
 
 
-class SourceUnion(_SourceMix):
+class SourceUnion(_SourceMix[T_ModSource]):
     """Sources are the union of that obtained by multiple modules.
 
     Pass the different source modules to "combine" to
@@ -444,7 +447,7 @@ class SourceUnion(_SourceMix):
         return s
 
 
-class SourceIntersection(_SourceMix):
+class SourceIntersection(_SourceMix[T_ModSource]):
     """Sources are the intersection of that obtained by multiple modules.
 
     Pass the different source modules to "combine" to
