@@ -18,29 +18,47 @@ log = logging.getLogger(__name__)
 
 
 class HasModules:
-    """Finds and register modules in class definitions."""
+    """Finds and register modules in class definitions.
 
-    _authorized_names: list[str] = []
-    """List of authorized module names."""
-    _only_authorized = True
-    """Whether to allow modules whose name is not in the authorized list."""
+    Will look at any element of the classdict, meaning all attribute assignements but
+    also definitions (like a class def inside the data-manager class def).
+    Each new subclass of :class:`.Module` is stored in :attr:`_modules_types`, the key
+    is equal to :attr:`.Module._TYPE_ATTR`.
 
-    _modules_names: list[str] = []
-    """List of module attributes found in the class."""
-    _modules: dict[str, Module]
-    """Mapping of modules defined in this data manager."""
+    Latter definitions replace the current one, so the last definition (for a specific
+    key) is kept. Some statements will keep priority: assignements whose left value
+    match that of the key for that module. For instance if in ``name = SomeModule``
+    'name' is equal to ``SomeModule._TYPE_ATTR``, it will have priority over other
+    statements. If multiple such statements are present same rules apply: the last one
+    defined wins.
+    """
+
+    _modules_types: dict[str, type[Module]] = {}
+    """Mapping from attribute names (of types) to module types.
+
+    Updated in ``__init_subclass__`` from any attribute in the definition that defines
+    a Module subclass.
+    """
 
     def __init_subclass__(cls) -> None:
-        # copy old one
-        cls._modules_names = list(cls._modules_names)
+        # copy parent ones to not overwrite them
+        cls._modules_types = dict(cls._modules_types)
+
+        priority = {}
         for name, attr in cls.__dict__.items():
-            if cls._only_authorized and name not in cls._authorized_names:
-                continue
-            if isinstance(attr, Module) and name not in cls._modules_names:
-                cls._modules_names.append(name)
+            if isinstance(attr, type) and issubclass(attr, Module):
+                cls._modules_types[attr._TYPE_ATTR] = attr
+                if name == attr._TYPE_ATTR:
+                    priority[name] = attr
+
+        for name, typ in priority.items():
+            cls._modules_types[name] = typ
+
+        for name, typ in cls._modules_types.items():
+            setattr(cls, name, typ)
 
 
-class DataManagerBase(HasModules, t.Generic[T_Params, T_Source, T_Data]):
+class DataManagerBase(t.Generic[T_Params, T_Source, T_Data], HasModules):
     """DataManager base object.
 
     The parameters (stored in :attr:`params`) are treated as global across the instance,
@@ -52,13 +70,18 @@ class DataManagerBase(HasModules, t.Generic[T_Params, T_Source, T_Data]):
     block.
     """
 
-    _authorized_names = ["params_manager", "source", "loader", "writer"]
-
     SHORTNAME: str | None = None
     """Short name to refer to this data-manager class."""
     ID: str | None = None
     """Long name to identify uniquely this data-manager class."""
 
+    # First start. Will be updated dynamically in each subclass.
+    _Params: type[ParamsManagerAbstract] = ParamsManagerAbstract[T_Params]
+    _Source: type[SourceAbstract] = SourceAbstract[T_Source]
+    _Loader: type[LoaderAbstract] = LoaderAbstract[T_Source, T_Data]
+    _Writer: type[WriterAbstract] = WriterAbstract[T_Source, T_Data]
+
+    # Instanciated at init
     _reset_callbacks: dict[str, abc.Callable[..., None]]
     """Dictionary of callbacks to run when parameters are changed/reset.
 
@@ -66,24 +89,32 @@ class DataManagerBase(HasModules, t.Generic[T_Params, T_Source, T_Data]):
     any number of keyword arguments.
     """
 
-    params_manager: ParamsManagerAbstract[T_Params] = ParamsManagerAbstract()
-    source: SourceAbstract[T_Source] = SourceAbstract()
-    loader: LoaderAbstract[T_Source, T_Data] = LoaderAbstract()
-    writer: WriterAbstract[T_Source, T_Data] = WriterAbstract()
+    _modules: dict[str, Module]
+    """Mapping from attribute names to module instances. Filled during initialization."""
+
+    params_manager: ParamsManagerAbstract[T_Params]
+    source: SourceAbstract[T_Source]
+    loader: LoaderAbstract[T_Source, T_Data]
+    writer: WriterAbstract[T_Source, T_Data]
 
     def __init__(self, params: t.Any | None = None, **kwargs) -> None:
         self._modules = {}
         self._reset_callbacks = {}
 
-        for name in self._modules_names:
-            mod = getattr(self, name)
-            if not isinstance(mod, Module):
-                raise TypeError(
-                    f"{self.__class__.__name__}.{name} is not a module. "
-                    f"It's a {type(mod)}."
-                )
+        for typ in self._modules_types.values():
+            try:
+                mod = typ(self, params=params, **kwargs)
+            except Exception as e:
+                log.warning(e)
+            name = mod._INSTANCE_ATTR
             self._modules[name] = mod
-            mod._init(self, params, **kwargs)
+            setattr(self, name, mod)
+
+        for mod in self._modules.values():
+            try:
+                mod._init_module()
+            except Exception as e:
+                log.warning(e)
 
         self.set_params(params, **kwargs)
 
@@ -303,7 +334,7 @@ class DataManagerBase(HasModules, t.Generic[T_Params, T_Source, T_Data]):
             for p_set in params_sets[1:]:
                 params_maps.append(dict(zip(dims, p_set, strict=True)))
 
-        data: list[T_Data] = []
+        data = []
         with self.save_excursion():
             for p_map in params_maps:
                 self.set_params(p_map)

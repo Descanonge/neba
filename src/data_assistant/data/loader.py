@@ -16,7 +16,8 @@ class LoaderAbstract(t.Generic[T_Source, T_Data], Module):
     It may run post-processing if defined by the user.
     """
 
-    _ATTR_NAME: str = "loader"
+    _TYPE_ATTR = "_Loader"
+    _INSTANCE_ATTR = "loader"
 
     def get_data(
         self,

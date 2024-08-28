@@ -29,7 +29,8 @@ class WriterAbstract(t.Generic[T_Source, T_Data], Module):
     Manages metadata to (eventually) add to data before writing.
     """
 
-    _ATTR_NAME: str = "writer"
+    _TYPE_ATTR = "_Writer"
+    _INSTANCE_ATTR = "writer"
 
     def get_metadata(
         self,
@@ -305,14 +306,14 @@ class SplitWriterMixin(t.Generic[T_Source]):
 
     source: Splitable[T_Source]
 
-    def _init(self, dm: DataManagerBase, params: t.Any | None = None, **kwargs) -> None:
+    def __init__(self, dm: DataManagerBase, params: t.Any | None = None, **kwargs):
         if not isinstance(dm.source, Splitable):
             raise TypeError(f"Source module is not Splitable (is {type(dm.source)})")
         self.source = dm.source
 
         try:
-            super()._init(dm, params=params, **kwargs)  # type: ignore[misc]
-        except AttributeError:
+            super().__init__(dm, params=params, **kwargs)  # type: ignore[call-arg]
+        except Exception:
             pass
 
     def unfixed(self) -> set[T_Source]:

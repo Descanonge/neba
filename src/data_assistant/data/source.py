@@ -25,7 +25,8 @@ T_MultiSource = t.TypeVar("T_MultiSource", bound=abc.Sequence)
 class SourceAbstract(t.Generic[T_Source], Module):
     """Abstract of source managing module."""
 
-    _ATTR_NAME: str = "source"
+    _TYPE_ATTR = "_Source"
+    _INSTANCE_ATTR = "source"
 
     def get_source(self) -> T_Source:
         """Return source of data.

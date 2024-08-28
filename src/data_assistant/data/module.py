@@ -30,8 +30,10 @@ log = logging.getLogger(__name__)
 class Module:
     """Module to which the data-manager delegates some functionality."""
 
-    _ATTR_NAME: str
-    """Attribute name to use in the data-manager."""
+    _TYPE_ATTR: str
+    """Attribute name giving the module type in the data manager."""
+    _INSTANCE_ATTR: str
+    """Attribute name giving the module instance in the data manager."""
 
     dm: DataManagerBase
 
@@ -40,8 +42,11 @@ class Module:
         """Parameters of the data manager."""
         return self.dm.params_manager.params
 
-    def _init(self, dm: DataManagerBase, params: t.Any | None = None, **kwargs) -> None:
+    def __init__(self, dm: DataManagerBase, params: t.Any | None = None, **kwargs):
         self.dm = dm
+
+    def _init_module(self) -> None:
+        pass
 
     def _lines(self) -> list[str]:
         """Lines to show in DataManager repr (human readable)."""
@@ -126,29 +131,31 @@ class ModuleMix(t.Generic[T_Mod], Module):
     base_modules: list[T_Mod]
     """List of module instances."""
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(
+        self, dm: DataManagerBase, params: t.Any | None = None, **kwargs
+    ) -> None:
+        super().__init__(dm, params=params, **kwargs)
         # initialize every base module
         self.base_modules = []
         for cls in self.base_types:
-            self.base_modules.append(cls())
-
-    def _init(self, dm: DataManagerBase, params: t.Any | None = None, **kwargs):
-        self.dm = dm
-        for mod in self.base_modules:
-            mod._init(dm, params=params, **kwargs)
+            self.base_modules.append(cls(dm, params=params, **kwargs))
 
     @classmethod
     def create(cls: type[T_Self], bases: abc.Sequence[type[T_Mod]]) -> type[T_Self]:
         """Create a new mix-class from base module."""
         cls.base_types = tuple(bases)
-        cls._ATTR_NAME = bases[0]._ATTR_NAME
+        cls._INSTANCE_ATTR = bases[0]._INSTANCE_ATTR
+        cls._TYPE_ATTR = bases[0]._TYPE_ATTR
 
-        names = [b._ATTR_NAME for b in bases]
+        names = [b._INSTANCE_ATTR for b in bases]
         if any(n != names[0] for n in names):
             log.warning(
-                "Mix of modules have differing attributes names (%s). Taking first one. ",
+                "Mix of modules with differing attributes names (%s). Taking first one. ",
                 ", ".join(names),
             )
 
         return cls
+
+    def _init_module(self) -> None:
+        for mod in self.base_modules:
+            mod._init_module()
