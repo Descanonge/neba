@@ -33,18 +33,15 @@ class Module:
     _ATTR_NAME: str
     """Attribute name to use in the data-manager."""
 
-    def __init__(self, dm: DataManagerBase, *args, **kwargs):
-        self.dm = dm
-        """Backref to the container data-manager."""
-        self._init_module()
+    dm: DataManagerBase
 
     @property
     def params(self) -> t.Any:
         """Parameters of the data manager."""
         return self.dm.params_manager.params
 
-    def _init_module(self) -> None:
-        pass
+    def _init(self, dm: DataManagerBase, params: t.Any | None = None, **kwargs) -> None:
+        self.dm = dm
 
     def _lines(self) -> list[str]:
         """Lines to show in DataManager repr (human readable)."""
@@ -124,19 +121,27 @@ class ModuleMix(t.Generic[T_Mod], Module):
     # TODO Way to orient a call to one of the modules
     # use a user-defined function that uses the parameters ?
 
-    _base_modules: tuple[type[T_Mod], ...] = ()
+    base_types: tuple[type[T_Mod], ...] = ()
+    """Tuple of types of the constituting modules."""
+    base_modules: list[T_Mod]
+    """List of module instances."""
 
-    def __init__(self, dm, *args, **kwargs) -> None:
-        super().__init__(dm, *args, **kwargs)
+    def __init__(self) -> None:
+        super().__init__()
         # initialize every base module
-        self.base_modules: list[T_Mod] = []
-        for cls in self._base_modules:
-            self.base_modules.append(cls(dm, *args, **kwargs))
+        self.base_modules = []
+        for cls in self.base_types:
+            self.base_modules.append(cls())
+
+    def _init(self, dm: DataManagerBase, params: t.Any | None = None, **kwargs):
+        self.dm = dm
+        for mod in self.base_modules:
+            mod._init(dm, params=params, **kwargs)
 
     @classmethod
     def create(cls: type[T_Self], bases: abc.Sequence[type[T_Mod]]) -> type[T_Self]:
         """Create a new mix-class from base module."""
-        cls._base_modules = tuple(bases)
+        cls.base_types = tuple(bases)
         cls._ATTR_NAME = bases[0]._ATTR_NAME
 
         names = [b._ATTR_NAME for b in bases]

@@ -17,34 +17,30 @@ from .writer import WriterAbstract
 log = logging.getLogger(__name__)
 
 
-class AutoModulesMixin:
-    """Automatically detect modules defined in the class definition."""
+class HasModules:
+    """Finds and register modules in class definitions."""
 
-    _module_classes: dict[str, type[Module]] = dict()
+    _authorized_names: list[str] = []
+    """List of authorized module names."""
+    _only_authorized = True
+    """Whether to allow modules whose name is not in the authorized list."""
+
+    _modules_names: list[str] = []
+    """List of module attributes found in the class."""
+    _modules: dict[str, Module]
+    """Mapping of modules defined in this data manager."""
 
     def __init_subclass__(cls) -> None:
-        super().__init_subclass__()
-
-        cls._module_classes = dict(cls._module_classes)
-        # copy for it to be unique to each subclass
-
-        # Add anything that looks like a module
-        for attr in cls.__dict__.values():
-            if isinstance(attr, type) and issubclass(attr, Module):
-                # Check if its ancestor type is defined/registered
-                cls._module_classes[attr._ATTR_NAME] = attr
-
-    def _init_modules(
-        self, dm: DataManagerBase, params: t.Any | None = None, **kwargs
-    ) -> None:
-        self._modules: dict[str, Module] = {}
-        for name, cls in self._module_classes.items():
-            mod = cls(dm, params, **kwargs)
-            setattr(dm, name, mod)
-            self._modules[name] = mod
+        # copy old one
+        cls._modules_names = list(cls._modules_names)
+        for name, attr in cls.__dict__.items():
+            if cls._only_authorized and name not in cls._authorized_names:
+                continue
+            if isinstance(attr, Module) and name not in cls._modules_names:
+                cls._modules_names.append(name)
 
 
-class DataManagerBase(t.Generic[T_Params, T_Source, T_Data]):
+class DataManagerBase(HasModules, t.Generic[T_Params, T_Source, T_Data]):
     """DataManager base object.
 
     The parameters (stored in :attr:`params`) are treated as global across the instance,
@@ -56,39 +52,39 @@ class DataManagerBase(t.Generic[T_Params, T_Source, T_Data]):
     block.
     """
 
+    _authorized_names = ["params_manager", "source", "loader", "writer"]
+
     SHORTNAME: str | None = None
     """Short name to refer to this data-manager class."""
     ID: str | None = None
     """Long name to identify uniquely this data-manager class."""
 
-    params_mod: type[ParamsManagerAbstract] = ParamsManagerAbstract
-    source_mod: type[SourceAbstract] = SourceAbstract
-    loader_mod: type[LoaderAbstract] = LoaderAbstract
-    writer_mod: type[WriterAbstract] = WriterAbstract
+    _reset_callbacks: dict[str, abc.Callable[..., None]]
+    """Dictionary of callbacks to run when parameters are changed/reset.
 
-    params_manager: ParamsManagerAbstract[T_Params]
-    source: SourceAbstract[T_Source]
-    loader: LoaderAbstract[T_Source, T_Data]
-    writer: WriterAbstract[T_Source, T_Data]
+    Callbacks should be functions that take the data manager as first argument, then
+    any number of keyword arguments.
+    """
+
+    params_manager: ParamsManagerAbstract[T_Params] = ParamsManagerAbstract()
+    source: SourceAbstract[T_Source] = SourceAbstract()
+    loader: LoaderAbstract[T_Source, T_Data] = LoaderAbstract()
+    writer: WriterAbstract[T_Source, T_Data] = WriterAbstract()
 
     def __init__(self, params: t.Any | None = None, **kwargs) -> None:
-        self._reset_callbacks: dict[str, abc.Callable[..., None]] = {}
-        """Dictionary of callbacks to run when parameters are changed/reset.
+        self._modules = {}
+        self._reset_callbacks = {}
 
-        Callbacks should be functions that take the data manager as first argument, then
-        any number of keyword arguments.
-        """
+        for name in self._modules_names:
+            mod = getattr(self, name)
+            if not isinstance(mod, Module):
+                raise TypeError(
+                    f"{self.__class__.__name__}.{name} is not a module. "
+                    f"It's a {type(mod)}."
+                )
+            self._modules[name] = mod
+            mod._init(self, params, **kwargs)
 
-        self.params_manager = self.params_mod(self, params, **kwargs)
-        self.source = self.source_mod(self, params, **kwargs)
-        self.loader = self.loader_mod(self, params, **kwargs)
-        self.writer = self.writer_mod(self, params, **kwargs)
-        self._modules: dict[str, Module] = dict(
-            params_manager=self.params_manager,
-            source=self.source,
-            loader=self.loader,
-            writer=self.writer,
-        )
         self.set_params(params, **kwargs)
 
     def __str__(self) -> str:
