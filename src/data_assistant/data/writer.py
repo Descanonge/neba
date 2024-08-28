@@ -17,6 +17,9 @@ from .loader import LoaderAbstract
 from .module import Module
 from .util import T_Data, T_Source
 
+if t.TYPE_CHECKING:
+    from .data_manager import DataManagerBase
+
 log = logging.getLogger(__name__)
 
 
@@ -247,3 +250,73 @@ class CachedWriter(WriterAbstract[T_Source, T_Data], LoaderAbstract[T_Source, T_
 
         """
         self.write(data, target=source)
+
+
+T = t.TypeVar("T", covariant=True)
+
+
+@t.runtime_checkable
+class Splitable(t.Protocol[T]):
+    """Protocol for a source plugin that can split data into multiple sources.
+
+    The plugin manages input/output sources. Initially made for multifile datasets.
+    A number of parameters can be left :meth:`unfixed` which allows to have many files
+    (for instance, if we do not "fix" the parameter *year*, we can have files for any
+    year we want).
+
+    It must also implement a :meth:`get_filename` method that returns a filename when
+    given a specific set of values (those that were left unfixed).
+
+    The idea is that a plugin can split data according to the parameters that are left
+    unfixed (example by year), once the data is split we find the associated filename
+    for each year and we then write to files.
+
+    The protocol is generic and allows for any type of source.
+    """
+
+    @property
+    def unfixed(self) -> abc.Iterable[T]:
+        """Iterable of parameters that are not fixed.
+
+        This must take into account the values that are specified (or not) in the
+        data-manager parameters.
+        """
+        ...
+
+    def get_filename(self, **fixes: t.Any) -> T:
+        """Return a filename corresponding to this set of values.
+
+        This must also take into account values that are already specified in the
+        data-manager parameters (that are not present in the *fixes* argument).
+        """
+
+
+class SplitWriterMixin(t.Generic[T_Source]):
+    """Split data to multiple writing targets.
+
+    For that, we need to have an appropriate Source module, that adheres to the
+    :class:`Splitable` protocol. This mixin checks this. It makes available the
+    necessary methods directly to the Writer module.
+
+    Writers are not made for cooperative inheritance, make sure to place this mixin
+    leftmost in the parent bases. It will then trigger the next :meth:`.Module._init` in
+    line in the mro.
+    """
+
+    source: Splitable[T_Source]
+
+    def _init(self, dm: DataManagerBase, params: t.Any | None = None, **kwargs) -> None:
+        if not isinstance(dm.source, Splitable):
+            raise TypeError(f"Source module is not Splitable (is {type(dm.source)})")
+        self.source = dm.source
+
+        try:
+            super()._init(dm, params=params, **kwargs)  # type: ignore[misc]
+        except AttributeError:
+            pass
+
+    def unfixed(self) -> set[T_Source]:
+        return set(self.source.unfixed)
+
+    def get_filename(self, **kwargs) -> T_Source:
+        return self.source.get_filename(**kwargs)

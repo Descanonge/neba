@@ -11,7 +11,7 @@ from collections import abc
 import xarray as xr
 
 from .loader import LoaderAbstract
-from .writer import WriterAbstract
+from .writer import SplitWriterMixin, WriterAbstract
 
 if t.TYPE_CHECKING:
     try:
@@ -361,45 +361,7 @@ class XarrayMultiFileWriter(XarrayWriterPlugin):
         return self.send_calls(calls, **kwargs)
 
 
-T = t.TypeVar("T", covariant=True)
-
-
-class Splitable(t.Protocol[T]):
-    """Protocol for a source plugin that can split data into multiple sources.
-
-    The plugin manages input/output sources. Initially made for multifile datasets.
-    A number of parameters can be left :meth:`unfixed` which allows to have many files
-    (for instance, if we do not "fix" the parameter *year*, we can have files for any
-    year we want).
-
-    It must also implement a :meth:`get_filename` method that returns a filename when
-    given a specific set of values (those that were left unfixed).
-
-    The idea is that a plugin can split data according to the parameters that are left
-    unfixed (example by year), once the data is split we find the associated filename
-    for each year and we then write to files.
-
-    The protocol is generic and allows for any type of source.
-    """
-
-    @property
-    def unfixed(self) -> abc.Iterable[T]:
-        """Iterable of parameters that are not fixed.
-
-        This must take into account the values that are specified (or not) in the
-        data-manager parameters.
-        """
-        ...
-
-    def get_filename(self, **fixes: t.Any) -> T:
-        """Return a filename corresponding to this set of values.
-
-        This must also take into account values that are already specified in the
-        data-manager parameters (that are not present in the *fixes* argument).
-        """
-
-
-class XarraySplitWriter(XarrayMultiFileWriter, Splitable[str]):
+class XarraySplitWriter(SplitWriterMixin, XarrayMultiFileWriter):
     """Writer for Xarray datasets in multifiles.
 
     Can automatically split a dataset to the corresponding files by communicating
@@ -549,7 +511,7 @@ class XarraySplitWriter(XarrayMultiFileWriter, Splitable[str]):
         List of datasets
 
         """
-        unfixed = set(self.unfixed)
+        unfixed = self.unfixed()
         # Only keep time related unfixed
         unfixed &= set(self.time_intervals_groups)
 
@@ -596,7 +558,7 @@ class XarraySplitWriter(XarrayMultiFileWriter, Splitable[str]):
         Coordinates whose name does not correspond to an unfixed group in the filename
         pattern will be written entirely in each file.
         """
-        unfixed = set(self.unfixed)
+        unfixed = self.unfixed()
         # Remove time related unfixeds
         unfixed -= set(self.time_intervals_groups)
 
@@ -638,7 +600,7 @@ class XarraySplitWriter(XarrayMultiFileWriter, Splitable[str]):
             This can be configured by dimensions with a mapping of dimensions to
             a squeeze argument.
         """
-        unfixed = set(self.unfixed)
+        unfixed = self.unfixed()
         # Set time fixes apart
         present_time_fix = unfixed & set(self.time_intervals_groups)
         unfixed -= set(self.time_intervals_groups)
