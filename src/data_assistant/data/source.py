@@ -107,7 +107,7 @@ class MultiFileSource(SourceAbstract[list[str]]):
 
     def get_source(self) -> list[str]:  # noqa: D102
         if len(self.datafiles) == 0:
-            raise ValueError(f"No files were found '{self}'.")
+            log.warning("No files were found '%s'", self)
         return self.datafiles
 
     @property
