@@ -554,36 +554,56 @@ class DaskConfig(Scheme):
         self.client = distributed.Client(self.cluster)
         """Dask client object."""
 
-    def scale(self, adapt: bool = False, wait: int | None = None, **kwargs):
-        """Scale or adapt cluster workers.
+    def wait_for_workers(self, wait: int):
+        """Wait for workers (if cluster is not local)."""
+        if not isinstance(self.cluster_scheme, DaskClusterJobQueue):
+            return
+
+        log.info("Waiting for %d worker(s)", wait)
+        self.client.wait_for_workers(
+            n_workers=wait, timeout=self.cluster_scheme.wait_worker_timeout
+        )
+
+    def scale(self, wait: int | None = None, **kwargs):
+        """Scale cluster workers.
 
         If the cluster is local, do nothing.
 
         Parameters
         ----------
-        adapt
-            If True set cluster to adapt. If False (default) scale the cluster with
-            given arguments.
         wait
             If is an int, wait for that many workers. Timeout is given by the trait
             :attr:`.DaskClusterJobQueue.wait_worker_timeout`.
         kwargs
-            Arguments passed to ``cluster.adapt()`` or to ``cluster.scale()``. See the
-            documentation for your specific cluster type to see the parameters
-            available.
+            Arguments passed to ``cluster.scale()``. See the documentation for your
+            specific cluster type to see the parameters available.
         """
         if not isinstance(self.cluster_scheme, DaskClusterJobQueue):
             return
 
-        if adapt:
-            log.info("Set cluster to adapt (%s)", repr(kwargs))
-            self.cluster.adapt(**kwargs)
-        else:
-            log.info("Scaling cluster (%s)", repr(kwargs))
-            self.cluster.scale(**kwargs)
+        log.info("Scale cluster to: %s", repr(kwargs))
+        self.cluster.scale(**kwargs)
 
         if wait is not None:
-            log.info("Waiting for %d worker(s)", wait)
-            self.client.wait_for_workers(
-                n_workers=wait, timeout=self.cluster_scheme.wait_worker_timeout
-            )
+            self.wait_for_workers(wait)
+
+    def adapt(self, wait: int | None = None, **kwargs):
+        """Adapt cluster workers.
+
+        Parameters
+        ----------
+        wait
+            If is an int, wait for that many workers. Timeout is given by the trait
+            :attr:`.DaskClusterJobQueue.wait_worker_timeout`.
+        kwargs
+            Arguments passed to ``cluster.adapt()``. See the documentation for your
+            specific cluster type to see the parameters available.
+        """
+        if not isinstance(self.cluster_scheme, DaskClusterJobQueue):
+            return
+
+        log.info("Set cluster to adapt (%s)", repr(kwargs))
+        self.cluster.adapt(**kwargs)
+
+        if wait is not None:
+            self.wait_for_workers(wait)
