@@ -11,6 +11,7 @@ from collections import abc
 import xarray as xr
 
 from .loader import LoaderAbstract
+from .util import T_Source
 from .writer import SplitWriterMixin, WriterAbstract
 
 if t.TYPE_CHECKING:
@@ -61,7 +62,7 @@ class XarrayLoader(LoaderAbstract[str, xr.Dataset]):
         return ds
 
 
-class XarrayMultiFileLoader(LoaderAbstract[abc.Sequence[str], xr.Dataset]):
+class XarrayMultiFileLoader(LoaderAbstract[list[str], xr.Dataset]):
     """Load from multiple files to Xarray.
 
     Uses :func:`xarray.open_mfdataset` to open data.
@@ -93,7 +94,7 @@ class XarrayMultiFileLoader(LoaderAbstract[abc.Sequence[str], xr.Dataset]):
 ## Writing
 
 
-class XarrayWriterPlugin(WriterAbstract[str, xr.Dataset]):
+class XarrayWriterAbstract(WriterAbstract[T_Source, xr.Dataset]):
     """Write Xarray dataset to single target.
 
     Implement the single call method, and common features for other
@@ -218,6 +219,10 @@ class XarrayWriterPlugin(WriterAbstract[str, xr.Dataset]):
             meta.pop(k)
         return ds.assign_attrs(**meta)
 
+
+class XarrayWriter(XarrayWriterAbstract[str]):
+    """Write from Xarray to a single file."""
+
     def write(  # type: ignore[override]
         self,
         data: xr.Dataset,
@@ -249,12 +254,12 @@ class XarrayWriterPlugin(WriterAbstract[str, xr.Dataset]):
         return self.send_single_call(call, **kwargs)
 
 
-class XarrayMultiFileWriter(XarrayWriterPlugin):
+class XarrayMultiFileWriter(XarrayWriterAbstract[list[str]]):
     """Write from an xarray dataset to multiple files using Dask."""
 
     def send_calls_together(
         self,
-        calls: abc.Sequence[tuple[str, xr.Dataset]],
+        calls: abc.Sequence[CallXr],
         client: Client,
         chop: int | None = None,
         format: t.Literal["nc", "zarr", None] = None,

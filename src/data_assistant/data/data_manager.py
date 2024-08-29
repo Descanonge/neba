@@ -101,6 +101,7 @@ class DataManagerBase(t.Generic[T_Params, T_Source, T_Data], HasModules):
         self._modules = {}
         self._reset_callbacks = {}
 
+        # Setup all module instances
         for typ in self._modules_types.values():
             try:
                 mod = typ(self, params=params, **kwargs)
@@ -110,11 +111,17 @@ class DataManagerBase(t.Generic[T_Params, T_Source, T_Data], HasModules):
             self._modules[name] = mod
             setattr(self, name, mod)
 
+        # Initialize all module, allow for cooperation in inheritance: _init_module will
+        # be called on all ancestors.
+        initialized: list[type[Module]] = list()
         for mod in self._modules.values():
-            try:
-                mod._init_module()
-            except Exception as e:
-                log.warning(e)
+            for ancestor in mod.__class__.mro():
+                if issubclass(ancestor, Module) and ancestor not in initialized:
+                    try:
+                        ancestor._init_module(mod)
+                    except Exception as e:
+                        log.warning(e)
+                    initialized += ancestor.mro()
 
         self.set_params(params, **kwargs)
 

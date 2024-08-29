@@ -17,9 +17,6 @@ from .loader import LoaderAbstract
 from .module import Module
 from .util import T_Data, T_Source
 
-if t.TYPE_CHECKING:
-    from .data_manager import DataManagerBase
-
 log = logging.getLogger(__name__)
 
 
@@ -292,29 +289,22 @@ class Splitable(t.Protocol[T]):
         """
 
 
-class SplitWriterMixin(t.Generic[T_Source]):
+class SplitWriterMixin(WriterAbstract[T_Source, T_Data]):
     """Split data to multiple writing targets.
 
     For that, we need to have an appropriate Source module, that adheres to the
     :class:`Splitable` protocol. This mixin checks this. It makes available the
     necessary methods directly to the Writer module.
-
-    Writers are not made for cooperative inheritance, make sure to place this mixin
-    leftmost in the parent bases. It will then trigger the next :meth:`.Module._init` in
-    line in the mro.
     """
 
     source: Splitable[T_Source]
 
-    def __init__(self, dm: DataManagerBase, params: t.Any | None = None, **kwargs):
-        if not isinstance(dm.source, Splitable):
-            raise TypeError(f"Source module is not Splitable (is {type(dm.source)})")
-        self.source = dm.source
+    def _init_module(self):
+        super()._init_module()
 
-        try:
-            super().__init__(dm, params=params, **kwargs)  # type: ignore[call-arg]
-        except Exception:
-            pass
+        if not isinstance(self.dm.source, Splitable):
+            raise TypeError(f"Source module is not Splitable ({type(self.dm.source)})")
+        self.source = self.dm.source
 
     def unfixed(self) -> set[T_Source]:
         return set(self.source.unfixed)
