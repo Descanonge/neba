@@ -32,7 +32,10 @@ from .util import (
 log = logging.getLogger(__name__)
 
 
-def subscheme(scheme: type[Scheme]) -> Instance:
+S = t.TypeVar("S", bound="Scheme")
+
+
+def subscheme(scheme: type[S] | str) -> Instance[S]:
     """Transform a subscheme into a proper trait.
 
     To make the specification easier, an attribute of type :class:`Scheme` will
@@ -80,6 +83,13 @@ class Scheme(Configurable):
         False, help="Only keep configurable traits in attribute completion."
     )
 
+    _dynamic_subschemes = True
+    """Allow dynamic definition of subschemes.
+
+    Any attribute that is a Scheme will be converted to a trait instance and added to
+    the subschemes. Class definitions will be modified appropriately.
+    """
+
     aliases: dict[str, str] = {}
     """Mapping of aliases/shortcuts.
 
@@ -115,18 +125,39 @@ class Scheme(Configurable):
         """
         cls._subschemes = {}
         classdict = cls.__dict__
+
+        to_add: dict[str, type[Scheme]] = {}
+
         for k, v in classdict.items():
             # tag traits as configurable
             if isinstance(v, TraitType):
                 if v.metadata.get("config", True):
                     v.tag(config=True)
 
-            # transform subschemes in traits
-            if isinstance(v, type) and issubclass(v, Scheme):
-                setattr(cls, k, subscheme(v))
+            if not cls._dynamic_subschemes:
+                continue
 
+            # Add any Scheme type
+            if isinstance(v, type) and issubclass(v, Scheme):
+                to_add[k] = v
+
+        for k, v in to_add.items():
+            # change location of class definitions
+            if k == v.__name__:
+                new_name = f"_{k}SchemeDef"
+                v.__name__ = new_name
+                v.__qualname__ = f"{cls.__qualname__}.{new_name}"
+                setattr(cls, new_name, v)
+
+            setattr(cls, k, subscheme(v))
+
+        # add ancestors subschemes
+        for base in cls.__bases__:
+            if issubclass(base, Scheme):
+                cls._subschemes |= base._subschemes
+
+        # register new subschemes
         for k, v in classdict.items():
-            # register subschemes
             if isinstance(v, Instance):
                 # if v.klass is str, transform to corresponding type
                 v._resolve_classes()
