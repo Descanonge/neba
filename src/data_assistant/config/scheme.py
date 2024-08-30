@@ -67,6 +67,9 @@ class Scheme(Configurable):
     * Any class attribute that is a subclass of Scheme will be registered as a nested
       *subscheme* and replaced by a :class:`traitlets.Instance` trait, tagged as a
       "subscheme" in its metadata.
+    * Any nested class definition (subclass of Scheme) will also be considered as a
+      subscheme whose name is that of the class. The class definition will be kept under
+      another attribute name (``_{subscheme}SchemeDef``).
     * Shortcuts to nested subschemes can be defined in the :attr:`aliases` attribute.
       This allows to specify shorter keys (in command line or config files).
 
@@ -237,7 +240,7 @@ class Scheme(Configurable):
             sublines = subscheme._get_lines(header + (blank if is_last else pipe))
 
             symb = elbow_subscheme if is_last else branch_subscheme
-            sublines[0] = f"{header}{symb}{name}: {sublines[0]}"
+            sublines[0] = f"{header}{symb}{name}:"
             lines += sublines
 
         return lines

@@ -93,6 +93,36 @@ In the example above we have two parameters available at ``param_a`` and
    which automatically call ``subscheme()`` under the hood. This is shorter but
    can be confusing, in particular for static type checkers.
 
+Subschemes can also be directly defined inside another scheme class definition.
+The name of a nested class will be used a its corresponding subscheme instance,
+and its definition will be moved under the attribute ``_{name}SchemeDef`` (its
+name will also be changed to this). For example::
+
+    class MyConfig(Scheme):
+
+        class log(Scheme):
+            level = Unicode("INFO")
+
+        class sst(Scheme):
+            dataset = Enum(["a", "b"])
+
+            class a(Scheme):
+                location = Unicode("/somewhere")
+                time_resolution = Int(8, help="in days")
+
+            class b(Scheme):
+                location = Unicode("/somewhere/else")
+
+This syntax may feel somewhat unorthodox, and the automatic promotion of
+attributes can be disabled by directly setting the class attribute
+:attr:`Scheme._dynamic_subschemes`. A plugin which allow mypy to keep up with
+this is available. Add it to the list of plugins in your mypy configuration file
+such as (for pyproject.toml)::
+
+    [mypy]
+    plugins = ['data_assistant.config.mypy_plugin']
+
+
 The principal scheme, at the root of the configuration tree, is the
 :class:`application<.application.ApplicationBase>`. It can hold directly all
 your parameters, or nested sub-schemes. It will be responsible to gather the
@@ -100,26 +130,25 @@ parameters from configuration files and the command line.
 
 Here is a rather simple example::
 
-     from data_assistant.config import ApplicationBase, Scheme, subscheme
+     from data_assistant.config import ApplicationBase, Scheme
      from traitlets import Bool, Float, Int, List, Unicode
 
-     class ComputationParams(Scheme):
-         parallel = Bool(False, help="Conduct computation in parallel if true.")
-         n_cores = Int(1, help="Number of cores to use for computation.")
-
-     class PhysicalParams(Scheme):
-         threshold = Float(2.5, help="Threshold for some computation.")
-         data_name = Unicode("SST")
-         years = List(
-             Int(),
-             default_value=[2000, 2001, 2008],
-             min_length=1,
-             help="Years to do the computation on."
-          )
 
      class App(ApplicationBase):
-         computation = subscheme(ComputationParams)
-         physical = subscheme(PhysicalParams)
+
+        class computation(Scheme):
+            parallel = Bool(False, help="Conduct computation in parallel if true.")
+            n_cores = Int(1, help="Number of cores to use for computation.")
+
+        class physical(Scheme):
+            threshold = Float(2.5, help="Threshold for some computation.")
+            data_name = Unicode("SST")
+            years = List(
+                Int(),
+                default_value=[2000, 2001, 2008],
+                min_length=1,
+                help="Years to do the computation on."
+            )
 
      >>> app = App()
      >>> app.physical.years = [2023, 2024]
