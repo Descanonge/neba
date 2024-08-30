@@ -1,4 +1,8 @@
-"""Mypy plugin to handle dynamic Scheme definitions."""
+"""Mypy plugin to handle dynamic Scheme definitions.
+
+Use by adding to the list of plugins in your mypy configuration:
+``"data_assistant.config.mypy_plugin"``
+"""
 
 from collections import abc
 
@@ -34,6 +38,7 @@ class SchemeTransformer:
     of the same name as the class.
 
     Notably:
+
     * modify nested class defs: change their name to "_{name}SchemeDef" to hide them
       while conserving them
     * add an attribute corresponding to the subscheme (traitlets.Instance[_SchemeDef])

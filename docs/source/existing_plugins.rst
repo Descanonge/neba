@@ -253,9 +253,9 @@ and a data manager defined as::
 
 by calling ``DataManager().write(ds)``. Note this will detect that the smallest
 time parameter in the pattern is the month and split the dataset appropriately
-using :external+xarray:meth:`.Dataset.resample`. This can be specified manually
-or avoided alltogether. See :meth:`.XarraySplitWriterPlugin.write` documentation
-for details.
+using :external+xarray:meth:`xarray.Dataset.resample`. This can be specified
+manually or avoided alltogether. See :meth:`.XarraySplitWriterPlugin.write`
+documentation for details.
 
 .. note::
 

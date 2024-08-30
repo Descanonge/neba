@@ -102,7 +102,7 @@ plugins can leverage like :meth:`.DataManagerBase.get_source` or
 :meth:`.DataManagerBase.get_data`. For more specific features the package
 contains some abstract base classes that define the methods to be expected: for
 instance :class:`loader.LoaderPluginAbstract`,
-:class:`writer.WriterPluginAbstract`. See :doc:`existing-plugin` for a list of
+:class:`writer.WriterPluginAbstract`. See :doc:`existing_plugins` for a list of
 available plugins.
 
 If two specific plugins must directly interact, we can check the presence of a
