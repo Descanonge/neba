@@ -60,14 +60,17 @@ class CachedModule(Module):
     This is typically done everytime the parameters change.
     """
 
+    _add_void_callback = True
+
     def _init_module(self) -> None:
         self.cache: dict[str, t.Any] = {}
 
         def callback(dm, **kwargs) -> None:
             self.void_cache()
 
-        key = f"void_cache[{self.__class__.__name__}]"
-        self.dm._register_callback(key, callback)
+        if self._add_void_callback:
+            key = f"void_cache[{self.__class__.__name__}]"
+            self.dm._register_callback(key, callback)
 
     def void_cache(self) -> None:
         """Clear the cache."""

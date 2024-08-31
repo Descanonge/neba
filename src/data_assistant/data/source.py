@@ -43,6 +43,7 @@ class SimpleSource(SourceAbstract[T_Source]):
     """
 
     source_loc: T_Source
+    """Location of the source to return."""
 
     def get_source(self) -> T_Source:
         """Return source specified by :attr:`source_loc` attribute."""
