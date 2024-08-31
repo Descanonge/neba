@@ -8,7 +8,7 @@ Extending and going beyond
 This whole package was created with extension in mind, since every use case is
 different and users might want to customize parts of it. On the one hand, the
 dataset specification in :mod:`.data` has flexibility integrated in its
-structure with individual plugins, so little is to be added on this side. On the
+structure with individual modules, so little is to be added on this side. On the
 other hand, they are possible avenues of customization and extensions of current
 features for the :mod:`.config` submodule that may not be obvious.
 
@@ -101,7 +101,7 @@ work for parsing command line and different types of file formats. For the
 latter, adding formats is quite easy and it should suffice to implement
 :meth:`.ConfigLoader.load_config`. If there is a need to generate configuration
 files in this format there also is only need to implement
-:meth:`.FileLoader._to_lines`. Existing classes in :mod:`.config.loader` can
+:meth:`.FileLoader._to_lines`. Existing classes in :mod:`.config.loaders` can
 serve as examples.
 
 .. important::
@@ -138,30 +138,46 @@ as well, even though its implementation appears more complex. The idea of being
 able to indicate a deprecated parameter is especially seducing (not necessarily
 through interpolation, but maybe using traits metadata).
 
-Data manager and plugins
+However, traitlets already possess extensive event processing abilities, such as
+:external+traitlets:meth:`traitlets.observe` that transform a method into a
+hook that is run whenever a specific traits is changed. This can cover the use
+cases, maybe in a more roundabout way, but with it seems great flexibility.
+
+Data manager and modules
 ========================
 
 As already stated, data managers are meant to be flexible and accommodate any
-source and data type. The only hard requirement is to choose a parameter
-management plugin. Anything beyond that is optional and can be overwritten in a
-subclass of a plugin.
+source and data type. I can only recommend to look at the implementation of
+existing modules such as for multi-files sources (:mod:`.data.source`) or for
+XArray loading and writing (:mod:`.data.xarray`).
 
-I can only recommend to look at the implementation of existing plugin such as
-for multi-files sources (:mod:`.data.source`) or for XArray loading and writing
-(:mod:`.data.xarray`).
-
-You can notice that in the former, the filefinder plugin is only lazily loaded
-inside a bound method (:meth:`.FileFinderPlugin.filefinder`), so that users that
+You can notice that in the former, the filefinder packacge is only lazily loaded
+inside a bound method (:meth:`.FileFinderSource.filefinder`), so that users that
 do not use it are not required to install it or import it. For the same reasons,
-for XArray data all plugins were put in their own submodule that is not imported
-by default.
+for XArray all module were put in their own submodule that is not imported by
+default.
 
-Strict parameters plugin
+Strict parameters module
 ------------------------
 
-An idea of parameter management plugin is of one that would check that all
+An idea of parameter management module is of one that would check that all
 required parameters (specified as a class attribute) are present. It could also
 only keep required parameters and discard others. It would make the most sense
-for the :class:`.ParamsMappingPlugin` plugin but could be easily made to work
-with any kind of parameters storage that implement dict-like interface and/or
-:meth:`~.DataManagerBase.params_as_dict`.
+for the :class:`.ParamsManager` plugin but could be easily made to work
+with any kind of parameters storage that implement. However the existing
+:class:`.ParamsManagerScheme` somewhat fills this requirement.
+
+Completely different DataManager
+--------------------------------
+
+The process of defining module quickly inside a data-manager class definition
+could be re-used for other purposes. Or maybe the chosen default modules
+(parameters, source, loader, writer) is not appropriate. Modules can be easily
+replaced or even added, but someone could want something completely different.
+They could then create their own data-manage base class from
+:class:`.HasModules` which is the parent class that implements the module
+discovery and initialization.
+
+The :class:`.Module` class is still very much expecting to be in a
+:class:`.DataManagerBase` to ease the development. A solution could be found to
+make Module and HasModules more easily re-usable.

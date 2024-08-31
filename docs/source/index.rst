@@ -63,7 +63,7 @@ input loaded into xarray.
 .. toctree::
    :maxdepth: 2
 
-   existing_plugins
+   existing_modules
 
 .. toctree::
    :maxdepth: 3

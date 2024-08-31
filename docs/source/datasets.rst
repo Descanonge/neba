@@ -10,134 +10,137 @@ and management of multiple dataset with different file format, structure, etc.
 that can all depend on various parameters.
 
 Each new dataset is specified by creating a new subclass of
-:class:`~.DataManagerBase`. Relevant attributes or methods are overridden to
-provide information on this dataset. For example a method that return the data
-files can be overwritten by the user to cater to *this dataset*. Each instance
-of this new subclass corresponds to a set of parameters that can be used to
+:class:`~.DataManagerBase`. It possess different *modules* that each cover some
+functionality:
+
+* :class:`params_manager<.ParamsManagerAbstract>` manages the parameters of the
+  dataset
+* :class:`source<.SourceAbstract>` finds and manages the data sources: files,
+  data stores, remote resources, etc.
+* :class:`loader<.LoaderAbstract>` loads data from these sources into python,
+  using a given library
+* :class:`writer<.WriterAbstract>` writes data to a source (to disk or other)
+
+The class of each module can be changed to fit the need of each dataset. More
+modules can also be added easily to cover more specific features. Only the
+parameters module is necessary, all others are optional and can be left to their
+abstract class.
+
+If each subclass of DataManager is associated to a specific dataset, each
+*instance* of subclass corresponds to a set of parameters that can be used to
 change aspects of the dataset on the fly: choose only files for a specific year,
 change the method to open data, etc.
 
-.. _plugin-system:
+.. _module-system:
 
-Plugin system
+Module system
 =============
 
 This framework tries to make those data managers objects as universal as
 reasonably possible. The base class does not specify a data source (it could be
-one file, multiple files, a remote datastore, ...) or a data type. The
-management of parameters is also not implemented. Features can be added to the
-data manager class as needed via a system of independent plugins.
+one file, multiple files, a remote datastore, ...) or a data type.
+
+Definition in the data manager
+------------------------------
+
+Each :class:`module<.Module>` defines itself how (and especially where) it can
+be added to a data manager. This is thanks to two important class attributes:
+
+* ``_INSTANCE_ATTR`` gives the attribute name the module will be kept in the
+  data manager, for instance for source modules, it is ``"source"``.
+* ``_TYPE_ATTR`` gives the attribute name the *type* of the module will be kept
+  at. It makes it easy to subclass data-managers: ``SomeDataManager._Source``
+  will give the type of SomeDataManager source module.
+
+During the definition of a data manager class, it will look for *any* attribute
+that defines a subclass of :class:`.Module`. It can even just be a nested class
+definition. It will register the types of module found.
 
 .. note::
 
-   Each plugin is a mixin: a class that is not intended to work on its own, but
-   as a additional parent of the user data manager class.
+    Only one module of each type will be kept in the data manager. Later
+    definition will overwrite the priority. However if a module type is defined
+    through its designated type attribute (``_Source = MySourceSubClass``), it
+    will keep priority.
 
-   Plugins are subclasses of :class:`.Plugin`. On instanciation, the
-   data manager detects them and call :meth:`.Plugin._init_plugin` on
-   every plugin that is a direct parent of the manager class. This allows to
-   initialize every plugin.
+This allows quick definition of data managers with subclasses of different
+modules. For example::
 
-For example, we can make a straightforward dataset class by having the plugins
-:class:`params.ParamsMappingPlugin` to store parameters in a dictionary,
-:class:`xarray.XarrayFileLoaderPlugin` and :class:`xarray.XarrayWriterPlugin` to
-load and write data using :mod:`xarray`. For finding our data file, we will
-simply overwrite :meth:`.DataManagerBase.get_source`::
+    class DataManagerProjet(DataManagerBase):
+        """Define a data-manager base for the project."""
 
-    class DatasetSimple(
-        XarrayFileLoaderPlugin,
-        XarrayWriterPlugin,
-        ParamsMappingPlugin,
-        DataManagerBase
-    ):
+        _Source = SimpleSource
+        _Loader = XarrayLoader
 
-        def get_source(self):
-            """Should return a file for XarrayFileLoaderPlugin."""
-            # we can use the parameters stored DataManagerBase
-            if self.params["method"] == 1:
-                return "file_1"
-            else:
-                return "file_2"
+    class SST(DataManagerProject):
+
+        class Source(DataManagerProject._Source):
+            """This class name does not matter."""
+
+            def get_source(self):
+                ...
+
+        class Loader(DataManagerProject._Loader):
+            def postprocess_data(self, data):
+                ...
 
 .. note::
 
-   Remember that for multiple inheritance, parent classes on the left have
-   higher priority. The DataManagerBase thus should be the last base class.
-   See :external+python:ref:`tut-inheritance`.
+   Because of the dynamic nature of these class definition
+   (:class:`.DataManagerBase` uses ``__init_subclass__`` which is similar to
+   using a custom metaclass or a class decorator) a static type checker will be
+   lost. You can still get around it by naming your classes with the
+   corresponding module type attribute (_Source, _Loader, etc.) so that a static
+   type checker will not complain at using ``DataManagerProject._Source`` as a
+   base class. And you can add a type hint to the instance attribute, such as
+   ``loader: _Loader``.
 
-Let's switch to a dataset split across multiple files: we can use either
-:class:`source.GlobPlugin`, or :class:`source.FileFinderPlugin` to find and
-manage datafiles using the simple syntax of :mod:`filefinder`. We appropriately
-switch to :class:`xarray.XarrayMultiFileLoaderPlugin` to deal with multi-file
-inputs::
+   A mypy plugin might be added to do this automatically.
 
-    class DatasetMultifile(
-        XarrayMultiFileLoaderPlugin,
-        XarrayWriterPlugin,
-        FileFinderPlugin,
-        ParamsMappingPlugin,
-        DatasetBase,
-    ):
-        OPEN_MFDATASET_KWARGS = dict(parallel=True)
+.. important::
 
-        def get_root_directory(self):
-            return "/data/SST"
-
-        def get_filename_pattern(self):
-            return "%(Y)/SST_%(Y)%(m)%(d).nc"
+   All modules have easy access to the data-manager parameters by using
+   :meth:`~.Module.params`.
 
 
-.. note::
+Defining new modules
+--------------------
 
-   Non-essential dependencies are loaded lazily as much as possible. This is
-   why all xarray related plugins are put in their own submodule
-   :mod:`.data.xarray` (which is not imported in the top-level `__init__`).
+Dataset managers are initialized with an optional parameters argument, and
+additional keyword arguments. All modules are instanciated with the same
+arguments. Their :attr:`~.Module.dm` attribute is set to the containing data
+manager. After they are all instanciated, they are initialized using the
+:meth:`.Module._init_module` method. This allow to be (mostly) sure that all
+other module exist if there is need for interplay.
 
-Plugin interplay
-================
+The ``_init_module()`` method is planned for inheritance cooperation. Each new
+subclass should make a ``super()._init_module()`` call whenever appropriate. But
+the data manager initialization (:class:`.HasModules._init_modules`) will make
+sure every class in the MRO is initialized. So that in ``class
+NewModule(SubModuleA, SubModuleB)`` both ``SubModuleA._init_module`` and
+``SubModuleB._init_module`` will be called, even though they don't necessarily
+know about each other.
 
-For the most part, plugins are made to be independent of each others, but it can
+For the most part, modules are made to be independant of each others, but it can
 be useful to have interplay. The data-manager provides some basic API that
 plugins can leverage like :meth:`.DataManagerBase.get_source` or
 :meth:`.DataManagerBase.get_data`. For more specific features the package
 contains some abstract base classes that define the methods to be expected: for
-instance :class:`loader.LoaderPluginAbstract`,
-:class:`writer.WriterPluginAbstract`. See :doc:`existing_plugins` for a list of
-available plugins.
-
-If two specific plugins must directly interact, we can check the presence of a
-specific plugin via ``isinstance(self, SpecificPlugin)``. We can also simply
-create a "merger" plugin that inherits from the two plugins that need to
-interact. For instance we can combine the multifile writing plugin with the
-filefinder one, giving :class:`xarray.XarraySplitWriterPlugin`, so that we can
-automatically split data to different files when writing to disk using the
-specified filename pattern::
-
-    class DatasetMultifile(
-        XarrayMultiFileLoaderPlugin, XarraySplitWriterPlugin, DatasetBase
-    ):
-        ...
-
-Say we obtain our SST dataset as a :class:`xarray.Dataset`, we can write our
-daily data to disk in monthly files. It would also distribute among any other
-parameters present in the filename pattern. And by supplying a Dask client, this
-is going to be done in parallel::
-
-    SST(**maybe_our_parameters).write(
-        sst,
-        time_freq="M",
-        client=client
-    )
+instance :class:`loader.LoaderAbstract`, :class:`writer.WriterAbstract`. See
+:doc:`existing_modules` for a list of available plugins.
+See :class:`.SplitWriterMixin` for an example of interplay facilitator and the
+implementation of :class:`.XarraySplitWriter` that has multiple submodules
+parents as discussed in the paragraph above.
 
 
 Dataset parameters
 ==================
 
 A dataset instance is supposed to represent a specific set of parameters.
-Changing parameters might affect plugins, and thus it is recommended to change
+Changing parameters might affect modules, and thus it is recommended to change
 parameters using :class:`.DataManagerBase.set_params`.
 After the parameters have been modified, this function will launch all callbacks
-that have been registered by plugins. For instance, some plugins may use a cache
+that have been registered by modules. For instance, some modules may use a cache
 and need to void it after a parameters change.
 
 It might be useful to quickly change parameters, eventually multiple times,
@@ -161,11 +164,10 @@ save the initial parameters and restore them when exiting::
     manager is pretty simple and restoring caches might lead to unforeseen
     consequences.
 
-As noted above, how parameters are stored and managed is to be specified by
-choosing a plugin. The simplest is :class:`.ParamsMappingPlugin` that
-stores parameters in a dictionary attribute ``params``.
+As noted above, how parameters are stored and managed can be customized. The
+default is a simple dictionnary storing the parameters: :class:`.ParamsManager`.
 
-The package also provides :class:`.ParamsSchemePlugin` where parameters are
+The package also provides :class:`.ParamsManagerScheme` where parameters are
 stored in a :class:`data_assistant.config.scheme.Scheme` object. By specifying
 the exact expected type of the parameters, this can ensure the existence of
 parameters::
@@ -182,79 +184,57 @@ attribute. This comes at the cost of flexibility since schemes are not as
 malleable as other mapping types as it only implements :meth:`~.Scheme.update`
 (see :ref:`mapping-interface`).
 
-The parameters plugins should implement :meth:`~.DataManagerBase.params_as_dict`
-to return the parameters as a dictionary, and others plugins are encouraged to
-use it to facilitate interface.
+.. note::
 
-.. _cache-plugin:
+   The abstract parameters module is expecting that the parameters are storred
+   in a :class:`~collections.abc.MutableMapping`. The Scheme class implements
+   *most* of what is needed to be mutable, but cannot delete keys.
 
-Cache plugin
+.. _cache-module:
+
+Cache module
 ============
 
 .. note::
 
-   This section is aimed at plugin writers. Users can safely ignore it.
+   This section is aimed at module writers. Users can safely ignore it.
 
-It might help for some plugins to have a cache to write information into. For
-instance plugins managing source consisting of multiple files leverage this. The
-caches of different plugins need to be separated to avoid name clashes and other
-potential problems. However this pretty much requires to hardcode the cache
-location.
+It might help for some modules to have a cache to write information into. For
+instance plugins managing source consisting of multiple files leverage this.
+A module simply need to be a subclass of :class:`.CachedModule`. This will
+automatically create a *cache* attribute containing a dictionnary. It will also
+add a callback to the list of reset-callbacks of the data manager, so that this
+module cache will be voided on parameters change. This can be disable however
+by setting the class attribute ``_add_void_callback`` to False (in the new
+submodule class).
 
-To integrate a new cache into the rest of a DataManager compound, it is
-advised (but technically not required) to do the following when creating
-a :class:`.CachePlugin` subclass:
+If a module has a cache, you can use the :func:`.autocached` decorator to make
+the value of one of its property automatically cached::
 
-* In ``_init_plugin``:
-
-  * create a cache attribute. A simple :class:`dict` suffices. Its name should
-    not clash with existing attributes.
-  * append this attribute name to :attr:`.CachePlugin._CACHE_LOCATION`, this
-    let know other plugins where are the different caches. Notably,
-    :class:`.CachePlugin` will automatically register a callback to clear the
-    caches after a parameters change.
-  * do not forget to call ``super().__init___`` to do this registration,
-    **after _CACHE_LOCATION has been updated**.
-
-* You can eventually create an *autocached* decorator using
-  :func:`.plugin.get_autocached`. It will make any property automatically
-  cached: if a value exists in the cache it is returned immediately, otherwise
-  the code defined in the property is run and the result is cached for later.
-
-Let's take all this into a simple example::
-
-    class MultifilePlugin(CachePlugin):
-
-        # create a decorator, scope is the class
-        _autocached = get_autocached("_mulfifile_cache")
-
-        def _init_plugin(self) -> None:
-            self._multifile_cache = {}
-            self._CACHE_LOCATIONS.add("_multifile_cache")
-            super().__init__()
+    class SubModule(CachedModule):
 
         @property
-        @_autocached
-        def datafiles(self) -> list[str]:
+        @autocached
+        def something(self):
             ...
-            # some long and complicated code to obtain our files
-            ....
-            return filelist
 
 
-We run here into a inherent problem of the plugin/mixin system. Attributes
-defined in subclasses of plugins can be somewhat complex because there is
-no easy way to know at runtime to which plugin an attribute is associated to.
-At runtime, everything is bound to the same object: a class with a
-DataManagerBase and multiple plugins as parents.
+Module mixes
+============
 
-For the cache this translates into a difficulty to separate different caches
-from different plugins.
+Modules can be compounded together in some cases. The common API for this is
+contained in :class:`.ModuleMix`. This generate a module with multiple 'base
+modules'. It will instanciate and initialize the modules and store them in
+:attr:`.ModuleMix.base_modules`.
 
-.. note::
+This is used to obtain the :class:`union<.SourceUnion>` or
+:class:`intersection<.SourceIntersection>` of source files obtained by different
+source modules.
 
-   It is technically possible to do this programmatically using the
-   :mod:`inspect` module. But this is not trivial: we need to find the right
-   frame to find the information we need. Go back to
-   ``DataManagerBase.__init___`` to get the *cls* variable for instance. The
-   pitfalls far outweigh the benefit of having a little less to write.
+Mixes class should be created with the class method :meth:`~.ModuleMix.create`.
+For instance with::
+
+    _Source = SourceUnion.create([SourceOne, SourceTwo])
+
+we will obtain files catched by SourceOne and SourceTwo (without overlap) when
+calling ``data_manager.get_source()``.

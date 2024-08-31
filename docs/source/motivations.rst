@@ -136,39 +136,51 @@ to make it re-usable and flexible. That it could take different kind of source
 as input (a file, multiple files, a data store, etc.), load and/or write the
 data with different libraries (numpy, xarray, pandas, etc.).
 
-Using composition
------------------
-
-To this end, it would make sense to compartmentalize the different
-functionalities into objects held by the dataset. Each dataset could contain
-"params_manager", "source_manager", "loader", and "writer" objects (let's call
-them modules). Each module class could be swapped out to deal with different
-types of input, library, or specialized for a dataset, This is where this method
-has limits. To declare a new dataset, the user would need to change the behavior
-of modules. They would have to create new module classes or instances, then a
-new dataset class that uses those new modules. It is difficult to emulate the
-quick overwriting as shown above.
-
-It would be possible though to have the modules keep a reference of their parent
-dataset, and call methods bound to that dataset. The user could define or
-overwrite methods directly on the dataset and it would affect the behavior of
-modules.
-
-However, having tried this approach, despite working fairly well, it seems
-quite confusing for the end user. Expressing clearly and in a strict manner
-to the user what methods and attributes to define on the dataset is not
-trivial. This also confuses static type-checkers.
-
 Using inheritance
 -----------------
 
-The alternative is to use inheritance and mixins. This is already described
-in :doc:`datasets`.
+The first version using multiple inheritance, the current modules being instead
+mixins. The main advantage is a very simple syntax: all the methods are in one
+big dataset object, so overwriting them in a subclass is a succinct and very
+clear. It did not reach too complicated inheritance yet, so the inheritance was
+relatively clear to grasp for a user, and static type checking worked very well.
+Mixin interplay was very simple: just make a new mixin inheriting two or more
+mixins.
 
-It still has its downsides. Having many plugins can clutter the namespace and
-lead to name clashes. Using a static type-checker should prevent most mistakes
-though. The initialization issue is already raised in :ref:`plugin-system`.
-Maybe most notably, mixins are great to add methods, but adding attributes is
-more complicated. This issue is touched upon in :ref:`cache-plugin`: all plugin
-attributes are shared and separating them automatically is difficult since it is
-not possible to know at runtime in "whose" plugin code we are.
+However I started to reach some heavy cons. Having many plugins can clutter the
+namespace and lead to name clashes. Using a static type-checker should prevent
+most mistakes though. Maybe most notably, mixins are great to add methods, but
+adding attributes is more complicated. All plugin attributes are shared and
+separating them automatically is difficult since it is not possible to know at
+runtime in "whose" plugin code we are. Using caches was a difficult task and
+required hard-coding a lot of things.
+
+Some inheritance was getting quite hairy, especially on the writer side, and it
+seemed to me that composition could simplify things quite a bit.
+
+Lastly, because we can only manipulate a sinle data-manager object, not
+individual parts of it, it is impossible to dynamically combine different
+plugins. I found myself needing two different ways to find files (a dataset
+split into two completely different parts). It feels wrong to not be able to
+solve such an easy problem, and might hint at further difficulties.
+
+Using composition
+-----------------
+
+Composition was not used at first because I found the process of definition
+complicated: the user would need to subclass each modules, subclass the data
+manager and assign the new module types.
+
+Another method (the actual first one tried) was to have the modules keep a
+reference of their parent dataset, and call methods bound to that dataset. The
+user could define or overwrite methods directly on the dataset and it would
+affect the behavior of modules. However, having tried this approach, despite
+working fairly well, it seems quite confusing for the end user. Expressing
+clearly and in a strict manner to the user what methods and attributes to define
+on the dataset is not trivial. This also confuses static type-checkers.
+
+After developping the whole thing using inheritance, and having worked a lot on
+the configuration side, I had a better grasp of the class definition process and
+how to alter it dynamically. This prompted me to turn to composition, and making
+the definition of new datasets quicker by using dynamic definition (with
+``__init_subclass__``).
