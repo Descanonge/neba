@@ -40,6 +40,9 @@ class HasModules:
     a Module subclass.
     """
 
+    _modules: dict[str, Module]
+    """Mapping from attribute names to module instances. Filled during initialization."""
+
     def __init_subclass__(cls) -> None:
         # copy parent ones to not overwrite them
         cls._modules_types = dict(cls._modules_types)
@@ -56,6 +59,34 @@ class HasModules:
 
         for name, typ in cls._modules_types.items():
             setattr(cls, name, typ)
+
+    def _instanciate_modules(self, *args, **kwargs) -> None:
+        self._modules = {}
+
+        for typ in self._modules_types.values():
+            try:
+                mod = typ(*args, **kwargs)
+            except Exception as e:
+                log.warning(e)
+            mod.dm = self  # type: ignore
+            name = mod._INSTANCE_ATTR
+            self._modules[name] = mod
+            setattr(self, name, mod)
+
+    def _init_modules(self) -> None:
+        """Initialize all module, allow for cooperation in inheritance.
+
+        _init_module will be called on all ancestors.
+        """
+        initialized: list[type[Module]] = list()
+        for mod in self._modules.values():
+            for ancestor in mod.__class__.mro():
+                if issubclass(ancestor, Module) and ancestor not in initialized:
+                    try:
+                        ancestor._init_module(mod)
+                    except Exception as e:
+                        log.warning(e)
+                    initialized += ancestor.mro()
 
 
 class DataManagerBase(t.Generic[T_Params, T_Source, T_Data], HasModules):
@@ -89,40 +120,16 @@ class DataManagerBase(t.Generic[T_Params, T_Source, T_Data], HasModules):
     any number of keyword arguments.
     """
 
-    _modules: dict[str, Module]
-    """Mapping from attribute names to module instances. Filled during initialization."""
-
     params_manager: ParamsManagerAbstract[T_Params]
     source: SourceAbstract[T_Source]
     loader: LoaderAbstract[T_Source, T_Data]
     writer: WriterAbstract[T_Source, T_Data]
 
     def __init__(self, params: t.Any | None = None, **kwargs) -> None:
-        self._modules = {}
         self._reset_callbacks = {}
 
-        # Setup all module instances
-        for typ in self._modules_types.values():
-            try:
-                mod = typ(self, params=params, **kwargs)
-            except Exception as e:
-                log.warning(e)
-            name = mod._INSTANCE_ATTR
-            self._modules[name] = mod
-            setattr(self, name, mod)
-
-        # Initialize all module, allow for cooperation in inheritance: _init_module will
-        # be called on all ancestors.
-        initialized: list[type[Module]] = list()
-        for mod in self._modules.values():
-            for ancestor in mod.__class__.mro():
-                if issubclass(ancestor, Module) and ancestor not in initialized:
-                    try:
-                        ancestor._init_module(mod)
-                    except Exception as e:
-                        log.warning(e)
-                    initialized += ancestor.mro()
-
+        self._instanciate_modules(params=params, **kwargs)
+        self._init_modules()
         self.set_params(params, **kwargs)
 
     def __str__(self) -> str:

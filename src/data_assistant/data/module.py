@@ -42,8 +42,8 @@ class Module:
         """Parameters of the data manager."""
         return self.dm.params_manager.params
 
-    def __init__(self, dm: DataManagerBase, params: t.Any | None = None, **kwargs):
-        self.dm = dm
+    def __init__(self, params: t.Any | None = None, **kwargs):
+        pass
 
     def _init_module(self) -> None:
         pass
@@ -134,14 +134,12 @@ class ModuleMix(t.Generic[T_Mod], Module):
     base_modules: list[T_Mod]
     """List of module instances."""
 
-    def __init__(
-        self, dm: DataManagerBase, params: t.Any | None = None, **kwargs
-    ) -> None:
-        super().__init__(dm, params=params, **kwargs)
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
         # initialize every base module
         self.base_modules = []
         for cls in self.base_types:
-            self.base_modules.append(cls(dm, params=params, **kwargs))
+            self.base_modules.append(cls(*args, **kwargs))
 
     @classmethod
     def create(cls: type[T_Self], bases: abc.Sequence[type[T_Mod]]) -> type[T_Self]:
@@ -161,4 +159,5 @@ class ModuleMix(t.Generic[T_Mod], Module):
 
     def _init_module(self) -> None:
         for mod in self.base_modules:
+            mod.dm = self.dm
             mod._init_module()
