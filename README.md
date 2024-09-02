@@ -13,7 +13,7 @@ The parameters values can be retrieved from configuration files (TOML, YAML, or 
 The whole configuration can easily be documented directly inside the specification code, and this is re-used for the command-line help, automatically generated configuration files, and sphinx documentation with a custom autodoc extension.
 
 The submodule [`config.dask_config`](./src/data_assistant/config/dask_config.py) is a show-case of using this for the different parameters necessary when deploying Dask on a local cluster or on distributed machines using [dask-jobqueue](https://jobqueue.dask.org/en/latest/).
-It also provides some convenience start-up functions to get setup quickly.
+It also provides some convenience start-up functions to get setup quickly and easily scale or adapt distributed cluster. It also allows to use the same script for local or distributed clusters.
 
 ## Dataset management
 
@@ -22,8 +22,8 @@ The second module aims to ease the creation and management of datasets with diff
 Each new dataset is specified by creating a subclass of a data manager object. Relevant attributes or methods are overridden to provide information on this dataset.
 Each *instance* of this new subclass corresponds to a set of parameters that can be used to change aspects of the dataset on the fly: choose only files for a specific year, change the method to open data, etc.
 
-Classes of data managers are made as universal as possible via a system of independent plugins (kinds of mixins) that each add specific features.
-One data manager can deal with multiple files data-source select via glob patterns, loaded into pandas, while another could have a remote data-store as input loaded into xarray.
+Classes of data managers are made as universal as possible via a system of modules that each cover specific features, and whose implementation can be changed between datasets.
+One data manager can deal with multiple source files selected via glob patterns, loaded into pandas, while another could have a remote data-store as input loaded into xarray.
 
 ## Documentation
 

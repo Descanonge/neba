@@ -285,7 +285,7 @@ class ApplicationBase(Scheme, LoggingMixin):
         self._extra_parameters_args: list[tuple[list, dict[str, t.Any]]] = []
         """Extra parameters passed to the command line parser."""
         self.extra_parameters: dict[str, t.Any] = {}
-        """Extra paramaters retrieved by the command line parser."""
+        """Extra parameters retrieved by the command line parser."""
 
     def start(
         self,

@@ -14,7 +14,7 @@ log = logging.getLogger(__name__)
 
 
 class ParamsManagerAbstract(t.Generic[T_Params], Module):
-    """Abstract of paramaters manager."""
+    """Abstract Module for parameters management."""
 
     _TYPE_ATTR = "_Params"
     _INSTANCE_ATTR = "params_manager"

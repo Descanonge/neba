@@ -31,7 +31,10 @@ The submodule :mod:`.config.dask_config` is a show-case of using this for the
 different parameters necessary when deploying Dask on a local cluster or on
 distributed machines using `dask-jobqueue
 <https://jobqueue.dask.org/en/latest/>`__. It also provides some convenience
-start-up functions to get setup quickly.
+start-up functions to get setup quickly and easily scale or adapt distributed
+cluster. It also allows to use the same script for local or distributed
+clusters.
+
 
 Dataset management
 ==================
@@ -47,10 +50,10 @@ that can be used to change aspects of the dataset on the fly: choose only files
 for a specific year, change the method to open data, etc.
 
 Classes of data managers are made as universal as possible via a system of
-independent plugins (kinds of mixins) that each add specific features.
-One data manager can deal with multiple files data-source select via glob
-patterns, loaded into pandas, while another could have a remote data-store as
-input loaded into xarray.
+modules that each cover specific features, and whose implementation can be
+changed between datasets. One data manager can deal with multiple source files
+selected via glob patterns, loaded into pandas, while another could
+have a remote data-store as input loaded into xarray.
 
 .. toctree::
    :maxdepth: 1
