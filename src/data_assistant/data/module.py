@@ -1,18 +1,4 @@
-"""Definition of base Plugin for the DataManager.
-
-Each plugin is a mixin class that adds functionalities to a DataManager base class,
-allowing the user to choose how to deal with various parts of loading/writing data.
-
-Mixins are meant to be independant of each others, but some plugins might need to
-exchange information. The minimal case of a plugin managing loading data might want
-another plugin to locate the files to load.
-
-To allow this, plugins have access to *at least* the API of :class:`DataManagerAbstract`
-that involves some basic plugins. If more inter-dependency is required, one can check
-for classes in ``self.__class__.__bases__`` to make sure another plugin is present, or
-better yet to create a "third" plugin the depend on other plugin(s), see
-:class:`.xarray.XarraySplitWriterPlugin` for a practical example.
-"""
+"""Definition of base Module for the DataManager."""
 
 from __future__ import annotations
 
