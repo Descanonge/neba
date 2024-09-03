@@ -375,7 +375,7 @@ class DaskClusterJobQueue(DaskClusterAbstract):
             "Number of seconds to wait for workers before "
             "raising dask.distributed.TimeoutError "
         ),
-    )
+    ).tag(cluster_args=False)
 
 
 @tag_all_traits(cluster_args=True)
