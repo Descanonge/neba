@@ -159,7 +159,7 @@ class SchemeTransformer:
                 if (
                     name not in previous
                     or self.change_clsname(name) not in moved_class_defs
-                ):
+                ) and isinstance(stmt.info, TypeInfo):
                     found[name] = stmt
         return found
 
