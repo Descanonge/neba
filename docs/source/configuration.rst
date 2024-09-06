@@ -84,16 +84,7 @@ and setting it as an attribute in the parent scheme::
 In the example above we have two parameters available at ``param_a`` and
 ``child.param_b``.
 
-.. note::
-
-   It is also possible to directly write::
-
-     child = ChildScheme
-
-   which automatically call ``subscheme()`` under the hood. This is shorter but
-   can be confusing, in particular for static type checkers.
-
-And finally, even shorter, subschemes classes can be directly defined inside
+For ease of use and readability, subschemes can be directly defined inside
 another scheme class definition. The name of such a nested class will be used
 for the corresponding subscheme attribute. The class will be renamed and moved
 moved under the attribute ``_{name}SchemeDef``. For example::
@@ -113,13 +104,13 @@ moved under the attribute ``_{name}SchemeDef``. For example::
             class b(Scheme):
                 location = Unicode("/somewhere/else")
 
-As it is a bit unorthodox and as of now not thoroughly test, the automatic
+As it is a bit unorthodox and as of now not thoroughly tested, the automatic
 promotion of attributes can be disabled by directly setting the class attribute
-:attr:`Scheme._dynamic_subschemes`.
+:attr:`Scheme._dynamic_subschemes` to False.
 
-A mypy plugin is provided to support these dynamic definitions (only the nested
-class definitions). Add it to the list of plugins in your mypy configuration
-file, for instance for 'pyproject.toml'::
+A mypy plugin is provided to support these dynamic definitions. Add it to the
+list of plugins in your mypy configuration file, for instance for
+'pyproject.toml'::
 
     [mypy]
     plugins = ['data_assistant.config.mypy_plugin']
