@@ -6,15 +6,19 @@ Use by adding to the list of plugins in your mypy configuration:
 
 from collections import abc
 
-from mypy.nodes import ClassDef, PlaceholderNode, TypeInfo
+from mypy.nodes import MDEF, ClassDef, PlaceholderNode, SymbolTableNode, TypeInfo
 from mypy.plugin import ClassDefContext, Plugin, SemanticAnalyzerPluginInterface
 from mypy.plugins.common import add_attribute_to_class
-from mypy.types import Instance
+from mypy.types import Instance, TypeVarLikeType
+
+from data_assistant.config.scheme import _name_to_classdef
 
 SCHEME_FULLNAME = "data_assistant.config.scheme.Scheme"
 
 
 class SchemePlugin(Plugin):
+    """Plugin for dynamic schemes."""
+
     def get_base_class_hook(
         self, fullname: str
     ) -> abc.Callable[[ClassDefContext], None] | None:
@@ -70,7 +74,7 @@ class SchemeTransformer:
         subschemes_defs = self.collect_subschemes_defs()
         new_defs = self.modify_class_defs(subschemes_defs)
 
-        self.metadata["moved_class_defs"] = [self.change_clsname(n) for n in new_defs]
+        self.metadata["moved_class_defs"] = [_name_to_classdef(n) for n in new_defs]
 
         if not self.register_traitlets_instance():
             if self.api.final_iteration:
@@ -79,7 +83,6 @@ class SchemeTransformer:
 
         subschemes_info = {n: k.info for n, k in new_defs.items()}
         self.assign_attributes(subschemes_info)
-        self.metadata["subschemes_names"] = list(subschemes_info.keys())
 
     def assign_attributes(self, subschemes: dict[str, TypeInfo]):
         """Assign new attributes corresponding to subschemes.
@@ -97,6 +100,33 @@ class SchemeTransformer:
                 overwrite_existing=True,
             )
 
+    @staticmethod
+    def change_fullname(node, old: str, new: str, index: int, attr: str = "_fullname"):
+        """Change fullname of a node.
+
+        Parameters
+        ----------
+        node
+            Node to modify
+        old
+            Old name.
+        new
+            New part of the fullname
+        index
+            Which part of the fullname to modify, when split between dots `.`.
+        attr
+            Attribute of the node to modify.
+        """
+        fullname = getattr(node, attr, None)
+        if fullname is None:
+            return
+
+        split = fullname.split(".")
+        if split[index] == old:
+            split[index] = new
+
+        setattr(node, attr, ".".join(split))
+
     def modify_class_defs(self, subschemes: dict[str, ClassDef]) -> dict[str, ClassDef]:
         """Modify subscheme class defs to hide them.
 
@@ -104,27 +134,33 @@ class SchemeTransformer:
         completely remove the old definition either).
         """
         new_defs = {}
-        for name, old in subschemes.items():
-            new = old
-            new_name = self.change_clsname(name)
-            new.name = new_name
+        for sub_name, old_def in subschemes.items():
+            new_def = old_def
 
-            fullname = old.fullname.split(".")
-            try:
-                fullname[-1] = new_name
-            except IndexError:
-                pass
-            else:
-                new._fullname = ".".join(fullname)
+            # Change name
+            new_name = _name_to_classdef(sub_name)
+            index = len(new_def.info.fullname.split(".")) - 1
+            new_def.name = new_name
 
-            new_defs[name] = new
+            # Recursively alter the fullname of Nodes
+            def change_node(node):
+                if isinstance(node, TypeVarLikeType):
+                    self.change_fullname(node, sub_name, new_name, index, "fullname")
+                    return
+                self.change_fullname(node, sub_name, new_name, index, "_fullname")
+                if isinstance(node, TypeInfo):
+                    change_node(node.defn)
+                    for sym in node.names.values():
+                        change_node(sym.node)
+
+            # Add definition to table
+            def_node = SymbolTableNode(MDEF, new_def.info, plugin_generated=True)
+            change_node(def_node.node)
+            self.api.add_symbol_table_node(new_name, def_node)
+
+            new_defs[sub_name] = new_def
 
         return new_defs
-
-    @staticmethod
-    def change_clsname(subscheme: str):
-        """Return the new hidden class name."""
-        return f"_{subscheme}SchemeDef"
 
     def register_traitlets_instance(self) -> bool:
         """Register the traitlets Type information.
@@ -149,17 +185,17 @@ class SchemeTransformer:
         Do not return classes defs that have the name of previously modified defs
         (ie either have the name of a previous subscheme or a previously hidden class).
         """
-        previous: list[str] = self.metadata.get("subschemes_names", [])
         moved_class_defs: list[str] = self.metadata.get("moved_class_defs", [])
 
         found = {}
         for stmt in self.cls.defs.body:
             if isinstance(stmt, ClassDef):
-                name = stmt.info.name
+                name = stmt.info.name.rstrip("_")
                 if (
-                    name not in previous
-                    or self.change_clsname(name) not in moved_class_defs
-                ) and isinstance(stmt.info, TypeInfo):
+                    _name_to_classdef(name) not in moved_class_defs
+                    and isinstance(stmt.info, TypeInfo)
+                    and stmt.info.has_base(SCHEME_FULLNAME)
+                ):
                     found[name] = stmt
         return found
 

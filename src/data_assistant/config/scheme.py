@@ -35,7 +35,7 @@ log = logging.getLogger(__name__)
 S = t.TypeVar("S", bound="Scheme")
 
 
-def subscheme(scheme: type[S] | str) -> Instance[S]:
+def subscheme(scheme: type[S]) -> Instance[S]:
     """Transform a subscheme into a proper trait.
 
     To make the specification easier, an attribute of type :class:`Scheme` will
@@ -50,6 +50,10 @@ def subscheme(scheme: type[S] | str) -> Instance[S]:
 
     """
     return Instance(scheme, args=(), kw={}).tag(subscheme=True, config=False)
+
+
+def _name_to_classdef(name: str) -> str:
+    return f"_{name}SchemeDef"
 
 
 class Scheme(Configurable):
@@ -140,18 +144,18 @@ class Scheme(Configurable):
             if not cls._dynamic_subschemes:
                 continue
 
-            # Add any Scheme type
-            if isinstance(v, type) and issubclass(v, Scheme):
-                to_add[k] = v
+            # Add Scheme definitions
+            if isinstance(v, type) and issubclass(v, Scheme) and k == v.__name__:
+                to_add[k.rstrip("_")] = v
 
         for k, v in to_add.items():
-            # change location of class definitions
-            if k == v.__name__:
-                new_name = f"_{k}SchemeDef"
-                v.__name__ = new_name
-                v.__qualname__ = f"{cls.__qualname__}.{new_name}"
-                setattr(cls, new_name, v)
+            # change location of class definition
+            new_name = _name_to_classdef(k)
+            v.__name__ = new_name
+            v.__qualname__ = f"{cls.__qualname__}.{new_name}"
+            setattr(cls, new_name, v)
 
+            # And add a subscheme
             setattr(cls, k, subscheme(v))
 
         # add ancestors subschemes
