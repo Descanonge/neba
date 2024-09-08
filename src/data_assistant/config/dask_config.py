@@ -26,7 +26,7 @@ from traitlets import (
 )
 from traitlets.utils.importstring import import_item
 
-from .scheme import Scheme
+from .scheme import Scheme, subscheme
 from .util import tag_all_traits
 
 log = logging.getLogger(__name__)
@@ -503,7 +503,7 @@ class DaskConfig(Scheme):
         """
         # Add selected cluster types
         for name in cls.selected_clusters:
-            setattr(cls, name, cls.cluster_names[name])
+            setattr(cls, name, subscheme(cls.cluster_names[name]))
 
         super()._setup_scheme()
 
