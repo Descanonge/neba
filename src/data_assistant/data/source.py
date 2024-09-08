@@ -397,7 +397,25 @@ class climato:  # noqa: N801
 T_ModSource = t.TypeVar("T_ModSource", bound=SourceAbstract)
 
 
-class SourceUnion(SourceAbstract, ModuleMix[T_ModSource]):
+class _SourceMix(SourceAbstract, ModuleMix[T_ModSource]):
+    def get_filename(
+        self, all: bool = False, select: dict[str, t.Any] | None = None, **fixes
+    ) -> T_ModSource | list[T_ModSource]:
+        return self.get("get_filename", all, select=select, **fixes)
+
+    def _get_grouped_source(self) -> list[list[t.Any]]:
+        grouped = self.get_all("get_source")
+        # I expect grouped to be list[list[Any] | Any]
+        # we make sure we only have lists: list[list[Any]]
+        source = []
+        for grp in grouped:
+            if not isinstance(grp, list | tuple):
+                grp = [grp]
+            source.append(grp)
+        return source
+
+
+class SourceUnion(_SourceMix[T_ModSource]):
     """Sources are the union of that obtained by multiple modules.
 
     Pass the different source modules to "combine" to
@@ -416,18 +434,13 @@ class SourceUnion(SourceAbstract, ModuleMix[T_ModSource]):
         return s
 
     def get_source(self) -> list[t.Any]:
-        groups = self.get_all("get_source")
+        source = self._get_grouped_source()
         # use fromkeys to remove duplicates. dict keep order which is nice
-        union = list(dict.fromkeys(itertools.chain(*groups)))
+        union = list(dict.fromkeys(itertools.chain(*source)))
         return union
 
-    def get_filename(
-        self, all: bool = False, select: dict[str, t.Any] | None = None, **fixes
-    ) -> T_ModSource | list[T_ModSource]:
-        return self.get("get_filename", all, select=select, **fixes)
 
-
-class SourceIntersection(SourceAbstract, ModuleMix[T_ModSource]):
+class SourceIntersection(_SourceMix[T_ModSource]):
     """Sources are the intersection of that obtained by multiple modules.
 
     Pass the different source modules to "combine" to
@@ -446,11 +459,6 @@ class SourceIntersection(SourceAbstract, ModuleMix[T_ModSource]):
         return s
 
     def get_source(self) -> list[t.Any]:
-        groups = self.get_all("get_source")
+        groups = self._get_grouped_source()
         inter: set[t.Any] = set().intersection(*[set(g) for g in groups])
         return list(inter)
-
-    def get_filename(
-        self, all: bool = False, select: dict[str, t.Any] | None = None, **fixes
-    ) -> t.Any:
-        return self.get("get_filename", all, select=select, **fixes)

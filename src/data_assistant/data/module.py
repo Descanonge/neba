@@ -190,8 +190,6 @@ class ModuleMix(t.Generic[T_Mod], Module):
         groups: list[t.Any] = []
         for mod in self.base_modules.values():
             output = getattr(mod, method)(*args, **kwargs)
-            if not isinstance(output, list | tuple):
-                output = [output]
             groups.append(output)
         return groups
 
