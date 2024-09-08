@@ -107,28 +107,116 @@ class ModuleMix(t.Generic[T_Mod], Module):
 
     T_Self = t.TypeVar("T_Self", bound="ModuleMix[T_Mod]")
 
-    # TODO Way to orient a call to one of the modules
-    # use a user-defined function that uses the parameters ?
-
     base_types: tuple[type[T_Mod], ...] = ()
     """Tuple of types of the constituting modules."""
-    base_modules: list[T_Mod]
+    base_modules: dict[str, T_Mod]
     """List of module instances."""
+
+    select_func: abc.Callable[..., str] | None = None
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        # initialize every base module
-        self.base_modules = []
-        for cls in self.base_types:
-            self.base_modules.append(cls(*args, **kwargs))
 
-    @classmethod
-    def create(cls: type[T_Self], bases: abc.Sequence[type[T_Mod]]) -> type[T_Self]:
-        """Create a new mix-class from base module."""
-        cls.base_types = tuple(bases)
-        return cls
+        # initialize every base module
+        self.base_modules = {}
+        for cls in self.base_types:
+            self.base_modules[cls.__name__] = cls(*args, **kwargs)
 
     def _init_module(self) -> None:
-        for mod in self.base_modules:
+        for mod in self.base_modules.values():
             mod.dm = self.dm
             mod._init_module()
+
+    @classmethod
+    def create(
+        cls: type[T_Self],
+        bases: abc.Sequence[type[T_Mod]],
+        select_func: abc.Callable[..., str] | None = None,
+    ) -> type[T_Self]:
+        """Create a new mix-class from base module.
+
+        bases
+            Module types to mix.
+        select_func
+            Function to select one of the base module depending on the current module
+            state, and data-manager parameters. It receives the instance of the module
+            mix and additional kwargs, and must return the class-name of one of the
+            base module.
+        """
+        cls.base_types = tuple(bases)
+        if select_func is not None:
+            cls.select_func = select_func  # type: ignore
+        return cls
+
+    @classmethod
+    def set_select(cls: type[T_Self], select_func: abc.Callable[..., str]):
+        """Set the selection function.
+
+        select_func
+            Function to select one of the base module depending on the current module
+            state, and data-manager parameters. It receives the instance of the module
+            mix and additional kwargs, and must return the class-name of one of the
+            base module.
+        """
+        cls.select_func = select_func  # type: ignore
+
+    def _lines(self) -> list[str]:
+        s = []
+        for name, mod in self.base_modules.items():
+            lines = [f"\t{line}" for line in mod._lines()]
+            if lines:
+                s.append(name)
+                s += lines
+        return s
+
+    def select(self, **kwargs) -> T_Mod:
+        """Return the module to select under current module and data-manager state.
+
+        Parameters
+        ----------
+        kwargs
+            Will be passed to the selection function.
+        """
+        if self.select_func is None:
+            raise ValueError(f"No selection function registered for {self.__class__}.")
+        selected = self.select_func(self, **kwargs)
+        return self.base_modules[selected]
+
+    def get_all(self, method: str, *args, **kwargs) -> list[t.Any]:
+        """Get results from every base module.
+
+        Every output is put in a list if not already.
+        """
+        groups: list[t.Any] = []
+        for mod in self.base_modules.values():
+            output = getattr(mod, method)(mod, *args, **kwargs)
+            if not isinstance(output, list | tuple):
+                output = [output]
+            groups.append(output)
+        return groups
+
+    def apply_all(self, method: str, *args, **kwargs):
+        """Apply method for every base module.
+
+        To use when the method does not output anything.
+        """
+        for mod in self.base_modules.values():
+            getattr(mod, method)(mod, *args, **kwargs)
+
+    def get_select(self, method: str, *args, **kwargs) -> list[t.Any]:
+        """Get result from a single base module.
+
+        Module is selected with :attr:`select_func`, based on current module and
+        data-manager state.
+        """
+        mod = self.select()
+        return getattr(mod, method)(mod, *args, **kwargs)
+
+    def apply_select(self, method: str, *args, **kwargs):
+        """Apply method for a single base module.
+
+        Module is selected with :attr:`select_func`, based on current module and
+        data-manager state. To use when the method does not output anything.
+
+        """
+        self.get_select(method, *args, **kwargs)

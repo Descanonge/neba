@@ -397,31 +397,7 @@ class climato:  # noqa: N801
 T_ModSource = t.TypeVar("T_ModSource", bound=SourceAbstract)
 
 
-class _SourceMix(SourceAbstract, ModuleMix[T_ModSource]):
-    """Mix of multiple source modules to make a new module."""
-
-    def _get_source_groups(self) -> list[t.Any]:
-        """Return output source of all module.
-
-        Every output is put in a list if not already.
-        """
-        groups: list[t.Any] = []
-        for mod in self.base_modules:
-            source = mod.get_source()
-            if not isinstance(source, list | tuple):
-                source = [source]
-            groups.append(source)
-        return groups
-
-    def _lines(self) -> list[str]:
-        s = []
-        for mod in self.base_modules:
-            s.append(mod.__class__.__name__)
-            s += [f"\t{line}" for line in mod._lines()]
-        return s
-
-
-class SourceUnion(_SourceMix[T_ModSource]):
+class SourceUnion(SourceAbstract, ModuleMix[T_ModSource]):
     """Sources are the union of that obtained by multiple modules.
 
     Pass the different source modules to "combine" to
@@ -434,19 +410,26 @@ class SourceUnion(_SourceMix[T_ModSource]):
     without duplicates, in the order of how the modules were given to ``create``.
     """
 
-    def get_source(self) -> list[t.Any]:
-        groups = self._get_source_groups()
-        # use fromkeys to remove duplicates. dict keep order which is nice
-        union = list(dict.fromkeys(itertools.chain(*groups)))
-        return union
-
     def _lines(self) -> list[str]:
         s = super()._lines()
         s.insert(0, "Union of sources from modules:")
         return s
 
+    def get_source(self) -> list[t.Any]:
+        groups = self.get_all("get_source")
+        # use fromkeys to remove duplicates. dict keep order which is nice
+        union = list(dict.fromkeys(itertools.chain(*groups)))
+        return union
 
-class SourceIntersection(_SourceMix[T_ModSource]):
+    def get_filename(
+        self, _select: bool = True, **fixes
+    ) -> T_ModSource | list[T_ModSource]:
+        if _select:
+            return self.get_select("get_filename", **fixes)
+        return self.get_all("get_filename", **fixes)
+
+
+class SourceIntersection(SourceAbstract, ModuleMix[T_ModSource]):
     """Sources are the intersection of that obtained by multiple modules.
 
     Pass the different source modules to "combine" to
@@ -459,12 +442,19 @@ class SourceIntersection(_SourceMix[T_ModSource]):
     modules.
     """
 
-    def get_source(self) -> list[t.Any]:
-        groups = self._get_source_groups()
-        inter: set[t.Any] = set().intersection(*[set(g) for g in groups])
-        return list(inter)
-
     def _lines(self) -> list[str]:
         s = super()._lines()
         s.insert(0, "Intersection of sources from modules:")
         return s
+
+    def get_source(self) -> list[t.Any]:
+        groups = self.get_all("get_source")
+        inter: set[t.Any] = set().intersection(*[set(g) for g in groups])
+        return list(inter)
+
+    def get_filename(
+        self, _select: bool = True, **fixes
+    ) -> T_ModSource | list[T_ModSource]:
+        if _select:
+            return self.get_select("get_filename", **fixes)
+        return self.get_all("get_filename", **fixes)
