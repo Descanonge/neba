@@ -139,7 +139,7 @@ able to indicate a deprecated parameter is especially seducing (not necessarily
 through interpolation, but maybe using traits metadata).
 
 However, traitlets already possess extensive event processing abilities, such as
-:external+traitlets:meth:`traitlets.observe` that transform a method into a
+:external+traitlets:func:`traitlets.observe` that transform a method into a
 hook that is run whenever a specific traits is changed. This can cover the use
 cases, maybe in a more roundabout way, but with it seems great flexibility.
 

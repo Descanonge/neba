@@ -23,9 +23,9 @@ Once defined, the parameters values can be recovered from configuration files
 (python files like with traitlets, but also TOML or YAML files), and
 from the command line as well.
 
-The help string of each trait is used to generate command line help,
-fully documented configuration files, and a the plugin :mod:`.autodoc_trait`
-integrates it in sphinx documentations.
+The help string of each trait is used to generate command line help, fully
+documented configuration files, and the plugin :mod:`.autodoc_trait` integrates
+it in sphinx documentations.
 
 .. currentmodule:: data_assistant.config
 
@@ -84,7 +84,7 @@ and setting it as an attribute in the parent scheme::
 In the example above we have two parameters available at ``param_a`` and
 ``child.param_b``.
 
-For ease of use and readability, subschemes can be directly defined inside
+For ease of use and readability, subschemes can also be defined directly inside
 another scheme class definition. The name of such a nested class will be used
 for the corresponding subscheme attribute. The class will be renamed and moved
 moved under the attribute ``_{name}SchemeDef``. For example::
@@ -118,7 +118,7 @@ list of plugins in your mypy configuration file, for instance for
 
 The principal scheme, at the root of the configuration tree, is the
 :class:`application<.application.ApplicationBase>`. It can hold directly all
-your parameters, or nested sub-schemes. It will be responsible to gather the
+your parameters, or nested sub-schemes. It will be responsible for gathering the
 parameters from configuration files and the command line.
 
 Here is a rather simple example::
@@ -448,13 +448,13 @@ From the command line
 
 Parameters can be set from parsing command line arguments, although it can be
 skipped by either setting the :attr:`.ApplicationBase.ignore_cli` trait or
-the `ignore_cli` argument to :meth:`.ApplicationBase.start`. The configuration
+the *ignore_cli* argument to :meth:`.ApplicationBase.start`. The configuration
 obtained will be stored in the :attr:`~.ApplicationBase.cli_conf` attribute and
 will take priority over parameters from configuration files.
 
-The keys are indicated following one or two hyphen. Any subsequent hyphen is
+The keys are indicated following **one or two** hyphen. Any subsequent hyphen is
 replaced by an underscore. So ``-computation.n_cores`` and
-``--computation.n-cores`` are equivalent. As already node, parameters keys can
+``--computation.n-cores`` are equivalent. As already noted, parameters keys can
 be dot-separated paths leading to a trait. Aliases can be used for brevity.
 Class-keys are input with the same syntax (``--ClassName.trait_name``).
 
@@ -471,6 +471,12 @@ the main differences with other loaders is that all arguments need to be parsed.
 This is done by :meth:`.ConfigValue.parse` that, at the time of parsing, should
 have a reference to the corresponding trait (which itself has methods
 ``from_string`` and ``from_string_list`` for containers).
+
+.. note::
+
+    Currently, the parsing can fail in some nested types of unions and
+    containers. :meth:`.ConfigValue.parse` tries to mitigates this, but is not
+    thoroughly tested for all possible deep nestings.
 
 Extra parameters to the argument parser can be added using
 :meth:`.ApplicationBase.add_extra_parameter`. The values will be available after
@@ -505,7 +511,12 @@ inattention.
 .. note::
 
    The default action can be changed, check the documentation and code of
-   :mod:`.config.loader` for more details.
+   :mod:`.config.loaders.cli` for more details.
+
+The packages provides a new type of trait: :class:`.RangeTrait`, that is a list
+of integers, but can be parsed from a sort of slice specification of the form
+``start:stop[:step]``. So that ``--year=2002:2005`` will be parsed as
+``[2002, 2003, 2004, 2005]``. Note that 'stop' is **inclusive**.
 
 
 From a dictionary

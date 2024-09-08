@@ -8,21 +8,8 @@ Dataset management
 This package has a submodule :mod:`~data_assistant.data` to ease the creation
 and management of multiple dataset with different file format, structure, etc.
 that can all depend on various parameters. Each new dataset is specified by
-creating a new subclass of :class:`~.DataManagerBase`. It possess different
-*modules* that each cover some functionality:
-
-* :class:`params_manager<.ParamsManagerAbstract>` manages the parameters of the
-  dataset. The :class:`default<.ParamsManager>` uses a simple dictionary.
-* :class:`source<.SourceAbstract>` finds and manages the data sources: files,
-  data stores, remote resources, etc.
-* :class:`loader<.LoaderAbstract>` loads data from these sources into python,
-  using a given library
-* :class:`writer<.WriterAbstract>` writes data to a source (to disk or other)
-
-The class of each module can be changed to fit the need of each dataset. More
-modules can also be added easily to cover more specific features. Only the
-parameters module is necessary, all others are optional and can be left to their
-abstract class.
+creating a new subclass of :class:`~.DataManagerBase`. It contains
+interchangeable *modules* that each cover some functionalities.
 
 If each subclass of DataManager is associated to a specific dataset, each
 *instance* of that subclass corresponds to a set of parameters that can be used
@@ -41,21 +28,30 @@ one file, multiple files, a remote datastore, ...) or a data type.
 Definition in the data manager
 ------------------------------
 
-Each :class:`module<.Module>` defines itself how (and especially where) it can
-be added to a data manager. This is thanks to two important class attributes:
+Modules must be registered in a data-manager class in the
+:attr:`.DataManagerBase._registered_modules` attribute, which is a list of named
+tuples each containing three key informations:
+* the attribute name that will hold the module **instance**
+* the attribute name that will hold the module **type** or definition
+* the class of the module.
 
-* ``_INSTANCE_ATTR`` gives at which attribute name the module will be kept in
-  the data manager, for instance for source modules, it is ``"source"``.
-* ``_TYPE_ATTR`` gives at which attribute name the *type* of the module will be
-  kept at. It makes it easy to subclass data-managers:
-  ``SomeDataManager._Source`` will give the type of the source module of
-  SomeDataManager.
+The default :class:`.DataManagerBase` registers four modules:
 
-During the definition of a data manager class, it will look for *any* attribute
-that defines a subclass of :class:`.Module`. It can even just be a nested class
-definition. It will register the types of module found. This allows quick
-definition of data managers with subclasses of different modules. For example,
-we don't need to do do anything more that::
+* ``params_manager`` defined at :class:`_Params<.ParamsManager>` to manage the
+  data-manager parameters
+* ``source`` defined at :class:`_Source<.SourceAbstract>` to manage the data
+  source
+* ``loader`` defined at :class:`_Loader<.LoaderAbstract>` to load data
+* ``writer`` defined at :class:`_Writer<.WriterAbstract>` to write data
+
+The parameter manager is the only one to not be abstract, being essential to the
+working of the data-manager. Like for the other modules, it can be changed to
+an appropriate subclass.
+
+To change a module class, we only need to change the type attribute content. It
+is expected to be done in a DataManagerBase subclass. It can be a simple
+attribute change, or even a class definition with the appropriate name, like
+so::
 
     class DataManagerProjet(DataManagerBase):
         """Define a data-manager base for the project."""
@@ -65,36 +61,14 @@ we don't need to do do anything more that::
 
     class SST(DataManagerProject):
 
-        class Source(DataManagerProject._Source):
-            """This class name does not matter."""
+        class _Source(DataManagerProject._Source):
 
             def get_source(self):
                 ...
 
-        class Loader(DataManagerProject._Loader):
+        class _Loader(DataManagerProject._Loader):
             def postprocess_data(self, data):
                 ...
-
-.. note::
-
-    Only one module of each type will be kept in the data manager. Later
-    definitions will overwrite the previous ones. However if one is defined
-    through its designated type attribute (example:
-    ``_Source = MySourceSubClass``), it will keep priority.
-
-.. note::
-
-   Because of the dynamic nature of these class definition
-   (:class:`.DataManagerBase` uses ``__init_subclass__`` which is similar to
-   using a custom metaclass or a class decorator) a static type checker will be
-   lost. You can still get around it by naming your classes with the
-   corresponding module type attribute (*_Source*, *_Loader*, etc.) so that a
-   static type checker will not complain at using ``DataManagerProject._Source``
-   as a base class. And you can add a type hint to the instance attribute, such
-   as ``loader: _Loader``.
-
-   A mypy plugin might be added to do this automatically.
-
 
 Defining new modules
 --------------------
@@ -109,12 +83,12 @@ initialized using the :meth:`.Module._init_module` method. This allow to be
 .. note::
 
    *Mostly* because if a module fails to instanciate it will only log a warning,
-   and thus will not be accessible.
+   and will not be accessible.
 
-The ``_init_module()`` method is planned for inheritance cooperation. Each new
-subclass should make a ``super()._init_module()`` call whenever appropriate. But
-the data manager initialization (:class:`.HasModules._init_modules`) will make
-sure every class in the MRO is initialized. So for instance in
+The *_init_module()* method is planned for inheritance cooperation. Each new
+subclass should make a *super()._init_module()* call whenever appropriate. The
+data manager initialization (:class:`.HasModules._init_modules`) will make sure
+every class in the MRO is initialized. So for instance in
 ``class NewModule(SubModuleA, SubModuleB)`` both ``SubModuleA._init_module`` and
 ``SubModuleB._init_module`` will be called, even though they don't necessarily
 know about each other.
@@ -134,6 +108,13 @@ instance :class:`loader.LoaderAbstract`, :class:`writer.WriterAbstract`. See
 See :class:`.SplitWriterMixin` for an example of interplay facilitator and the
 implementation of :class:`.XarraySplitWriter` that has multiple submodules
 parents as discussed in the paragraph above.
+
+.. note::
+
+   The :class:`.DataManagerBase` and modules classes provided are geared for
+   dataset management in a specific way. Note that it relies on base classes
+   :class:`.HasModules` and :class:`.Module` which are quite generic, and could
+   be used in other ways.
 
 
 Dataset parameters
@@ -239,5 +220,25 @@ For instance with::
 
     _Source = SourceUnion.create([SourceOne, SourceTwo])
 
-we will obtain files catched by *SourceOne* and *SourceTwo* (without overlap) when
-calling ``data_manager.get_source()``.
+we will obtain files catched by *SourceOne* and *SourceTwo* (without overlap)
+when calling ``data_manager.get_source()``.
+
+Mixes can run methods on its base modules, the name of the method to run can be
+passed to several methods:
+
+* ``get*`` methods are intended for method that return an output.
+* ``apply*`` methods only run the method without collecting the output.
+* ``*_all`` methods run on **all** the base modules of the mix. For instance,
+  :meth:`~.ModuleMix.get_all` will run on all base modules and return a list of
+  all outputs.
+* ``*_select`` methods will only run on a **single** module. It will be selected
+  by a user defined function that can be set in :meth:`~.ModuleMix.create` or
+  with :meth:`.ModuleMix.set_select`. It chooses the appropriate base module
+  based on the current state of the mix module, the data-manager and its
+  parameters, and eventual keywords arguments it might receive. It should return
+  the class name of one of the module.
+
+:meth:`~.ModuleMix.get` and :meth:`~.ModuleMix.apply` will use the *all* or
+*select* version based on the value of the *all* argument.
+In all methods, *args* and *kwargs* are passed to the method that is run, and
+the *select* keyword argument is a passed to the selection function.
