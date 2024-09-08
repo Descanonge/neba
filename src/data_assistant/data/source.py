@@ -422,11 +422,9 @@ class SourceUnion(SourceAbstract, ModuleMix[T_ModSource]):
         return union
 
     def get_filename(
-        self, _select: bool = True, **fixes
+        self, all: bool = False, select: dict[str, t.Any] | None = None, **fixes
     ) -> T_ModSource | list[T_ModSource]:
-        if _select:
-            return self.get_select("get_filename", **fixes)
-        return self.get_all("get_filename", **fixes)
+        return self.get("get_filename", all, select=select, **fixes)
 
 
 class SourceIntersection(SourceAbstract, ModuleMix[T_ModSource]):
@@ -453,8 +451,6 @@ class SourceIntersection(SourceAbstract, ModuleMix[T_ModSource]):
         return list(inter)
 
     def get_filename(
-        self, _select: bool = True, **fixes
-    ) -> T_ModSource | list[T_ModSource]:
-        if _select:
-            return self.get_select("get_filename", **fixes)
-        return self.get_all("get_filename", **fixes)
+        self, all: bool = False, select: dict[str, t.Any] | None = None, **fixes
+    ) -> t.Any:
+        return self.get("get_filename", all, select=select, **fixes)

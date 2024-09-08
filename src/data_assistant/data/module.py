@@ -203,20 +203,126 @@ class ModuleMix(t.Generic[T_Mod], Module):
         for mod in self.base_modules.values():
             getattr(mod, method)(*args, **kwargs)
 
-    def get_select(self, method: str, *args, **kwargs) -> list[t.Any]:
+    def get_select(
+        self, method: str, *args, select: dict[str, t.Any] | None = None, **kwargs
+    ) -> list[t.Any]:
         """Get result from a single base module.
 
         Module is selected with :attr:`select_func`, based on current module and
         data-manager state.
+
+        Parameters
+        ----------
+        method
+            Method name to run
+        args, kwargs
+            Passed to the method
+        select
+            Mapping of parameters passed to the selection function.
         """
-        mod = self.select(**kwargs)
+        if select is None:
+            select = {}
+        mod = self.select(**select)
         return getattr(mod, method)(*args, **kwargs)
 
-    def apply_select(self, method: str, *args, **kwargs):
+    def apply_select(
+        self, method: str, *args, select: dict[str, t.Any] | None = None, **kwargs
+    ):
         """Apply method for a single base module.
 
         Module is selected with :attr:`select_func`, based on current module and
         data-manager state. To use when the method does not output anything.
 
+
+        Parameters
+        ----------
+        method
+            Method name to run
+        args, kwargs
+            Passed to the method
+        select
+            Mapping of parameters passed to the selection function.
         """
-        self.get_select(method, *args, **kwargs)
+        self.get_select(method, *args, select=select, **kwargs)
+
+    @t.overload
+    def get(
+        self,
+        method: str,
+        all: t.Literal[True],
+        *args,
+        select: dict[str, t.Any] | None = None,
+        **kwargs,
+    ) -> list[t.Any]: ...
+
+    @t.overload
+    def get(
+        self,
+        method: str,
+        all: t.Literal[False],
+        *args,
+        select: dict[str, t.Any] | None = None,
+        **kwargs,
+    ) -> t.Any: ...
+
+    @t.overload
+    def get(
+        self,
+        method: str,
+        all: bool,
+        *args,
+        select: dict[str, t.Any] | None = None,
+        **kwargs,
+    ) -> t.Any | list[t.Any]: ...
+
+    def get(
+        self,
+        method: str,
+        all: bool,
+        *args,
+        select: dict[str, t.Any] | None = None,
+        **kwargs,
+    ) -> t.Any | list[t.Any]:
+        """Get results from all or one of the base modules.
+
+        Parameters
+        ----------
+        method
+            Method name to run
+        all
+            If True, return results from *all* modules, otherwise only from a selected
+            one.
+        args, kwargs
+            Passed to the method
+        select
+            Mapping of parameters passed to the selection function.
+        """
+        if all:
+            return self.get_all(method, *args, **kwargs)
+        return self.get_select(method, *args, select=select, **kwargs)
+
+    def apply(
+        self,
+        method: str,
+        all: bool,
+        *args,
+        select: dict[str, t.Any] | None = None,
+        **kwargs,
+    ):
+        """Apply method for all or one of the base modules.
+
+        Parameters
+        ----------
+        method
+            Method name to run
+        all
+            If True, run method on *all* modules, otherwise only on a selected one.
+        args, kwargs
+            Passed to the method
+        select
+            Mapping of parameters passed to the selection function.
+        """
+        if all:
+            self.apply_all(method, *args, **kwargs)
+        else:
+            self.apply_select(method, *args, select=select, **kwargs)
