@@ -209,7 +209,7 @@ class ModuleMix(t.Generic[T_Mod], Module):
         Module is selected with :attr:`select_func`, based on current module and
         data-manager state.
         """
-        mod = self.select()
+        mod = self.select(**kwargs)
         return getattr(mod, method)(*args, **kwargs)
 
     def apply_select(self, method: str, *args, **kwargs):
