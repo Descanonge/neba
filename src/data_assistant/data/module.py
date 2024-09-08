@@ -16,11 +16,6 @@ log = logging.getLogger(__name__)
 class Module:
     """Module to which the data-manager delegates some functionality."""
 
-    _TYPE_ATTR: str
-    """Attribute name giving the module type in the data manager."""
-    _INSTANCE_ATTR: str
-    """Attribute name giving the module instance in the data manager."""
-
     dm: DataManagerBase
 
     @property
@@ -131,16 +126,6 @@ class ModuleMix(t.Generic[T_Mod], Module):
     def create(cls: type[T_Self], bases: abc.Sequence[type[T_Mod]]) -> type[T_Self]:
         """Create a new mix-class from base module."""
         cls.base_types = tuple(bases)
-        cls._INSTANCE_ATTR = bases[0]._INSTANCE_ATTR
-        cls._TYPE_ATTR = bases[0]._TYPE_ATTR
-
-        names = [b._INSTANCE_ATTR for b in bases]
-        if any(n != names[0] for n in names):
-            log.warning(
-                "Mix of modules with differing attributes names (%s). Taking first one. ",
-                ", ".join(names),
-            )
-
         return cls
 
     def _init_module(self) -> None:

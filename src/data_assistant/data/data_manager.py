@@ -17,61 +17,91 @@ from .writer import WriterAbstract
 log = logging.getLogger(__name__)
 
 
+class ModuleSpec(t.NamedTuple):
+    """Specification of a module in a HasModule object."""
+
+    type_attr: str
+    """Name of attribute that will hold the type of the module.
+
+    And where the user can define a new subclass of module to use.
+    """
+    instance_attr: str
+    """Name of attribute that will hold the instance of the module."""
+    type: type[Module]
+    """Type of the module.
+
+    Will be checked, but only a warning will be sent if the current module defined at
+    :attr:`type_attr` is not a subclass.
+    """
+
+
 class HasModules:
     """Finds and register modules in class definitions.
 
-    Will look at any element of the classdict, meaning all attribute assignements but
-    also definitions (like a class def inside the data-manager class def).
-    Each new subclass of :class:`.Module` is stored in :attr:`_modules_types`, the key
-    is equal to :attr:`.Module._TYPE_ATTR`.
-
-    Latter definitions replace the current one, so the last definition (for a specific
-    key) is kept. Some statements will keep priority: assignements whose left value
-    match that of the key for that module. For instance if in ``name = SomeModule``
-    'name' is equal to ``SomeModule._TYPE_ATTR``, it will have priority over other
-    statements. If multiple such statements are present same rules apply: the last one
-    defined wins.
+    Will initialize any module following the specification of
+    :attr:`_registered_modules`.
     """
 
-    _modules_types: dict[str, type[Module]] = {}
-    """Mapping from attribute names (of types) to module types.
+    _registered_modules: list[ModuleSpec] = []
+    """List of modules registered for this class.
 
-    Updated in ``__init_subclass__`` from any attribute in the definition that defines
-    a Module subclass.
+    Will be checked at class initialization to make sure there is no overlap between
+    attribute names.
     """
 
     _modules: dict[str, Module]
     """Mapping from attribute names to module instances. Filled during initialization."""
 
     def __init_subclass__(cls) -> None:
-        # copy parent ones to not overwrite them
-        cls._modules_types = dict(cls._modules_types)
-
-        priority = {}
-        for name, attr in cls.__dict__.items():
-            if isinstance(attr, type) and issubclass(attr, Module):
-                cls._modules_types[attr._TYPE_ATTR] = attr
-                if name == attr._TYPE_ATTR:
-                    priority[name] = attr
-
-        for name, typ in priority.items():
-            cls._modules_types[name] = typ
-
-        for name, typ in cls._modules_types.items():
-            setattr(cls, name, typ)
+        # Check the registered modules
+        type_attrs = []
+        inst_attrs = []
+        for spec in cls._registered_modules:
+            if (attr := spec.type_attr) in inst_attrs:
+                raise ValueError(
+                    f"Multiple modules registered with type attribute {attr}"
+                )
+            if (attr := spec.instance_attr) in inst_attrs:
+                raise ValueError(
+                    f"Multiple modules registered with instance attribute {attr}"
+                )
+            type_attrs.append(spec.type_attr)
+            inst_attrs.append(spec.instance_attr)
 
     def _instanciate_modules(self, *args, **kwargs) -> None:
         self._modules = {}
 
-        for typ in self._modules_types.values():
+        for spec in self._registered_modules:
+            # None means the user has deleted module without unregistering it, fine.
+            mod_type = getattr(self, spec.type_attr, None)
+            if mod_type is None:
+                log.info(
+                    "Module %s:%s registered but definition not present.",
+                    spec.type_attr,
+                    spec.type,
+                )
+                continue
+
+            # Small sanity check, permissive.
+            if not issubclass(mod_type, spec.type):
+                log.warning(
+                    "Module %s:%s is not a subclass of registered %s",
+                    spec.type_attr,
+                    mod_type,
+                    spec.type,
+                )
+
+            # Initialize module, still permissile.
             try:
-                mod = typ(*args, **kwargs)
+                mod = mod_type(*args, **kwargs)
             except Exception as e:
                 log.warning(e)
+
+            # link to data manager instance
             mod.dm = self  # type: ignore
-            name = mod._INSTANCE_ATTR
-            self._modules[name] = mod
-            setattr(self, name, mod)
+
+            self._modules[spec.instance_attr] = mod
+            setattr(self, spec.instance_attr, mod)
 
     def _init_modules(self) -> None:
         """Initialize all module, allow for cooperation in inheritance.
@@ -92,6 +122,9 @@ class HasModules:
 class DataManagerBase(t.Generic[T_Params, T_Source, T_Data], HasModules):
     """DataManager base object.
 
+    Registers modules for parameters management, source management, data loading,
+    and data writing.
+
     The parameters (stored in :attr:`params`) are treated as global across the instance,
     and those are the value that will be used when calling various methods. Few
     methods may allow to complete them, fewer to overwrite them temporarily.
@@ -101,12 +134,18 @@ class DataManagerBase(t.Generic[T_Params, T_Source, T_Data], HasModules):
     block.
     """
 
+    _registered_modules = [
+        ModuleSpec("_Params", "params_manager", ParamsManagerAbstract),
+        ModuleSpec("_Source", "source", SourceAbstract),
+        ModuleSpec("_Loader", "loader", LoaderAbstract),
+        ModuleSpec("_Writer", "writer", WriterAbstract),
+    ]
+
     SHORTNAME: str | None = None
     """Short name to refer to this data-manager class."""
     ID: str | None = None
     """Long name to identify uniquely this data-manager class."""
 
-    # First start. Will be updated dynamically in each subclass.
     _Params: type[ParamsManagerAbstract] = ParamsManagerAbstract[T_Params]
     _Source: type[SourceAbstract] = SourceAbstract[T_Source]
     _Loader: type[LoaderAbstract] = LoaderAbstract[T_Source, T_Data]
