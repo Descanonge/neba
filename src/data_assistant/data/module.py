@@ -189,7 +189,7 @@ class ModuleMix(t.Generic[T_Mod], Module):
         """
         groups: list[t.Any] = []
         for mod in self.base_modules.values():
-            output = getattr(mod, method)(mod, *args, **kwargs)
+            output = getattr(mod, method)(*args, **kwargs)
             if not isinstance(output, list | tuple):
                 output = [output]
             groups.append(output)
@@ -201,7 +201,7 @@ class ModuleMix(t.Generic[T_Mod], Module):
         To use when the method does not output anything.
         """
         for mod in self.base_modules.values():
-            getattr(mod, method)(mod, *args, **kwargs)
+            getattr(mod, method)(*args, **kwargs)
 
     def get_select(self, method: str, *args, **kwargs) -> list[t.Any]:
         """Get result from a single base module.
@@ -210,7 +210,7 @@ class ModuleMix(t.Generic[T_Mod], Module):
         data-manager state.
         """
         mod = self.select()
-        return getattr(mod, method)(mod, *args, **kwargs)
+        return getattr(mod, method)(*args, **kwargs)
 
     def apply_select(self, method: str, *args, **kwargs):
         """Apply method for a single base module.
