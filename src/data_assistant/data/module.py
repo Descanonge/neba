@@ -26,6 +26,9 @@ class Module:
     def __init__(self, params: t.Any | None = None, **kwargs):
         pass
 
+    def __repr__(self) -> str:
+        return "\n".join(self._lines())
+
     def _init_module(self) -> None:
         pass
 

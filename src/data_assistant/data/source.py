@@ -25,7 +25,7 @@ T_MultiSource = t.TypeVar("T_MultiSource", bound=abc.Sequence)
 class SourceAbstract(t.Generic[T_Source], Module):
     """Abstract of source managing module."""
 
-    def get_source(self) -> T_Source:
+    def get_source(self, _warn: bool = True) -> T_Source:
         """Return source of data.
 
         :Not Implemented: Implement in Module subclass
@@ -42,7 +42,7 @@ class SimpleSource(SourceAbstract[T_Source]):
     source_loc: T_Source
     """Location of the source to return."""
 
-    def get_source(self) -> T_Source:
+    def get_source(self, _warn: bool = True) -> T_Source:
         """Return source specified by :attr:`source_loc` attribute."""
         return self.source_loc
 
@@ -103,9 +103,10 @@ class MultiFileSource(SourceAbstract[list[str]]):
 
         return rootdir
 
-    def get_source(self) -> list[str]:  # noqa: D102
-        if len(self.datafiles) == 0:
-            log.warning("No files were found '%s'", self)
+    def get_source(self, _warn: bool = True) -> list[str]:  # noqa: D102
+        datafiles = self.datafiles
+        if _warn and len(datafiles) == 0:
+            log.warning("No files found for %s", repr(self))
         return self.datafiles
 
     @property
@@ -158,18 +159,16 @@ class GlobSource(MultiFileSource, CachedModule):
 
         pattern = self.get_glob_pattern()
         files = glob.glob(pattern, root_dir=root, recursive=self.RECURSIVE)
-
-        if len(files) == 0:
-            log.warning("No file found for pattern %s", pattern)
         return files
 
     def _lines(self) -> list[str]:
         """Human readable description."""
-        s = [
+        lines = super()._lines()
+        lines += [
             f"Glob pattern '{self.get_glob_pattern()}'",
             f"In root directory '{self.root_directory}'",
         ]
-        return s
+        return lines
 
 
 class FileFinderSource(MultiFileSource, CachedModule):
@@ -211,14 +210,6 @@ class FileFinderSource(MultiFileSource, CachedModule):
         :Not implemented: implement in your DataManager class.
         """
         raise NotImplementedError("Implement in your DataManager class.")
-
-    def __repr__(self) -> str:
-        s = super().__repr__().splitlines()
-        # autocached prop has full qualified name
-        if "filefinder" in self.cache:
-            s.append("Filefinder:")
-            s += [f"\t{line}" for line in repr(self.filefinder).splitlines()]
-        return "\n".join(s)
 
     def get_filename(self, **fixes) -> str:
         """Create a filename corresponding to a set of parameters values.
@@ -307,10 +298,7 @@ class FileFinderSource(MultiFileSource, CachedModule):
         Use the :attr:`filefinder` object to scan for files corresponding to
         the filename pattern.
         """
-        files = self.filefinder.get_files()
-        if len(files) == 0:
-            log.warning("No file found for finder:\n%s", self.filefinder)
-        return files
+        return self.filefinder.get_files()
 
     def _lines(self) -> list[str]:
         """Human readable description."""
@@ -404,7 +392,7 @@ class _SourceMix(SourceAbstract, ModuleMix[T_ModSource]):
         return self.get("get_filename", all, select=select, **fixes)
 
     def _get_grouped_source(self) -> list[list[t.Any]]:
-        grouped = self.get_all("get_source")
+        grouped = self.get_all("get_source", _warn=False)
         # I expect grouped to be list[list[Any] | Any]
         # we make sure we only have lists: list[list[Any]]
         source = []
@@ -413,6 +401,14 @@ class _SourceMix(SourceAbstract, ModuleMix[T_ModSource]):
                 grp = [grp]
             source.append(grp)
         return source
+
+    def check_valid(self, source: abc.Sequence[t.Any]) -> bool:  # noqa: D102
+        """Check if source is valid.
+
+        Assume a mix of source results in multiple items. We check there is at least
+        one.
+        """
+        return len(source) > 0
 
 
 class SourceUnion(_SourceMix[T_ModSource]):
@@ -433,10 +429,13 @@ class SourceUnion(_SourceMix[T_ModSource]):
         s.insert(0, "Union of sources from modules:")
         return s
 
-    def get_source(self) -> list[t.Any]:
+    def get_source(self, _warn: bool = True) -> list[t.Any]:
         source = self._get_grouped_source()
         # use fromkeys to remove duplicates. dict keep order which is nice
         union = list(dict.fromkeys(itertools.chain(*source)))
+        if _warn:
+            if len(union) == 0:
+                log.warning("No files found for %s", repr(self))
         return union
 
 
@@ -458,7 +457,10 @@ class SourceIntersection(_SourceMix[T_ModSource]):
         s.insert(0, "Intersection of sources from modules:")
         return s
 
-    def get_source(self) -> list[t.Any]:
+    def get_source(self, _warn: bool = True) -> list[t.Any]:
         groups = self._get_grouped_source()
         inter: set[t.Any] = set().intersection(*[set(g) for g in groups])
+        if _warn:
+            if len(inter) == 0:
+                log.warning("No files found for %s", repr(self))
         return list(inter)
