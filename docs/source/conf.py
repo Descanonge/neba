@@ -112,11 +112,6 @@ html_theme_options = dict(
             url="https://gitlab.in2p3.fr/biofronts/data-assistant",
             icon="fa-brands fa-square-gitlab",
         ),
-        dict(
-            name="Documentation",
-            url="https://data-assistant.readthedocs.io",
-            icon="fa-solid fa-book",
-        ),
     ],
     # Footer
     article_footer_items=["prev-next"],

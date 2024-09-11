@@ -11,7 +11,9 @@ from traitlets import (
     Instance,
     Int,
     List,
+    Set,
     TraitType,
+    Tuple,
     Type,
     Unicode,
     Union,
@@ -21,9 +23,19 @@ from data_assistant.config import Scheme
 
 SIMPLE_TRAIT_TYPES: list[type[TraitType]] = [Bool, Float, Int, Unicode]
 COMPOSED_TRAIT_TYPES: list[type[TraitType]] = [Dict, Enum, Instance, List, Type, Union]
+MAX_INNER_NUM = 3
+
+P = t.TypeVar("P")
 
 
-class TraitGenerator:
+class Drawer(t.Protocol):
+    def __call__(self, __strat: st.SearchStrategy[P]) -> P: ...
+
+
+T = t.TypeVar("T", bound=TraitType)
+
+
+class TraitGenerator(t.Generic[T]):
     """Generate a trait.
 
     Parameters
@@ -33,55 +45,336 @@ class TraitGenerator:
     has_default
         Wether to draw a default value (true) or not. If left to None, its value will be
         picked at random by hypothesis.
+    kwargs
+        Will be passed when instanciating trait.
     """
 
-    def __init__(self, traittype: type[TraitType], has_default: bool | None, **kwargs):
-        self.traittype = traittype
+    @classmethod
+    def create(
+        cls: type[t.Self],
+        has_default: bool | None = None,
+        max_rec_level: int = 2,
+        _rec_level: int = 0,
+        **kwargs,
+    ) -> st.SearchStrategy[t.Self]:
+        return st.just(cls(has_default=has_default, **kwargs))
+
+    traittype: type[T]
+
+    def __init__(self, has_default: bool | None = None, **kwargs):
         self.has_default = has_default
         self.kwargs = kwargs
 
-    def draw_instance(self, draw) -> TraitType:
-        """Generate trait object.
+    def _draw_def_value(self, draw: Drawer) -> t.Any:
+        """Return an actual default value if possible."""
+        return draw(self.get_value_strategy())
 
-        Pick a default value if :attr:`has_default` is True. If the attribute is None,
-        draw its value (True or False, 50/50).
-        """
+    def draw_def_value(self, draw: Drawer) -> t.Any | None:
+        """Draw a default value or None depending on value of *self.has_default*."""
         if self.has_default is None:
             self.has_default = draw(st.booleans())
 
-        kwargs = dict(self.kwargs)
         if self.has_default:
-            kwargs["default_value"] = draw(self.get_value_strategy())
+            return self._draw_def_value(draw)
+        return None
 
+    def draw_pre_instance(self, draw: Drawer, **kwargs) -> dict[str, t.Any]:
+        """Generate keyword arguments for instanciation.
+
+        Merge attribute :attr:`kwargs` and argument *kwargs*, draw default value and
+        add to the kwargs.
+        """
+        kwargs = self.kwargs | kwargs
+        def_val = self.draw_def_value(draw)
+        if def_val is not None:
+            kwargs["default_value"] = def_val
+        return kwargs
+
+    def draw_instance(self, draw: Drawer, **kwargs) -> T:
+        """Draw an instance of the trait."""
+        kwargs = self.draw_pre_instance(draw, **kwargs)
         return self.traittype(**kwargs)
 
-    def get_value_strategy(self, **kwargs) -> st.SearchStrategy:
+    def get_value_strategy(self) -> st.SearchStrategy:
         """Return a strategy to pick an appopriate value."""
-        if issubclass(self.traittype, Bool):
-            return st.booleans()
-        if issubclass(self.traittype, Int):
-            return st.integers(**kwargs)
-        if issubclass(self.traittype, Float):
-            kwargs = dict(allow_nan=False, allow_infinity=False) | kwargs
-            return st.floats(**kwargs)
-        if issubclass(self.traittype, Unicode):
-            return st.text(max_size=32)
-        raise TypeError(f"Unsupported trait type: {self.traittype}")
+        raise NotImplementedError()
+
+
+class TraitGeneratorBool(TraitGenerator[Bool]):
+    traittype = Bool
+
+    def get_value_strategy(self) -> st.SearchStrategy[bool]:
+        return st.booleans()
+
+
+class TraitGeneratorInt(TraitGenerator[Int]):
+    traittype = Int
+
+    def get_value_strategy(self) -> st.SearchStrategy[int]:
+        return st.integers()
+
+
+class TraitGeneratorFloat(TraitGenerator[Float]):
+    traittype = Float
+
+    def get_value_strategy(self) -> st.SearchStrategy[float]:
+        return st.floats(allow_nan=False, allow_infinity=False)
+
+
+class TraitGeneratorUnicode(TraitGenerator[Unicode]):
+    traittype = Unicode
+
+    def get_value_strategy(self) -> st.SearchStrategy[str]:
+        return st.text(max_size=32)
+
+
+class TraitGeneratorEnum(TraitGenerator[Enum]):
+    traittype = Enum
+
+    @classmethod
+    def create(
+        cls: type[t.Self],
+        has_default: bool | None = None,
+        max_rec_level: int = 2,
+        _rec_level: int = 0,
+        **kwargs,
+    ) -> st.SearchStrategy[t.Self]:
+        @st.composite
+        def strat(draw: Drawer):
+            typ = draw(st.sampled_from(SIMPLE_TRAIT_GENS))
+            values = draw(st.lists(typ().get_value_strategy(), unique=True, min_size=1))
+            return cls(has_default=has_default, values=values, **kwargs)
+
+        return strat()
+
+    def __init__(self, *args, values: abc.Sequence[t.Any], **kwargs):
+        super().__init__(*args, **kwargs)
+        self.values = list(values)
+
+    def _draw_def_value(self, draw: Drawer) -> t.Any:
+        return draw(self.get_value_strategy())
+
+    def draw_instance(self, draw: Drawer, **kwargs) -> Enum:
+        kwargs = self.draw_pre_instance(draw, **kwargs)
+        return self.traittype(values=self.values, **kwargs)
+
+    def get_value_strategy(self):
+        return st.sampled_from(self.values)
+
+
+class TraitGeneratorInner(TraitGenerator[T]):
+    """Single inner trait.
+
+    For Instance, Type, List, Set
+    """
+
+    @classmethod
+    def create(
+        cls: type[t.Self],
+        has_default: bool | None = None,
+        max_rec_level: int = 2,
+        _rec_level: int = 0,
+        **kwargs,
+    ) -> st.SearchStrategy[t.Self]:
+        def make(draw: Drawer, typ: TraitGenerator):
+            inner = draw(
+                typ.create(
+                    has_default=has_default,
+                    max_rec_level=max_rec_level,
+                    _rec_level=_rec_level + 1,
+                    **kwargs,
+                )
+            )
+            return cls(has_default=has_default, inner_gen=inner, **kwargs)
+
+        @st.composite
+        def strat_simple(draw: Drawer):
+            typ = draw(st.sampled_from(SIMPLE_TRAIT_GENS))
+            return make(draw, typ)
+
+        @st.composite
+        def strat_complex(draw: Drawer):
+            typ = draw(st.sampled_from(SIMPLE_TRAIT_GENS + COMPOSED_TRAIT_GENS))
+            return make(draw, typ)
+
+        if _rec_level >= max_rec_level:
+            return strat_simple()
+        return strat_complex()
+
+    def __init__(self, *args, inner_gen: TraitGenerator, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.inner_gen = inner_gen
+        inner_gen.has_default = False
+
+    def draw_inner(self, draw: Drawer, **kwargs) -> TraitType:
+        return self.inner_gen.draw_instance(draw, **kwargs)
+
+    def draw_instance(self, draw: Drawer, **kwargs) -> T:
+        kwargs = self.draw_pre_instance(draw, **kwargs)
+        return self.traittype(self.draw_inner(draw), **kwargs)
+
+
+class TraitGeneratorList(TraitGeneratorInner[List]):
+    traittype = List
+
+    def _draw_def_value(self, draw: Drawer) -> list[t.Any]:
+        return draw(st.lists(self.inner_gen.get_value_strategy()))
+
+    def get_value_strategy(self) -> st.SearchStrategy[list]:
+        return st.lists(self.inner_gen.get_value_strategy())
+
+
+class TraitGeneratorSet(TraitGeneratorInner[Set]):
+    traittype = Set
+
+    @classmethod
+    def create(
+        cls: type[t.Self],
+        has_default: bool | None = None,
+        max_rec_level: int = 2,
+        _rec_level: int = 0,
+        **kwargs,
+    ) -> st.SearchStrategy[t.Self]:
+        return super().create(
+            has_default=has_default, max_rec_level=0, _rec_level=1, **kwargs
+        )
+
+    def _draw_def_value(self, draw: Drawer) -> set[t.Any]:
+        return draw(st.sets(self.inner_gen.get_value_strategy()))
+
+    def get_value_strategy(self) -> st.SearchStrategy[set]:
+        return st.sets(self.inner_gen.get_value_strategy())
+
+
+class TraitGeneratorInners(TraitGenerator[T]):
+    """Multiple inner traits.
+
+    For Union, Tuple.
+    """
+
+    @classmethod
+    def create(
+        cls: type[t.Self],
+        has_default: bool | None = None,
+        max_rec_level: int = 2,
+        _rec_level: int = 0,
+        **kwargs,
+    ) -> st.SearchStrategy[t.Self]:
+        def make(draw: Drawer, gen_types):
+            inners = [
+                draw(
+                    s.create(
+                        has_default=has_default,
+                        max_rec_level=max_rec_level,
+                        _rec_level=_rec_level + 1,
+                    )
+                )
+                for s in gen_types
+            ]
+            return cls(has_default=has_default, inner_gens=inners, **kwargs)
+
+        @st.composite
+        def strat_simple(draw: Drawer):
+            gen_types = draw(
+                st.lists(
+                    st.sampled_from(SIMPLE_TRAIT_GENS),
+                    min_size=1,
+                    max_size=MAX_INNER_NUM,
+                )
+            )
+            return make(draw, gen_types)
+
+        @st.composite
+        def strat_complex(draw: Drawer):
+            gen_types = draw(
+                st.lists(
+                    st.sampled_from(SIMPLE_TRAIT_GENS + COMPOSED_TRAIT_GENS),
+                    min_size=1,
+                    max_size=MAX_INNER_NUM,
+                )
+            )
+            return make(draw, gen_types)
+
+        if _rec_level >= max_rec_level:
+            return strat_simple()
+        return strat_complex()
+
+    def __init__(self, *args, inner_gens: abc.Sequence[TraitGenerator], **kwargs):
+        super().__init__(*args, **kwargs)
+        self.inner_gens = list(inner_gens)
+
+    def draw_inners(self, draw: Drawer, **kwargs) -> list[TraitType]:
+        return [g.draw_instance(draw, **kwargs) for g in self.inner_gens]
+
+
+class TraitGeneratorUnion(TraitGeneratorInners[Union]):
+    traittype = Union
+
+    def _draw_def_value(self, draw: Drawer) -> t.Any | None:
+        default = None
+        for gen in self.inner_gens:
+            default = gen.draw_def_value(draw)
+            if default is not None:
+                break
+        return default
+
+    def draw_instance(self, draw: Drawer, **kwargs) -> Union:
+        kwargs = self.draw_pre_instance(draw, **kwargs)
+        return self.traittype(self.draw_inners(draw), **kwargs)
+
+    def get_value_strategy(self) -> st.SearchStrategy:
+        return st.one_of([gen.get_value_strategy() for gen in self.inner_gens])
+
+
+class TraitGeneratorTuple(TraitGeneratorInners[Tuple]):
+    traittype = Tuple
+
+    def _draw_def_value(self, draw: Drawer) -> tuple[t.Any]:
+        return tuple([gen._draw_def_value(draw) for gen in self.inner_gens])
+
+    def draw_instance(self, draw: Drawer, **kwargs) -> Tuple:
+        kwargs = self.draw_pre_instance(draw, **kwargs)
+        return self.traittype(*self.draw_inners(draw), **kwargs)
+
+    def get_value_strategy(self) -> st.SearchStrategy[tuple]:
+        return st.tuples(*[gen.get_value_strategy() for gen in self.inner_gens])
+
+
+SIMPLE_TRAIT_GENS: list[type[TraitGenerator]] = [
+    TraitGeneratorBool,
+    TraitGeneratorFloat,
+    TraitGeneratorInt,
+    TraitGeneratorUnicode,
+]
+COMPOSED_TRAIT_GENS: list[type[TraitGenerator]] = [
+    TraitGeneratorEnum,
+    TraitGeneratorList,
+    TraitGeneratorSet,
+    TraitGeneratorTuple,
+    TraitGeneratorUnion,
+]
 
 
 def st_trait_gen(
-    composed: bool = False, has_default: bool | None = None
+    composed: bool = True, has_default: bool | None = None, max_nested: int = 2
 ) -> st.SearchStrategy[TraitGenerator]:
-    @st.composite
-    def strat(draw) -> TraitGenerator:
-        traitlist = SIMPLE_TRAIT_TYPES
-        if composed:
-            traitlist += COMPOSED_TRAIT_TYPES
-        traittype = draw(st.sampled_from(traitlist))
-        trait_gen = TraitGenerator(traittype, has_default=has_default)
-        return trait_gen
+    def make(draw: Drawer, gen_type: type[TraitGenerator]) -> TraitGenerator:
+        gen = draw(gen_type.create(has_default=has_default, max_rec_level=max_nested))
+        return gen
 
-    return strat()
+    @st.composite
+    def strat_simple(draw: Drawer):
+        gen_type = draw(st.sampled_from(SIMPLE_TRAIT_GENS))
+        return make(draw, gen_type)
+
+    @st.composite
+    def strat_complex(draw: Drawer):
+        gen_type = draw(st.sampled_from(SIMPLE_TRAIT_GENS + COMPOSED_TRAIT_GENS))
+        return make(draw, gen_type)
+
+    if composed:
+        return strat_complex()
+    return strat_simple()
 
 
 def st_trait(**kwargs) -> st.SearchStrategy[TraitType]:
@@ -109,7 +402,7 @@ varname_st = (
 class SchemeGenerator:
     MAX_TRAITS = 12
 
-    def __init__(self, composed: bool = False):
+    def __init__(self, composed: bool = True):
         self.composed = composed
         self.traits_gens: abc.Mapping[str, TraitGenerator] = {}
         self.traits: abc.Mapping[str, TraitType] = {}

@@ -5,8 +5,15 @@ from .loader import LoaderAbstract
 from .module import CachedModule, Module, autocached
 from .params import ParamsManager, ParamsManagerAbstract, ParamsManagerScheme
 from .register import DatasetStore
-from .source import FileFinderSource, GlobSource, MultiFileSource, SimpleSource
-from .writer import CachedWriter, WriterAbstract
+from .source import (
+    FileFinderSource,
+    GlobSource,
+    MultiFileSource,
+    SimpleSource,
+    SourceIntersection,
+    SourceUnion,
+)
+from .writer import CachedWriter, Splitable, SplitWriterMixin, WriterAbstract
 
 __all__ = [
     "CachedModule",
@@ -23,6 +30,10 @@ __all__ = [
     "ParamsManagerScheme",
     "ParamsMap",
     "SimpleSource",
+    "SourceIntersection",
+    "SourceUnion",
+    "SplitWriterMixin",
+    "Splitable",
     "WriterAbstract",
     "autocached",
 ]
