@@ -101,6 +101,8 @@ class TraitGenerator(t.Generic[T]):
         def_val = self.draw_def_value(draw)
         if def_val is not None:
             kwargs["default_value"] = def_val
+        else:
+            kwargs["allow_none"] = True
         return kwargs
 
     def draw_instance(self, draw: Drawer, **kwargs) -> T:
