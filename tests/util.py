@@ -29,6 +29,8 @@ P = t.TypeVar("P")
 
 
 class Drawer(t.Protocol):
+    """Drawing function."""
+
     def __call__(self, __strat: st.SearchStrategy[P]) -> P: ...
 
 
@@ -36,18 +38,24 @@ T = t.TypeVar("T", bound=TraitType)
 
 
 class TraitGenerator(t.Generic[T]):
-    """Generate a trait.
+    """Generate a trait, hold some info about it.
+
+    Allows to get a strategy for values that should validate.
+
+    This class is the base for every trait type. It is reused nearly as-is by "simple"
+    traits: bool, int, float, unicode.
 
     Parameters
     ----------
-    traittype
-        Type of the trait to generate
     has_default
         Wether to draw a default value (true) or not. If left to None, its value will be
         picked at random by hypothesis.
     kwargs
         Will be passed when instanciating trait.
     """
+
+    traittype: type[T]
+    """Type of the trait to generate. Each class generates one type."""
 
     @classmethod
     def create(
@@ -57,9 +65,14 @@ class TraitGenerator(t.Generic[T]):
         _rec_level: int = 0,
         **kwargs,
     ) -> st.SearchStrategy[t.Self]:
-        return st.just(cls(has_default=has_default, **kwargs))
+        """Return a strategy for a TraitGenerator instance.
 
-    traittype: type[T]
+        It allows to generate the arguments for each TraitGenerator.
+
+        I separate strategies here (instead of passing a draw function around).
+        This helps with nested traits (see documentation of those).
+        """
+        return st.just(cls(has_default=has_default, **kwargs))
 
     def __init__(self, has_default: bool | None = None, **kwargs):
         self.has_default = has_default
@@ -139,6 +152,14 @@ class TraitGeneratorEnum(TraitGenerator[Enum]):
         _rec_level: int = 0,
         **kwargs,
     ) -> st.SearchStrategy[t.Self]:
+        """Generator strategy for Enum.
+
+        We need values as input. They allow to define the trait, and create a valid
+        strategy for generating values.
+
+        We take a "simple" trait type and generate some number of values from it.
+        """
+
         @st.composite
         def strat(draw: Drawer):
             typ = draw(st.sampled_from(SIMPLE_TRAIT_GENS))
@@ -163,9 +184,9 @@ class TraitGeneratorEnum(TraitGenerator[Enum]):
 
 
 class TraitGeneratorInner(TraitGenerator[T]):
-    """Single inner trait.
+    """Trait holding aingle inner trait.
 
-    For Instance, Type, List, Set
+    For: Instance, Type, List, Set
     """
 
     @classmethod
@@ -176,6 +197,15 @@ class TraitGeneratorInner(TraitGenerator[T]):
         _rec_level: int = 0,
         **kwargs,
     ) -> st.SearchStrategy[t.Self]:
+        """Return strategy for TraitGenerator.
+
+        We need to select an inner trait (which itself can be nested). When we hit a
+        recursion limit we must only select simple Traits (bool, int, etc). It seems
+        hypothesis really dislike to have to pick from lists that are selected
+        dynamically. It detects a "Flaky Strategy" and "inconsistant data generation".
+        For that reason I use two different strategies/functions.
+        """
+
         def make(draw: Drawer, typ: TraitGenerator):
             inner = draw(
                 typ.create(
@@ -235,6 +265,12 @@ class TraitGeneratorSet(TraitGeneratorInner[Set]):
         _rec_level: int = 0,
         **kwargs,
     ) -> st.SearchStrategy[t.Self]:
+        """Return strategy for Set.
+
+        Sets needs (via hypothesis st.sets) to have unique values. So they must be
+        hashable, which is not the case for some nested types (set, list). For the
+        moment I do not allow nesting for sets.
+        """
         return super().create(
             has_default=has_default, max_rec_level=0, _rec_level=1, **kwargs
         )
@@ -260,6 +296,12 @@ class TraitGeneratorInners(TraitGenerator[T]):
         _rec_level: int = 0,
         **kwargs,
     ) -> st.SearchStrategy[t.Self]:
+        """Return strategy for traits generators that needs multiple inner traits.
+
+        Same remarks as for TraitGeneratorInner: I use two different strategies instead
+        of modifying the strategy at runtime (which hypothesis dislike in our case).
+        """
+
         def make(draw: Drawer, gen_types):
             inners = [
                 draw(
@@ -308,9 +350,23 @@ class TraitGeneratorInners(TraitGenerator[T]):
 
 
 class TraitGeneratorUnion(TraitGeneratorInners[Union]):
+    """Union generator.
+
+    Note that inner traits are selected at random, so they won't necessarily be
+    ordered sensibly. For parsing this can cause a trait to cast all value without
+    letting other try. See traitlets doc. For now, it should do. I do not intend to
+    test the traitlets package itself after all.
+    """
+
     traittype = Union
 
     def _draw_def_value(self, draw: Drawer) -> t.Any | None:
+        """Default value.
+
+        For Union it's the first not-None default value of the inner traits.
+        Technically a default value could also be input as keyword argument but for now
+        it will do.
+        """
         default = None
         for gen in self.inner_gens:
             default = gen.draw_def_value(draw)
@@ -323,10 +379,21 @@ class TraitGeneratorUnion(TraitGeneratorInners[Union]):
         return self.traittype(self.draw_inners(draw), **kwargs)
 
     def get_value_strategy(self) -> st.SearchStrategy:
+        """Value Strategy.
+
+        We select one of the inner traits at random to generate a value.
+        """
         return st.one_of([gen.get_value_strategy() for gen in self.inner_gens])
 
 
 class TraitGeneratorTuple(TraitGeneratorInners[Tuple]):
+    """Tuple trait generator.
+
+    Always pass one or more traits. Tuple traits are always the length of the inner
+    traits. This is different from List traits which have a single trait and their
+    length is unspecified by default.
+    """
+
     traittype = Tuple
 
     def _draw_def_value(self, draw: Drawer) -> tuple[t.Any]:
@@ -358,6 +425,18 @@ COMPOSED_TRAIT_GENS: list[type[TraitGenerator]] = [
 def st_trait_gen(
     composed: bool = True, has_default: bool | None = None, max_nested: int = 2
 ) -> st.SearchStrategy[TraitGenerator]:
+    """Strategy to obtain a TraitGenerator.
+
+    Parameters
+    ----------
+    composed
+        If False, limit to simple traits types Int, Float, Bool, Unicode.
+    max_nested
+        Maximum nesting of traits if composed is True (List(Tuple([Int(), Set(Bool)])))
+    """
+    # Same trick, to avoid changing strategies dynamically, we create two different
+    # strategies.
+
     def make(draw: Drawer, gen_type: type[TraitGenerator]) -> TraitGenerator:
         gen = draw(gen_type.create(has_default=has_default, max_rec_level=max_nested))
         return gen
@@ -378,6 +457,11 @@ def st_trait_gen(
 
 
 def st_trait(**kwargs) -> st.SearchStrategy[TraitType]:
+    """Strategy for a random trait.
+
+    Arguments are passed to `.st_trait_gen`.
+    """
+
     @st.composite
     def strat(draw) -> TraitType:
         gen = draw(st_trait_gen(**kwargs))
