@@ -333,7 +333,7 @@ class ApplicationBase(Scheme, LoggingMixin):
         if instanciate is None:
             instanciate = self.auto_instanciate
         if instanciate:
-            self.instanciate_subschemes(nest_dict(self.conf))
+            self.instanciate_recursively(nest_dict(self.conf), config_me=True)
 
     def _create_cli_loader(
         self, argv: list[str] | None, log: logging.Logger | None = None, **kwargs

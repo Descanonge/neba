@@ -608,14 +608,27 @@ class Scheme(Configurable):
                     seen.add(parent)
                     yield parent
 
-    def instanciate_subschemes(self, config: abc.Mapping):
-        """Recursively instanciate subschemes.
+    def instanciate_recursively(self, config: abc.Mapping, config_me: bool = True):
+        """Set parameters for this instance and recursively instanciate subschemes.
 
         Parameters
         ----------
         config
-            Nested configuration mapping attribute names to
+            Nested configuration mapping attribute names of traits to values (or
+            ConfigValue) nest on subschemes.
+        config_me
+            If True (default), update traits for this instance. Otherwise, only set
+            subschemes.
         """
+        if config_me:
+            for name, trait in self.traits(subscheme=None).items():
+                if name not in config:
+                    continue
+                val = config[name]
+                if isinstance(val, ConfigValue):
+                    val = val.get_value()
+                trait.set(self, val)
+
         for name, subscheme in self._subschemes.items():
             subconf = config.get(name, {})
             # discard further nested subschemes, only keep this level traits.
@@ -631,8 +644,8 @@ class Scheme(Configurable):
 
             # set trait to a new instance
             self.set_trait(name, subscheme(parent=self, **kwargs))
-            # recursive on this new instance
-            getattr(self, name).instanciate_subschemes(subconf)
+            # recursive on this new instance, without bothering to reconfig it
+            getattr(self, name).instanciate_recursively(subconf, config_me=False)
 
     def remap(
         self,
