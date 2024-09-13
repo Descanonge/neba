@@ -19,7 +19,7 @@ from traitlets import (
     Union,
 )
 
-from data_assistant.config import Scheme
+from data_assistant.config import Scheme, subscheme
 
 SIMPLE_TRAIT_TYPES: list[type[TraitType]] = [Bool, Float, Int, Unicode]
 COMPOSED_TRAIT_TYPES: list[type[TraitType]] = [Dict, Enum, Instance, List, Type, Union]
@@ -486,15 +486,48 @@ varname_st = (
 
 
 class SchemeGenerator:
-    MAX_TRAITS = 12
+    """Generate a Scheme."""
 
-    def __init__(self, composed: bool = True):
+    MAX_TRAITS = 3
+    MAX_SUBSCHEMES = 2
+    MAX_NEST_LEVEL = 2
+
+    def __init__(self, clsname: str = "", composed: bool = True):
+        self.clsname = clsname
         self.composed = composed
-        self.traits_gens: abc.Mapping[str, TraitGenerator] = {}
-        self.traits: abc.Mapping[str, TraitType] = {}
-        self.clsname: str = ""
+        self.nest_level: int
 
-    def draw_cls(self, draw, **kwargs) -> type[Scheme]:
+        self.traits_gens: dict[str, TraitGenerator] = {}
+        self.traits: dict[str, TraitType] = {}
+        self.subschemes: dict[str, SchemeGenerator] = {}
+
+    @classmethod
+    def create(
+        cls,
+        clsname: str = "",
+        composed: bool = True,
+        nested=True,
+        _nest_level: int = 0,
+        **trait_kwargs,
+    ) -> st.SearchStrategy["SchemeGenerator"]:
+        @st.composite
+        def strat_simple(draw: Drawer) -> "SchemeGenerator":
+            gen = cls(clsname=clsname, composed=composed)
+            gen.draw_traits(draw, **trait_kwargs)
+            return gen
+
+        @st.composite
+        def strat_composed(draw: Drawer) -> "SchemeGenerator":
+            gen = cls(clsname=clsname, composed=composed)
+            gen.draw_traits(draw, **trait_kwargs)
+            gen.draw_subschemes(draw, nest_level=_nest_level, **trait_kwargs)
+            return gen
+
+        if not nested or _nest_level >= cls.MAX_NEST_LEVEL:
+            return strat_simple()
+        return strat_composed()
+
+    def draw_traits(self, draw: Drawer, **kwargs):
         traits_gens = draw(
             st.lists(
                 st_trait_gen(composed=self.composed, **kwargs), max_size=self.MAX_TRAITS
@@ -504,61 +537,98 @@ class SchemeGenerator:
         names = draw(
             st.lists(varname_st, min_size=n_traits, max_size=n_traits, unique=True)
         )
-        self.clsname = draw(
-            varname_st.map(lambda s: s.replace("_", " ").title().replace(" ", ""))
-        )
         self.traits_gens = {name: gen for name, gen in zip(names, traits_gens)}
         self.traits = {
             name: gen.draw_instance(draw).tag(config=True)
             for name, gen in self.traits_gens.items()
         }
-        return self.get_cls()
+
+    def draw_subschemes(self, draw: Drawer, nest_level: int, **trait_kwargs):
+        names = draw(
+            st.lists(
+                varname_st.filter(lambda n: n not in self.traits),
+                min_size=0,
+                max_size=self.MAX_SUBSCHEMES,
+                unique=True,
+            )
+        )
+        for sub_name in names:
+            scheme_gen = draw(
+                self.create(
+                    sub_name,
+                    composed=self.composed,
+                    _nest_level=nest_level + 1,
+                    **trait_kwargs,
+                )
+            )
+            scheme_gen.nest_level = nest_level + 1
+            self.subschemes[sub_name] = scheme_gen
+            scheme_cls = scheme_gen.get_cls()
+            self.traits[sub_name] = subscheme(scheme_cls)
 
     def get_cls(self) -> type[Scheme]:
         return type(self.clsname, (Scheme,), dict(self.traits))
 
-    def draw_values(self, draw) -> abc.Mapping[str, t.Any]:
+    def st_values_single(self) -> st.SearchStrategy[dict[str, t.Any]]:
+        """Get mapping of values for every trait on this level."""
+
+        @st.composite
+        def strat(draw: Drawer) -> dict[str, t.Any]:
+            values = {
+                name: draw(gen.get_value_strategy())
+                for name, gen in self.traits_gens.items()
+                if name not in self.subschemes
+            }
+            return values
+
+        return strat()
+
+    def st_values(self) -> st.SearchStrategy[dict[str, t.Any]]:
         """Get mapping of values for every trait."""
-        values = {
-            name: draw(gen.get_value_strategy())
-            for name, gen in self.traits_gens.items()
-        }
-        return values
+
+        def new_path(old: str, new: str) -> str:
+            if not old:
+                return new
+            return f"{old}.{new}"
+
+        @st.composite
+        def strat(draw: Drawer) -> dict[str, t.Any]:
+            def recurse(gen: t.Self) -> dict[str, t.Any]:
+                values = draw(gen.st_values_single())
+                for sub_name, sub_gen in gen.subschemes.items():
+                    values[sub_name] = recurse(sub_gen)
+                return values
+
+            return recurse(self)
+
+        return strat()
 
 
 def st_scheme_cls(**kwargs) -> st.SearchStrategy[type[Scheme]]:
-    scheme_gen = SchemeGenerator(**kwargs)
-
-    @st.composite
-    def strat(draw) -> type[Scheme]:
-        return scheme_gen.draw_cls(draw)
-
-    return strat()
+    return SchemeGenerator.create(**kwargs).map(lambda g: g.get_cls())
 
 
 def st_scheme_instance(**kwargs) -> st.SearchStrategy[Scheme]:
-    scheme_gen = SchemeGenerator(**kwargs)
-
     @st.composite
     def strat(draw) -> Scheme:
-        cls = scheme_gen.draw_cls(draw)
-        values = scheme_gen.draw_values(draw)
-        inst = cls(**values)
-        return inst
+        scheme_gen = draw(SchemeGenerator.create(**kwargs))
+        cls = scheme_gen.get_cls()
+        values = draw(scheme_gen.st_values())
+        return cls.instanciate_recursively(values)
 
     return strat()
 
 
 def st_scheme_instances(n: int = 2, **kwargs) -> st.SearchStrategy[tuple[Scheme, ...]]:
-    scheme_gen = SchemeGenerator(**kwargs)
-
     @st.composite
-    def strat(draw) -> tuple[Scheme, ...]:
-        cls = scheme_gen.draw_cls(draw)
+    def strat(draw: Drawer) -> tuple[Scheme, ...]:
+        scheme_gen = draw(SchemeGenerator.create(**kwargs))
+        cls = scheme_gen.get_cls()
         instances = []
         for _ in range(n):
-            values = scheme_gen.draw_values(draw)
-            instances.append(cls(**values))
+            values = draw(scheme_gen.st_values())
+            inst = cls.instanciate_recursively(values)
+            instances.append(inst)
         return tuple(instances)
 
     return strat()

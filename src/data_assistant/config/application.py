@@ -296,8 +296,9 @@ class ApplicationBase(Scheme, LoggingMixin):
         """Initialize and start application.
 
         - Parse command line arguments (optional)
-        - Load configuration file(s).
+        - Load configuration file(s)
         - Merge configurations
+        - (Re)Apply configuration to Application
         - Instanciate schemes objects (optional)
 
         Instanciation is necessary to fully validate the values of the configuration
@@ -330,10 +331,23 @@ class ApplicationBase(Scheme, LoggingMixin):
 
         self.conf = self.merge_configs(self.file_conf, self.cli_conf)
 
+        # Apply config relevant to this instance (only, not recursive)
+        my_conf = self.get_subconfig(self.conf, subscheme=None)
+        for name, val in my_conf.items():
+            setattr(self, name, val)
+
         if instanciate is None:
             instanciate = self.auto_instanciate
         if instanciate:
-            self.instanciate_recursively(nest_dict(self.conf), config_me=True)
+            self._instanciate()
+
+    def _instanciate(self):
+        """Instanciate all subschemes, pass :attr:`conf`."""
+        nest_conf = nest_dict(self.conf)
+        for name, subcls in self._subschemes.items():
+            subconf = nest_conf.get(name, {})
+            inst = subcls.instanciate_recursively(subconf, parent=self)
+            setattr(self, name, inst)
 
     def _create_cli_loader(
         self, argv: list[str] | None, log: logging.Logger | None = None, **kwargs

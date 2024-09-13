@@ -608,44 +608,49 @@ class Scheme(Configurable):
                     seen.add(parent)
                     yield parent
 
-    def instanciate_recursively(self, config: abc.Mapping, config_me: bool = True):
-        """Set parameters for this instance and recursively instanciate subschemes.
+    @classmethod
+    def instanciate_recursively(cls, config: abc.Mapping, **kwargs) -> t.Self:
+        """Instanciate this class and its subschemes with values from config.
 
         Parameters
         ----------
         config
             Nested configuration mapping attribute names of traits to values (or
             ConfigValue) nest on subschemes.
-        config_me
-            If True (default), update traits for this instance. Otherwise, only set
-            subschemes.
+        kwargs
+            Passed to `__init__`. Used for passing *parent* keyword.
         """
-        if config_me:
-            for name, trait in self.traits(subscheme=None).items():
-                if name not in config:
-                    continue
-                val = config[name]
-                if isinstance(val, ConfigValue):
-                    val = val.get_value()
-                trait.set(self, val)
+        my_conf = cls.get_subconfig(config, subscheme=None)
+        me = cls(**my_conf, **kwargs)
 
-        for name, subscheme in self._subschemes.items():
+        # Instanciate and set subschemes
+        for name, subcls in me._subschemes.items():
             subconf = config.get(name, {})
-            # discard further nested subschemes, only keep this level traits.
-            kwargs = {
-                t: subconf[t]
-                for t in subscheme.class_trait_names(subscheme=None)
-                if t in subconf
-            }
-            # Transform from ConfigValue to a value
-            for key, val in kwargs.items():
-                if isinstance(val, ConfigValue):
-                    kwargs[key] = val.get_value()
+            sub_instance = subcls.instanciate_recursively(subconf, parent=me)
+            me.set_trait(name, sub_instance)
+        return me
 
-            # set trait to a new instance
-            self.set_trait(name, subscheme(parent=self, **kwargs))
-            # recursive on this new instance, without bothering to reconfig it
-            getattr(self, name).instanciate_recursively(subconf, config_me=False)
+    @classmethod
+    def get_subconfig(cls, config: abc.Mapping, **select) -> dict:
+        """Return only the parameters corresponding to traits of `obj`.
+
+        Parameters
+        ----------
+        config
+            Nested mapping from trait names to values or ConfigValue. If a ConfigValue, it
+            it converted to a plain value with :meth:`.ConfigValue.get_value`.
+        select
+            Is used to further constrain the traits to keep.
+        """
+        out = {
+            name: config[name]
+            for name in cls.class_trait_names(**select)
+            if name in config
+        }
+        for k, v in out.items():
+            if isinstance(v, ConfigValue):
+                out[k] = v.get_value()
+        return out
 
     def remap(
         self,
