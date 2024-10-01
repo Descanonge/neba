@@ -409,7 +409,11 @@ class Scheme(Configurable):
             Path to leading to a trait.
         """
         fullpath = key.split(".")
-        subscheme = self[".".join(fullpath[:-1])]
+        if len(fullpath) == 1:
+            subscheme = self
+        else:
+            subscheme = self[".".join(fullpath[:-1])]
+
         trait = fullpath[-1]
 
         if trait not in subscheme.trait_names():
