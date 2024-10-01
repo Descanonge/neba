@@ -183,3 +183,28 @@ def st_scheme_gen_single_trait(**kwargs) -> st.SearchStrategy[SchemeGenerator]:
         return SchemeGenerator("single", {name: trait_gen})
 
     return strat()
+
+
+class TypicalScheme(Scheme):
+    pass
+
+
+"""Here we should define a typical scheme, with nested subschemes defined via function
+subscheme or dynamically, with various traits (simple and composed).
+it should be used for basic stuff that would not translate super well in hypothesis.
+we can manipulate very clearly the trait, their values, if they are default or None.
+
+we can have multiple instances that have different values. (we should also check before
+hand that different instances don't interfere with each other this is super important,
+how ?)
+
+We can keep track of some information as well such as the number of traits, subschemes,
+etc to have easy access to it. Maybe it's not its place but another module that defines
+a series of peculiar schemes ? Meh, I was thinking deeply nested subschemes but is that
+THAT important ? It can be the subject of one or two tests that define themselves the
+whole scheme.
+
+it should contain twin subschemes that we keep knowledge of. ie subschemes (on the same
+level and on different nesting level) that are different instances of the same subscheme
+class. Keep the the path of each trait and its siblings.
+"""
