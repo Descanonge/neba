@@ -432,7 +432,8 @@ class Scheme(Configurable):
                 f"Key '{key}' does not exist. A trait argument must be "
                 " supplied to be added to the scheme."
             )
-        self.add_trait(key, trait, default)
+        self.add_trait(key, trait)
+        self[key] = default
         return default
 
     def pop(self, key: str, other: t.Any | None = None) -> t.Any:
@@ -481,77 +482,85 @@ class Scheme(Configurable):
         kwargs
             Same as `other`.
         """
-        input_scheme: Scheme | None = None
-        if isinstance(other, Scheme):
-            input_scheme = other
+        input_scheme = False
+        values: dict[str, t.Any]
         if other is None:
-            other = {}
-        # it seems the isinstancen fails sometimes, not sure why
-        # at least we try to flatten the values.
-        elif input_scheme is not None or hasattr(other, "values_recursive"):
-            other = other.values_recursive(flatten=True)  # type: ignore[union-attr]
+            values = {}
+        elif isinstance(other, Scheme):
+            values = other.values_recursive(flatten=True)
+            input_scheme = True
         else:
-            other = dict(other)
-        other |= kwargs
+            values = dict(other)
+        values |= kwargs
 
-        clsname = self.__class__.__name__
+        for key, value in values.items():
+            if key not in self:
+                if raise_on_miss:
+                    raise KeyError(f"Trait '{key}' does not exist in {self}")
+                if not allow_new:
+                    raise RuntimeError(f"Trait creation was not authorized ({key})")
 
-        for fullkey, value in other.items():
-            fullpath = fullkey.split(".")
-            trait_name = fullpath[-1]
-
-            scheme = self
-            for name in fullpath[:-1]:
-                if name in scheme._subschemes:
-                    pass
-                # subscheme does not exist
-                elif raise_on_miss:
-                    raise KeyError(
-                        f"{fullkey} cannot be added to this Scheme ({clsname})"
-                    )
-                elif not allow_new:
-                    raise RuntimeError(
-                        f"Scheme creation '{name}' was not authorized ({fullkey})"
-                    )
-                else:
-                    scheme.add_traits(**{name: subscheme(Scheme)})
-                    scheme._subschemes[name] = Scheme
-
-                # scheme exists or has been added
-                scheme = getattr(scheme, name)
-
-            if trait_name in scheme.trait_names():
-                pass
-            # trait does not exist
-            elif raise_on_miss:
-                raise KeyError(f"{fullkey} cannot be added to this Scheme ({clsname})")
-            elif not allow_new:
-                raise RuntimeError(
-                    f"Trait creation '{trait_name}' was not authorized ({fullkey})"
-                )
-            else:
                 if isinstance(value, TraitType):
                     newtrait = value
-                elif input_scheme is not None:
-                    newtrait = input_scheme.traits_recursive(flatten=True)[fullkey]
+                elif input_scheme:
+                    newtrait = other.traits_recursive(flatten=True)[key]  # type: ignore[union-attr]
                 else:
                     raise TypeError(
                         "A new trait must be specified as a TraitType or from a Scheme "
-                        f"({fullkey}: {type(value)})"
+                        f"({key}: {type(value)})"
                     )
-                scheme.add_traits(**{trait_name: newtrait})
+
+                self.add_trait(key, newtrait)
 
             # trait exists or has been added
             if isinstance(value, TraitType):
                 value = value.default
 
-            setattr(scheme, trait_name, value)
+            self[key] = value
 
     # - end of Mutable Mapping methods
 
-    def add_trait(self, key: str, trait: TraitType, default: t.Any | None = None):
-        # can be used in .update
-        raise NotImplementedError("TODO")
+    def add_trait(self, key: str, trait: TraitType, allow_recursive: bool = True):
+        """Add a trait to this scheme or one of its subscheme.
+
+        The trait name cannot be already in use.
+
+        Parameters
+        ----------
+        key
+            Path of dot separated attribute names leading to the trait to add. It can
+            also only be a trait name to add to *this* scheme.
+        trait
+            Trait instance to add.
+        allow_recursive
+            If True (default), subschemes specified in *key* that are not contained in
+            this scheme will be added automatically. Otherwise, this will raise on
+            unknown subschemes in *key*.
+        """
+        fullpath = key.split(".")
+        trait_name = fullpath[-1]
+
+        scheme = self
+        for name in fullpath[:-1]:
+            if name in scheme._subschemes:
+                pass
+            # subscheme does not exist
+            elif allow_recursive:
+                scheme.add_traits(**{name: subscheme(Scheme)})
+                scheme._subschemes[name] = Scheme
+            else:
+                raise KeyError(
+                    f"There is no scheme '{name}', and creating subschemes "
+                    f"to add trait '{key}' was not allowed."
+                )
+
+            # scheme exists or has been added
+            scheme = getattr(scheme, name)
+
+        if trait_name in scheme.trait_names():
+            raise KeyError(f"Trait '{key}' already exists.")
+
+        scheme.add_traits(**{trait_name: trait})
 
     def select(self, *keys: str, flatten: bool = False) -> dict[str, t.Any]:
         """Select parameters from this schemes or its subschemes.
