@@ -384,6 +384,11 @@ class Scheme(Configurable):
         return len(self.keys())
 
     def __eq__(self, other: t.Any) -> bool:
+        """Check equality with other scheme.
+
+        If *other* is not a Scheme, will return False. Both scheme must have the same
+        keys and same values.
+        """
         if not isinstance(other, Scheme):
             return False
         # Check that we have the same keys
@@ -425,6 +430,21 @@ class Scheme(Configurable):
     def setdefault(
         self, key: str, default: t.Any | None = None, trait: TraitType | None = None
     ) -> t.Any:
+        """Set a trait to a value if it exists.
+
+        If the trait exists, return its value. Otherwise, the *trait* argument must be
+        supplied to add it to the scheme and to set it to *default*, if not this will
+        raise.
+
+        Parameters
+        ----------
+        key
+            Path to leading to a trait.
+        default
+            Value to set the new trait to if *key* does not lead to an existing trait.
+        trait
+            Trait instance to add.
+        """
         if key in self:
             return self[key]
         if trait is None:
@@ -437,18 +457,33 @@ class Scheme(Configurable):
         return default
 
     def pop(self, key: str, other: t.Any | None = None) -> t.Any:
-        raise TypeError("Scheme do not support 'pop'.")
+        """Schemes do not support the *pop* operation.
+
+        A trait cannot be deleted.
+        """
+        raise TypeError("Schemes do not support 'pop'. A trait cannot be deleted")
 
     def popitem(self) -> tuple[str, t.Any]:
-        raise TypeError("Scheme do not support 'popitem'.")
+        """Schemes do not support the *popitem* operation.
+
+        A trait cannot be deleted.
+        """
+        raise TypeError("Schemes do not support 'popitem'. A trait cannot be deleted")
 
     def clear(self) -> None:
+        """Schemes do not support the *clear* operation.
+
+        A trait cannot be deleted. You may use :meth:`reset` to reset all traits to
+        their default value.
+        """
         raise TypeError(
-            "Scheme do not suppert 'clear'. "
+            "Schemes do not support 'clear'. A trait cannot be deleted. "
             "You may use 'reset' to reset all traits to their default value."
         )
 
     def reset(self) -> None:
+        """Reset all traits to their default value."""
+
         def func(scheme: Configurable, traits, key: str, trait: TraitType, path):
             setattr(scheme, key, trait.get_default_value())
 
