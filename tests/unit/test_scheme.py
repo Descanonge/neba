@@ -1,8 +1,10 @@
 import logging
 from collections import abc
 
+import hypothesis.strategies as st
 import pytest
-from hypothesis import given
+from hypothesis import HealthCheck, given, settings
+from traitlets import Int
 
 from data_assistant.config import Scheme
 
@@ -28,7 +30,7 @@ class SchemeTest:
         return info.instance
 
 
-class TestDefinition:
+class TestDefinition(SchemeTest):
     """Test defining schemes.
 
     Especially metaclass stuff.
@@ -39,7 +41,33 @@ class TestDefinition:
 
         And only those. Make sure name must follow rules.
         """
-        pass
+
+        class S(Scheme):
+            class a(Scheme):
+                control = Int(0)
+
+            class b(Scheme):
+                class c(Scheme):
+                    control = Int(0)
+
+        cls_a = S._aSchemeDef
+        cls_b = S._bSchemeDef
+        cls_c = S._bSchemeDef._cSchemeDef
+
+        assert issubclass(S._subschemes["a"], cls_a)
+        assert issubclass(S._subschemes["b"], cls_b)
+        assert issubclass(S._subschemes["b"]._subschemes["c"], cls_c)
+
+        inst = S()
+        assert isinstance(inst.a, cls_a)
+        assert isinstance(inst.b, cls_b)
+        assert isinstance(inst.b.c, cls_c)
+
+        assert isinstance(inst["a"], cls_a)
+        assert isinstance(inst["b"], cls_b)
+        assert isinstance(inst["b.c"], cls_c)
+
+        assert inst.keys() == ["a", "a.control", "b", "b.c", "b.c.control"]
 
     def test_dynamic_definition_random(self):
         """Test that nested class defs will be found.
@@ -54,6 +82,31 @@ class TestDefinition:
         And on the correct classes only (no unintented side-effects).
         """
         pass
+
+    def test_traits_tagged(self, info, scheme):
+        def test_tagged_scheme(info, scheme):
+            for key in info.traits_this_level:
+                trait = scheme.traits()[key]
+                assert trait.metadata["config"] is True
+                assert trait.metadata.get("subscheme", None) is None
+
+            for name, sub_info in info.subschemes.items():
+                trait = scheme.traits()[name]
+                assert trait.metadata["config"] is False
+                assert trait.metadata["subscheme"] is True
+                test_tagged_scheme(sub_info, scheme[name])
+
+        test_tagged_scheme(info, scheme)
+
+    def test_traits_tag_overwrite(self):
+        """Test that traits forcefully specified as not configurable are kept that way."""
+
+        class S(Scheme):
+            control = Int(0)
+            not_config = Int(0).tag(config=False)
+
+        assert S.class_trait_names(config=True) == ["control"]
+        assert S.class_trait_names(config=False) == ["not_config"]
 
     def test_wrong_alias(self):
         """Make sure we detect wrong aliases."""
@@ -71,7 +124,15 @@ class TestInstanciation(SchemeTest):
     def test_simple(self, info: SchemeInfo):
         """Simple instanciation (no scheme)."""
         _ = Scheme()
-        _ = info.instance
+        scheme = info.instance
+
+        def test_subscheme_class(info, scheme):
+            for name, sub_info in info.subschemes.items():
+                assert issubclass(scheme._subschemes[name], sub_info.scheme)
+                assert isinstance(scheme[name], sub_info.scheme)
+                test_subscheme_class(sub_info, scheme[name])
+
+        test_subscheme_class(info, scheme)
 
     def test_recursive(self):
         """Recursive instanciation (with subscheme)."""
@@ -172,14 +233,17 @@ class TestMutableMappingInterface(SchemeTest):
     def test_setdefault(self):
         pass
 
-    def test_pop(self):
-        pass
+    def test_pop(self, scheme):
+        with pytest.raises(TypeError):
+            scheme.pop("anything")
 
-    def test_popitem(self):
-        pass
+    def test_popitem(self, scheme):
+        with pytest.raises(TypeError):
+            scheme.pop("anything")
 
-    def test_clear(self):
-        pass
+    def test_clear(self, scheme):
+        with pytest.raises(TypeError):
+            scheme.pop("anything")
 
     def test_reset(self):
         pass
@@ -199,14 +263,23 @@ class TestMutableMappingInterface(SchemeTest):
         pass
 
 
-class TestTraitListing:
+class TestTraitListing(SchemeTest):
     """Test the trait listing abilities.
 
     To filter out some traits, select some, list all recursively, etc.
     """
 
-    def test_select(self):
-        pass
+    @given(
+        keys=st.lists(
+            st.sampled_from(GenericSchemeInfo.keys_total), max_size=12, unique=True
+        )
+    )
+    @settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
+    def test_select(self, scheme, keys):
+        # Health check suppressed, we only look at the scheme
+        # We only test flattened, we assume nest_dict() works and is tested
+        out = scheme.select(*keys, flatten=True)
+        assert keys == list(out.keys())
 
     def test_subscheme_recursive(self):
         pass
