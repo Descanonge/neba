@@ -3,7 +3,21 @@
 import typing as t
 
 import hypothesis.strategies as st
-from traitlets import TraitType
+from traitlets import (
+    Bool,
+    Dict,
+    Enum,
+    Float,
+    Instance,
+    Int,
+    List,
+    Set,
+    TraitType,
+    Tuple,
+    Type,
+    Unicode,
+    Union,
+)
 
 from data_assistant.config.scheme import Scheme, subscheme
 
@@ -185,8 +199,103 @@ def st_scheme_gen_single_trait(**kwargs) -> st.SearchStrategy[SchemeGenerator]:
     return strat()
 
 
-class TypicalScheme(Scheme):
-    pass
+class GeneralTraits(Scheme):
+    # Simple traits
+    bool = Bool(True)
+    float = Float(0.0)
+    int = Int(0)
+    str = Unicode("default")
+    enum_int = Enum(values=[1, 2, 3], default_value=1)
+    enum_str = Enum(values=["a", "b", "c"], default_value="a")
+    enum_mix = Enum(values=[1, 2, 3, "a", "b", "c"], default_value=1)
+
+    # Containers (list)
+    list_int = List(Int(), default_value=[0])
+    list_str = List(Unicode(), default_value=["a"])
+    list_any = List(default_value=[0, "a"])
+    list_nest = List(List(Int()), default_value=[[0, 2], [1, 3]])
+
+    # Containers (tuple)
+    tuple_float = Tuple(Float(), Float(), default_value=(0.0, 1.0))
+    tuple_mix = Tuple(Unicode(), Int(), Int(), default_value=("a", 0, 1))
+    tuple_nest = Tuple(Int(), List(Int()), default_value=(0, [0, 1, 2]))
+
+    # Containers (set)
+
+    # Containers (dict)
+
+    # Instance and Type
+
+    # Union
+
+
+S = t.TypeVar("S", bound=Scheme)
+
+
+class SchemeInfo(t.Generic[S]):
+    scheme: type[S]
+
+    defaults: dict[str, t.Any]
+
+    traits_this_level: list[str]
+    traits_total: list[str]
+    keys_this_level: list[str]
+    keys_total: list[str]
+
+    @property
+    def instance(self) -> S:
+        return self.scheme()
+
+
+class GeneralTraitsInfo(SchemeInfo[GeneralTraits]):
+    scheme = GeneralTraits
+
+    defaults = dict(
+        bool=True,
+        float=0.0,
+        int=0,
+        str="default",
+        enum_int=1,
+        enum_str="a",
+        enum_mix=1,
+        #
+        list_int=[0],
+        list_str=["a"],
+        list_any=[0, "a"],
+        list_nest=[[0, 2], [1, 3]],
+        #
+        tuple_float=(0.0, 1.0),
+        tuple_mix=("a", 0, 1),
+        tuple_nest=(0, [0, 1, 2]),
+    )
+
+    traits_this_level = [
+        "bool",
+        "float",
+        "int",
+        "str",
+        "enum_int",
+        "enum_str",
+        "enum_mix",
+        #
+        "list_int",
+        "list_str",
+        "list_any",
+        "list_nest",
+        #
+        "tuple_float",
+        "tuple_mix",
+        "tuple_nest",
+    ]
+    traits_total = traits_this_level
+    keys_this_level = traits_this_level
+    keys_total = keys_this_level
+
+
+class TwinScheme(Scheme):
+    int = Int(0)
+    list_int = List(Int(), default_value=[0, 1])
+    # instance ?
 
 
 """Here we should define a typical scheme, with nested subschemes defined via function

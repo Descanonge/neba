@@ -1,10 +1,13 @@
 import logging
+from collections import abc
 
+import pytest
 from hypothesis import given
 
 from data_assistant.config import Scheme
 
 from ..scheme_generation import (
+    GeneralTraitsInfo,
     scheme_st_to_cls,
     scheme_st_to_instance,
     scheme_st_to_instances,
@@ -56,7 +59,8 @@ class TestInstanciation:
 
     def test_simple(self):
         """Simple instanciation (no scheme)."""
-        pass
+        _ = Scheme()
+        _ = GeneralTraitsInfo().instance
 
     def test_recursive(self):
         """Recursive instanciation (with subscheme)."""
@@ -82,34 +86,70 @@ class TestInstanciation:
         """Two schemes at different nesting level are from the same class."""
         pass
 
+
+# Do it for default values and changed values ?
 class TestMappingInterface:
     """Test the Mapping interface of Schemes."""
 
     def test_is_mapping(self):
-        # assert isinstance()
-        # assert issubclass()
-        pass
+        assert issubclass(Scheme, abc.Mapping)
+        assert isinstance(Scheme(), abc.Mapping)
+
+        info = GeneralTraitsInfo()
+        assert issubclass(info.scheme, abc.Mapping)
+        assert isinstance(info.instance, abc.Mapping)
 
     def test_getitem(self):
-        pass
+        info = GeneralTraitsInfo()
+        scheme = info.instance
+
+        for key in info.keys_total:
+            if key in info.traits_total:
+                assert scheme[key] == info.defaults[key]
+            else:
+                assert isinstance(scheme[key], Scheme)
 
     def test_get(self):
         pass
 
     def test_contains(self):
-        pass
+        info = GeneralTraitsInfo()
+        scheme = info.instance
+
+        for key in info.keys_total:
+            assert key in scheme
+
+    def test_missing_keys(self):
+        info = GeneralTraitsInfo()
+        scheme = info.instance
+
+        for key in ["missing_key", "missing_sub.key"]:
+            assert key not in scheme
+        with pytest.raises(KeyError):
+            scheme[key]
 
     def test_iter(self):
         pass
 
     def test_length(self):
-        pass
+        info = GeneralTraitsInfo()
+        scheme = info.instance
+
+        assert len(scheme) == len(info.keys_total)
 
     def test_eq(self):
         pass
 
     def test_keys(self):
-        pass
+        info = GeneralTraitsInfo()
+        scheme = info.instance
+
+        assert sorted(info.keys_total) == list(scheme.keys())
+        assert sorted(info.keys_this_level) == list(scheme.keys(recursive=False))
+        assert sorted(info.traits_total) == list(scheme.keys(subschemes=False))
+        assert sorted(info.traits_this_level) == list(
+            scheme.keys(subschemes=False, recursive=False)
+        )
 
     def test_values(self):
         pass
@@ -123,6 +163,14 @@ class TestMutableMappingInterface:
 
     With some dictionnary functions as well.
     """
+
+    def test_is_mutable_mapping(self):
+        assert issubclass(Scheme, abc.MutableMapping)
+        assert isinstance(Scheme(), abc.MutableMapping)
+
+        info = GeneralTraitsInfo()
+        assert issubclass(info.scheme, abc.MutableMapping)
+        assert isinstance(info.instance, abc.MutableMapping)
 
     def test_setitem(self):
         pass
@@ -148,16 +196,20 @@ class TestMutableMappingInterface:
     def test_add_trait(self):
         pass
 
+    def test_twin_siblings(self):
+        """Two subschemes on are from the same class."""
+        pass
+
+    def test_twin_recursive(self):
+        """Two schemes at different nesting level are from the same class."""
+        pass
+
+
 class TestTraitListing:
     """Test the trait listing abilities.
 
     To filter out some traits, select some, list all recursively, etc.
     """
-
-    def test_is_mutable_mapping(self):
-        # assert isinstance()
-        # assert issubclass()
-        pass
 
     def test_select(self):
         pass
@@ -198,7 +250,6 @@ class TestRemap:
         pass
 
 
-
 class TestResolveKey:
     """Test key resolution."""
 
@@ -217,12 +268,14 @@ class TestResolveKey:
         # nested class key
         pass
 
+
 def test_merge_configs():
     """Test merge two different configuration dicts."""
     pass
 
 
 # gen = SchemeGenerator("test", dict(a=BoolGen(), b=FloatGen(), c=ListGen(BoolGen())))
+
 
 @given(cls=scheme_st_to_cls(st_scheme_gen_single_trait()))
 def test_default(cls: type[Scheme]):

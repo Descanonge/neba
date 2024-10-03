@@ -144,12 +144,12 @@ class LoggingMixin(LoggingConfigurable):
             },
             "loggers": {
                 self.__class__.__name__: {
-                    "level": logging.getLevelName(self.log_level),  # type:ignore[arg-type]
+                    "level": logging.getLevelName(self.log_level),  # type:ignore[call-overload]
                     "propagate": False,
                     "handlers": ["console"],
                 },
                 "data_assistant": {
-                    "level": logging.getLevelName(self.lib_log_level),  # type:ignore[arg-type]
+                    "level": logging.getLevelName(self.lib_log_level),  # type:ignore[call-overload]
                     "handlers": ["console"],
                 },
             },
