@@ -7,7 +7,8 @@ from hypothesis import given
 from data_assistant.config import Scheme
 
 from ..scheme_generation import (
-    GeneralTraitsInfo,
+    GenericSchemeInfo,
+    SchemeInfo,
     scheme_st_to_cls,
     scheme_st_to_instance,
     scheme_st_to_instances,
@@ -15,6 +16,16 @@ from ..scheme_generation import (
 )
 
 log = logging.getLogger(__name__)
+
+
+class SchemeTest:
+    @pytest.fixture
+    def info(self) -> SchemeInfo:
+        return GenericSchemeInfo()
+
+    @pytest.fixture
+    def scheme(self, info) -> Scheme:
+        return info.instance
 
 
 class TestDefinition:
@@ -49,7 +60,7 @@ class TestDefinition:
         pass
 
 
-class TestInstanciation:
+class TestInstanciation(SchemeTest):
     """Test instanciation of Schemes.
 
     Make sure the recursive config is passed correctly.
@@ -57,10 +68,10 @@ class TestInstanciation:
 
     # What about weird traits, like hidden traits ? "_mytrait"
 
-    def test_simple(self):
+    def test_simple(self, info: SchemeInfo):
         """Simple instanciation (no scheme)."""
         _ = Scheme()
-        _ = GeneralTraitsInfo().instance
+        _ = info.instance
 
     def test_recursive(self):
         """Recursive instanciation (with subscheme)."""
@@ -88,21 +99,17 @@ class TestInstanciation:
 
 
 # Do it for default values and changed values ?
-class TestMappingInterface:
+class TestMappingInterface(SchemeTest):
     """Test the Mapping interface of Schemes."""
 
-    def test_is_mapping(self):
+    def test_is_mapping(self, info):
         assert issubclass(Scheme, abc.Mapping)
         assert isinstance(Scheme(), abc.Mapping)
 
-        info = GeneralTraitsInfo()
         assert issubclass(info.scheme, abc.Mapping)
         assert isinstance(info.instance, abc.Mapping)
 
-    def test_getitem(self):
-        info = GeneralTraitsInfo()
-        scheme = info.instance
-
+    def test_getitem(self, info, scheme):
         for key in info.keys_total:
             if key in info.traits_total:
                 assert scheme[key] == info.defaults[key]
@@ -112,17 +119,11 @@ class TestMappingInterface:
     def test_get(self):
         pass
 
-    def test_contains(self):
-        info = GeneralTraitsInfo()
-        scheme = info.instance
-
+    def test_contains(self, info, scheme):
         for key in info.keys_total:
             assert key in scheme
 
-    def test_missing_keys(self):
-        info = GeneralTraitsInfo()
-        scheme = info.instance
-
+    def test_missing_keys(self, info, scheme):
         for key in ["missing_key", "missing_sub.key"]:
             assert key not in scheme
         with pytest.raises(KeyError):
@@ -131,23 +132,17 @@ class TestMappingInterface:
     def test_iter(self):
         pass
 
-    def test_length(self):
-        info = GeneralTraitsInfo()
-        scheme = info.instance
-
+    def test_length(self, info, scheme):
         assert len(scheme) == len(info.keys_total)
 
     def test_eq(self):
         pass
 
-    def test_keys(self):
-        info = GeneralTraitsInfo()
-        scheme = info.instance
-
-        assert sorted(info.keys_total) == list(scheme.keys())
-        assert sorted(info.keys_this_level) == list(scheme.keys(recursive=False))
-        assert sorted(info.traits_total) == list(scheme.keys(subschemes=False))
-        assert sorted(info.traits_this_level) == list(
+    def test_keys(self, info, scheme):
+        assert info.keys_total == list(scheme.keys())
+        assert info.keys_this_level == list(scheme.keys(recursive=False))
+        assert info.traits_total == list(scheme.keys(subschemes=False))
+        assert info.traits_this_level == list(
             scheme.keys(subschemes=False, recursive=False)
         )
 
@@ -158,17 +153,16 @@ class TestMappingInterface:
         pass
 
 
-class TestMutableMappingInterface:
+class TestMutableMappingInterface(SchemeTest):
     """Test the mutable mapping interface of Schemes.
 
     With some dictionnary functions as well.
     """
 
-    def test_is_mutable_mapping(self):
+    def test_is_mutable_mapping(self, info):
         assert issubclass(Scheme, abc.MutableMapping)
         assert isinstance(Scheme(), abc.MutableMapping)
 
-        info = GeneralTraitsInfo()
         assert issubclass(info.scheme, abc.MutableMapping)
         assert isinstance(info.instance, abc.MutableMapping)
 
