@@ -280,7 +280,10 @@ class Scheme(Configurable):
             if subschemes:
                 out.append(name)
             if recursive:
-                out += [f"{name}.{s}" for s in subscheme.keys()]
+                out += [
+                    f"{name}.{s}"
+                    for s in subscheme.keys(subschemes=subschemes, aliases=aliases)
+                ]
         out = [s for s in out if not s.startswith("_")]
         return out
 
