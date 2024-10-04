@@ -229,6 +229,13 @@ class TestMutableMappingInterface(SchemeTest):
 
     @given(values=GenericSchemeInfo.values_strat())
     def test_set(self, values):
+        """Test __set__ with random values.
+
+        Random keys are selected and appropriate values drawn as well. We check that set
+        keys are correctly changed, and that no other keys than those selected were
+        changed, to make sure we have no side effect (especially in twin schemes). Which
+        only works for our generic scheme that has no observe events or stuff like that.
+        """
         info = GenericSchemeInfo
         scheme = info.scheme()
 

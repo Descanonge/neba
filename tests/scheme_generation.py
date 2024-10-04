@@ -243,8 +243,8 @@ class GenericTraits(Scheme):
     type = Type(klass=ClassDummy)
 
     # Union
-    union_num = Union([Float(), Int()], default_value=0.0)
-    union_num_str = Union([Float(), Int(), Unicode()], default_value="0")
+    union_num = Union([Int(), Float()], default_value=0.0)
+    union_num_str = Union([Int(), Float(), Unicode()], default_value="0")
     union_list = Union([Int(), List(Int())], default_value=[0])
 
 
@@ -374,6 +374,13 @@ class GenericScheme(GenericTraits):
     class deep_sub(Scheme):
         sub_generic_deep = subscheme(GenericTraits)
 
+    class empty_a(Scheme):
+        pass
+
+    class empty_b(Scheme):
+        class empty_c(Scheme):
+            pass
+
 
 class SubTwinInfo(SchemeInfo):
     scheme = GenericScheme._sub_twinSchemeDef  # type: ignore[attr-defined]
@@ -385,6 +392,19 @@ class DeepSubInfo(SchemeInfo):
     subschemes = dict(sub_generic_deep=GenericTraitsInfo())
 
 
+class Empty_a_Info(SchemeInfo):
+    scheme = GenericScheme._empty_aSchemeDef  # type: ignore[attr-defined]
+
+
+class Empty_c_Info(SchemeInfo):
+    scheme = GenericScheme._empty_bSchemeDef._empty_cSchemeDef  # type: ignore[attr-defined]
+
+
+class Empty_b_Info(SchemeInfo):
+    scheme = GenericScheme._empty_bSchemeDef  # type: ignore[attr-defined]
+    subschemes = dict(empty_c=Empty_c_Info())
+
+
 class GenericSchemeInfo(GenericTraitsInfo):
     scheme = GenericScheme
     subschemes = dict(
@@ -393,6 +413,8 @@ class GenericSchemeInfo(GenericTraitsInfo):
         twin_b=TwinSubschemeInfo(),
         sub_twin=SubTwinInfo(),
         deep_sub=DeepSubInfo(),
+        empty_a=Empty_a_Info(),
+        empty_b=Empty_b_Info(),
     )
 
 
