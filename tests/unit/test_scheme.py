@@ -227,8 +227,19 @@ class TestMutableMappingInterface(SchemeTest):
         assert issubclass(info.scheme, abc.MutableMapping)
         assert isinstance(info.scheme(), abc.MutableMapping)
 
-    def test_setitem(self):
-        pass
+    @given(values=GenericSchemeInfo.values_strat())
+    def test_set(self, values):
+        info = GenericSchemeInfo
+        scheme = info.scheme()
+
+        for key, val in values.items():
+            scheme[key] = val
+
+        for key in info.traits_total:
+            if key in values:
+                assert scheme[key] == values[key]
+            else:
+                assert scheme[key] == info.default(key)
 
     def test_setdefault(self):
         pass
@@ -274,10 +285,9 @@ class TestTraitListing(SchemeTest):
             st.sampled_from(GenericSchemeInfo.keys_total), max_size=12, unique=True
         )
     )
-    @settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
-    def test_select(self, scheme, keys):
-        # Health check suppressed, we only look at the scheme
+    def test_select(self, keys):
         # We only test flattened, we assume nest_dict() works and is tested
+        scheme = GenericSchemeInfo.scheme()
         out = scheme.select(*keys, flatten=True)
         assert keys == list(out.keys())
 
