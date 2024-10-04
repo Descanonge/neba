@@ -21,7 +21,7 @@ from traitlets import (
 
 from data_assistant.config.scheme import Scheme, subscheme
 
-from .trait_generation import TraitGenerator, st_trait_gen
+from .trait_generation import TraitGenerator, st_trait_gen, trait_to_strat
 from .util import Drawer, st_varname
 
 
@@ -255,21 +255,21 @@ class SchemeInfo(t.Generic[S]):
     scheme: type[S]
     subschemes: dict[str, "SchemeInfo"] = {}
 
-    defaults: dict[str, t.Any] = {}
-    traits_this_level: list[str] = []
+    traits: dict[str, TraitType] = {}
 
+    traits_this_level: list[str]
     traits_total: list[str]
     keys_this_level: list[str]
     keys_total: list[str]
 
     def __init_subclass__(cls) -> None:
         # make copies to avoid interferences
-        cls.defaults = dict(cls.defaults)
-        cls.traits_this_level = list(cls.traits_this_level)
-        # Sort the traits
+        cls.traits = dict(cls.traits)
+        cls.subschemes = dict(cls.subschemes)
+
+        cls.traits_this_level = list(cls.traits.keys())
         cls.traits_this_level.sort()
 
-        # everything starts from traits_this_level
         cls.keys_this_level = list(cls.traits_this_level)
         cls.traits_total = list(cls.traits_this_level)
         cls.keys_total = list(cls.traits_this_level)
@@ -284,81 +284,71 @@ class SchemeInfo(t.Generic[S]):
             cls.keys_total.append(name)
             cls.keys_total += [f"{name}.{k}" for k in sub_info.keys_total]
 
-            cls.defaults |= {f"{name}.{k}": v for k, v in sub_info.defaults.items()}
+    @classmethod
+    def default(cls, key: str) -> t.Any:
+        if key in cls.traits:
+            trait = cls.traits[key]
+            return trait.default()
+        sub, *subkey = key.split(".")
+        return cls.subschemes[sub].default(".".join(subkey))
 
-    @property
-    def instance(self) -> S:
-        return self.scheme()
+    @classmethod
+    def value_strat(cls, key: str) -> st.SearchStrategy:
+        if key in cls.traits:
+            trait = cls.traits[key]
+            return trait_to_strat(trait)
+        sub, *subkey = key.split(".")
+        return cls.subschemes[sub].value_strat(".".join(subkey))
+
+    @classmethod
+    def values_strat(cls) -> st.SearchStrategy[dict]:
+        @st.composite
+        def strat(draw: Drawer) -> dict:
+            keys = draw(st.lists(st.sampled_from(cls.traits_total)))
+            out = {k: draw(cls.value_strat(k)) for k in keys}
+            return out
+
+        return strat()
 
 
 class GenericTraitsInfo(SchemeInfo[GenericTraits]):
     scheme = GenericTraits
     subschemes = {}
 
-    defaults = dict(
-        bool=True,
-        float=0.0,
-        int=0,
-        str="default",
-        enum_int=1,
-        enum_str="a",
-        enum_mix=1,
-        #
-        list_int=[0],
-        list_str=["a"],
-        list_any=[0, "a"],
-        list_nest=[[0, 2], [1, 3]],
-        #
-        set_int={0, 1, 2},
-        set_any={0, 1, "a", "b"},
-        set_union={0, 1, "a", "b"},
-        #
-        tuple_float=(0.0, 1.0),
-        tuple_mix=("a", 0, 1),
-        tuple_nest=(0, [0, 1, 2]),
-        #
-        dict_any={"a": 0, "b": 1},
-        dict_str_int={"a": 0, "b": 1},
-        #
-        inst=class_dummy,
-        type=ClassDummy,
-        #
-        union_num=0.0,
-        union_num_str="0",
-        union_list=[0],
+    traits = dict(
+        bool=Bool(True),
+        float=Float(0.0),
+        int=Int(0),
+        str=Unicode("default"),
+        enum_int=Enum(values=[1, 2, 3], default_value=1),
+        enum_str=Enum(values=["a", "b", "c"], default_value="a"),
+        enum_mix=Enum(values=[1, 2, 3, "a", "b", "c"], default_value=1),
+        # Containers (list)
+        list_int=List(Int(), default_value=[0]),
+        list_str=List(Unicode(), default_value=["a"]),
+        list_any=List(default_value=[0, "a"]),
+        list_nest=List(List(Int()), default_value=[[0, 2], [1, 3]]),
+        # Containers (set)
+        set_int=Set(Int(), default_value=[0, 1, 2]),
+        set_any=Set(default_value=[0, 1, "a", "b"]),
+        set_union=Set(Union([Int(), Unicode()]), default_value=[0, 1, "a", "b"]),
+        # Containers (tuple)
+        tuple_float=Tuple(Float(), Float(), default_value=(0.0, 1.0)),
+        tuple_mix=Tuple(Unicode(), Int(), Int(), default_value=("a", 0, 1)),
+        tuple_nest=Tuple(Int(), List(Int()), default_value=(0, [0, 1, 2])),
+        # Containers (dict)
+        dict_any=Dict(default_value={"a": 0, "b": 1}),
+        dict_str_int=Dict(
+            value_trait=Int(), key_trait=Unicode(), default_value={"a": 0, "b": 1}
+        ),
+        # Instance and Type
+        inst=Instance(ClassDummy, default_value=class_dummy, args=(), kw={}),
+        type=Type(klass=ClassDummy),
+        # Union
+        union_num=Union([Float(), Int()], default_value=0.0),
+        union_num_str=Union([Float(), Int(), Unicode()], default_value="0"),
+        union_list=Union([Int(), List(Int())], default_value=[0]),
     )
-
-    traits_this_level = [
-        "bool",
-        "float",
-        "int",
-        "str",
-        "enum_int",
-        "enum_str",
-        "enum_mix",
-        #
-        "list_int",
-        "list_str",
-        "list_any",
-        "list_nest",
-        #
-        "set_int",
-        "set_any",
-        "set_union",
-        #
-        "tuple_float",
-        "tuple_mix",
-        "tuple_nest",
-        #
-        "dict_any",
-        "dict_str_int",
-        "inst",
-        "type",
-        #
-        "union_num",
-        "union_num_str",
-        "union_list",
-    ]
 
 
 class TwinSubscheme(Scheme):
@@ -369,8 +359,7 @@ class TwinSubscheme(Scheme):
 class TwinSubschemeInfo(SchemeInfo):
     scheme = TwinSubscheme
 
-    defaults = dict(int=0, list_int=[0, 1])
-    traits_this_level = ["int", "list_int"]
+    traits = dict(int=Int(0), list_int=List(Int(), default_value=[0, 1]))
 
 
 class GenericScheme(GenericTraits):

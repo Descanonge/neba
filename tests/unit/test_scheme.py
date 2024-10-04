@@ -27,7 +27,7 @@ class SchemeTest:
 
     @pytest.fixture
     def scheme(self, info) -> Scheme:
-        return info.instance
+        return info.scheme()
 
 
 class TestDefinition(SchemeTest):
@@ -124,7 +124,7 @@ class TestInstanciation(SchemeTest):
     def test_simple(self, info: SchemeInfo):
         """Simple instanciation (no scheme)."""
         _ = Scheme()
-        scheme = info.instance
+        scheme = info.scheme()
 
         def test_subscheme_class(info, scheme):
             for name, sub_info in info.subschemes.items():
@@ -168,12 +168,12 @@ class TestMappingInterface(SchemeTest):
         assert isinstance(Scheme(), abc.Mapping)
 
         assert issubclass(info.scheme, abc.Mapping)
-        assert isinstance(info.instance, abc.Mapping)
+        assert isinstance(info.scheme(), abc.Mapping)
 
     def test_getitem(self, info, scheme):
         for key in info.keys_total:
             if key in info.traits_total:
-                assert scheme[key] == info.defaults[key]
+                assert scheme[key] == info.default(key)
             else:
                 assert isinstance(scheme[key], Scheme)
 
@@ -225,7 +225,7 @@ class TestMutableMappingInterface(SchemeTest):
         assert isinstance(Scheme(), abc.MutableMapping)
 
         assert issubclass(info.scheme, abc.MutableMapping)
-        assert isinstance(info.instance, abc.MutableMapping)
+        assert isinstance(info.scheme(), abc.MutableMapping)
 
     def test_setitem(self):
         pass
