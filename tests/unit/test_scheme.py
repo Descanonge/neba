@@ -6,7 +6,8 @@ import pytest
 from hypothesis import HealthCheck, given, settings
 from traitlets import Int
 
-from data_assistant.config import Scheme
+from data_assistant.config import Scheme, subscheme
+from data_assistant.config.util import nest_dict
 
 from ..scheme_generation import (
     GenericSchemeInfo,
@@ -42,7 +43,12 @@ class TestDefinition(SchemeTest):
         And only those. Make sure name must follow rules.
         """
 
+        class NormalSubscheme(Scheme):
+            control = Int(0)
+
         class S(Scheme):
+            normal = subscheme(NormalSubscheme)
+
             class a(Scheme):
                 control = Int(0)
 
@@ -57,17 +63,28 @@ class TestDefinition(SchemeTest):
         assert issubclass(S._subschemes["a"], cls_a)
         assert issubclass(S._subschemes["b"], cls_b)
         assert issubclass(S._subschemes["b"]._subschemes["c"], cls_c)
+        assert issubclass(S._subschemes["normal"], NormalSubscheme)
 
         inst = S()
         assert isinstance(inst.a, cls_a)
         assert isinstance(inst.b, cls_b)
         assert isinstance(inst.b.c, cls_c)
+        assert isinstance(inst.normal, NormalSubscheme)
 
         assert isinstance(inst["a"], cls_a)
         assert isinstance(inst["b"], cls_b)
         assert isinstance(inst["b.c"], cls_c)
+        assert isinstance(inst["normal"], NormalSubscheme)
 
-        assert inst.keys() == ["a", "a.control", "b", "b.c", "b.c.control"]
+        assert list(inst.keys()) == [
+            "normal",
+            "normal.control",
+            "a",
+            "a.control",
+            "b",
+            "b.c",
+            "b.c.control",
+        ]
 
     def test_dynamic_definition_random(self):
         """Test that nested class defs will be found.
@@ -81,9 +98,31 @@ class TestDefinition(SchemeTest):
 
         And on the correct classes only (no unintented side-effects).
         """
-        pass
+
+        class Dynamic(Scheme):
+            class a(Scheme):
+                control = Int(0)
+
+        class Static(Scheme):
+            _dynamic_subschemes = False
+
+            class a(Scheme):
+                control = Int(0)
+
+            dynamic = subscheme(Dynamic)
+
+        assert "a" not in Static._subschemes
+        assert "dynamic" in Static._subschemes
+
+        inst = Static()
+        assert isinstance(inst.dynamic, Dynamic)
+        assert isinstance(inst.a, type)
+
+        assert list(inst.keys()) == ["dynamic", "dynamic.a", "dynamic.a.control"]
 
     def test_traits_tagged(self, info, scheme):
+        """Test that trait are automatically tagged configurable."""
+
         def test_tagged_scheme(info, scheme):
             for key in info.traits_this_level:
                 trait = scheme.traits()[key]
@@ -108,15 +147,33 @@ class TestDefinition(SchemeTest):
         assert S.class_trait_names(config=True) == ["control"]
         assert S.class_trait_names(config=False) == ["not_config"]
 
-    def test_wrong_alias(self):
+    @pytest.mark.parametrize(
+        "alias",
+        [
+            "very_wrong_alias",
+            "very.wrong.alias",
+            "list_int",
+            "sub_generic.very_wrong_alias",
+            "sub_generic.very.wrong.alias",
+            "sub_generic.dict_any",
+        ],
+    )
+    def test_wrong_alias(self, alias, scheme):
         """Make sure we detect wrong aliases."""
-        pass
+        with pytest.raises(KeyError):
+
+            class Subclass(Scheme):
+                aliases = {"short": "alias"}
 
 
 class TestInstanciation(SchemeTest):
     """Test instanciation of Schemes.
 
     Make sure the recursive config is passed correctly.
+
+    There is no test for 'config correctness'. The check of trait existence is done
+    when resolving configs. And value-checking is done by traitlets so we don't check
+    for that.
     """
 
     # What about weird traits, like hidden traits ? "_mytrait"
@@ -134,15 +191,17 @@ class TestInstanciation(SchemeTest):
 
         test_subscheme_class(info, scheme)
 
-    def test_recursive(self):
+    @given(values=GenericSchemeInfo.values_strat())
+    def test_recursive(self, values):
         """Recursive instanciation (with subscheme)."""
-        pass
-
-    def test_wrong(self):
-        # subscheme missing: will be okay
-        # trait that does not exist: raise
-        # value is not valid: raise from traitlets
-        pass
+        config = nest_dict(values)
+        info = GenericSchemeInfo
+        s = info.scheme.instanciate_recursively(config)
+        for key in info.traits_total:
+            if key in values:
+                assert s[key] == values[key]
+            else:
+                assert s[key] == info.default(key)
 
     def test_needed_value(self):
         """Check scheme that has a trait without default value."""

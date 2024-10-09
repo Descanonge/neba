@@ -186,6 +186,7 @@ class Scheme(Configurable):
                         f"Alias '{short}:{alias}' in {cls.__name__} malformed."
                     ) from err
 
+    # TODO Support nested config dictionary, or dot-separated kwargs
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.postinit()

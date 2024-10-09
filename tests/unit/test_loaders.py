@@ -5,6 +5,7 @@ from data_assistant.config.loaders.core import ConfigLoader, FileLoader
 LOADERS: list[type[ConfigLoader]]
 FILE_LOADERS: list[type[FileLoader]]
 
+
 class TestConfigValue:
     """Test ConfigValue related features."""
 
@@ -19,6 +20,9 @@ class TestConfigValue:
 
         to test with most trait possible I guess ? See for nested traits
         """
+        pass
+
+    def test_aliases(self):
         pass
 
 
@@ -67,7 +71,6 @@ class TestPythonLoader:
 
 # Parametrize for all loaders
 class TestConfigLoader:
-
     def test_add_multiple(self):
         """Key already in config."""
         pass
@@ -94,6 +97,7 @@ def test_to_lines_some():
     # read file
     # check same values
     pass
+
 
 # Parametrize for all file loaders
 def test_to_lines_all():
