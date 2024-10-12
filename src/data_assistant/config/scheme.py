@@ -309,12 +309,8 @@ class Scheme(Configurable):
         aliases
             If True (default), include aliases.
         """
-        return [
-            self[key]
-            for key in self.keys(
-                subschemes=subschemes, recursive=recursive, aliases=aliases
-            )
-        ]
+        keys = self.keys(subschemes=subschemes, recursive=recursive, aliases=aliases)
+        return [self[key] for key in keys]
 
     def items(
         self, subschemes: bool = True, recursive: bool = True, aliases: bool = True
@@ -392,11 +388,11 @@ class Scheme(Configurable):
         if not isinstance(other, Scheme):
             return False
         # Check that we have the same keys
-        if self.keys != other.keys():
+        if self.keys() != other.keys():
             return False
         # Check we have the same values on traits
-        items = self.items(subschemes=False)
-        items_other = other.items(subschemes=False)
+        items = dict(self.items(subschemes=False))
+        items_other = dict(other.items(subschemes=False))
         return items == items_other
 
     def __ne__(self, other: t.Any) -> bool:
