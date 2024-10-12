@@ -276,7 +276,12 @@ class Scheme(Configurable):
         out = []
         for name in self.trait_names(subscheme=None, config=True):
             out.append(name)
-        for name in itertools.chain(self._subschemes, self.aliases.keys()):
+
+        subs: list[abc.Iterable] = [self._subschemes]
+        if aliases:
+            subs.append(self.aliases.keys())
+
+        for name in itertools.chain(*subs):
             subscheme = self[name]
             if subschemes:
                 out.append(name)

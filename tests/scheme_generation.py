@@ -252,6 +252,7 @@ S = t.TypeVar("S", bound=Scheme)
 
 
 class SchemeInfo(t.Generic[S]):
+    # TODO add aliases
     scheme: type[S]
     subschemes: dict[str, "SchemeInfo"] = {}
 
@@ -406,6 +407,7 @@ class Empty_b_Info(SchemeInfo):
 
 
 class GenericSchemeInfo(GenericTraitsInfo):
+    # TODO add aliases
     scheme = GenericScheme
     subschemes = dict(
         sub_generic=GenericTraitsInfo(),
