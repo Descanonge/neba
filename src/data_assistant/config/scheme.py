@@ -593,6 +593,29 @@ class Scheme(Configurable):
 
         scheme.add_traits(**{trait_name: trait})
 
+    def as_dict(
+        self, recursive: bool = True, aliases: bool = True, flatten: bool = True
+    ) -> dict[str, t.Any]:
+        """Return traits as a dictionary.
+
+        Parameters
+        ----------
+        recursive
+            If True (default), return parameters from all subschemes. Otherwise limit to
+            only this scheme.
+        aliases
+            If True (default), include aliases.
+        flatten
+            If True (default), return a flat dictionnary with dot-separated keys.
+            Otherwise return a nested dictionnary.
+        """
+        output = dict(
+            self.items(subschemes=False, recursive=recursive, aliases=aliases)
+        )
+        if not flatten:
+            output = nest_dict(output)
+        return output
+
     def select(self, *keys: str, flatten: bool = False) -> dict[str, t.Any]:
         """Select parameters from this schemes or its subschemes.
 
@@ -762,7 +785,15 @@ class Scheme(Configurable):
     def values_recursive(
         self, config=True, flatten: bool = False, **metadata
     ) -> dict[str, t.Any]:
-        """Return nested dictionnary of traits values."""
+        """Return nested dictionnary of traits values.
+
+        .. important:: For users
+
+            Consider using :meth:`as_dict` instead. The result is
+            the same (save for ordering of keys). Its code is simpler,
+            better tested. Use this method if you need to select
+            traits using their metadata.
+        """
 
         def f(configurable, output, key, trait, path):
             output[key] = trait.get(configurable)
