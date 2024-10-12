@@ -317,12 +317,8 @@ class Scheme(Configurable):
         ]
 
     def items(
-        self,
-        subschemes: bool = True,
-        recursive: bool = True,
-        aliases: bool = True,
-        flatten: bool = True,
-    ) -> dict[str, t.Any]:
+        self, subschemes: bool = True, recursive: bool = True, aliases: bool = True
+    ) -> abc.Iterable[tuple[str, t.Any]]:
         """Return mapping of keys to values.
 
         Keys can lead to subschemes instances or trait values.
@@ -332,22 +328,17 @@ class Scheme(Configurable):
         subschemes
             If True (default), keys can map to subschemes instances.
         recursive
-            If True (default), return keys mapping parameters from all subschemes.
+            If True (default), return parameters from all subschemes. Otherwise limit to
+            only this scheme.
         aliases
             If True (default), include aliases.
-        flatten
-            If True (default), return a flat dictionnary with dot-separated keys.
-            Otherwise return a nested dictionnary.
         """
         keys = self.keys(subschemes=subschemes, recursive=recursive, aliases=aliases)
         values = self.values(
             subschemes=subschemes, recursive=recursive, aliases=aliases
         )
         assert len(keys) == len(values)
-        output = dict(zip(keys, values))
-        if not flatten:
-            output = nest_dict(output)
-        return output
+        return zip(keys, values)
 
     def get(self, key: str, default: t.Any | None = None) -> t.Any:
         """Obtain value at `key`."""
