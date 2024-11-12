@@ -10,20 +10,20 @@ class TestConfigValue:
     """Test ConfigValue related features."""
 
     def test_copy(self):
-        pass
+        assert 0
 
     def test_get_value(self):
-        pass
+        assert 0
 
     def test_parse(self):
         """Test parsing to a trait.
 
         to test with most trait possible I guess ? See for nested traits
         """
-        pass
+        assert 0
 
     def test_aliases(self):
-        pass
+        assert 0
 
 
 class DictLikeLoader:
@@ -33,28 +33,28 @@ class DictLikeLoader:
     """
 
     def test_reading(self):
-        pass
+        assert 0
 
 
 class TestCLILoader:
     def test_setting_new_action(self):
-        pass
+        assert 0
 
     def test_help(self):
-        pass
+        assert 0
 
     def test_values_are_parsed(self):
-        pass
+        assert 0
 
     def test_parsing(self):
         # test by hand all traits in the typical scheme
         # it should include pretty much all reasonable traits
-        pass
+        assert 0
 
 
 def test_file_choose_loader():
     # maybe in application ?
-    pass
+    assert 0
 
 
 class TestPythonLoader:
@@ -62,22 +62,22 @@ class TestPythonLoader:
 
     def test_pyconfig_container(self):
         """Test behavior of the `c` container object."""
-        pass
+        assert 0
 
     def test_exception(self):
         """Test when file throw exception."""
-        pass
+        assert 0
 
 
 # Parametrize for all loaders
 class TestConfigLoader:
     def test_add_multiple(self):
         """Key already in config."""
-        pass
+        assert 0
 
     def test_application_traits(self):
         """Check application traits are applied."""
-        pass
+        assert 0
 
 
 # Parametrize for all file loaders
@@ -86,7 +86,7 @@ def test_reading():
 
     File is written by hand to change some values from default.
     """
-    pass
+    assert 0
 
 
 # Parametrize for all file loaders
@@ -96,7 +96,7 @@ def test_to_lines_some():
     # to_lines in a temp file
     # read file
     # check same values
-    pass
+    assert 0
 
 
 # Parametrize for all file loaders
@@ -106,4 +106,4 @@ def test_to_lines_all():
     # to_lines in a temp file
     # read file
     # check same values
-    pass
+    assert 0
