@@ -3,7 +3,7 @@
 import hypothesis.strategies as st
 from hypothesis import given
 
-from data_assistant.config.util import flatten_dict, nest_dict
+from data_assistant.config.util import flatten_dict, get_trait_typehint, nest_dict
 
 from ..util import st_varname
 
@@ -54,7 +54,12 @@ class TestNest2Flat:
 class TestTypehint:
     """Test the string representation of trait types."""
 
+    def valid(self, x, target: str, **kwargs):
+        return get_trait_typehint(x, **kwargs) == target
+
     def test_basic_object(self):
+        assert self.valid(1, "int")
+        assert self.valid()
         # any object
         # a string
         # a type
