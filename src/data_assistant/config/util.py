@@ -460,6 +460,16 @@ def get_trait_typehint(
     if aliases is None:
         aliases = {}
 
+    def link(fullname: str) -> str:
+        # if short we add tilde
+        if mode == "short":
+            return f"~{fullname}"
+        # if minimal only keep the name
+        if mode == "minimal":
+            return fullname.split(".")[-1]
+
+        return fullname
+
     def serialize(obj: t.Any) -> str:
         """Return the full import name of any object or type."""
         if isinstance(obj, type):
@@ -469,26 +479,17 @@ def get_trait_typehint(
         name = cls.__name__
         module = cls.__module__
 
-        # fullname (default)
-        out = f"{module}.{name}"
-        # if short we add tilde
-        if mode == "short":
-            out = f"~{out}"
-        # if minimal only keep the name
-        elif mode == "minimal":
-            out = name
-
-        return out
+        return link(f"{module}.{name}")
 
     def recurse(obj):
         """Recurse this function, keeping optional arguments."""
         return get_trait_typehint(obj, mode, aliases)
 
-    def output(typehint):
+    def output(typehint, add_none=False):
         """Hook before returning the typehint."""  # noqa: D401
         if (alias := aliases.get(typehint.lstrip("~"), None)) is not None:
             typehint = alias
-        if trait.allow_none:
+        if trait.allow_none or add_none:
             typehint += " | None"
         return typehint
 
@@ -500,8 +501,12 @@ def get_trait_typehint(
         return typehint
 
     if isinstance(trait, Union):
-        interior = " | ".join(recurse(subtrait) for subtrait in trait.trait_types)
-        return output(interior)
+        subhints = [recurse(subtrait) for subtrait in trait.trait_types]
+        any_none = any(subtrait.allow_none for subtrait in trait.trait_types)
+        if any_none:
+            subhints = [s.removesuffix(" | None") for s in subhints]
+        interior = " | ".join(subhints)
+        return output(interior, add_none=any_none)
 
     # Dict can have either its keys or values TraitType defined (or both).
     # If missing, automatically set to Any, which we ignore in typehint.
@@ -516,7 +521,7 @@ def get_trait_typehint(
         if has_val:
             key_val.append(recurse(trait._value_trait))
             if not has_key:
-                key_val[0] = "~typing.Any"
+                key_val[0] = serialize(t.Any)
 
         if any(key_val):
             interior = f"[{', '.join(key_val)}]"
@@ -534,12 +539,18 @@ def get_trait_typehint(
 
     # List and Set
     if isinstance(trait, Container):
-        interior = recurse(trait._trait)
-        return output(f"{typehint}[{interior}]")
+        if trait._trait is not None:
+            interior = f"[{recurse(trait._trait)}]"
+        else:
+            interior = ""
+
+        return output(f"{typehint}{interior}")
 
     if isinstance(trait, Type | Instance):
+        if trait.klass is object:
+            return output(typehint)
         if isinstance(trait.klass, str):
-            interior = trait.klass
+            interior = link(trait.klass)
         else:
             interior = recurse(trait.klass)
         return output(f"{typehint}[{interior}]")
