@@ -287,6 +287,7 @@ class SchemeInfo(t.Generic[S]):
 
     @classmethod
     def default(cls, key: str) -> t.Any:
+        """Get the default value of a key."""
         if key in cls.traits:
             trait = cls.traits[key]
             return trait.default()
@@ -295,6 +296,7 @@ class SchemeInfo(t.Generic[S]):
 
     @classmethod
     def value_strat(cls, key: str) -> st.SearchStrategy:
+        """Strategy to get value for a specific keys."""
         if key in cls.traits:
             trait = cls.traits[key]
             return trait_to_strat(trait)
@@ -303,10 +305,23 @@ class SchemeInfo(t.Generic[S]):
 
     @classmethod
     def values_strat(cls) -> st.SearchStrategy[dict]:
+        """Strategy of values for a random selection of keys."""
+
         @st.composite
         def strat(draw: Drawer) -> dict:
             keys = draw(st.lists(st.sampled_from(cls.traits_total)))
             out = {k: draw(cls.value_strat(k)) for k in keys}
+            return out
+
+        return strat()
+
+    @classmethod
+    def values_all_strat(cls) -> st.SearchStrategy[dict]:
+        """Strategy of values for all keys."""
+
+        @st.composite
+        def strat(draw: Drawer) -> dict:
+            out = {k: draw(cls.value_strat(k)) for k in cls.traits_total}
             return out
 
         return strat()

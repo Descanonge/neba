@@ -158,6 +158,32 @@ class TestCLILoader:
         parsed = {k: v.get_value() for k, v in parsed.items()}
         assert ref == parsed
 
+    def test_classkey(self):
+        class App(ApplicationBase, GenericScheme):
+            pass
+
+        args = "--App.int 15 --GenericTraits.list_int 1 2 --TwinSubscheme.int 3"
+        app = App()
+        parsed = app.parse_command_line(args.split(" "))
+        parsed = {k: v.get_value() for k, v in parsed.items()}
+
+        # --App.int 15
+        assert parsed["int"] == 15
+        # without effect on GenericTraits
+        assert "sub_generic.int" not in parsed
+
+        # --GenericTraits.list_int 1 2
+        assert parsed["sub_generic.list_int"] == [1, 2]
+        assert parsed["deep_sub.sub_generic_deep.list_int"] == [1, 2]
+        # without effect on App
+        assert "list_int" not in parsed
+        assert app.list_int == [0]
+
+        # --TwinSubscheme.int 3
+        assert parsed["twin_a.int"] == 3
+        assert parsed["twin_b.int"] == 3
+        assert parsed["sub_twin.twin_c.int"] == 3
+
 
 def test_file_choose_loader():
     # maybe in application ?
