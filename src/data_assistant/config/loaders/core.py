@@ -8,7 +8,7 @@ from collections import abc
 from copy import deepcopy
 from os import path
 
-from traitlets.traitlets import Container, HasTraits, TraitError, TraitType, Union
+from traitlets.traitlets import HasTraits, TraitError, TraitType, Union
 from traitlets.utils.sentinel import Sentinel
 
 from ..util import (
@@ -116,44 +116,44 @@ class ConfigValue:
         options have been tried and no parsing was successful the function will
         raise.
         """
-        if self.trait is None:
-            raise ConfigParsingError(
-                f"Cannot parse key '{self.key}', has no associated trait."
-            )
 
-        def _try(attr: str, trait: TraitType, src: str | list[str]) -> bool:
+        def _try(attr: str, trait: TraitType, src: str | abc.Sequence[str]) -> bool:
             try:
                 self.value = getattr(trait, attr)(src)
                 return True
             except (AttributeError, TraitError, ValueError):
                 return False
 
-        def try_item(trait: TraitType, src: str) -> bool:
+        def try_item(src: str, trait: TraitType) -> bool:
             return _try("from_string", trait, src)
 
-        def try_list(trait: Container, src: list[str]) -> bool:
+        def try_list(src: abc.Sequence[str], trait: TraitType) -> bool:
             return _try("from_string_list", trait, src)
 
-        def _parse(trait: TraitType, src: str | list[str]) -> bool:
-            src = [src] if isinstance(src, str) else src
+        def _parse(src: str | abc.Sequence[str], trait: TraitType) -> bool:
+            src = [src] if isinstance(src, str) else list(src)
 
-            # Handle lists
-            if isinstance(trait, Container) and try_list(trait, src):
+            if hasattr(trait, "from_string_list") and try_list(src, trait):
                 return True
 
             # Handle Union with lists
             if isinstance(trait, Union):
-                for trait_type in trait.trait_types:
-                    if _parse(trait_type, src):
+                for inner in trait.trait_types:
+                    if _parse(src, inner):
                         return True
 
             # Handle everything else
-            if len(src) == 1 and try_item(trait, src[0]):
+            if len(src) == 1 and try_item(src[0], trait):
                 return True
 
             return False
 
-        if _parse(self.trait, self.input):
+        if self.trait is None:
+            raise ConfigParsingError(
+                f"Cannot parse key '{self.key}' without a corresponding trait."
+            )
+
+        if _parse(self.input, self.trait):
             return
 
         traitname = self.trait.__class__.__name__
