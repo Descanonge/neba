@@ -936,14 +936,14 @@ class Scheme(Configurable):
                 f"A parameter --Class.trait cannot be nested ({'.'.join(key)})."
             )
 
-        clsname, traitname = key
+        clsname, trait_name = key
 
         # Recurse throughout configuration tree to find matching classes
         def recurse(scheme: type[Scheme], fullpath: list[str]) -> abc.Iterator[str]:
+            if scheme.__name__ == clsname:
+                yield ".".join(fullpath + [trait_name])
             for name, subscheme in scheme._subschemes.items():
                 newpath = fullpath + [name]
-                if subscheme.__name__ == clsname:
-                    yield ".".join(newpath + [traitname])
                 yield from recurse(subscheme, newpath)
 
         return list(recurse(cls, []))
