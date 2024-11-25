@@ -409,19 +409,17 @@ class Scheme(Configurable):
         key
             Path to leading to a trait.
         """
-        fullpath = key.split(".")
-        if len(fullpath) == 1:
+        *prefix, trait_name = key.split(".")
+        if len(prefix) == 0:
             subscheme = self
         else:
-            subscheme = self[".".join(fullpath[:-1])]
+            subscheme = self[".".join(prefix)]
 
-        trait = fullpath[-1]
-
-        if trait not in subscheme.trait_names():
+        if trait_name not in subscheme.trait_names():
             clsname = subscheme.__class__.__name__
-            raise KeyError(f"No trait '{trait}' in scheme {clsname}.")
+            raise KeyError(f"No trait '{trait_name}' in scheme {clsname}.")
 
-        setattr(subscheme, trait, value)
+        setattr(subscheme, trait_name, value)
 
     def setdefault(
         self, key: str, default: t.Any | None = None, trait: TraitType | None = None
@@ -568,11 +566,10 @@ class Scheme(Configurable):
             this scheme will be added automatically. Otherwise, this will raise on
             unknown subschemes in *key*.
         """
-        fullpath = key.split(".")
-        trait_name = fullpath[-1]
+        *prefix, trait_name = key.split(".")
 
         scheme = self
-        for name in fullpath[:-1]:
+        for name in prefix:
             if name in scheme._subschemes:
                 pass
             # subscheme does not exist
@@ -831,7 +828,7 @@ class Scheme(Configurable):
         if isinstance(key, str):
             key = key.split(".")
 
-        *prefix, lastname = key
+        *prefix, trait_name = key
         fullkey = []
         subscheme = cls
         for subkey in prefix:
@@ -849,14 +846,14 @@ class Scheme(Configurable):
                     f"has no subscheme or alias '{subkey}'."
                 )
 
-        if not hasattr(subscheme, lastname):
+        if not hasattr(subscheme, trait_name):
             raise UnknownConfigKeyError(
                 f"Scheme '{'.'.join(fullkey)}' ({_subscheme_clsname(subscheme)}) "
-                f"has no trait '{lastname}'."
+                f"has no trait '{trait_name}'."
             )
-        trait = getattr(subscheme, lastname)
+        trait = getattr(subscheme, trait_name)
 
-        return ".".join(fullkey + [lastname]), subscheme, trait
+        return ".".join(fullkey + [trait_name]), subscheme, trait
 
     def resolve_key(self, key: str | list[str]) -> tuple[str, Scheme, TraitType]:
         """Resolve a key.
@@ -882,7 +879,7 @@ class Scheme(Configurable):
         if isinstance(key, str):
             key = key.split(".")
 
-        *prefix, lastname = key
+        *prefix, trait_name = key
         fullkey = []
         subscheme = self
         for subkey in prefix:
@@ -900,14 +897,14 @@ class Scheme(Configurable):
                     f"has no subscheme or alias '{subkey}'."
                 )
 
-        if lastname not in subscheme.trait_names():
+        if trait_name not in subscheme.trait_names():
             raise UnknownConfigKeyError(
                 f"Scheme '{'.'.join(fullkey)}' ({_subscheme_clsname(subscheme)}) "
-                f"has no trait '{lastname}'."
+                f"has no trait '{trait_name}'."
             )
-        trait = subscheme.traits()[lastname]
+        trait = subscheme.traits()[trait_name]
 
-        return ".".join(fullkey + [lastname]), subscheme, trait
+        return ".".join(fullkey + [trait_name]), subscheme, trait
 
     @classmethod
     def resolve_class_key(cls, key: str | list[str]) -> list[str]:
