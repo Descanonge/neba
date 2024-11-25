@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import typing as t
 from collections import abc
+from copy import deepcopy
 from os import path
 
 from traitlets.traitlets import Container, HasTraits, TraitError, TraitType, Union
@@ -84,32 +85,9 @@ class ConfigValue:
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({str(self)})"
 
-    def copy(self, **kwargs) -> t.Self:
-        """Return a copy of this instance.
-
-        Parameters
-        ----------
-        kwargs
-            Attribute values to overwrite in the copy.
-        """
-        data = {
-            attr: getattr(self, attr)
-            for attr in [
-                "key",
-                "origin",
-                "value",
-                "trait",
-                "trait",
-                "container_cls",
-                "priority",
-            ]
-        }
-        data |= kwargs
-
-        out = self.__class__(self.input, self.key)
-        for attr, value in data.items():
-            setattr(out, attr, value)
-        return out
+    def copy(self) -> t.Self:
+        """Return a copy of this instance."""
+        return deepcopy(self)
 
     def get_value(self) -> t.Any:
         """Return the actual value to use as parameter.

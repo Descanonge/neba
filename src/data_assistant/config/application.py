@@ -464,7 +464,9 @@ class ApplicationBase(Scheme, LoggingMixin):
                 # we assume we will have at least one fullkey, since the classname
                 # appeared in cls._classes_inc_parents
                 for fullkey in self.resolve_class_key(key):
-                    no_class_keys[fullkey] = val.copy(key=fullkey)
+                    newval = val.copy()
+                    val.key = fullkey
+                    no_class_keys[fullkey] = newval
             else:
                 no_class_keys[key] = val
 
