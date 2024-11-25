@@ -346,8 +346,8 @@ class GenericTraitsInfo(SchemeInfo[GenericTraits]):
         inst=Instance(ClassDummy, default_value=class_dummy, args=(), kw={}),
         type=Type(klass=ClassDummy),
         # Union
-        union_num=Union([Float(), Int()], default_value=0.0),
-        union_num_str=Union([Float(), Int(), Unicode()], default_value="0"),
+        union_num=Union([Int(), Float()], default_value=0.0),
+        union_num_str=Union([Int(), Float(), Unicode()], default_value="0"),
         union_list=Union([Int(), List(Int())], default_value=[0]),
     )
 
