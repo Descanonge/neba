@@ -373,7 +373,7 @@ class ApplicationBase(Scheme, LoggingMixin):
         for args, kwargs in self._extra_parameters_args:
             action = loader.parser.add_argument(*args, **kwargs)
             self.extra_parameters[action.dest] = action.default
-        return loader.get_config()
+        return loader.get_config(argv)
 
     def get_argv(self) -> list[str] | None:
         """Return command line arguments.
