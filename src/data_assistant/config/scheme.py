@@ -261,8 +261,8 @@ class Scheme(Configurable):
 
     def keys(
         self, subschemes: bool = True, recursive: bool = True, aliases: bool = True
-    ) -> list[str]:
-        """List of keys leading to subschemes and traits.
+    ) -> abc.Iterable[str]:
+        """Iterable of keys leading to subschemes and traits.
 
         Parameters
         ----------
@@ -273,9 +273,8 @@ class Scheme(Configurable):
         aliases
             If True (default), include aliases.
         """
-        out = []
-        for name in self.trait_names(subscheme=None, config=True):
-            out.append(name)
+        trait_names = self.trait_names(subscheme=None, config=True)
+        yield from filter(lambda s: not s.startswith("_"), trait_names)
 
         subs: list[abc.Iterable] = [self._subschemes]
         if aliases:
@@ -284,18 +283,14 @@ class Scheme(Configurable):
         for name in itertools.chain(*subs):
             subscheme = self[name]
             if subschemes:
-                out.append(name)
+                yield name
             if recursive:
-                out += [
-                    f"{name}.{s}"
-                    for s in subscheme.keys(subschemes=subschemes, aliases=aliases)
-                ]
-        out = [s for s in out if not s.startswith("_")]
-        return out
+                sub_traits = subscheme.keys(subschemes=subschemes, aliases=aliases)
+                yield from (f"{name}.{s}" for s in sub_traits)
 
     def values(
         self, subschemes: bool = True, recursive: bool = True, aliases: bool = True
-    ) -> list[t.Any]:
+    ) -> abc.Iterable[t.Any]:
         """List of subschemes instances and trait values.
 
         In the same order as :meth:`keys`.
@@ -310,7 +305,7 @@ class Scheme(Configurable):
             If True (default), include aliases.
         """
         keys = self.keys(subschemes=subschemes, recursive=recursive, aliases=aliases)
-        return [self[key] for key in keys]
+        return (self[key] for key in keys)
 
     def items(
         self, subschemes: bool = True, recursive: bool = True, aliases: bool = True
@@ -333,8 +328,7 @@ class Scheme(Configurable):
         values = self.values(
             subschemes=subschemes, recursive=recursive, aliases=aliases
         )
-        assert len(keys) == len(values)
-        return zip(keys, values)
+        return zip(keys, values, strict=True)
 
     def get(self, key: str, default: t.Any | None = None) -> t.Any:
         """Obtain value at `key`."""
