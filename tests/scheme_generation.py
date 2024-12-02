@@ -200,7 +200,8 @@ def st_scheme_gen_single_trait(**kwargs) -> st.SearchStrategy[SchemeGenerator]:
 
 
 class ClassDummy:
-    pass
+    def __repr__(self):
+        return f"{self.__class__.__name__}()"
 
 
 class_dummy = ClassDummy()
@@ -316,6 +317,21 @@ class SchemeInfo(t.Generic[S]):
         return strat()
 
     @classmethod
+    def values_half_strat(cls) -> st.SearchStrategy[dict]:
+        """Strategy of values for all keys."""
+
+        @st.composite
+        def strat(draw: Drawer) -> dict:
+            out = {
+                k: draw(cls.value_strat(k))
+                for i, k in enumerate(cls.traits_total)
+                if i % 2 == 0
+            }
+            return out
+
+        return strat()
+
+    @classmethod
     def values_all_strat(cls) -> st.SearchStrategy[dict]:
         """Strategy of values for all keys."""
 
@@ -365,6 +381,74 @@ class GenericTraitsInfo(SchemeInfo[GenericTraits]):
         union_num_str=Union([Int(), Float(), Unicode()], default_value="0"),
         union_list=Union([Int(), List(Int())], default_value=[0]),
     )
+
+    @classmethod
+    def generic_values(cls) -> dict:
+        generic_values = dict(
+            bool=False,
+            float=1.0,
+            int=1,
+            str="value",
+            enum_int=2,
+            enum_str="b",
+            enum_mix=2,
+            # lists
+            list_int=[1, 2],
+            list_str=["b", "c"],
+            list_any=["1", "b"],
+            # sets
+            set_int={3, 4},
+            set_any={"1", "a", "c"},
+            set_union={1, "a", "c"},
+            # tuple
+            tuple_float=(2.0, 3.0),
+            tuple_mix=("b", 2, 3),
+            # dict
+            dict_any={"a": "1", "b": "2", "c": "3"},
+            dict_str_int={"a": 1},
+            # instance and type TODO
+            # inst="",
+            # type="",
+            # Union
+            union_num=1,
+            union_num_str="a",
+            union_list=[1, 2],
+        )
+        return generic_values
+
+    @classmethod
+    def generic_args(cls) -> dict[str, list[str]]:
+        generic_args = dict(
+            bool=["false"],
+            float=["1.0"],
+            int=["1"],
+            str=["value"],
+            enum_int=["2"],
+            enum_str=["b"],
+            enum_mix=["2"],
+            # lists
+            list_int=["1", "2"],
+            list_str=["b", "c"],
+            list_any=["1", "b"],
+            # sets
+            set_int=["3", "4"],
+            set_any=["1", "a", "c"],
+            set_union=["1", "a", "c"],
+            # tuple
+            tuple_float=["2", "3"],
+            tuple_mix=["b", "2", "3"],
+            # dict
+            dict_any=(["a=1", "b=2", "c=3"]),
+            dict_str_int=["a=1"],
+            # instance and type TODO
+            # inst="",
+            # type="",
+            # Union
+            union_num=["1"],
+            union_num_str=["a"],
+            union_list=["1", "2"],
+        )
+        return generic_args
 
 
 class TwinSubscheme(Scheme):
@@ -433,6 +517,38 @@ class GenericSchemeInfo(GenericTraitsInfo):
         empty_a=Empty_a_Info(),
         empty_b=Empty_b_Info(),
     )
+
+    @classmethod
+    def generic_values_base(cls):
+        return
+
+    @classmethod
+    def generic_values(cls) -> dict:
+        generic_values = dict(super().generic_values())
+        generic_values.update(
+            {f"sub_generic.{k}": v for k, v in super().generic_values().items()}
+        )
+        generic_values.update(
+            {
+                f"deep_sub.sub_generic_deep.{k}": v
+                for k, v in super().generic_values().items()
+            }
+        )
+        return generic_values
+
+    @classmethod
+    def generic_args(cls) -> dict:
+        generic_args = dict(super().generic_args())
+        generic_args.update(
+            {f"sub_generic.{k}": v for k, v in super().generic_args().items()}
+        )
+        generic_args.update(
+            {
+                f"deep_sub.sub_generic_deep.{k}": v
+                for k, v in super().generic_args().items()
+            }
+        )
+        return generic_args
 
 
 """Here we should define a typical scheme, with nested subschemes defined via function

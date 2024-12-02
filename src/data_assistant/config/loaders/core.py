@@ -49,10 +49,6 @@ class ConfigValue:
     """
 
     def __init__(self, input: t.Any, key: str, origin: str | None = None):
-        if isinstance(input, list):
-            if len(input) == 1:
-                input = input[0]
-
         self.key = key
         """The key this value was associated to."""
         self.input = input
@@ -264,6 +260,16 @@ class ConfigLoader:
         raise NotImplementedError
 
 
+class SerializerDefault:
+    """Serialize trait values for config files."""
+
+    def default(self, trait: TraitType, key: str | None = None) -> t.Any:
+        raise NotImplementedError()
+
+    def value(self, trait: TraitType, value: t.Any, key: str | None = None) -> t.Any:
+        raise NotImplementedError()
+
+
 class FileLoader(ConfigLoader):
     """Load config from a file.
 
@@ -274,6 +280,8 @@ class FileLoader(ConfigLoader):
     filename
         Path of configuration file to load.
     """
+
+    serializer = SerializerDefault()
 
     extensions: list[str] = []
     """File extensions that are supported by this loader."""

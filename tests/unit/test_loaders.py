@@ -1,19 +1,26 @@
 """Test loaders and associated functionalities."""
 
-import operator
-from functools import reduce
+from tempfile import NamedTemporaryFile
 
 import pytest
-from traitlets import Int, List, TraitType, Unicode, Union
+from hypothesis import given
+from traitlets import Instance, Int, List, TraitType, Type, Unicode, Union
 
 from data_assistant.config.application import ApplicationBase
 from data_assistant.config.loaders.core import ConfigLoader, ConfigValue, FileLoader
+from data_assistant.config.loaders.python import PyLoader
 from data_assistant.config.util import ConfigParsingError
 
-from ..scheme_generation import GenericScheme
+# from data_assistant.config.loaders.python import PyLoader
+from ..scheme_generation import GenericScheme, GenericSchemeInfo
 
 LOADERS: list[type[ConfigLoader]]
 FILE_LOADERS: list[type[FileLoader]]
+
+
+class App(ApplicationBase, GenericScheme):
+    file_loaders = [PyLoader]
+    pass
 
 
 class TestConfigValue:
@@ -104,64 +111,18 @@ class TestCLILoader:
         assert 0
 
     def test_parsing(self):
-        class App(ApplicationBase, GenericScheme):
-            pass
-
-        generic_args_base = dict(
-            bool=("false", False),
-            float=("1.0", 1.0),
-            int=("1", 1),
-            str=("value", "value"),
-            enum_int=("2", 2),
-            enum_str=("b", "b"),
-            enum_mix=("2", 2),
-            # lists
-            list_int=(["1", "2"], [1, 2]),
-            list_str=(["b", "c"], ["b", "c"]),
-            list_any=(["1", "b"], ["1", "b"]),
-            # sets
-            set_int=(["3", "4"], {3, 4}),
-            set_any=(["1", "a", "c"], {"1", "a", "c"}),
-            set_union=(["1", "a", "c"], {1, "a", "c"}),
-            # tuple
-            tuple_float=(["2", "3"], (2.0, 3.0)),
-            tuple_mix=(["b", "2", "3"], ("b", 2, 3)),
-            # dict
-            dict_any=(["a=1", "b=2", "c=3"], {"a": "1", "b": "2", "c": "3"}),
-            dict_str_int=(["a=1"], {"a": 1}),
-            # instance and type TODO
-            # inst="",
-            # type="",
-            # Union
-            union_num=("1", 1),
-            union_num_str=("a", "a"),
-            union_list=(["1", "2"], [1, 2]),
-        )
-
-        generic_args = dict(generic_args_base)
-        generic_args.update(
-            {f"sub_generic.{k}": v for k, v in generic_args_base.items()}
-        )
-        generic_args.update(
-            {f"deep_sub.sub_generic_deep.{k}": v for k, v in generic_args_base.items()}
-        )
-
         args = []
-        for k, (v, _) in generic_args.items():
+        for k, v in GenericSchemeInfo.generic_args().items():
             args.append(f"--{k}")
-            args += [v] if isinstance(v, str) else v
+            args += v
 
         app = App()
         parsed = app.parse_command_line(args)
 
-        ref = {k: v[1] for k, v in generic_args.items()}
         parsed = {k: v.get_value() for k, v in parsed.items()}
-        assert ref == parsed
+        assert GenericSchemeInfo().generic_values() == parsed
 
     def test_classkey(self):
-        class App(ApplicationBase, GenericScheme):
-            pass
-
         args = "--App.int 15 --GenericTraits.list_int 1 2 --TwinSubscheme.int 3"
         app = App()
         parsed = app.parse_command_line(args.split(" "))
@@ -200,6 +161,52 @@ class TestPythonLoader:
     def test_exception(self):
         """Test when file throw exception."""
         pass
+
+    def test_reading(self):
+        app = App()
+        app.config_files = "./tests/unit/config.py"
+        conf = app.load_config_files()
+        conf = {k: v.get_value() for k, v in conf.items()}
+
+        assert conf == GenericSchemeInfo.generic_values()
+
+    @given(values=GenericSchemeInfo.values_half_strat())
+    def test_write_and_read_half(self, values: dict):
+        self.assert_write_read(values)
+
+    @given(values=GenericSchemeInfo.values_all_strat())
+    def test_write_and_read_all(self, values: dict):
+        self.assert_write_read(values)
+
+    def assert_write_read(self, values: dict):
+        app = App()
+        traits = app.traits_recursive(flatten=True)
+        defaults = app.defaults_recursive(flatten=True)
+        ref = {}
+        for k, v in values.items():
+            # Instances/Types must be imported in config file, not automatic yet
+            if type(traits[k]) in [Instance, Type]:
+                continue
+            if v == defaults[k]:
+                continue
+            ref[k] = v
+            app[k] = v
+
+        with NamedTemporaryFile(suffix=".py") as conf_file:
+            # filename = conf_file.name
+            filename = "tmp_config.py"
+            app.write_config(filename, clobber="overwrite", comment="none")
+
+            for line in conf_file.readlines():
+                print(line)
+
+            app = App()
+            app.config_files = filename
+            conf = app.load_config_files()
+
+        conf = {k: v.get_value() for k, v in conf.items()}
+
+        assert conf == ref
 
 
 # Parametrize for all loaders
