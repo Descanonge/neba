@@ -949,8 +949,7 @@ class Scheme(Configurable):
     ) -> dict[str, ConfigValue]:
         """Merge multiple flat configuration mappings.
 
-        The configurations should have been resolved with :meth:`resolve_config`. If
-        there is a conflict between values, configurations specified *later* in the
+        If there is a conflict between values, configurations specified *later* in the
         argument list will take priority (ie last one wins). The value from the
         precedent config is replaced if the :attr:`value's
         priority<.ConfigValue.priority>` is equal or higher.

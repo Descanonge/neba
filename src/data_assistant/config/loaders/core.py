@@ -295,13 +295,8 @@ class FileLoader(ConfigLoader):
         _, ext = path.splitext(filename)
         return ext.lstrip(".") in cls.extensions
 
-    def to_lines(
-        self, comment: t.Any = None, show_existing_keys: bool = False
-    ) -> list[str]:
+    def to_lines(self, comment: t.Any = None) -> list[str]:
         """Generate lines of a configuration file corresponding to the app config tree.
-
-        If `show_existing_keys` is true, the keys present in the original file are
-        loaded into this instance :attr:`config` attribute.
 
         Parameters
         ----------
@@ -319,34 +314,9 @@ class FileLoader(ConfigLoader):
             If True, do not comment ``key = value`` lines that are present in the
             original file (default is False).
         """
-        if show_existing_keys:
-            classes = {cls.__name__: cls for cls in self.app._classes_inc_parents()}
-            self.get_config(apply_application_traits=False, resolve=False)
-            valid = {}
-            for key, value in self.config.items():
-                keypath = key.split(".")
-                if (
-                    len(keypath) == 2
-                    and keypath[0] in classes
-                    and keypath[1] in classes[keypath[0]].class_trait_names(config=True)
-                ):
-                    for fullkey in self.app.resolve_class_key(keypath):
-                        _, scheme, trait = self.app.resolve_key(fullkey)
-                        trait._validate(scheme, value.get_value())
-                    valid[key] = value
-                    continue
-                try:
-                    fullkey, scheme, trait = self.app.resolve_key(keypath)
-                    trait._validate(scheme, value.get_value())
-                    valid[key] = value
-                except ConfigError:
-                    pass
-            self.config = valid
-        return self._to_lines(comment=comment, show_existing_keys=show_existing_keys)
+        return self._to_lines(comment=comment)
 
-    def _to_lines(
-        self, comment: t.Any = None, show_existing_keys: bool = False
-    ) -> list[str]:
+    def _to_lines(self, comment: t.Any = None) -> list[str]:
         """Generate lines of a configuration file corresponding to the app config tree.
 
         If `show_existing_keys` is true, the keys present in the original file are

@@ -5,10 +5,10 @@ from __future__ import annotations
 import typing as t
 from textwrap import dedent
 
-from traitlets import Enum
+from traitlets import Enum, TraitType, Type
 
 from ..util import get_trait_typehint, underline, wrap_text
-from .core import ConfigValue, FileLoader
+from .core import ConfigValue, FileLoader, SerializerDefault
 
 if t.TYPE_CHECKING:
     from ..scheme import Scheme
@@ -39,6 +39,19 @@ class PyConfigContainer:
             return obj
 
 
+class SerializerPython(SerializerDefault):
+    def default(self, trait: TraitType, key: str | None = None) -> str:
+        try:
+            return trait.default_value_repr()
+        except Exception:
+            return self.value(trait, trait.default(), key=key)
+
+    def value(self, trait: TraitType, value: t.Any, key: str | None = None) -> str:
+        if type(trait) is Type:
+            return f"{value.__module__}.{value.__qualname__}"
+        return repr(value)
+
+
 class PyLoader(FileLoader):
     """Load config from a python file.
 
@@ -57,6 +70,8 @@ class PyLoader(FileLoader):
 
     Sub-configs are not supported (but could be if necessary).
     """
+
+    serializer = SerializerPython()
 
     extensions = ["py", "ipy"]
 
@@ -92,18 +107,13 @@ class PyLoader(FileLoader):
 
         recurse(read_config, [])
 
-    def _to_lines(
-        self, comment: str = "full", show_existing_keys: bool = False
-    ) -> list[str]:
+    def _to_lines(self, comment: str = "full") -> list[str]:
         """Return lines of configuration file corresponding to the app config tree."""
-        lines = self.serialize_scheme(
-            self.app, [], comment=comment, show_existing_keys=show_existing_keys
-        )
+        lines = self.serialize_scheme(self.app, [], comment=comment)
 
-        if show_existing_keys:
-            lines.append("")
-            for key, value in self.config.items():
-                lines.append(f"c.{key} = {value.get_value()!r}")
+        lines.append("")
+        for key, value in self.config.items():
+            lines.append(f"c.{key} = {value.get_value()!r}")
 
         # newline at the end of file
         lines.append("")
@@ -111,11 +121,7 @@ class PyLoader(FileLoader):
         return lines
 
     def serialize_scheme(
-        self,
-        scheme: Scheme,
-        fullpath: list[str],
-        comment: str = "full",
-        show_existing_keys: bool = False,
+        self, scheme: Scheme, fullpath: list[str], comment: str = "full"
     ) -> list[str]:
         """Serialize a Scheme and its subschemes recursively.
 
@@ -131,31 +137,29 @@ class PyLoader(FileLoader):
         lines.append("")
 
         for name, trait in sorted(scheme.traits(config=True).items()):
-            try:
-                default = trait.default_value_repr()
-            except Exception:
-                default = repr(trait.default())
+            value = self.serializer.default(trait)
 
             if comment != "none":
                 typehint = get_trait_typehint(trait, "minimal")
-                lines.append(f"## {name} ({typehint}) default: {default}")
+                lines.append(f"## {name} ({typehint}) default: {value}")
 
             fullkey = ".".join(fullpath + [name])
 
-            key_exist = show_existing_keys and fullkey in self.config
-            if key_exist:
-                value = self.config.pop(fullkey).get_value()
-                default = repr(value)
+            uncomment_key = fullkey in self.config
+            if uncomment_key:
+                value = self.serializer.value(
+                    trait, self.config.pop(fullkey).get_value()
+                )
 
-            keyval = f"c.{fullkey} = {default}"
-            if not key_exist:
+            keyval = f"c.{fullkey} = {value}"
+            if not uncomment_key:
                 keyval = "# " + keyval
             lines.append(keyval)
 
             if comment != "none" and isinstance(trait, Enum):
                 lines.append("# Accepted values: " + repr(trait.values))
 
-            if comment != "no-help" and trait.help:
+            if comment not in ["none", "no-help"] and trait.help:
                 lines += self.wrap_comment(trait.help)
 
             self.wrap_comment(lines)
@@ -167,10 +171,7 @@ class PyLoader(FileLoader):
             lines.append(f"## {subscheme.__class__.__name__} (.{name}) ##")
             underline(lines, "#")
             lines += self.serialize_scheme(
-                subscheme,
-                fullpath + [name],
-                comment=comment,
-                show_existing_keys=show_existing_keys,
+                subscheme, fullpath + [name], comment=comment
             )
 
         return lines

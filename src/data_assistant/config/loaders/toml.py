@@ -53,39 +53,29 @@ class TomlkitLoader(FileLoader):
 
         recurse(root_table, [])
 
-    def _to_lines(
-        self, comment: str = "full", show_existing_keys: bool = False
-    ) -> list[str]:
+    def _to_lines(self, comment: str = "full") -> list[str]:
         """Return lines of configuration file corresponding to the app config tree."""
         doc = tomlkit.document()
 
-        self.serialize_scheme(
-            doc, self.app, [], comment=comment, show_existing_keys=show_existing_keys
-        )
+        self.serialize_scheme(doc, self.app, [], comment=comment)
 
-        if show_existing_keys:
-            class_keys: dict[str, dict[str, t.Any]] = {}
-            for key, value in self.config.items():
-                cls, name = key.split(".")
-                if cls not in class_keys:
-                    class_keys[cls] = {}
-                class_keys[cls][name] = value.get_value()
+        class_keys: dict[str, dict[str, t.Any]] = {}
+        for key, value in self.config.items():
+            cls, name = key.split(".")
+            if cls not in class_keys:
+                class_keys[cls] = {}
+            class_keys[cls][name] = value.get_value()
 
-            for cls in class_keys:
-                tab = tomlkit.table()
-                for key, value in class_keys[cls].items():
-                    tab.add(key, self._sanitize_item(value))
-                doc.add(cls, tab)
+        for cls in class_keys:
+            tab = tomlkit.table()
+            for key, value in class_keys[cls].items():
+                tab.add(key, self._sanitize_item(value))
+            doc.add(cls, tab)
 
         return tomlkit.dumps(doc).splitlines()
 
     def serialize_scheme(
-        self,
-        t: T,
-        scheme: Scheme,
-        fullpath: list[str],
-        comment: str = "full",
-        show_existing_keys: bool = False,
+        self, t: T, scheme: Scheme, fullpath: list[str], comment: str = "full"
     ) -> T:
         """Serialize a Scheme and its subschemes recursively.
 
@@ -100,8 +90,7 @@ class TomlkitLoader(FileLoader):
             lines: list[str] = []
 
             fullkey = ".".join(fullpath + [name])
-            key_exist = show_existing_keys and fullkey in self.config
-            if key_exist:
+            if fullkey in self.config:
                 value = self.config.pop(fullkey).get_value()
                 t.add(name, self._sanitize_item(value))
 
@@ -112,7 +101,7 @@ class TomlkitLoader(FileLoader):
                 default = self._sanitize_item(trait.default()).as_string()
             except Exception:
                 default = str(trait.default())
-            if not key_exist:
+            if fullkey not in self.config:
                 lines.append(f"{name} = {default}")
 
             if comment == "full":
@@ -136,11 +125,7 @@ class TomlkitLoader(FileLoader):
             t.add(
                 name,
                 self.serialize_scheme(
-                    tomlkit.table(),
-                    subscheme,
-                    fullpath + [name],
-                    comment=comment,
-                    show_existing_keys=show_existing_keys,
+                    tomlkit.table(), subscheme, fullpath + [name], comment=comment
                 ),
             )
 

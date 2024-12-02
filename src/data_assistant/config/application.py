@@ -15,7 +15,7 @@ from traitlets import Bool, Dict, Enum, List, Unicode, Union, default, observe
 from traitlets.config.configurable import LoggingConfigurable
 from traitlets.utils.nested_update import nested_update
 
-from .loaders import CLILoader
+from .loaders import CLILoader, ConfigValue
 from .scheme import Scheme
 from .util import ConfigErrorHandler, nest_dict
 
@@ -501,6 +501,7 @@ class ApplicationBase(Scheme, LoggingMixin):
         self,
         filename: str | None = None,
         comment: str = "full",
+        use_current_traits: bool = True,
         clobber: str | None = None,
     ):
         """(Over)write a configuration file.
@@ -517,23 +518,34 @@ class ApplicationBase(Scheme, LoggingMixin):
             * no-help: help string is not included
             * none: no information is included, only the key and default value
 
-            Note that the line containing the key and default value, for instance
-            ``traitname = 2`` will be commented since we do not need to parse/load the
-            default value.
+            Note that the line containing the key and value, for instance
+            ``traitname = 2`` will be commented if the value is equal to the default.
+        use_current_traits:
+            If True (default), any trait that has a different value from its default one
+            will be specified uncommented in the file.
         clobber:
             If the target file already exists, either:
 
             * abort: the file is left as-is
             * overwrite: the file is completely overwritten with the current
               configuration
-            * update: the configuration keys specified in the existing file are kept
-              in the output and left uncommented. Everything else is replaced.
-              Class-keys are not resolved to full-keys.
+            * update: the configuration keys specified in the existing file are kept.
+              They take precedence over the current application config. Class-keys are
+              not resolved to full-keys.
             * None: ask what to do interactively in the console
         """
         options = dict(u="update", o="overwrite", a="abort")
         default = "a"
         inits = [i.upper() if i == default else i for i in options.keys()]
+
+        # config to write, start with non-default traits
+        config: dict[str, ConfigValue] = {}
+        if use_current_traits:
+            for key, default in self.defaults_recursive(flatten=True).items():
+                if (value := self[key]) != default:
+                    cv = ConfigValue(value, key)
+                    cv.value = value
+                    config[key] = cv
 
         def ask() -> str:
             prompt = (
@@ -555,7 +567,6 @@ class ApplicationBase(Scheme, LoggingMixin):
         filename = path.realpath(filename)
 
         loader = self._select_file_loader(filename)(self, filename)
-        show_existing_keys = False
 
         file_exist = path.exists(filename)
         if file_exist:
@@ -582,9 +593,13 @@ class ApplicationBase(Scheme, LoggingMixin):
             )
 
             if clobber == "update":
-                show_existing_keys = True
+                from_file = loader.get_config(
+                    apply_application_traits=False, resolve=False
+                )
+                config = self.merge_configs(config, from_file)
 
-        lines = loader.to_lines(comment=comment, show_existing_keys=show_existing_keys)
+        loader.config = config
+        lines = loader.to_lines(comment=comment)
 
         with open(filename, "w") as f:
             f.write("\n".join(lines))
