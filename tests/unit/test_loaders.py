@@ -8,7 +8,7 @@ from traitlets import Instance, Int, List, TraitType, Type, Unicode, Union
 
 from data_assistant.config.application import ApplicationBase
 from data_assistant.config.loaders.core import ConfigLoader, ConfigValue, FileLoader
-from data_assistant.config.loaders.python import PyLoader
+from data_assistant.config.loaders.python import PyConfigContainer, PyLoader
 from data_assistant.config.util import ConfigParsingError
 
 # from data_assistant.config.loaders.python import PyLoader
@@ -156,7 +156,22 @@ class TestPythonLoader:
 
     def test_pyconfig_container(self):
         """Test behavior of the `c` container object."""
-        pass
+        c = PyConfigContainer()
+        c.a1 = 1
+        c.a2.b1 = 2
+        c.a2.b2 = 3
+        c.a2.b3.c1 = 4
+        c.a3.b1.c1 = 5
+
+        ref = {
+            "a1": 1,
+            "a2.b1": 2,
+            "a2.b2": 3,
+            "a2.b3.c1": 4,
+            "a3.b1.c1": 5,
+        }
+
+        assert c.as_flat_dict() == ref
 
     def test_exception(self):
         """Test when file throw exception."""

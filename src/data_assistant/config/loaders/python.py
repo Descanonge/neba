@@ -38,6 +38,25 @@ class PyConfigContainer:
             self.__setattr__(key, obj)
             return obj
 
+    def as_flat_dict(self) -> dict:
+        """Return flat dict of attributes.
+
+        We must use a flat dict, a nested one would not differentiate nested attribute
+        and a dictionnary as attribute value.
+        """
+        out = {}
+
+        def recurse(cfg: PyConfigContainer, key: list[str]):
+            for k, v in cfg.__dict__.items():
+                newkey = key + [k]
+                if isinstance(v, PyConfigContainer):
+                    recurse(v, newkey)
+                else:
+                    out[".".join(newkey)] = v
+
+        recurse(self, [])
+        return out
+
 
 class SerializerPython(SerializerDefault):
     def default(self, trait: TraitType, key: str | None = None) -> str:
@@ -92,20 +111,11 @@ class PyLoader(FileLoader):
                 namespace,
             )
 
-        # flatten config
-        def recurse(cfg: PyConfigContainer, key: list[str]):
-            for k, v in cfg.__dict__.items():
-                newkey = key + [k]
-                if isinstance(v, PyConfigContainer):
-                    recurse(v, newkey)
-                else:
-                    fullkey = ".".join(newkey)
-                    value = ConfigValue(v, fullkey, origin=self.filename)
-                    # no parsing, directly to values
-                    value.value = value.input
-                    self.add(fullkey, value)
-
-        recurse(read_config, [])
+        for key, value in read_config.as_flat_dict().items():
+            cv = ConfigValue(value, key, origin=self.filename)
+            # no parsing, directly to values
+            cv.value = cv.input
+            self.add(key, cv)
 
     def _to_lines(self, comment: str = "full") -> list[str]:
         """Return lines of configuration file corresponding to the app config tree."""
