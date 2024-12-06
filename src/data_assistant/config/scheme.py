@@ -371,7 +371,7 @@ class Scheme(Configurable):
 
     def __len__(self) -> int:
         """Return number of valid keys."""
-        return len(self.keys())
+        return len(list(self.keys()))
 
     def __eq__(self, other: t.Any) -> bool:
         """Check equality with other scheme.
