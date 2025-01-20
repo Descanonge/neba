@@ -90,18 +90,22 @@ class TomlkitLoader(FileLoader):
             lines: list[str] = []
 
             fullkey = ".".join(fullpath + [name])
-            if fullkey in self.config:
+            update = fullkey in self.config
+            if update:
                 value = self.config.pop(fullkey).get_value()
-                t.add(name, self._sanitize_item(value))
+                try:
+                    t.add(name, self._sanitize_item(value))
+                except Exception:
+                    update = False
+                    self.log.warning("Failed to serialize value %s=%s", fullkey, value)
 
-            # the actual toml code key = value
             # If anything goes wrong we just use str, it may not be valid toml but
-            # the user will deal with it.
+            # the default value is in a comment anyway, and the user will deal with it.
             try:
                 default = self._sanitize_item(trait.default()).as_string()
             except Exception:
                 default = str(trait.default())
-            if fullkey not in self.config:
+            if not update:
                 lines.append(f"{name} = {default}")
 
             if comment == "full":
