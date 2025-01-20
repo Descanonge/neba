@@ -479,9 +479,9 @@ class Scheme(Configurable):
         """Reset all traits to their default value."""
 
         def func(scheme: Configurable, traits, key: str, trait: TraitType, path):
-            setattr(scheme, key, trait.get_default_value())
+            setattr(scheme, key, trait.default())
 
-        self.remap(func)
+        self.remap(func, config=True)
 
     def update(
         self,
