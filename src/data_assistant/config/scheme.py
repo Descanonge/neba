@@ -13,7 +13,7 @@ from collections import abc
 from inspect import Parameter, signature
 from textwrap import dedent
 
-from traitlets import Bool, Enum, Instance, TraitType, Undefined
+from traitlets import Bool, Enum, Instance, Sentinel, TraitType, Undefined
 from traitlets.config import Configurable
 
 from .loaders import ConfigValue
@@ -416,33 +416,39 @@ class Scheme(Configurable):
         setattr(subscheme, trait_name, value)
 
     def setdefault(
-        self, key: str, default: t.Any | None = None, trait: TraitType | None = None
+        self,
+        key: str,
+        default: TraitType | None = None,
+        value: t.Any | Sentinel = Undefined,
     ) -> t.Any:
         """Set a trait to a value if it exists.
 
-        If the trait exists, return its value. Otherwise, the *trait* argument must be
-        supplied to add it to the scheme and to set it to *default*, if not this will
-        raise.
+        If the trait exists, return its value. Otherwise, the *default* argument must be
+        provide a trait instance to add it to the scheme, it is set to *value* if it is
+        provided as well.
 
         Parameters
         ----------
         key
             Path to leading to a trait.
         default
-            Value to set the new trait to if *key* does not lead to an existing trait.
-        trait
             Trait instance to add.
+        value
+            Value to set the new trait to if *key* does not lead to an existing trait.
+            Can be left undefined if the trait has a default value.
         """
         if key in self:
             return self[key]
-        if trait is None:
+        if default is None:
             raise TypeError(
                 f"Key '{key}' does not exist. A trait argument must be "
                 " supplied to be added to the scheme."
             )
-        self.add_trait(key, trait)
-        self[key] = default
-        return default
+        self.add_trait(key, default)
+        if value is not Undefined:
+            self[key] = value
+
+        return self[key]
 
     def pop(self, key: str, other: t.Any | None = None) -> t.Any:
         """Schemes do not support the *pop* operation.
