@@ -260,19 +260,26 @@ class Scheme(Configurable):
     # - Mapping methods
 
     def keys(
-        self, subschemes: bool = True, recursive: bool = True, aliases: bool = True
-    ) -> abc.Iterable[str]:
-        """Iterable of keys leading to subschemes and traits.
+        self, subschemes: bool = False, recursive: bool = True, aliases: bool = False
+    ) -> list[str]:
+        """Return iterable of keys leading to subschemes and traits.
 
         Parameters
         ----------
         subschemes
-            If True (default), keys can lead to subschemes instances.
+            If True (default is False), keys can lead to subschemes instances.
         recursive
             If True (default), return keys for parameters from all subschemes.
         aliases
-            If True (default), include aliases.
+            If True (default is False), include aliases.
         """
+        return list(
+            self._keys(subschemes=subschemes, recursive=recursive, aliases=aliases)
+        )
+
+    def _keys(
+        self, subschemes: bool = False, recursive: bool = True, aliases: bool = False
+    ) -> abc.Generator[str]:
         trait_names = self.trait_names(subscheme=None, config=True)
         yield from filter(lambda s: not s.startswith("_"), trait_names)
 
@@ -289,8 +296,8 @@ class Scheme(Configurable):
                 yield from (f"{name}.{s}" for s in sub_traits)
 
     def values(
-        self, subschemes: bool = True, recursive: bool = True, aliases: bool = True
-    ) -> abc.Iterable[t.Any]:
+        self, subschemes: bool = False, recursive: bool = True, aliases: bool = False
+    ) -> list[t.Any]:
         """List of subschemes instances and trait values.
 
         In the same order as :meth:`keys`.
@@ -298,18 +305,18 @@ class Scheme(Configurable):
         Parameters
         ----------
         subschemes
-            If True (default), values include subschemes instances.
+            If True (default is False), values include subschemes instances.
         recursive
             If True (default), return all subschemes.
         aliases
-            If True (default), include aliases.
+            If True (default is False), include aliases.
         """
         keys = self.keys(subschemes=subschemes, recursive=recursive, aliases=aliases)
-        return (self[key] for key in keys)
+        return [self[key] for key in keys]
 
     def items(
-        self, subschemes: bool = True, recursive: bool = True, aliases: bool = True
-    ) -> abc.Iterable[tuple[str, t.Any]]:
+        self, subschemes: bool = False, recursive: bool = True, aliases: bool = False
+    ) -> list[tuple[str, t.Any]]:
         """Return mapping of keys to values.
 
         Keys can lead to subschemes instances or trait values.
@@ -317,18 +324,15 @@ class Scheme(Configurable):
         Parameters
         ----------
         subschemes
-            If True (default), keys can map to subschemes instances.
+            If True (default is False), keys can map to subschemes instances.
         recursive
             If True (default), return parameters from all subschemes. Otherwise limit to
             only this scheme.
         aliases
-            If True (default), include aliases.
+            If True (default is False), include aliases.
         """
         keys = self.keys(subschemes=subschemes, recursive=recursive, aliases=aliases)
-        values = self.values(
-            subschemes=subschemes, recursive=recursive, aliases=aliases
-        )
-        return zip(keys, values, strict=True)
+        return [(key, self[key]) for key in keys]
 
     def get(self, key: str, default: t.Any | None = None) -> t.Any:
         """Obtain value at `key`."""
@@ -360,7 +364,7 @@ class Scheme(Configurable):
 
     def __contains__(self, key: str) -> bool:
         """Return if key leads to an existing subscheme or trait."""
-        return key in self.keys()
+        return key in self.keys(subschemes=True, aliases=True)
 
     def __iter__(self) -> abc.Iterable[str]:
         """Iterate over possible keys.
@@ -379,15 +383,12 @@ class Scheme(Configurable):
         If *other* is not a Scheme, will return False. Both scheme must have the same
         keys and same values.
         """
-        if not isinstance(other, Scheme):
+        if not isinstance(other, type(self)):
             return False
         # Check that we have the same keys
-        if self.keys() != other.keys():
+        if set(self.keys()) != set(other.keys()):
             return False
-        # Check we have the same values on traits
-        items = dict(self.items(subschemes=False))
-        items_other = dict(other.items(subschemes=False))
-        return items == items_other
+        return dict(self) == dict(other)
 
     def __ne__(self, other: t.Any) -> bool:
         return not self == other
@@ -516,7 +517,7 @@ class Scheme(Configurable):
         if other is None:
             values = {}
         elif isinstance(other, Scheme):
-            values = other.values_recursive(flatten=True)
+            values = dict(other)
             input_scheme = True
         else:
             values = dict(other)
@@ -591,7 +592,7 @@ class Scheme(Configurable):
         scheme.add_traits(**{trait_name: trait})
 
     def as_dict(
-        self, recursive: bool = True, aliases: bool = True, flatten: bool = True
+        self, recursive: bool = True, aliases: bool = False, flatten: bool = True
     ) -> dict[str, t.Any]:
         """Return traits as a dictionary.
 
@@ -601,7 +602,7 @@ class Scheme(Configurable):
             If True (default), return parameters from all subschemes. Otherwise limit to
             only this scheme.
         aliases
-            If True (default), include aliases.
+            If True (default is False), include aliases.
         flatten
             If True (default), return a flat dictionnary with dot-separated keys.
             Otherwise return a nested dictionnary.

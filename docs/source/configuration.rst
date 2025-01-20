@@ -164,6 +164,9 @@ for more details on how to use these features.
 Obtaining all parameters
 ------------------------
 
+TODO: Now it support dictionary operations. use ``dict(scheme)`` or
+eventually ``scheme.as_dict()`` if a nested dict is needed.
+
 But of course, it is often necessary to pass parameters to code that is not
 supporting Schemes.
 Thus Schemes allow to obtain parameters in more universal python dictionaries.

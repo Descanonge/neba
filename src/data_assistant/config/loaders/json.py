@@ -52,7 +52,7 @@ class JsonLoader(DictLikeLoaderMixin, FileLoader):
         if comment != "none":
             self.app.log.warning("No comments possible in JSON format.")
 
-        output = self.app.values_recursive()
+        output = dict(self.app)
         # TODO Merge with self.config
         # TODO Options: maybe only show values differing from default?
         dump = json.dumps(output, cls=self.JSON_ENCODER, indent=2)
