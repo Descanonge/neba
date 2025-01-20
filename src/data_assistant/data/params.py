@@ -115,7 +115,7 @@ class ParamsManagerScheme(ParamsManagerAbstract[T_Scheme]):
     TODO Explain how to add traits.
     """
 
-    RAISE_ON_MISS: bool = False
+    RAISE_ON_MISS: bool = True
 
     PARAMS_PATH: str | None = None
     """Path (dot-separated keys) that lead to the subscheme containing parameters."""
