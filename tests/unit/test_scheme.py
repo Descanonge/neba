@@ -4,14 +4,18 @@ from collections import abc
 import hypothesis.strategies as st
 import pytest
 from hypothesis import given, settings
-from traitlets import Int
+from traitlets import Bool, Int
 
 from data_assistant.config import Scheme, subscheme
 from data_assistant.config.util import nest_dict
 
+from ..conftest import todo
 from ..scheme_generation import (
+    GenericScheme,
     GenericSchemeInfo,
+    GenericTraits,
     SchemeInfo,
+    TwinSubscheme,
     scheme_st_to_cls,
     scheme_st_to_instance,
     scheme_st_to_instances,
@@ -23,11 +27,11 @@ log = logging.getLogger(__name__)
 
 class SchemeTest:
     @pytest.fixture
-    def info(self) -> SchemeInfo:
+    def info(self) -> GenericSchemeInfo:
         return GenericSchemeInfo()
 
     @pytest.fixture
-    def scheme(self, info) -> Scheme:
+    def scheme(self, info) -> GenericScheme:
         return info.scheme()
 
 
@@ -77,15 +81,12 @@ class TestDefinition(SchemeTest):
         assert isinstance(inst["normal"], NormalSubscheme)
 
         assert list(inst.keys()) == [
-            "normal",
             "normal.control",
-            "a",
             "a.control",
-            "b",
-            "b.c",
             "b.c.control",
         ]
 
+    @todo
     def test_dynamic_definition_random(self):
         """Test that nested class defs will be found.
 
@@ -118,7 +119,7 @@ class TestDefinition(SchemeTest):
         assert isinstance(inst.dynamic, Dynamic)
         assert isinstance(inst.a, type)
 
-        assert list(inst.keys()) == ["dynamic", "dynamic.a", "dynamic.a.control"]
+        assert list(inst.keys()) == ["dynamic.a.control"]
 
     def test_traits_tagged(self, info, scheme):
         """Test that trait are automatically tagged configurable."""
@@ -179,7 +180,7 @@ class TestInstanciation(SchemeTest):
     # What about weird traits, like hidden traits ? "_mytrait"
 
     def test_simple(self, info: SchemeInfo):
-        """Simple instanciation (no scheme)."""
+        """Simple instanciation."""
         _ = Scheme()
         scheme = info.scheme()
 
@@ -203,16 +204,19 @@ class TestInstanciation(SchemeTest):
             else:
                 assert s[key] == info.default(key)
 
+    @todo
     def test_needed_value(self):
         """Check scheme that has a trait without default value."""
         # check exception at instanciation
         # check it makes it if value is given at instanciation
         assert 0
 
+    @todo
     def test_twin_siblings(self):
         """Two subschemes on are from the same class."""
         assert 0
 
+    @todo
     def test_twin_recursive(self):
         """Two schemes at different nesting level are from the same class."""
         assert 0
@@ -259,11 +263,12 @@ class TestMappingInterface(SchemeTest):
         with pytest.raises(KeyError):
             scheme[key]
 
+    @todo
     def test_iter(self):
         assert 0
 
-    def test_length(self, info, scheme):
-        assert len(scheme) == len(info.keys_total)
+    def test_length(self, info: GenericSchemeInfo, scheme: GenericScheme):
+        assert len(scheme) == len(info.traits_total)
 
     def test_eq_basic(self, info):
         scheme_a = GenericSchemeInfo.scheme()
@@ -287,24 +292,19 @@ class TestMappingInterface(SchemeTest):
         assert scheme_a == scheme_b
 
     def test_keys(self, info, scheme):
-        assert info.keys_total == list(scheme.keys())
-        assert info.keys_this_level == list(scheme.keys(recursive=False))
-        assert info.traits_total == list(scheme.keys(subschemes=False))
-        assert info.traits_this_level == list(
-            scheme.keys(subschemes=False, recursive=False)
+        assert info.keys_total == list(scheme.keys(subschemes=True))
+        assert info.keys_this_level == list(
+            scheme.keys(subschemes=True, recursive=False)
         )
+        assert info.traits_total == list(scheme.keys())
+        assert info.traits_this_level == list(scheme.keys(recursive=False))
 
     def test_values(self, info, scheme):
-        # we don't test equality for subschemes
-        # we will recurse into their values anyway
-        for k, v in zip(info.keys_total, scheme.values(), strict=True):
-            if k in info.traits_total:
-                assert info.default(k) == v
-            else:
-                assert isinstance(v, Scheme)
+        for k, v in zip(info.traits_total, scheme.values(), strict=True):
+            assert info.default(k) == v
 
     def test_items(self, info, scheme):
-        for ref, (k, v) in zip(info.keys_total, scheme.items(), strict=True):
+        for ref, (k, v) in zip(info.traits_total, scheme.items(), strict=True):
             assert ref == k
             if ref in info.traits_total:
                 assert info.default(k) == v
@@ -318,7 +318,7 @@ class TestMutableMappingInterface(SchemeTest):
     With some dictionnary functions as well.
     """
 
-    def test_is_mutable_mapping(self, info):
+    def test_is_mutable_mapping(self, info: GenericSchemeInfo):
         assert issubclass(Scheme, abc.MutableMapping)
         assert isinstance(Scheme(), abc.MutableMapping)
 
@@ -346,8 +346,19 @@ class TestMutableMappingInterface(SchemeTest):
             else:
                 assert scheme[key] == info.default(key)
 
-    def test_setdefault(self):
-        assert 0
+    def test_setdefault(self, scheme: GenericScheme):
+        # set with trait existing
+        assert scheme.setdefault("int") == 0
+
+        # set with new trait
+        assert scheme.setdefault("new_int", Int(0)) == 0
+        assert scheme["new_int"] == 0
+        assert scheme.setdefault("sub_generic.new_int", Int(0), value=2) == 2
+        assert scheme["sub_generic.new_int"] == 2
+
+        # set with new trait, argument trait not passed
+        with pytest.raises(TypeError):
+            scheme.setdefault("new_int_wrong")
 
     def test_pop(self, scheme):
         with pytest.raises(TypeError):
@@ -361,13 +372,60 @@ class TestMutableMappingInterface(SchemeTest):
         with pytest.raises(TypeError):
             scheme.pop("anything")
 
-    def test_reset(self):
-        assert 0
+    @given(values=GenericSchemeInfo.values_strat())
+    def test_reset(self, values: dict):
+        info = GenericSchemeInfo
+        scheme = info.scheme()
+        scheme.update(values)
+        scheme.reset()
+        for key in values:
+            assert scheme[key] == info.default(key)
+
+    def test_add_trait(self, scheme: GenericScheme):
+        # simple
+        scheme.add_trait("new_trait", Int(1))
+        assert "new_trait" in scheme
+        assert "new_trait" in scheme.trait_names()
+        assert isinstance(scheme.traits()["new_trait"], Int)
+        assert scheme["new_trait"] == 1
+        scheme["new_trait"] = 3
+        assert scheme.new_trait == 3  # type: ignore[attr-defined]
+        assert scheme["new_trait"] == 3
+
+        # already in use
+        with pytest.raises(KeyError):
+            scheme.add_trait("dict_any", Int(1))
+
+        # recursive (no adding)
+        scheme.add_trait("deep_sub.sub_generic_deep.new_trait", Int(10))
+        assert "deep_sub.sub_generic_deep.new_trait" in scheme
+        assert "new_trait" in scheme.deep_sub.sub_generic_deep.trait_names()
+        assert isinstance(scheme.deep_sub.sub_generic_deep.traits()["new_trait"], Int)
+        assert scheme["deep_sub.sub_generic_deep.new_trait"] == 10
+        scheme["deep_sub.sub_generic_deep.new_trait"] = 3
+        assert scheme.deep_sub.sub_generic_deep.new_trait == 3  # type: ignore[attr-defined]
+        assert scheme["deep_sub.sub_generic_deep.new_trait"] == 3
+
+        # recursive (adding)
+        scheme.add_trait("new_scheme1.new_scheme2.new_trait", Int(20))
+        assert "new_scheme1.new_scheme2.new_trait" in scheme
+        assert "new_trait" in scheme.new_scheme1.new_scheme2.trait_names()  # type: ignore[attr-defined]
+        assert isinstance(scheme.new_scheme1.new_scheme2.traits()["new_trait"], Int)  # type: ignore[attr-defined]
+        assert scheme["new_scheme1.new_scheme2.new_trait"] == 20
+        scheme["new_scheme1.new_scheme2.new_trait"] = 3
+        assert scheme.new_scheme1.new_scheme2.new_trait == 3  # type: ignore[attr-defined]
+        assert scheme["new_scheme1.new_scheme2.new_trait"] == 3
+
+        # recursive (not allowed)
+        with pytest.raises(KeyError):
+            scheme.add_trait(
+                "new_scheme3.new_scheme4.new_trait", Int(1), allow_recursive=False
+            )
 
     @given(values=GenericSchemeInfo.values_strat())
     def test_update_base(self, values):
         info = GenericSchemeInfo
-        scheme = GenericSchemeInfo.scheme()
+        scheme = info.scheme()
         scheme.update(values)
 
         for key in info.traits_total:
@@ -376,23 +434,21 @@ class TestMutableMappingInterface(SchemeTest):
             else:
                 assert scheme[key] == info.default(key)
 
+    @todo
     def test_update_add_traits(self):
         assert 0
 
+    @todo
     def test_update_wrong(self):
         # refuse permission to add traits
         # wrong inputs to add a trait
         assert 0
 
-    def test_add_trait(self):
-        assert 0
-
+    @todo
     def test_twin_siblings(self):
-        """Two subschemes on are from the same class."""
-        assert 0
-
-    def test_twin_recursive(self):
-        """Two schemes at different nesting level are from the same class."""
+        """Two subschemes are from the same class."""
+        # check changing one does not affect the other. On mutable and non-mutable
+        # traits.
         assert 0
 
 
@@ -407,32 +463,39 @@ class TestTraitListing(SchemeTest):
             st.sampled_from(GenericSchemeInfo.keys_total), max_size=12, unique=True
         )
     )
-    def test_select(self, keys):
+    def test_select(self, keys: list[str]):
         # We only test flattened, we assume nest_dict() works and is tested
-        scheme = GenericSchemeInfo.scheme()
+        scheme = GenericScheme()
         out = scheme.select(*keys, flatten=True)
         assert keys == list(out.keys())
 
+    @todo
     def test_subscheme_recursive(self):
         assert 0
 
+    @todo
     def test_class_traits_recursive(self):
         assert 0
 
+    @todo
     def test_traits_recursive(self):
         assert 0
 
+    @todo
     def test_default_recursive(self):
         assert 0
 
+    @todo
     def test_values_recursive(self):
         assert 0
 
+    @todo
     def test_value_from_func_signature(self):
         assert 0
 
 
 class TestRemap:
+    @todo
     def test_remap(self):
         """Test the remap function.
 
@@ -441,6 +504,7 @@ class TestRemap:
         """
         assert 0
 
+    @todo
     def test_remap_twins(self):
         """Test the remap function when some subschemes are the same class.
 
@@ -449,25 +513,47 @@ class TestRemap:
         assert 0
 
 
-class TestResolveKey:
+class TestResolveKey(SchemeTest):
     """Test key resolution."""
 
     def test_resolve_class_key(self):
-        assert 0
+        keys = GenericScheme.resolve_class_key("GenericScheme.bool")
+        assert keys == ["bool"]
 
-    def test_class_resolve_key(self):
-        assert 0
+        keys = GenericScheme.resolve_class_key("GenericTraits.bool")
+        assert keys == ["sub_generic.bool", "deep_sub.sub_generic_deep.bool"]
+
+        keys = GenericScheme.resolve_class_key("TwinSubscheme.int")
+        assert keys == ["twin_a.int", "twin_b.int", "sub_twin.twin_c.int"]
 
     def test_resolve_key(self):
-        assert 0
+        key, scheme_cls, trait = GenericScheme.resolve_key("bool")
+        assert key == "bool"
+        assert issubclass(scheme_cls, GenericScheme)
+        assert isinstance(trait, Bool)
 
+        key, scheme_cls, trait = GenericScheme.resolve_key("sub_generic.int")
+        assert key == "sub_generic.int"
+        assert issubclass(scheme_cls, GenericTraits)
+        assert isinstance(trait, Int)
+
+        key, scheme_cls, trait = GenericScheme.resolve_key("twin_a.int")
+        assert key == "twin_a.int"
+        assert issubclass(scheme_cls, TwinSubscheme)
+        assert isinstance(trait, Int)
+
+        # TODO: test alias
+
+    @todo
     def test_wrong_keys(self):
         # missing subscheme
         # missing trait
+        # missing trait in empty subscheme
         # nested class key
         assert 0
 
 
+@todo
 def test_merge_configs():
     """Test merge two different configuration dicts."""
     assert 0

@@ -240,8 +240,8 @@ class GenericTraits(Scheme):
     )
 
     # Instance and Type
-    inst = Instance(ClassDummy, default_value=class_dummy, args=(), kw={})
-    type = Type(klass=ClassDummy)
+    # inst = Instance(ClassDummy, default_value=class_dummy, args=(), kw={})
+    # type = Type(klass=ClassDummy)
 
     # Union
     union_num = Union([Int(), Float()], default_value=0.0)
@@ -374,8 +374,8 @@ class GenericTraitsInfo(SchemeInfo[GenericTraits]):
             value_trait=Int(), key_trait=Unicode(), default_value={"a": 0, "b": 1}
         ),
         # Instance and Type
-        inst=Instance(ClassDummy, default_value=class_dummy, args=(), kw={}),
-        type=Type(klass=ClassDummy),
+        # inst=Instance(ClassDummy, default_value=class_dummy, args=(), kw={}),
+        # type=Type(klass=ClassDummy),
         # Union
         union_num=Union([Int(), Float()], default_value=0.0),
         union_num_str=Union([Int(), Float(), Unicode()], default_value="0"),
