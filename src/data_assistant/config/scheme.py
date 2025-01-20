@@ -80,7 +80,7 @@ class Scheme(Configurable):
     The API expand to recursively retrieve all traits (or their values) from this
     scheme and its subschemes. It defines help emitting functions, suitable for
     command line help message. It also enables having unique keys that point to a
-    specific trait in the configuration tree (see :meth:`class_resolve_key`).
+    specific trait in the configuration tree (see :meth:`resolve_key`).
     """
 
     _subschemes: dict[str, type[Scheme]] = {}
@@ -799,13 +799,10 @@ class Scheme(Configurable):
         return output
 
     @classmethod
-    def class_resolve_key(
-        cls, key: str | list[str]
-    ) -> tuple[str, type[Scheme], TraitType]:
+    def resolve_key(cls, key: str | list[str]) -> tuple[str, type[Scheme], TraitType]:
         """Resolve a key.
 
-        This method is meant to be used pre-instanciation. Otherwise look to
-        :meth:`resolve_key`.
+        This method is meant to be used pre-instanciation.
 
         Parameters
         ----------
@@ -852,57 +849,6 @@ class Scheme(Configurable):
                 f"has no trait '{trait_name}'."
             )
         trait = getattr(subscheme, trait_name)
-
-        return ".".join(fullkey + [trait_name]), subscheme, trait
-
-    def resolve_key(self, key: str | list[str]) -> tuple[str, Scheme, TraitType]:
-        """Resolve a key.
-
-        Parameters
-        ----------
-        key
-            Dot separated (or a list of) attribute names that point to a trait in the
-            configuration tree, starting from this Scheme.
-            It might contain aliases/shortcuts.
-
-        Returns
-        -------
-        fullkey
-            Dot separated attribute names that *unambiguously* and *uniquely* point to a
-            trait in the config tree, starting from this Scheme, ending with the trait
-            name.
-        subscheme
-            The :class:`Scheme` *instance* that contains the trait.
-        trait
-            The :class:`trait<traitlets.TraitType>` object corresponding to the key.
-        """
-        if isinstance(key, str):
-            key = key.split(".")
-
-        *prefix, trait_name = key
-        fullkey = []
-        subscheme = self
-        for subkey in prefix:
-            if subkey in subscheme._subschemes:
-                subscheme = getattr(subscheme, subkey)
-                fullkey.append(subkey)
-            elif subkey in self.aliases:
-                alias = self.aliases[subkey].split(".")
-                fullkey += alias
-                for alias_subkey in alias:
-                    subscheme = getattr(subscheme, alias_subkey)
-            else:
-                raise UnknownConfigKeyError(
-                    f"Scheme '{'.'.join(fullkey)}' ({_subscheme_clsname(subscheme)}) "
-                    f"has no subscheme or alias '{subkey}'."
-                )
-
-        if trait_name not in subscheme.trait_names():
-            raise UnknownConfigKeyError(
-                f"Scheme '{'.'.join(fullkey)}' ({_subscheme_clsname(subscheme)}) "
-                f"has no trait '{trait_name}'."
-            )
-        trait = subscheme.traits()[trait_name]
 
         return ".".join(fullkey + [trait_name]), subscheme, trait
 

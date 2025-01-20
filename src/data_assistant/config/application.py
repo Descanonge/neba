@@ -473,10 +473,10 @@ class ApplicationBase(Scheme, LoggingMixin):
         # Resolve fullpath for all keys
         output = {}
         for key, val in no_class_keys.items():
-            # If an error happens in class_resolve_key, we have a fallback
+            # If an error happens in resolve_key, we have a fallback
             fullkey = key
             with ConfigErrorHandler(self, key):
-                fullkey, container_cls, trait = self.class_resolve_key(key)
+                fullkey, container_cls, trait = self.resolve_key(key)
                 val.container_cls = container_cls
                 val.trait = trait
             output[fullkey] = val
