@@ -1,4 +1,4 @@
-from data_assistant.data import DataManagerBase, GlobPlugin, ParamsMappingPlugin
+from data_assistant.data import Dataset, GlobPlugin, ParamsMappingPlugin
 
 
 class DMSST(
@@ -6,7 +6,7 @@ class DMSST(
     # XarrayMultiFileLoaderPlugin,
     # XarraySplitWriterPlugin,
     ParamsMappingPlugin,
-    DataManagerBase,
+    Dataset,
 ):
     PARAMS_NAMES = ["days", "region"]
 
