@@ -75,6 +75,10 @@ class ConfigValue:
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({str(self)})"
 
+    @property
+    def path(self) -> list[str]:
+        return self.key.split(".")
+
     def copy(self) -> t.Self:
         """Return a copy of this instance."""
         return deepcopy(self)
@@ -167,6 +171,14 @@ class ConfigLoader:
         Logger instance.
     """
 
+    app: ApplicationBase
+    log: logging.Logger
+    config: dict[str, ConfigValue]
+    """Configuration dictionnary mapping keys to ConfigValues.
+
+    It should be a flat dictionnary.
+    """
+
     def __init__(self, app: ApplicationBase, log: logging.Logger | None = None):
         self.app = app
         """Parent application that created this loader.
@@ -177,17 +189,13 @@ class ConfigLoader:
         if log is None:
             log = logging.getLogger(__name__)
         self.log = log
-        self.config: dict[str, ConfigValue] = {}
-        """Configuration dictionnary mapping keys to ConfigValues.
-
-        It should be a flat dictionnary.
-        """
+        self.config = {}
 
     def clear(self) -> None:
         """Empty the config."""
         self.config.clear()
 
-    def add(self, key: str, value: ConfigValue):
+    def add(self, cv: ConfigValue):
         """Add key to configuration dictionnary.
 
         Raises
@@ -195,9 +203,9 @@ class ConfigLoader:
         MultipleConfigKeyError
             If the key is already present in the current configuration.
         """
-        if key in self.config:
-            raise MultipleConfigKeyError(key, [self.config[key], value])
-        self.config[key] = value
+        if cv.key in self.config:
+            raise MultipleConfigKeyError(cv.key, [self.config[cv.key], cv])
+        self.config[cv.key] = cv
 
     def get_config(
         self,
@@ -222,29 +230,26 @@ class ConfigLoader:
         args, kwargs
             Passed to :meth:`load_config`.
         """
-        self.clear()
-        self.load_config(*args, **kwargs)
-
-        if apply_application_traits:
-            self.apply_application_traits()
-
-        if resolve:
-            self.config = self.app.resolve_config(self.config)
+        with self.app.hold_trait_notifications():
+            for conf_value in self.load_config(*args, **kwargs):
+                if resolve:
+                    conf_value = self.app.resolve_config_value(conf_value)
+                if apply_application_traits:
+                    self.apply_application_trait(conf_value)
+                self.add(conf_value)
 
         return self.config
 
-    def apply_application_traits(self) -> None:
+    def apply_application_trait(self, cv: ConfigValue):
         """Apply config for Application."""
-        for key, val in self.config.items():
-            keypath = key.split(".")
-            if len(keypath) == 1 and key in self.app.trait_names():
-                traitname = keypath[0]
-                val.trait = self.app.traits()[traitname]
-                if val.value is Undefined:
-                    val.parse()
-                setattr(self.app, traitname, val.get_value())
+        if len(cv.path) == 1 and cv.key in self.app.trait_names():
+            traitname = cv.path[0]
+            cv.trait = self.app.traits()[traitname]
+            if cv.value is Undefined:
+                cv.parse()
+            setattr(self.app, traitname, cv.get_value())
 
-    def load_config(self, *args, **kwargs) -> None:
+    def load_config(self, *args, **kwargs) -> abc.Iterable[ConfigValue]:
         """Populate the config attribute from a source.
 
         :Not implemented:
@@ -353,17 +358,22 @@ class DictLikeLoaderMixin(ConfigLoader):
     dict-like value.
     """
 
-    def resolve_mapping(self, input: abc.Mapping, origin: str | None = None):
+    def resolve_mapping(
+        self, input: abc.Mapping, origin: str | None = None
+    ) -> abc.Iterable[ConfigValue]:
         """Flatten an input nested mapping."""
         # Some keys might be dot-separated. To make sure we are completely nested:
         input = flatten_dict(input)
         input = nest_dict(input)
 
-        def recurse(d: abc.Mapping, scheme: type[Scheme], key: list[str]):
+        def recurse(
+            d: abc.Mapping, scheme: type[Scheme], key: list[str]
+        ) -> abc.Iterable[ConfigValue]:
             for k, v in d.items():
                 if k in scheme._subschemes:
                     assert isinstance(v, abc.Mapping)
-                    recurse(v, scheme._subschemes[k], key + [k])
+                    yield from recurse(v, scheme._subschemes[k], key + [k])
+
                 elif k in scheme.aliases:
                     assert isinstance(v, abc.Mapping)
                     # resolve alias
@@ -371,20 +381,23 @@ class DictLikeLoaderMixin(ConfigLoader):
                     alias = scheme.aliases[k].split(".")
                     for al in alias:
                         sub = sub._subschemes[al]
-                    recurse(v, sub, key + alias)
+                    yield from recurse(v, sub, key + alias)
+
                 else:
                     fullkey = ".".join(key + [k])
                     value = ConfigValue(v, fullkey, origin=origin)
                     # no parsing, directly to values
                     value.value = value.input
-                    self.add(fullkey, value)
+                    yield value
 
-        recurse(input, self.app.__class__, [])
+        yield from recurse(input, self.app.__class__, [])
 
 
 class DictLikeLoader(DictLikeLoaderMixin):
     """Loader for mappings."""
 
-    def load_config(self, input: abc.Mapping) -> None:
+    def load_config(
+        self, input: abc.Mapping, *args, **kwargs
+    ) -> abc.Iterable[ConfigValue]:
         """Populate the config attribute from a nested mapping."""
-        self.config = self.resolve_mapping(input)
+        yield from self.resolve_mapping(input)

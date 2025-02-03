@@ -195,6 +195,7 @@ class ApplicationBase(SingletonScheme):
             If True, instanciate all schemes. If not None, this argument overrides
             :attr:`auto_instanciate`.
         """
+        # TODO: Catch errors and silence them if setting is not strict
         # Parse CLI first
         #  -> needed for help, or setting config filenames
         if ignore_cli is None:
@@ -299,9 +300,7 @@ class ApplicationBase(SingletonScheme):
             )
         return select
 
-    def resolve_config(
-        self, config: abc.Mapping[str, ConfigValue]
-    ) -> dict[str, ConfigValue]:
+    def resolve_config_value(self, cv: ConfigValue) -> ConfigValue:
         """Resolve all keys in the config and validate it.
 
         Keys can use aliases/shortcuts, and also be under the form of "class keys"
@@ -321,27 +320,24 @@ class ApplicationBase(SingletonScheme):
         resolved_config
             Flat mapping of normalized keys to their ConfigValue
         """
-        output = {}
+        first = cv.path[0]
 
-        for key, val in config.items():
-            first = key.split(".")[0]
+        separate = first in self._separate_sections
+        scheme = self._separate_sections.get(first, self)
 
-            separate = first in self._separate_sections
-            scheme = self._separate_sections.get(first, self)
+        out = cv.copy()
+        # If an error happens in resolve_key, we have a fallback
+        fullkey = cv.key
+        with ConfigErrorHandler(self, cv.key):
+            fullkey, container_cls, trait = scheme.resolve_key(cv.key)
+            out.container_cls = container_cls
+            out.trait = trait
 
-            # If an error happens in resolve_key, we have a fallback
-            fullkey = key
-            with ConfigErrorHandler(self, key):
-                fullkey, container_cls, trait = scheme.resolve_key(key)
-                val.container_cls = container_cls
-                val.trait = trait
+        if separate:
+            fullkey = f"{first}.{fullkey}"
 
-            if separate:
-                fullkey = f"{first}.{fullkey}"
-
-            output[fullkey] = val
-
-        return output
+        out.key = fullkey
+        return out
 
     def add_extra_parameter(self, *args, **kwargs):
         """Add an extra parameter to the CLI argument parser.

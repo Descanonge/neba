@@ -7,7 +7,7 @@ from argparse import Action, ArgumentParser, _AppendAction
 from collections import abc
 
 from ..util import ConfigErrorHandler, MultipleConfigKeyError
-from .core import ConfigLoader, ConfigValue
+from .core import ConfigLoader, ConfigValue, Undefined
 
 _DOT = "__DOT__"
 """String replacement for dots in command line keys."""
@@ -118,6 +118,18 @@ class GreedyArgumentParser(ArgumentParser):
         return super().parse_known_args(args, namespace)
 
 
+class CLIConfigValue(ConfigValue):
+    def __init__(self, input: t.Any, key: str, origin: str | None = "CLI"):
+        super().__init__(input, key, origin=origin)
+
+    def get_value(self) -> t.Any:
+        if self.value is not Undefined:
+            return self.value
+
+        self.parse()
+        return self.value
+
+
 class CLILoader(ConfigLoader):
     """Load config from command line.
 
@@ -160,21 +172,7 @@ class CLILoader(ConfigLoader):
         # parser.set_action_creation(func)
         return parser
 
-    def get_config(self, *args, **kwargs) -> dict[str, ConfigValue]:
-        """Load and return a proper configuration dict.
-
-        This overwrites the common method to parse all values. Since the config has
-        been resolved, each config value should be associated to a trait, allowing
-        parsing.
-        """
-        self.config = super().get_config(*args, **kwargs)
-        # Parse values using the traits
-        for key, val in self.config.items():
-            with ConfigErrorHandler(self.app, key):
-                val.parse()
-        return self.config
-
-    def load_config(self, argv: list[str] | None = None) -> None:
+    def load_config(self, argv: list[str] | None = None) -> abc.Iterable[ConfigValue]:
         """Populate the config attribute from CLI.
 
         Use argparser to obtain key/values.
@@ -193,21 +191,19 @@ class CLILoader(ConfigLoader):
         for name, value in args.items():
             key = name.replace(_DOT, ".")
 
+            if key == "help":
+                self.app.help()
+                self.app.exit()
+
             if key in self.app.extra_parameters:
                 self.app.extra_parameters[key] = value
                 continue
 
-            with ConfigErrorHandler(self.app, key):
-                # Check that the key was specified only once
-                if len(value) > 1:
-                    raise MultipleConfigKeyError(key, value)
+            # Check that the key was specified only once
+            if len(value) > 1:
+                raise MultipleConfigKeyError(key, value)
+            value = value[0]
+            if len(value) == 1:
                 value = value[0]
-                if len(value) == 1:
-                    value = value[0]
 
-                self.add(key, ConfigValue(value, key, origin="CLI"))
-
-        # check if there are any help flags
-        if "help" in self.config:
-            self.app.help()
-            self.app.exit()
+            yield CLIConfigValue(value, key)

@@ -90,9 +90,8 @@ class Scheme(HasTraits):
     _subschemes: dict[str, type[Scheme]] = {}
     """Mapping of nested Scheme classes."""
 
-    _attr_completion_only_traits = Bool(
-        False, help="Only keep configurable traits in attribute completion."
-    )
+    _attr_completion_only_traits: bool = False
+    """Only keep configurable traits in attribute completion."""
 
     _dynamic_subschemes = True
     """Allow dynamic definition of subschemes.

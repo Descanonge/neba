@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import typing as t
+from collections import abc
 from textwrap import dedent
 
 import tomlkit
@@ -30,7 +31,7 @@ class TomlkitLoader(FileLoader):
 
     extensions = ["toml"]
 
-    def load_config(self) -> None:
+    def load_config(self) -> abc.Iterable[ConfigValue]:
         """Populate the config attribute from TOML file.
 
         We use :mod:`tomlkit` to parse file.
@@ -39,19 +40,19 @@ class TomlkitLoader(FileLoader):
             root_table = tomlkit.load(fp)
 
         # flatten tables
-        def recurse(table: T, key: list[str]):
+        def recurse(table: T, key: list[str]) -> abc.Iterable[ConfigValue]:
             for k, v in table.items():
                 newkey = key + [k]
                 if isinstance(v, tomlkit.api.Table):
-                    recurse(v, newkey)
+                    yield from recurse(v, newkey)
                 else:
                     fullkey = ".".join(newkey)
                     value = ConfigValue(v, fullkey, origin=self.filename)
                     # no parsing, directly to values
                     value.value = value.input
-                    self.add(fullkey, value)
+                    yield value
 
-        recurse(root_table, [])
+        yield from recurse(root_table, [])
 
     def _to_lines(self, comment: str = "full") -> list[str]:
         """Return lines of configuration file corresponding to the app config tree."""
