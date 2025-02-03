@@ -2,225 +2,76 @@
 
 from __future__ import annotations
 
-import itertools
 import logging
 import sys
 import typing as t
 from collections import abc
-from contextlib import suppress
-from logging.config import dictConfig
 from os import path
 
-from traitlets import Bool, Dict, Enum, List, Unicode, Union, default, observe
-from traitlets.config.configurable import LoggingConfigurable
-from traitlets.utils.nested_update import nested_update
+from traitlets import Bool, List, Unicode, Union
+from traitlets.config.configurable import MultipleInstanceError, SingletonConfigurable
 
 from .loaders import CLILoader, ConfigValue
 from .scheme import Scheme
 from .util import ConfigErrorHandler, nest_dict
 
 if t.TYPE_CHECKING:
-    from traitlets.utils.bunch import Bunch
-
     from .loaders import ConfigValue, FileLoader
 
 log = logging.getLogger(__name__)
 
-IS_PYTHONW = sys.executable and sys.executable.endswith("pythonw.exe")
-
 S = t.TypeVar("S", bound=Scheme)
 
+_SingleS = t.TypeVar("_SingleS", bound="SingletonScheme")
 
-class LoggingMixin(LoggingConfigurable):
-    """Add logging functionnalities to an Application.
 
-    This is lifted from :class:`traitlets.config.Application`, with some minor changes.
-    """
+class SingletonScheme(Scheme, SingletonConfigurable):
+    @classmethod
+    def _walk_mro(cls) -> t.Generator[type[SingletonScheme], None, None]:
+        """Walk the cls.mro() for parent classes that are also singletons.
 
-    _log_formatter_cls: type[logging.Formatter] = logging.Formatter
-
-    log_level = Enum(
-        [0, 10, 20, 30, 40, 50, "DEBUG", "INFO", "WARN", "ERROR", "CRITICAL"],
-        default_value="INFO",
-        help="Set the log level by value or name, for the application logger.",
-    ).tag(config=True)
-
-    lib_log_level = Enum(
-        [0, 10, 20, 30, 40, 50, "DEBUG", "INFO", "WARN", "ERROR", "CRITICAL"],
-        default_value="WARN",
-        help="Set the log level for this library loggers.",
-    ).tag(config=True)
-
-    log_datefmt = Unicode(
-        "%Y-%m-%d %H:%M:%S",
-        help="The date format used by logging formatters for %(asctime)s",
-    ).tag(config=True)
-
-    log_format = Unicode(
-        "%(levelname)s:%(name)s:%(lineno)d:%(message)s",
-        help="The Logging format template",
-    ).tag(config=True)
-
-    logging_config = Dict(
-        help="""\
-        Configure additional log handlers.
-
-        The default stderr logs handler is configured by the log_level, log_datefmt and
-        log_format settings.
-
-        This configuration can be used to configure additional handlers (e.g. to output
-        the log to a file) or for finer control over the default handlers.
-
-        If provided this should be a logging configuration dictionary, for more
-        information see:
-        `<https://docs.python.org/3/library/logging.config.html#logging-config-dictschema>`__
-
-        This dictionary is merged with the base logging configuration which defines the
-        following:
-
-        * A logging formatter intended for interactive use called ``console``.
-        * A logging handler that writes to stderr called ``console`` which uses the
-          formatter ``console``.
-        * A logger with the name of this application set to :attr:`log_level`.
-        * A logger for the ``data_assistant`` library set to :attr: `lib_log_level`.
-
-        This example adds a new handler that writes to a file:
-
-        .. code-block:: python
-
-            c.Application.logging_config = {
-                "handlers": {
-                    "file": {
-                        "class": "logging.FileHandler",
-                        "level": "DEBUG",
-                        "filename": "<path/to/file>",
-                    }
-                },
-                "loggers": {
-                    "<application-name>": {
-                        "level": "DEBUG",
-                        # NOTE: if you don't list the default "console"
-                        # handler here then it will be disabled
-                        "handlers": ["console", "file"],
-                    },
-                },
-            }
-
-    """,
-    ).tag(config=True)
-
-    def get_default_logging_config(self) -> dict[str, t.Any]:
-        """Return the base logging configuration.
-
-        The default is to log to stderr using a StreamHandler, if no default
-        handler already exists.
-
-        The log handler level starts at logging.WARN, but this can be adjusted
-        by setting the ``log_level`` attribute.
-
-        The ``logging_config`` trait is merged into this allowing for finer
-        control of logging.
-
+        For use in instance()
         """
-        config: dict[str, t.Any] = {
-            "version": 1,
-            "handlers": {
-                "console": {
-                    "class": "logging.StreamHandler",
-                    "formatter": "console",
-                    "level": "DEBUG",
-                    "stream": "ext://sys.stderr",
-                },
-            },
-            "formatters": {
-                "console": {
-                    "class": (
-                        f"{self._log_formatter_cls.__module__}"
-                        f".{self._log_formatter_cls.__name__}"
-                    ),
-                    "format": self.log_format,
-                    "datefmt": self.log_datefmt,
-                },
-            },
-            "loggers": {
-                self.__class__.__name__: {
-                    "level": logging.getLevelName(self.log_level),  # type:ignore[call-overload]
-                    "propagate": False,
-                    "handlers": ["console"],
-                },
-                "data_assistant": {
-                    "level": logging.getLevelName(self.lib_log_level),  # type:ignore[call-overload]
-                    "handlers": ["console"],
-                },
-            },
-            "disable_existing_loggers": False,
-        }
+        for parent in cls.mro():
+            if (
+                issubclass(cls, parent)
+                and issubclass(parent, SingletonScheme)
+                and parent != SingletonScheme
+            ):
+                yield parent
 
-        if IS_PYTHONW:
-            # disable logging
-            # (this should really go to a file, but file-logging is only
-            # hooked up in parallel applications)
-            del config["handlers"]
-            del config["loggers"]
+    @classmethod
+    def instance(cls: type[_SingleS], *args: t.Any, **kwargs: t.Any) -> _SingleS:
+        """Return a global instance of this class.
 
-        return config
+        This method create a new instance if none have previously been created
+        and returns a previously created instance is one already exists.
 
-    @default("log")
-    def _log_default(self) -> logging.Logger | logging.LoggerAdapter[t.Any]:
-        """Start logging for this application."""
-        log = logging.getLogger(self.__class__.__name__)
-        log.propagate = False
-        return log
-
-    @observe(
-        "log_datefmt", "log_format", "log_level", "lib_log_level", "logging_config"
-    )
-    def _observe_logging_change(self, change: Bunch) -> None:
-        def to_int(level: str | int) -> int:
-            if isinstance(level, str):
-                return getattr(logging, level.upper())
-            return level
-
-        # Pass log levels from strings to ints
-        new, old = change.new, change.old
-        if change.name in ["log_level", "lib_log_level"]:
-            new, old = to_int(new), to_int(old)
-            setattr(self, change.name, new)
-
-        if new != old:
-            self._configure_logging()
-
-    @observe("log", type="default")
-    def _observe_logging_default(self, change: Bunch) -> None:
-        self._configure_logging()
-
-    def _configure_logging(self) -> None:
-        config = self.get_default_logging_config()
-        nested_update(config, self.logging_config or {})
-        dictConfig(config)
-        # make a note that we have configured logging
-        self._logging_configured = True
-
-    def __del__(self) -> None:
-        self.close_handlers()
-
-    def close_handlers(self) -> None:
-        """Close handlers if they have been opened.
-
-        ie if :attr:`_logging_configured` is True.
+        The arguments and keyword arguments passed to this method are passed
+        on to the :meth:`__init__` method of the class upon instantiation.
         """
-        if getattr(self, "_logging_configured", False):
-            # don't attempt to close handlers unless they have been opened
-            # (note accessing self.log.handlers will create handlers if they
-            # have not yet been initialised)
-            lib_logger = logging.getLogger("data_assistant")
-            for handler in itertools.chain(self.log.handlers, lib_logger.handlers):
-                with suppress(Exception):
-                    handler.close()
-            self._logging_configured = False
+        # Create and save the instance
+        if cls._instance is None:
+            inst = cls(*args, **kwargs)
+            inst._after_init()
+            # Now make sure that the instance will also be returned by
+            # parent classes' _instance attribute.
+            for parent in cls._walk_mro():
+                parent._instance = inst  # type: ignore[assignment]
+
+        if isinstance(cls._instance, cls):
+            return cls._instance
+        else:
+            raise MultipleInstanceError(
+                f"An incompatible sibling of '{cls.__name__}' is already instantiated"
+                f" as singleton: {type(cls._instance).__name__}"
+            )
+
+    def _after_init(self) -> None:
+        pass
 
 
-class ApplicationBase(Scheme, LoggingMixin):
+class ApplicationBase(SingletonScheme):
     """Base application class.
 
     Orchestrate the loading of configuration keys from files or from command line
@@ -228,6 +79,9 @@ class ApplicationBase(Scheme, LoggingMixin):
     Pass the combined configuration keys to the appropriate schemes in the configuration
     tree structure. This validate the values and instanciate the configuration objects.
     """
+
+    _separate_sections: dict[str, type[Scheme]] = {}
+    """Separate configuration sections."""
 
     strict_parsing = Bool(
         True,
@@ -270,8 +124,23 @@ class ApplicationBase(Scheme, LoggingMixin):
     look at the extension.
     """
 
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
+    @classmethod
+    def __init_subclass__(cls, /, **kwargs) -> None:
+        # for section in cls.sections:
+        #     section._application = cls
+        #     name = section.__name__
+        #     if hasattr(cls, name):
+        #         raise AttributeError(
+        #             f"Separate section {name} clashes with existing "
+        #             f"attribute in {cls.__name__}"
+        #         )
+        #     setattr(cls, name, subscheme(section))
+
+        super().__init_subclass__(**kwargs)
+
+    def __init__(self) -> None:
+        # No super.__init__, it would instanciate recursively subschemes
+
         # Useless-ish but we need to initialize the logger
         # otherwise it is going to be modified on its first access in __del__
         # which will trigger the logging configuration at a bad time
@@ -286,6 +155,15 @@ class ApplicationBase(Scheme, LoggingMixin):
         """Extra parameters passed to the command line parser."""
         self.extra_parameters: dict[str, t.Any] = {}
         """Extra parameters retrieved by the command line parser."""
+
+    def _after_init(self) -> None:
+        self.start()
+
+    @classmethod
+    def register_section(cls, section: type[S]) -> type[S]:
+        section._application_cls = cls
+        cls._separate_sections[section.__name__] = section
+        return section
 
     def start(
         self,
@@ -331,23 +209,14 @@ class ApplicationBase(Scheme, LoggingMixin):
 
         self.conf = self.merge_configs(self.file_conf, self.cli_conf)
 
-        # Apply config relevant to this instance (only, not recursive)
-        my_conf = self.get_subconfig(self.conf, subscheme=None)
-        for name, val in my_conf.items():
-            setattr(self, name, val)
+        # Apply config relevant to this instance (only self, not recursive)
+        config = nest_dict(self.conf)
+        self._init_direct_traits(config)
 
         if instanciate is None:
             instanciate = self.auto_instanciate
         if instanciate:
-            self._instanciate()
-
-    def _instanciate(self):
-        """Instanciate all subschemes, pass :attr:`conf`."""
-        nest_conf = nest_dict(self.conf)
-        for name, subcls in self._subschemes.items():
-            subconf = nest_conf.get(name, {})
-            inst = subcls.instanciate_recursively(subconf, parent=self)
-            setattr(self, name, inst)
+            self._init_subschemes(config)
 
     def _create_cli_loader(
         self, argv: list[str] | None, log: logging.Logger | None = None, **kwargs
@@ -383,7 +252,11 @@ class ApplicationBase(Scheme, LoggingMixin):
         To handle more complex cases, like separating arguments for different
         applications (with ``--`` typically), more logic can be setup here.
         """
-        return None
+        argv = sys.argv[1:]
+        if "--" in argv:
+            idx = argv.index("--")
+            argv = argv[idx + 1 :]
+        return argv
 
     def load_config_files(self) -> dict[str, ConfigValue]:
         """Return configuration loaded from files."""
@@ -436,9 +309,6 @@ class ApplicationBase(Scheme, LoggingMixin):
         attributes names, without shortcuts, that point a trait.
         Keys that do not resolve to any known trait will raise error.
 
-        Values specified with class keys will be duplicated over all places where the
-        scheme class has been used. Their priority will automatically be set lower.
-
         The trait and containing scheme class will be added to each :class:`ConfigValue`.
 
         Parameters
@@ -451,34 +321,24 @@ class ApplicationBase(Scheme, LoggingMixin):
         resolved_config
             Flat mapping of normalized keys to their ConfigValue
         """
-        config_classes = [cls.__name__ for cls in self._classes_inc_parents()]
+        output = {}
 
-        # Transform Class.trait keys into fullkeys
-        no_class_keys: dict[str, ConfigValue] = {}
         for key, val in config.items():
             first = key.split(".")[0]
-            # Set the priority of class traits lower and duplicate them
-            # for each instance of their class in the config tree
-            if first in config_classes:
-                val.priority = 10
-                # we assume we will have at least one fullkey, since the classname
-                # appeared in cls._classes_inc_parents
-                for fullkey in self.resolve_class_key(key):
-                    newval = val.copy()
-                    val.key = fullkey
-                    no_class_keys[fullkey] = newval
-            else:
-                no_class_keys[key] = val
 
-        # Resolve fullpath for all keys
-        output = {}
-        for key, val in no_class_keys.items():
+            separate = first in self._separate_sections
+            scheme = self._separate_sections.get(first, self)
+
             # If an error happens in resolve_key, we have a fallback
             fullkey = key
             with ConfigErrorHandler(self, key):
-                fullkey, container_cls, trait = self.resolve_key(key)
+                fullkey, container_cls, trait = scheme.resolve_key(key)
                 val.container_cls = container_cls
                 val.trait = trait
+
+            if separate:
+                fullkey = f"{first}.{fullkey}"
+
             output[fullkey] = val
 
         return output

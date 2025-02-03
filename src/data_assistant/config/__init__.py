@@ -1,6 +1,6 @@
 """Specify parameters in a configuration tree."""
 
-from .application import ApplicationBase, LoggingMixin
+from .application import ApplicationBase, SingletonScheme
 from .loaders import (
     CLILoader,
     ConfigLoader,
@@ -20,10 +20,10 @@ __all__ = [
     "DictLikeLoader",
     "FileLoader",
     "FixableTrait",
-    "LoggingMixin",
     "PyLoader",
     "RangeTrait",
     "Scheme",
+    "SingletonScheme",
     "TomlkitLoader",
     "Undefined",
     "YamlLoader",

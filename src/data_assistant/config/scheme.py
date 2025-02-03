@@ -14,11 +14,10 @@ from inspect import Parameter, signature
 from textwrap import dedent
 
 from traitlets import Bool, Enum, Instance, Sentinel, TraitType, Undefined
-from traitlets.config import Configurable
+from traitlets.config import HasTraits
 
 from .loaders import ConfigValue
 from .util import (
-    ConfigError,
     UnknownConfigKeyError,
     add_spacer,
     get_trait_typehint,
@@ -28,6 +27,9 @@ from .util import (
     underline,
     wrap_text,
 )
+
+if t.TYPE_CHECKING:
+    from .application import ApplicationBase
 
 log = logging.getLogger(__name__)
 
@@ -56,7 +58,7 @@ def _name_to_classdef(name: str) -> str:
     return f"_{name}SchemeDef"
 
 
-class Scheme(Configurable):
+class Scheme(HasTraits):
     """Object holding configurable values.
 
     This class inherits from :class:`traitlets.config.Configurable` and so can hold
@@ -82,6 +84,8 @@ class Scheme(Configurable):
     command line help message. It also enables having unique keys that point to a
     specific trait in the configuration tree (see :meth:`resolve_key`).
     """
+
+    _application_cls: type[ApplicationBase] | None = None
 
     _subschemes: dict[str, type[Scheme]] = {}
     """Mapping of nested Scheme classes."""
@@ -186,10 +190,56 @@ class Scheme(Configurable):
                         f"Alias '{short}:{alias}' in {cls.__name__} malformed."
                     ) from err
 
-    # TODO Support nested config dictionary, or dot-separated kwargs
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(
+        self,
+        config: abc.Mapping[str, t.Any] | None = None,
+        *,
+        app: ApplicationBase | t.Literal[False] | None = None,
+        **kwargs,
+    ):
+        clsname = self.__class__.__name__
+
+        if config is None:
+            config = {}
+        config = dict(config)
+
+        if app is not False:
+            if app is None and self._application_cls is not None:
+                app = self._application_cls.instance()
+            if app is not None:
+                if clsname not in app._separate_sections:
+                    raise KeyError(f"'{clsname}' is not among registered sections.")
+
+                app_conf: dict[str, t.Any] = nest_dict(app.conf).get(clsname, {})
+                config = app_conf | config
+
+        config |= kwargs
+
+        with self.hold_trait_notifications():
+            self._init_subschemes(config)
+            self._init_direct_traits(config)
+
+        if config:
+            raise KeyError(f"Extra parameters for {clsname} {list(config.keys())}")
+
         self.postinit()
+
+    def _init_direct_traits(self, config: dict[str, t.Any], **kwargs):
+        config |= kwargs
+
+        log.info("instanciate %s with %s", self.__class__.__name__, config)
+        for name in self.trait_names(config=True, subscheme=None):
+            if name in config:
+                value = config.pop(name)
+                if isinstance(value, ConfigValue):
+                    value = value.get_value()
+                setattr(self, name, value)
+
+    def _init_subschemes(self, config: dict[str, t.Any], **kwargs):
+        config |= kwargs
+        for name, subcls in self._subschemes.items():
+            sub_inst = subcls(config.pop(name, {}))
+            setattr(self, name, sub_inst)
 
     def postinit(self):
         """Run any instructions after instanciation.
@@ -479,7 +529,7 @@ class Scheme(Configurable):
     def reset(self) -> None:
         """Reset all traits to their default value."""
 
-        def func(scheme: Configurable, traits, key: str, trait: TraitType, path):
+        def func(scheme: Scheme, traits, key: str, trait: TraitType, path):
             setattr(scheme, key, trait.default())
 
         self.remap(func, config=True)
@@ -651,7 +701,7 @@ class Scheme(Configurable):
     @classmethod
     def _classes_inc_parents(
         cls, classes: abc.Iterable[type[Scheme]] | None = None
-    ) -> abc.Generator[type[Configurable], None, None]:
+    ) -> abc.Generator[type[Scheme], None, None]:
         """Iterate through configurable classes, including configurable parents.
 
         Children should always be after parents, and each class should only be
@@ -669,58 +719,13 @@ class Scheme(Configurable):
         for c in classes:
             # We want to sort parents before children, so we reverse the MRO
             for parent in reversed(c.mro()):
-                if issubclass(parent, Configurable) and (parent not in seen):
+                if issubclass(parent, Scheme) and (parent not in seen):
                     seen.add(parent)
                     yield parent
 
-    @classmethod
-    def instanciate_recursively(cls, config: abc.Mapping, **kwargs) -> t.Self:
-        """Instanciate this class and its subschemes with values from config.
-
-        Parameters
-        ----------
-        config
-            Nested configuration mapping attribute names of traits to values (or
-            ConfigValue) nest on subschemes.
-        kwargs
-            Passed to `__init__`. Used for passing *parent* keyword.
-        """
-        my_conf = cls.get_subconfig(config, subscheme=None)
-        me = cls(**my_conf, **kwargs)
-
-        # Instanciate and set subschemes
-        for name, subcls in me._subschemes.items():
-            subconf = config.get(name, {})
-            sub_instance = subcls.instanciate_recursively(subconf, parent=me)
-            me.set_trait(name, sub_instance)
-        return me
-
-    @classmethod
-    def get_subconfig(cls, config: abc.Mapping, **select) -> dict:
-        """Return only the parameters corresponding to traits of `obj`.
-
-        Parameters
-        ----------
-        config
-            Nested mapping from trait names to values or ConfigValue. If a ConfigValue, it
-            it converted to a plain value with :meth:`.ConfigValue.get_value`.
-        select
-            Is used to further constrain the traits to keep.
-        """
-        out = {
-            name: config[name]
-            for name in cls.class_trait_names(**select)
-            if name in config
-        }
-        for k, v in out.items():
-            if isinstance(v, ConfigValue):
-                out[k] = v.get_value()
-        return out
-
     def remap(
         self,
-        func: abc.Callable[[Configurable, dict, str, TraitType, list[str]], None]
-        | None,
+        func: abc.Callable[[Scheme, dict, str, TraitType, list[str]], None] | None,
         flatten: bool = False,
         **metadata,
     ) -> dict[str, t.Any]:
@@ -853,51 +858,8 @@ class Scheme(Configurable):
 
         return ".".join(fullkey + [trait_name]), subscheme, trait
 
-    @classmethod
-    def resolve_class_key(cls, key: str | list[str]) -> list[str]:
-        """Resolve a "class key".
-
-        Meaning a trait value specified as ``SchemeClassName.trait_name = ...``.
-        Because *unlike in "native" traitlets* a Scheme can be used multiple times in
-        the configuration tree (and still have instances with different configuration
-        values), this method finds all occurences of the specified class and for each
-        return the full key pointing to the trait.
-
-        Parameters
-        ----------
-        key
-            The key pointing to a trait either as a string like above, or a list
-            resulting from ``key.split(".")``.
-
-        Returns
-        -------
-        keys
-            A list of dot separated attribute names that *unambiguously* and *uniquely*
-            point to a trait in the config tree, starting from this Scheme, ending with
-            the trait name.
-        """
-        if isinstance(key, str):
-            key = key.split(".")
-        if len(key) > 2:
-            raise ConfigError(
-                f"A parameter --Class.trait cannot be nested ({'.'.join(key)})."
-            )
-
-        clsname, trait_name = key
-
-        # Recurse throughout configuration tree to find matching classes
-        def recurse(scheme: type[Scheme], fullpath: list[str]) -> abc.Iterator[str]:
-            if scheme.__name__ == clsname:
-                yield ".".join(fullpath + [trait_name])
-            for name, subscheme in scheme._subschemes.items():
-                newpath = fullpath + [name]
-                yield from recurse(subscheme, newpath)
-
-        return list(recurse(cls, []))
-
-    @classmethod
+    @staticmethod
     def merge_configs(
-        cls,
         *configs: abc.Mapping[str, ConfigValue],
     ) -> dict[str, ConfigValue]:
         """Merge multiple flat configuration mappings.
@@ -911,8 +873,6 @@ class Scheme(Configurable):
         for c in configs:
             for k, v in c.items():
                 if k in out:
-                    if v.priority < out[k].priority:
-                        continue
                     log.debug(
                         "Parameter '%s' with value '%s' (from %s) has been overwritten "
                         "by value '%s' (from %s).",

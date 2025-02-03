@@ -117,8 +117,7 @@ classes and the traits therein.
 
 Inspiration could be taken from their implementation to enable this feature. We
 already have :meth:`.Scheme.keys` that provides an example on how to list
-sub-schemes and their parameters, to which we should add class-keys (nearly
-already provided by :class:`.Scheme._classes_inc_parents`) as well as aliases.
+sub-schemes and their parameters, as well as aliases.
 
 Parameter interpolation
 -----------------------

@@ -50,10 +50,10 @@ when using static type checking.
 import typing as t
 from collections import abc
 
-from .data_manager import DataManagerBase
+from .data_manager import Dataset
 
 _K = t.TypeVar("_K", bound=abc.Hashable)
-_V = t.TypeVar("_V", bound=type[DataManagerBase])
+_V = t.TypeVar("_V", bound=type[Dataset])
 
 
 class DatasetStore(dict[_K, _V]):

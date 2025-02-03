@@ -105,31 +105,20 @@ class ParamsManagerScheme(ParamsManagerAbstract[T_Scheme]):
     values to :attr:`params`.
     """
 
-    PARAMS_DEFAULTS: dict[str, t.Any] = {}
-    """Default values of new traits.
-
-    Optional. Can be used to define default values for parameters local to a
-    data-manager, (*ie* that are not defined in project-wide with
-    :mod:`data_assistant.config`).
-
-    TODO Explain how to add traits.
-    """
-
     RAISE_ON_MISS: bool = True
 
-    PARAMS_PATH: str | None = None
-    """Path (dot-separated keys) that lead to the subscheme containing parameters."""
-
-    # Fix ignore with default kwarg in TypeVar in python3.13
-    SCHEME: type[T_Scheme] = Scheme  # type: ignore
-    """Scheme class to use as parameters.
-
-    This is *after* following :attr:`.PARAMS_PATH` on an input argument.
-    """
+    SCHEME_CLS: type[T_Scheme]
+    """Scheme class to use as parameters."""
 
     _params: T_Scheme
 
     def _init_module(self) -> None:
+        if not hasattr(self, "SCHEME_CLS"):
+            app = self.dm._application_cls
+            self.SCHEME_CLS = app if app is not None else Scheme  # type: ignore[assignment]
+
+        self._params = self.SCHEME_CLS()
+
         self._reset_params()
 
     def set_params(
@@ -174,18 +163,10 @@ class ParamsManagerScheme(ParamsManagerAbstract[T_Scheme]):
         """
         if params is None:
             params = {}
-        # Select subscheme
-        elif isinstance(params, Scheme) and self.PARAMS_PATH is not None:
-            params = params[self.PARAMS_PATH]
-            if not isinstance(params, Scheme):
-                raise TypeError(f"'{self.PARAMS_PATH}' did not led to subscheme.")
 
         self._params.update(
             params, allow_new=True, raise_on_miss=self.RAISE_ON_MISS, **kwargs
         )
 
     def _reset_params(self) -> None:
-        self._params = self.SCHEME()
-        self._params.update(
-            self.PARAMS_DEFAULTS, allow_new=True, raise_on_miss=self.RAISE_ON_MISS
-        )
+        self._params.reset()

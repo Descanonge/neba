@@ -65,12 +65,6 @@ class ConfigValue:
         """The trait instance specifying the parameter to configure."""
         self.container_cls: type[HasTraits] | None = None
         """The configurable class that owns the trait."""
-        self.priority: int = 100
-        """Priority of the value used when merging config.
-
-        If two values, possibly from different sources, target the same parameter the
-        value with the highest priority is used.
-        """
 
     def __str__(self) -> str:
         s = [str(self.get_value())]
@@ -243,10 +237,8 @@ class ConfigLoader:
         """Apply config for Application."""
         for key, val in self.config.items():
             keypath = key.split(".")
-            if (len(keypath) == 1 and key in self.app.trait_names()) or (
-                len(keypath) == 2 and keypath[0] == self.app.__class__.__name__
-            ):
-                traitname = keypath[-1]
+            if len(keypath) == 1 and key in self.app.trait_names():
+                traitname = keypath[0]
                 val.trait = self.app.traits()[traitname]
                 if val.value is Undefined:
                     val.parse()

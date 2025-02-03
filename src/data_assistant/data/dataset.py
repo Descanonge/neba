@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import copy
+import itertools
 import logging
 import typing as t
 from collections import abc
 
+from ..config.scheme import Scheme
+from ..config.util import nest_dict
 from .loader import LoaderAbstract
 from .module import CachedModule, Module
 from .params import ParamsManagerAbstract
@@ -52,7 +55,11 @@ class HasModules:
     _modules: dict[str, Module]
     """Mapping from attribute names to module instances. Filled during initialization."""
 
-    def __init_subclass__(cls) -> None:
+    def __init_subclass__(cls, /, **kwargs) -> None:
+        cls._check_registered()
+
+    @classmethod
+    def _check_registered(cls) -> None:
         # Check the registered modules
         type_attrs = []
         inst_attrs = []
@@ -65,6 +72,7 @@ class HasModules:
                 raise ValueError(
                     f"Multiple modules registered with instance attribute {attr}"
                 )
+            # TODO: check type_attr class
             type_attrs.append(spec.type_attr)
             inst_attrs.append(spec.instance_attr)
 
@@ -91,11 +99,11 @@ class HasModules:
                     spec.type,
                 )
 
-            # Initialize module, still permissile.
+            # Instanciate module, still permissive.
             try:
                 mod = mod_type(*args, **kwargs)
             except Exception as e:
-                log.warning(e)
+                log.warning("Error when instanciating module %s", mod_type, exc_info=e)
 
             # link to data manager instance
             mod.dm = self  # type: ignore
@@ -109,17 +117,22 @@ class HasModules:
         _init_module will be called on all ancestors.
         """
         initialized: list[type[Module]] = list()
-        for mod in self._modules.values():
+        for name, mod in self._modules.items():
             for ancestor in mod.__class__.mro():
                 if issubclass(ancestor, Module) and ancestor not in initialized:
                     try:
                         ancestor._init_module(mod)
                     except Exception as e:
-                        log.warning(e)
+                        log.warning(
+                            "Error when initializing module %s (%s)",
+                            name,
+                            ancestor,
+                            exc_info=e,
+                        )
                     initialized += ancestor.mro()
 
 
-class DataManagerBase(t.Generic[T_Params, T_Source, T_Data], HasModules):
+class Dataset(t.Generic[T_Params, T_Source, T_Data], HasModules, Scheme):
     """DataManager base object.
 
     Registers modules for parameters management, source management, data loading,
@@ -134,17 +147,17 @@ class DataManagerBase(t.Generic[T_Params, T_Source, T_Data], HasModules):
     block.
     """
 
+    SHORTNAME: str | None = None
+    """Short name to refer to this data-manager class."""
+    ID: str | None = None
+    """Long name to identify uniquely this data-manager class."""
+
     _registered_modules = [
         ModuleSpec("_Params", "params_manager", ParamsManagerAbstract),
         ModuleSpec("_Source", "source", SourceAbstract),
         ModuleSpec("_Loader", "loader", LoaderAbstract),
         ModuleSpec("_Writer", "writer", WriterAbstract),
     ]
-
-    SHORTNAME: str | None = None
-    """Short name to refer to this data-manager class."""
-    ID: str | None = None
-    """Long name to identify uniquely this data-manager class."""
 
     _Params: type[ParamsManagerAbstract] = ParamsManagerAbstract[T_Params]
     _Source: type[SourceAbstract] = SourceAbstract[T_Source]
@@ -164,8 +177,20 @@ class DataManagerBase(t.Generic[T_Params, T_Source, T_Data], HasModules):
     loader: LoaderAbstract[T_Source, T_Data]
     writer: WriterAbstract[T_Source, T_Data]
 
+    def __init_subclass__(cls, /, **kwargs) -> None:
+        HasModules.__init_subclass__(**kwargs)
+        Scheme.__init_subclass__(**kwargs)
+
     def __init__(self, params: t.Any | None = None, **kwargs) -> None:
         self._reset_callbacks = {}
+
+        # extract trait from kwargs
+        config = {}
+        for name in itertools.chain(self.trait_names(config=True), self._subschemes):
+            if name in kwargs:
+                config[name] = kwargs.pop(name)
+
+        Scheme.__init__(self, config)
 
         self._instanciate_modules(params=params, **kwargs)
         self._init_modules()
@@ -199,6 +224,9 @@ class DataManagerBase(t.Generic[T_Params, T_Source, T_Data], HasModules):
     @property
     def params(self) -> T_Params:
         """Parameters values for this instance."""
+        # TODO: should return frozen object
+        # frozen dict, a version of scheme that is frozen?
+        # maybe separate scheme into FrozenScheme and Scheme(FrozenScheme)?
         return self.params_manager._params
 
     def set_params(
@@ -397,7 +425,7 @@ class DataManagerBase(t.Generic[T_Params, T_Source, T_Data], HasModules):
 
 
 class _ParamsContext:
-    def __init__(self, dm: DataManagerBase, save_cache: bool):
+    def __init__(self, dm: Dataset, save_cache: bool):
         self.dm = dm
         self.params = copy.deepcopy(dm.params)
         self.caches: dict | None = None

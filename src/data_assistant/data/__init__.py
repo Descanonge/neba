@@ -1,6 +1,6 @@
 """Define easily classes to deal with your many datasets."""
 
-from .data_manager import DataManagerBase
+from .data_manager import Dataset
 from .loader import LoaderAbstract
 from .module import CachedModule, Module, autocached
 from .params import ParamsManager, ParamsManagerAbstract, ParamsManagerScheme

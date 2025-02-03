@@ -8,7 +8,7 @@ import typing as t
 from collections import abc
 
 if t.TYPE_CHECKING:
-    from .data_manager import DataManagerBase
+    from .data_manager import Dataset
 
 log = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ log = logging.getLogger(__name__)
 class Module:
     """Module to which the data-manager delegates some functionality."""
 
-    dm: DataManagerBase
+    dm: Dataset
 
     @property
     def params(self) -> t.Any:
