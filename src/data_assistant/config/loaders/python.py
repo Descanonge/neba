@@ -11,7 +11,7 @@ from ..util import get_trait_typehint, underline, wrap_text
 from .core import ConfigValue, FileLoader, SerializerDefault
 
 if t.TYPE_CHECKING:
-    from ..scheme import Section
+    from ..section import Section
 
 
 class PyConfigContainer:

@@ -12,13 +12,13 @@ from data_assistant.config.loaders.python import PyConfigContainer, PyLoader
 from data_assistant.config.util import ConfigParsingError
 
 # from data_assistant.config.loaders.python import PyLoader
-from ..scheme_generation import GenericScheme, GenericSchemeInfo
+from ..section_generation import GenericSection, GenericSectionInfo
 
 LOADERS: list[type[ConfigLoader]]
 FILE_LOADERS: list[type[FileLoader]]
 
 
-class App(ApplicationBase, GenericScheme):
+class App(ApplicationBase, GenericSection):
     file_loaders = [PyLoader]
     pass
 
@@ -112,7 +112,7 @@ class TestCLILoader:
 
     def test_parsing(self):
         args = []
-        for k, v in GenericSchemeInfo.generic_args().items():
+        for k, v in GenericSectionInfo.generic_args().items():
             args.append(f"--{k}")
             args += v
 
@@ -120,10 +120,10 @@ class TestCLILoader:
         parsed = app.parse_command_line(args)
 
         parsed = {k: v.get_value() for k, v in parsed.items()}
-        assert GenericSchemeInfo().generic_values() == parsed
+        assert GenericSectionInfo().generic_values() == parsed
 
     def test_classkey(self):
-        args = "--App.int 15 --GenericTraits.list_int 1 2 --TwinSubscheme.int 3"
+        args = "--App.int 15 --GenericTraits.list_int 1 2 --TwinSubsection.int 3"
         app = App()
         parsed = app.parse_command_line(args.split(" "))
         parsed = {k: v.get_value() for k, v in parsed.items()}
@@ -140,7 +140,7 @@ class TestCLILoader:
         assert "list_int" not in parsed
         assert app.list_int == [0]
 
-        # --TwinSubscheme.int 3
+        # --TwinSubsection.int 3
         assert parsed["twin_a.int"] == 3
         assert parsed["twin_b.int"] == 3
         assert parsed["sub_twin.twin_c.int"] == 3
@@ -183,13 +183,13 @@ class TestPythonLoader:
         conf = app.load_config_files()
         conf = {k: v.get_value() for k, v in conf.items()}
 
-        assert conf == GenericSchemeInfo.generic_values()
+        assert conf == GenericSectionInfo.generic_values()
 
-    @given(values=GenericSchemeInfo.values_half_strat())
+    @given(values=GenericSectionInfo.values_half_strat())
     def test_write_and_read_half(self, values: dict):
         self.assert_write_read(values)
 
-    @given(values=GenericSchemeInfo.values_all_strat())
+    @given(values=GenericSectionInfo.values_all_strat())
     def test_write_and_read_all(self, values: dict):
         self.assert_write_read(values)
 
@@ -246,7 +246,7 @@ def test_reading():
 
 # Parametrize for all file loaders
 def test_to_lines_some():
-    # for the typical scheme
+    # for the typical section
     # change SOME values
     # to_lines in a temp file
     # read file
@@ -256,7 +256,7 @@ def test_to_lines_some():
 
 # Parametrize for all file loaders
 def test_to_lines_all():
-    # for the typical scheme
+    # for the typical section
     # specify ALL values
     # to_lines in a temp file
     # read file

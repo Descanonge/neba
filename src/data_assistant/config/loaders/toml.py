@@ -16,7 +16,7 @@ if t.TYPE_CHECKING:
     from tomlkit.container import Container as TOMLContainer
     from tomlkit.container import Item, Table
 
-    from .scheme import Section
+    from .section import Section
 
     T = t.TypeVar("T", bound=TOMLContainer | Table)
 

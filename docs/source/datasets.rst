@@ -151,27 +151,27 @@ save the initial parameters and restore them when exiting::
 
 As noted above, how parameters are stored and managed can be customized. The
 default is a simple dictionnary storing the parameters: :class:`.ParamsManager`.
-The package also provides :class:`.ParamsManagerScheme` where parameters are
-stored in a :class:`data_assistant.config.scheme.Scheme` object. By specifying
+The package also provides :class:`.ParamsManagerSection` where parameters are
+stored in a :class:`data_assistant.config.section.Section` object. By specifying
 the exact expected type of the parameters, this can ensure the existence of
 parameters::
 
-    class MyParameters(Scheme):
+    class MyParameters(Section):
         threshold = Float(0.5)
 
-    class Dataset(ParamsSchemePlugin, DataManagerBase):
+    class Dataset(ParamsSectionPlugin, DataManagerBase):
 
         params: MyParameters
 
 Now we are sure that ``Dataset().params`` will contain a ``threshold``
-attribute. This comes at the cost of flexibility since schemes are not as
+attribute. This comes at the cost of flexibility since sections are not as
 malleable as other mutable mapping types as it only implements
-:meth:`~.Scheme.update` (see :ref:`mapping-interface`).
+:meth:`~.Section.update` (see :ref:`mapping-interface`).
 
 .. note::
 
    The abstract parameters module is expecting that the parameters are storred
-   in a :class:`~collections.abc.MutableMapping`. The Scheme class implements
+   in a :class:`~collections.abc.MutableMapping`. The Section class implements
    *most* of what is needed to be mutable, but cannot delete keys.
 
 .. _cache-module:

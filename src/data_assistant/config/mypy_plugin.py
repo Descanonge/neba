@@ -11,9 +11,9 @@ from mypy.plugin import ClassDefContext, Plugin, SemanticAnalyzerPluginInterface
 from mypy.plugins.common import add_attribute_to_class
 from mypy.types import Instance, TypeVarLikeType
 
-from data_assistant.config.scheme import _name_to_classdef
+from data_assistant.config.section import _name_to_classdef
 
-SECTION_FULLNAME = "data_assistant.config.scheme.Section"
+SECTION_FULLNAME = "data_assistant.config.section.Section"
 
 
 class SectionPlugin(Plugin):

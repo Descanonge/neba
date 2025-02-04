@@ -21,7 +21,7 @@ from ..util import (
 
 if t.TYPE_CHECKING:
     from .application import ApplicationBase
-    from .scheme import Section
+    from .section import Section
 
 Undefined = Sentinel(
     "Undefined", "data-assistant", "Configuration value not (yet) set or parsed."

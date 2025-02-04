@@ -16,7 +16,7 @@ motivations behind the design choices :doc:`here<motivations>`.
 
    The main difference with the "vanilla" traitlets package is that we allow
    nested configurations. We replace :class:`traitlets.config.Configurable` by
-   our subclass :class:`~config.scheme.Scheme` and use our own
+   our subclass :class:`~config.section.Section` and use our own
    :class:`~config.application.ApplicationBase` class.
 
 Once defined, the parameters values can be recovered from configuration files
@@ -32,7 +32,7 @@ it in sphinx documentations.
 Specifying parameters
 =====================
 
-Parameters are specified as class attributes of a :class:`~.scheme.Scheme`
+Parameters are specified as class attributes of a :class:`~.section.Section`
 class, and are subclasses of :class:`traitlets.TraitType` (for instance
 :class:`~traitlets.Float`, :class:`~traitlets.Unicode`, or
 :class:`~traitlets.List`).
@@ -45,7 +45,7 @@ class, and are subclasses of :class:`traitlets.TraitType` (for instance
    :external+python:doc:`descriptor<howto/descriptor>`. A trait is an
    **instance** bound to a **class**. Let's take for instance::
 
-     class Container(Scheme):
+     class Container(Section):
          name = Float(default_value=1.)
 
    From this we can access the trait instance with ``Container.name``, but it
@@ -67,46 +67,46 @@ class, and are subclasses of :class:`traitlets.TraitType` (for instance
    to validate the new value, or do some more advanced things. But the value
    is tied to the container instance ``c``.
 
-A scheme can contain other sub-schemes, allowing a tree-like, nested
-configuration. It can be done by using the :func:`~scheme.subscheme` function
-and setting it as an attribute in the parent scheme::
+A section can contain other sub-sections, allowing a tree-like, nested
+configuration. It can be done by using the :func:`~section.subsection` function
+and setting it as an attribute in the parent section::
 
-    from data_assistant.config import subscheme
+    from data_assistant.config import subsection
 
-    class ChildScheme(Scheme):
+    class ChildSection(Section):
         param_b = Int(1)
 
-    class ParentScheme(Scheme):
+    class ParentSection(Section):
         param_a = Int(1)
 
-        child = subscheme(ChildScheme)
+        child = subsection(ChildSection)
 
 In the example above we have two parameters available at ``param_a`` and
 ``child.param_b``.
 
-For ease of use and readability, subschemes can also be defined directly inside
-another scheme class definition. The name of such a nested class will be used
-for the corresponding subscheme attribute. The class will be renamed and moved
-moved under the attribute ``_{name}SchemeDef``. For example::
+For ease of use and readability, subsections can also be defined directly inside
+another section class definition. The name of such a nested class will be used
+for the corresponding subsection attribute. The class will be renamed and moved
+moved under the attribute ``_{name}SectionDef``. For example::
 
-    class MyConfig(Scheme):
+    class MyConfig(Section):
 
-        class log(Scheme):
+        class log(Section):
             level = Unicode("INFO")
 
-        class sst(Scheme):
+        class sst(Section):
             dataset = Enum(["a", "b"])
 
-            class a(Scheme):
+            class a(Section):
                 location = Unicode("/somewhere")
                 time_resolution = Int(8, help="in days")
 
-            class b(Scheme):
+            class b(Section):
                 location = Unicode("/somewhere/else")
 
 As it is a bit unorthodox and as of now not thoroughly tested, the automatic
 promotion of attributes can be disabled by directly setting the class attribute
-:attr:`Scheme._dynamic_subschemes` to False.
+:attr:`Section._dynamic_subsections` to False.
 
 A mypy plugin is provided to support these dynamic definitions. Add it to the
 list of plugins in your mypy configuration file, for instance for
@@ -116,24 +116,24 @@ list of plugins in your mypy configuration file, for instance for
     plugins = ['data_assistant.config.mypy_plugin']
 
 
-The principal scheme, at the root of the configuration tree, is the
+The principal section, at the root of the configuration tree, is the
 :class:`application<.application.ApplicationBase>`. It can hold directly all
-your parameters, or nested sub-schemes. It will be responsible for gathering the
+your parameters, or nested sub-sections. It will be responsible for gathering the
 parameters from configuration files and the command line.
 
 Here is a rather simple example::
 
-     from data_assistant.config import ApplicationBase, Scheme
+     from data_assistant.config import ApplicationBase, Section
      from traitlets import Bool, Float, Int, List, Unicode
 
 
      class App(ApplicationBase):
 
-        class computation(Scheme):
+        class computation(Section):
             parallel = Bool(False, help="Conduct computation in parallel if true.")
             n_cores = Int(1, help="Number of cores to use for computation.")
 
-        class physical(Scheme):
+        class physical(Section):
             threshold = Float(2.5, help="Threshold for some computation.")
             data_name = Unicode("SST")
             years = List(
@@ -150,7 +150,7 @@ Accessing parameters
 ====================
 
 As explained :ref:`above<traits-explain>`, the **value** of parameters can be
-accessed (or changed) like attributes of the scheme instance that contains them.
+accessed (or changed) like attributes of the section instance that contains them.
 This has the advantages to allow for deeply nested access::
 
   app.some.deeply.nested.trait = 2
@@ -164,17 +164,17 @@ for more details on how to use these features.
 Obtaining all parameters
 ------------------------
 
-TODO: Now it support dictionary operations. use ``dict(scheme)`` or
-eventually ``scheme.as_dict()`` if a nested dict is needed.
+TODO: Now it support dictionary operations. use ``dict(section)`` or
+eventually ``section.as_dict()`` if a nested dict is needed.
 
 But of course, it is often necessary to pass parameters to code that is not
-supporting Schemes.
-Thus Schemes allow to obtain parameters in more universal python dictionaries.
-The methods :meth:`.Scheme.values_recursive`, :meth:`.Scheme.traits_recursive`,
-and :meth:`.Scheme.defaults_recursive` return nested or flat dictionaries
-of all the parameters the scheme (and its sub-schemes) contains. To limit to
-only the parameters of this scheme (and *not* its sub-schemes) use
-:meth:`.Scheme.values` with arguments ``(subschemes=False, recursive=False)``.
+supporting Sections.
+Thus Sections allow to obtain parameters in more universal python dictionaries.
+The methods :meth:`.Section.values_recursive`, :meth:`.Section.traits_recursive`,
+and :meth:`.Section.defaults_recursive` return nested or flat dictionaries
+of all the parameters the section (and its sub-sections) contains. To limit to
+only the parameters of this section (and *not* its sub-sections) use
+:meth:`.Section.values` with arguments ``(subsections=False, recursive=False)``.
 
 So for instance we can retrieve all our application parameters::
 
@@ -194,7 +194,7 @@ So for instance we can retrieve all our application parameters::
       }
   }
 
-It works for any scheme instance, so we can retrieve only the computation
+It works for any section instance, so we can retrieve only the computation
 parameters::
 
   >>> app.computation.values_recursive()
@@ -208,12 +208,12 @@ parameters::
 Mapping interface
 -----------------
 
-The Scheme class also implements the interface of a
+The Section class also implements the interface of a
 :external+python:ref:`mapping<collections-abstract-base-classes>` (notably for
-instance :meth:`~.Scheme.keys`, :meth:`~.Scheme.values`, :meth:`~.Scheme.items`,
-:meth:`~.Scheme.get`, as well as contains, iter, and len operations).
+instance :meth:`~.Section.keys`, :meth:`~.Section.values`, :meth:`~.Section.items`,
+:meth:`~.Section.get`, as well as contains, iter, and len operations).
 The keys to access this mapping can directly lead to a deeply nested parameter,
-by joining the successive subschemes names with dots like so::
+by joining the successive subsections names with dots like so::
 
     >>> app["some.deeply.nested.parameter"]
     the parameter value
@@ -224,12 +224,12 @@ but we can also use the set-item operation, both are equivalent::
     app.some.deeply.nested.parameter = 3
     app["some.deeply.nested.parameter"] = 3
 
-Additionally, it implements an :meth:`~.Scheme.update` method allowing to modify
-a scheme with a mapping of several parameters::
+Additionally, it implements an :meth:`~.Section.update` method allowing to modify
+a section with a mapping of several parameters::
 
     app.update({"computation.n_cores": 10, "physical.threshold": 5.})
 
-It can add new traits to the scheme with some specific input, see the docstring
+It can add new traits to the section with some specific input, see the docstring
 for details. This should be considered experimental (even more so than the rest
 of this library anyway).
 
@@ -240,7 +240,7 @@ the future.
 Obtaining subsets of all parameters
 -----------------------------------
 
-Using :meth:`.Scheme.select` we can select only some of the parameters by name::
+Using :meth:`.Section.select` we can select only some of the parameters by name::
 
   >>> app.select("physical.threshold", "computation.n_cores", flatten=True)
   {
@@ -251,7 +251,7 @@ Using :meth:`.Scheme.select` we can select only some of the parameters by name::
 .. note::
 
    Users wanting to automate some logic on nested dictionaries can lever the
-   method :meth:`.Scheme.remap` that map a user function on a nested (or flat)
+   method :meth:`.Section.remap` that map a user function on a nested (or flat)
    dictionary of traits.
 
    Functions :func:`.util.nest_dict` and :func:`.util.flatten_dict` can also
@@ -265,8 +265,8 @@ definition like so::
 
 These traits can then automatically be retrieved using the `metadata` argument
 of the function above (adding ``for_this_function=True`` to the call).
-Schemes also feature a specialized function for this use case:
-:meth:`.Scheme.trait_values_from_func_signature` will find the parameters that
+Sections also feature a specialized function for this use case:
+:meth:`.Section.trait_values_from_func_signature` will find the parameters that
 share the same name as arguments in the function signature.
 
 Input parameters
@@ -287,7 +287,7 @@ The parameters found are then normalized: each resulting parameter key is unique
 and unambiguous. This provides a first layer of checking the input: keys that do
 not lead to a known parameter will raise errors. This permit to merge the
 parameters obtained from different files and CLI. Finally, the application will
-recursively instanciate all schemes while passing the configuration values.
+recursively instanciate all sections while passing the configuration values.
 Unspecified values will take the trait default value. All values will undergo
 validation from traitlets.
 
@@ -306,20 +306,20 @@ In all cases (files and CLI) the configuration values are retrieved by a
 A "resolved" key is a succession of attribute names pointing to a trait,
 starting from the application. It is thus unique. With the same example as above
 for instance: ``physical.years``. There can be more levels if the configuration
-is deeply nested ``scheme.subscheme.sub_subscheme.etc.traitname``.
+is deeply nested ``section.subsection.sub_subsection.etc.traitname``.
 
 .. important::
 
-    It is possible to define aliases with the :attr:`.Scheme.aliases` attribute.
-    It is a mapping of shortcut names to a deeper subscheme::
+    It is possible to define aliases with the :attr:`.Section.aliases` attribute.
+    It is a mapping of shortcut names to a deeper subsection::
 
-        {"short": "some.deeply.nested.subscheme"}
+        {"short": "some.deeply.nested.subsection"}
 
     Aliases are expanded when the configuration is resolved.
 
 A parameter can also be input as a "class-key", similarly to how it is done in
-vanilla traitlets. It consists of the name of scheme class and a trait name:
-``SomeSchemeClassName.trait_name``. It cannot be nested further (this
+vanilla traitlets. It consists of the name of section class and a trait name:
+``SomeSectionClassName.trait_name``. It cannot be nested further (this
 complicates how to do merging quite a bit). When the configuration is resolved,
 class-keys are transformed to the corresponding fully resolved key(s). Still
 with the same example: ``PhysicalParams.years`` will be resolved to
@@ -337,7 +337,7 @@ the keys were given in.
 .. note::
 
    Unlike vanilla traitlets, the way we populate instances allows to have
-   multiple instances of the same Scheme with different configurations. This
+   multiple instances of the same Section with different configurations. This
    is why a single class-key can point to multiple locations in the
    configuration tree.
 
@@ -382,7 +382,7 @@ ready to be used by the application.
 The file loaders have an additional feature in the :meth:`.FileLoader.to_lines`
 method. It generates the lines for a valid configuration file of the
 corresponding format, following the default values of the application
-subschemes. If the file loader has its :attr:`~.ConfigLoader.config` dictionary
+subsections. If the file loader has its :attr:`~.ConfigLoader.config` dictionary
 populated (manually or by reading from an existing file) it will use these
 values instead. This allows to generate lengthy configuration files, with
 different amounts of additional information in comments. The end user can simply
@@ -529,8 +529,8 @@ The loader :class:`.DictLikeLoader` can transform any nested mapping into a
 proper configuration object (flat dictionary mapping do-separated keys to
 :class:`.ConfigValue`). It deals in a quite straightforward manner with the
 issue of differentiating between a nested mapping corresponding to an eventual
-trait and one corresponding to further nesting in a subscheme. It simply checks
-if the key is a known subscheme or alias, otherwise it assumes the key
+trait and one corresponding to further nesting in a subsection. It simply checks
+if the key is a known subsection or alias, otherwise it assumes the key
 corresponds to a parameter value.
 
 .. note::

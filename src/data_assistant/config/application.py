@@ -11,7 +11,7 @@ from traitlets import Bool, List, Unicode, Union
 from traitlets.config.configurable import MultipleInstanceError, SingletonConfigurable
 
 from .loaders import CLILoader, ConfigValue
-from .scheme import Section
+from .section import Section
 from .util import ConfigErrorHandler, nest_dict
 
 if t.TYPE_CHECKING:

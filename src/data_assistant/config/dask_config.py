@@ -26,7 +26,7 @@ from traitlets import (
 )
 from traitlets.utils.importstring import import_item
 
-from .scheme import Section, subsection
+from .section import Section, subsection
 from .util import tag_all_traits
 
 log = logging.getLogger(__name__)

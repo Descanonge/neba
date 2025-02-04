@@ -28,22 +28,22 @@ is an abstract class :class:`.ParamsManagerAbstract`, but the base data-manager
 class already sets its parameters module to :class:`.ParamsManager` (which use a
 simple dictionnary for storing parameters).
 
-A :class:`.Scheme` can be used to store parameters using
-:class:`.ParamsManagerScheme`. It allows to use the parameters retrieval from
+A :class:`.Section` can be used to store parameters using
+:class:`.ParamsManagerSection`. It allows to use the parameters retrieval from
 the :doc:`configuration<configuration>`, and restrict parameters to those
-statically defined. Parameters can be added to the scheme at runtime though at
-the module relies on :meth:`.Scheme.update`. The scheme to use must be specified
+statically defined. Parameters can be added to the section at runtime though at
+the module relies on :meth:`.Section.update`. The section to use must be specified
 as a class attribute::
 
-    class Parameters(Scheme):
+    class Parameters(Section):
         ...
 
-    class MyDataManager(ParamsSchemeModule, DataManagerBase):
-        SCHEME = Parameters
+    class MyDataManager(ParamsSectionModule, DataManagerBase):
+        SECTION = Parameters
 
 .. important::
 
-   Using a scheme is not extensively tested.
+   Using a section is not extensively tested.
 
 
 Source

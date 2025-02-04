@@ -17,21 +17,21 @@ ideas to develop further this library. In any case, feel free to reach out if
 you feel some features are missing, not working as you would expect them to, or
 if you have trouble extending it yourself.
 
-Scheme
-======
+Section
+=======
 
-The building block of the nested configuration is the :class:`.Scheme` class.
+The building block of the nested configuration is the :class:`.Section` class.
 It holds crucial parts of the configuration framework, notably the methods to
 resolve keys.
 
 Using a subclass instead when creating your configuration should be enough to
-customize the behavior of the schemes.
+customize the behavior of the sections.
 
 To go further, it could be possible (did not thoroughly checked) to replace it
 by another class entirely that would only implement some basic features. Most of
 the other elements of the framework rely on methods inherited from
 :class:`traitlets.config.Configurable` and the basic attribute
-:attr:`.Scheme._subschemes`. This could constitute a base protocol for schemes.
+:attr:`.Section._subsections`. This could constitute a base protocol for sections.
 
 
 Application
@@ -49,16 +49,16 @@ loaders to be used for config files is also important.
 To go even further, one could create their own application base class starting
 from scratch.
 
-We pondered the eventuality of using a different (sub)class of :class:`.Scheme`
+We pondered the eventuality of using a different (sub)class of :class:`.Section`
 previously, which is itself the parent class of the application. As it is
-hard-coded, it is currently impossible to use a different scheme base for the
+hard-coded, it is currently impossible to use a different section base for the
 application, but maybe that could somehow be changed?
 
 Orphan keys
 -----------
 
-A limitation of the framework is that all the schemes classes *must* be imported
-at runtime. If not, any key referencing a scheme that is not imported will raise
+A limitation of the framework is that all the sections classes *must* be imported
+at runtime. If not, any key referencing a section that is not imported will raise
 an error (as intended). However, it could be desirable to have part of the
 configuration lazily loaded while avoiding errors.
 
@@ -68,7 +68,7 @@ configuration lazily loaded while avoiding errors.
 
 A simple way to solve this problem is the use of what I would call "orphan
 keys". Instead of being part of the configuration tree, these keys would be
-class-keys referencing a previously registered Scheme (or Configurable even).
+class-keys referencing a previously registered Section (or Configurable even).
 Because it relies only on class-keys, we only need to indicate the name of those
 expected class to not raise any errors. It would part the configuration in two
 though: the configuration tree, and the orphan classes.
@@ -116,8 +116,8 @@ Traitlets allowed completion at the command line of the existing configurable
 classes and the traits therein.
 
 Inspiration could be taken from their implementation to enable this feature. We
-already have :meth:`.Scheme.keys` that provides an example on how to list
-sub-schemes and their parameters, as well as aliases.
+already have :meth:`.Section.keys` that provides an example on how to list
+sub-sections and their parameters, as well as aliases.
 
 Parameter interpolation
 -----------------------
@@ -127,7 +127,7 @@ is referencing a parameter when specifying another. OmegaConf calls it
 :external+omegaconf:ref:`interpolation`.
 
 A first, simple implementation seems feasible. After loading configuration, we
-have a flat, fully resolved configuration. Before instanciating the schemes, it
+have a flat, fully resolved configuration. Before instanciating the sections, it
 should be possible to apply interpolation: any value that is a string could be
 examined and if mention of another parameter is made, it could be replaced.
 Circle referencing should be checked.
@@ -164,7 +164,7 @@ required parameters (specified as a class attribute) are present. It could also
 only keep required parameters and discard others. It would make the most sense
 for the :class:`.ParamsManager` plugin but could be easily made to work
 with any kind of parameters storage that implement. However the existing
-:class:`.ParamsManagerScheme` somewhat fills this requirement.
+:class:`.ParamsManagerSection` somewhat fills this requirement.
 
 Completely different DataManager
 --------------------------------

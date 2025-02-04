@@ -19,7 +19,7 @@ from sphinx.addnodes import desc_sig_space
 from sphinx.domains.python import PyAttribute
 from sphinx.util.typing import OptionSpec
 
-from data_assistant.config.scheme import Section
+from data_assistant.config.section import Section
 from data_assistant.config.util import (
     FixableTrait,
     get_trait_typehint,

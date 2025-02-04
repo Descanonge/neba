@@ -6,7 +6,7 @@ import logging
 import typing as t
 from collections import abc
 
-from ..config.scheme import Section
+from ..config.section import Section
 from .module import Module
 from .util import T_Params
 

@@ -9,7 +9,7 @@ from .loaders import (
     FileLoader,
     Undefined,
 )
-from .scheme import Section, subsection
+from .section import Section, subsection
 from .util import FixableTrait, RangeTrait, tag_all_traits
 
 __all__ = [

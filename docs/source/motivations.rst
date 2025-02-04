@@ -103,7 +103,7 @@ things, but with enough specificities to make it difficult.
 The defining idea is to create a class for each new dataset. Instances of that
 class will correspond to different versions of that datasets, depending on the
 value of some parameters for instance.
-As for the Schemes, the class definition syntax is clear, provide clear
+As for the Sections, the class definition syntax is clear, provide clear
 inheritance, and allows to overwrite existing logic to account for the dataset
 specificities.
 
