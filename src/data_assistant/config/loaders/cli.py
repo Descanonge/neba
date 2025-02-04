@@ -172,7 +172,7 @@ class CLILoader(ConfigLoader):
         # parser.set_action_creation(func)
         return parser
 
-    def load_config(self, argv: list[str] | None = None) -> abc.Iterable[ConfigValue]:
+    def load_config(self, argv: list[str] | None = None) -> abc.Iterator[ConfigValue]:
         """Populate the config attribute from CLI.
 
         Use argparser to obtain key/values.

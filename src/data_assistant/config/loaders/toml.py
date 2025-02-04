@@ -31,7 +31,7 @@ class TomlkitLoader(FileLoader):
 
     extensions = ["toml"]
 
-    def load_config(self) -> abc.Iterable[ConfigValue]:
+    def load_config(self) -> abc.Iterator[ConfigValue]:
         """Populate the config attribute from TOML file.
 
         We use :mod:`tomlkit` to parse file.
@@ -40,7 +40,7 @@ class TomlkitLoader(FileLoader):
             root_table = tomlkit.load(fp)
 
         # flatten tables
-        def recurse(table: T, key: list[str]) -> abc.Iterable[ConfigValue]:
+        def recurse(table: T, key: list[str]) -> abc.Iterator[ConfigValue]:
             for k, v in table.items():
                 newkey = key + [k]
                 if isinstance(v, tomlkit.api.Table):

@@ -249,7 +249,7 @@ class ConfigLoader:
                 cv.parse()
             setattr(self.app, traitname, cv.get_value())
 
-    def load_config(self, *args, **kwargs) -> abc.Iterable[ConfigValue]:
+    def load_config(self, *args, **kwargs) -> abc.Iterabor[ConfigValue]:
         """Populate the config attribute from a source.
 
         :Not implemented:
@@ -360,7 +360,7 @@ class DictLikeLoaderMixin(ConfigLoader):
 
     def resolve_mapping(
         self, input: abc.Mapping, origin: str | None = None
-    ) -> abc.Iterable[ConfigValue]:
+    ) -> abc.Iterator[ConfigValue]:
         """Flatten an input nested mapping."""
         # Some keys might be dot-separated. To make sure we are completely nested:
         input = flatten_dict(input)
@@ -368,7 +368,7 @@ class DictLikeLoaderMixin(ConfigLoader):
 
         def recurse(
             d: abc.Mapping, section: type[Section], key: list[str]
-        ) -> abc.Iterable[ConfigValue]:
+        ) -> abc.Iterator[ConfigValue]:
             for k, v in d.items():
                 if k in section._subsections:
                     assert isinstance(v, abc.Mapping)
@@ -398,6 +398,6 @@ class DictLikeLoader(DictLikeLoaderMixin):
 
     def load_config(
         self, input: abc.Mapping, *args, **kwargs
-    ) -> abc.Iterable[ConfigValue]:
+    ) -> abc.Iterator[ConfigValue]:
         """Populate the config attribute from a nested mapping."""
         yield from self.resolve_mapping(input)

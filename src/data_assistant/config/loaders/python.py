@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import typing as t
+from collections import abc
 from textwrap import dedent
 
 from traitlets import Enum, TraitType, Type
@@ -94,7 +95,7 @@ class PyLoader(FileLoader):
 
     extensions = ["py", "ipy"]
 
-    def load_config(self) -> None:
+    def load_config(self) -> abc.Iterator[ConfigValue]:
         """Populate the config attribute from python file.
 
         Compile the config file, and execute it with the variable ``c`` defined
@@ -115,7 +116,7 @@ class PyLoader(FileLoader):
             cv = ConfigValue(value, key, origin=self.filename)
             # no parsing, directly to values
             cv.value = cv.input
-            self.add(key, cv)
+            yield cv
 
     def _to_lines(self, comment: str = "full") -> list[str]:
         """Return lines of configuration file corresponding to the app config tree."""

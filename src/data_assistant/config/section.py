@@ -415,7 +415,7 @@ class Section(HasTraits):
         """Return if key leads to an existing subsection or trait."""
         return key in self.keys(subsections=True, aliases=True)
 
-    def __iter__(self) -> abc.Iterable[str]:
+    def __iter__(self) -> abc.Iterator[str]:
         """Iterate over possible keys.
 
         Simply iter :meth:`keys`.
