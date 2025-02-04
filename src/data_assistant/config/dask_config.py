@@ -26,13 +26,13 @@ from traitlets import (
 )
 from traitlets.utils.importstring import import_item
 
-from .scheme import Scheme, subscheme
+from .scheme import Section, subsection
 from .util import tag_all_traits
 
 log = logging.getLogger(__name__)
 
 
-class DaskClusterAbstract(Scheme):
+class DaskClusterAbstract(Section):
     cluster_class: type[Cluster] | str
 
     @classmethod
@@ -479,8 +479,8 @@ DEFAULT_CLUSTER_NAMES = {
 }
 
 
-class DaskConfig(Scheme):
-    """Scheme for Dask management."""
+class DaskConfig(Section):
+    """Section for Dask management."""
 
     cluster_names: dict[str, type[DaskClusterAbstract]] = DEFAULT_CLUSTER_NAMES
 
@@ -496,16 +496,16 @@ class DaskConfig(Scheme):
     cluster: Cluster
 
     @classmethod
-    def _setup_scheme(cls):
+    def _setup_section(cls):
         """Set up the class after definition.
 
-        Only add the subschemes corresponding to the ``selected_clusters`` attribute.
+        Only add the subsections corresponding to the ``selected_clusters`` attribute.
         """
         # Add selected cluster types
         for name in cls.selected_clusters:
-            setattr(cls, name, subscheme(cls.cluster_names[name]))
+            setattr(cls, name, subsection(cls.cluster_names[name]))
 
-        super()._setup_scheme()
+        super()._setup_section()
 
         # Setup cluster_type default values
         cls.cluster_type.values = cls.selected_clusters
@@ -515,17 +515,17 @@ class DaskConfig(Scheme):
     def set_selected_clusters(cls, select: Sequence[str]):
         """Change the selected clusters types.
 
-        Only those selected will be available to configure as subschemes.
+        Only those selected will be available to configure as subsections.
         """
         # Remove all DaskClusterAbstract attributes
         for name in cls.selected_clusters:
             delattr(cls, name)
         cls.selected_clusters = list(select)
-        cls._setup_scheme()
+        cls._setup_section()
 
     @property
-    def cluster_scheme(self) -> DaskClusterAbstract:
-        """Configuration scheme for current cluster type."""
+    def cluster_section(self) -> DaskClusterAbstract:
+        """Configuration section for current cluster type."""
         return getattr(self, self.cluster_type)
 
     def start(self, **kwargs: t.Any):
@@ -548,7 +548,7 @@ class DaskConfig(Scheme):
             Arguments passed to the Cluster initialization. They will override
             the current configuration.
         """
-        self.cluster = self.cluster_scheme.get_cluster(**kwargs)
+        self.cluster = self.cluster_section.get_cluster(**kwargs)
         """Dask cluster object, local or distributed via jobqueue."""
 
         self.client = distributed.Client(self.cluster)
@@ -556,12 +556,12 @@ class DaskConfig(Scheme):
 
     def wait_for_workers(self, wait: int):
         """Wait for workers (if cluster is not local)."""
-        if not isinstance(self.cluster_scheme, DaskClusterJobQueue):
+        if not isinstance(self.cluster_section, DaskClusterJobQueue):
             return
 
         log.info("Waiting for %d worker(s)", wait)
         self.client.wait_for_workers(
-            n_workers=wait, timeout=self.cluster_scheme.wait_worker_timeout
+            n_workers=wait, timeout=self.cluster_section.wait_worker_timeout
         )
 
     def scale(self, wait: int | None = None, **kwargs):
@@ -578,7 +578,7 @@ class DaskConfig(Scheme):
             Arguments passed to ``cluster.scale()``. See the documentation for your
             specific cluster type to see the parameters available.
         """
-        if not isinstance(self.cluster_scheme, DaskClusterJobQueue):
+        if not isinstance(self.cluster_section, DaskClusterJobQueue):
             return
 
         log.info("Scale cluster to: %s", repr(kwargs))
@@ -599,7 +599,7 @@ class DaskConfig(Scheme):
             Arguments passed to ``cluster.adapt()``. See the documentation for your
             specific cluster type to see the parameters available.
         """
-        if not isinstance(self.cluster_scheme, DaskClusterJobQueue):
+        if not isinstance(self.cluster_section, DaskClusterJobQueue):
             return
 
         log.info("Set cluster to adapt (%s)", repr(kwargs))

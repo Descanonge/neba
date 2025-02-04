@@ -2,7 +2,7 @@
 
 Add a specific Documenter for TraitType and member filter for traits.
 
-It will also replace the default class documenter to handle Schemes. This is only for a
+It will also replace the default class documenter to handle Sections. This is only for a
 minor thing (filter out unwanted *private* attributes from the documentation), so it
 would be recommended to put this extension first, in case other extensions also replace
 the default documenter for more useful things...
@@ -19,7 +19,7 @@ from sphinx.addnodes import desc_sig_space
 from sphinx.domains.python import PyAttribute
 from sphinx.util.typing import OptionSpec
 
-from data_assistant.config.scheme import Scheme
+from data_assistant.config.scheme import Section
 from data_assistant.config.util import (
     FixableTrait,
     get_trait_typehint,
@@ -135,7 +135,7 @@ class TraitDocumenter(AttributeDocumenter):
     ) -> bool:
         """Can this class document this member.
 
-        '_subschemes' attribute is not documented.
+        '_subsections' attribute is not documented.
         """
         can_super = super().can_document_member(member, membername, isattr, parent)
         return can_super and isinstance(member, TraitType)
@@ -257,10 +257,10 @@ def skip_trait_member(app, what, name, obj, skip, options) -> bool | None:
     return skip
 
 
-class SchemeDocumenter(ClassDocumenter):
-    """Documenter for Scheme objects.
+class SectionDocumenter(ClassDocumenter):
+    """Documenter for Section objects.
 
-    Used to filter ``_subschemes`` attributes away, as well as some undocumented members
+    Used to filter ``_subsections`` attributes away, as well as some undocumented members
     that pop up from HasTraits. The skip event does not give information on the parent
     object to do that so we use a custom documenter.
 
@@ -277,8 +277,8 @@ class SchemeDocumenter(ClassDocumenter):
     ) -> list[tuple[str, t.Any, bool]]:
         """Filter the given member list.
 
-        If self is a subclass of :class:`~.config.scheme.Scheme`, but not Scheme itself
-        (for our own package documentation), filter out the ``_subschemes`` attribute.
+        If self is a subclass of :class:`~.config.section.Section`, but not Section itself
+        (for our own package documentation), filter out the ``_subsections`` attribute.
         """
         filtered = super().filter_members(members, want_all)
 
@@ -291,9 +291,9 @@ class SchemeDocumenter(ClassDocumenter):
             "_traits",
         ]
 
-        if issubclass(self.object, Scheme):
-            if self.object is not Scheme:
-                to_remove.append("_subschemes")
+        if issubclass(self.object, Section):
+            if self.object is not Section:
+                to_remove.append("_subsections")
             filtered = [
                 (name, member, isattr)
                 for name, member, isattr in filtered
@@ -308,7 +308,7 @@ def setup(app: Sphinx):  # noqa: D103
     # Replace attribute directive to deal with new :trait: option
     app.add_directive_to_domain("py", "attribute", PyAttributeWithTrait)
 
-    app.add_autodocumenter(SchemeDocumenter)
+    app.add_autodocumenter(SectionDocumenter)
     app.add_autodocumenter(TraitDocumenter)
     app.connect("autodoc-skip-member", skip_trait_member)
 

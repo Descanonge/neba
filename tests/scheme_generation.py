@@ -1,4 +1,4 @@
-"""Generate Schemes."""
+"""Generate Sections."""
 
 import typing as t
 
@@ -19,39 +19,39 @@ from traitlets import (
     Union,
 )
 
-from data_assistant.config.scheme import Scheme, subscheme
+from data_assistant.config.section import Section, subsection
 
 from .trait_generation import TraitGenerator, st_trait_gen, trait_to_strat
 from .util import Drawer, st_varname
 
 
-class EmptyScheme(Scheme):
+class EmptySection(Section):
     pass
 
 
-class SchemeGenerator:
-    """Generate a Scheme."""
+class SectionGenerator:
+    """Generate a Section."""
 
     def __init__(
         self,
         clsname: str = "",
         traits_gens: dict[str, TraitGenerator] | None = None,
-        subschemes: dict[str, "SchemeGenerator"] | None = None,
+        subsections: dict[str, "SectionGenerator"] | None = None,
     ):
         self.clsname = clsname
         self.nest_level: int
 
         if traits_gens is None:
             traits_gens = {}
-        if subschemes is None:
-            subschemes = {}
+        if subsections is None:
+            subsections = {}
         self.traits_gens: dict[str, TraitGenerator] = traits_gens
-        self.subschemes: dict[str, SchemeGenerator] = subschemes
+        self.subsections: dict[str, SectionGenerator] = subsections
 
         self.traits: dict[str, TraitType] = {}
 
-    def get_cls(self) -> type[Scheme]:
-        return type(self.clsname, (Scheme,), dict(self.traits))
+    def get_cls(self) -> type[Section]:
+        return type(self.clsname, (Section,), dict(self.traits))
 
     def draw_traits(self, draw: Drawer, **kwargs):
         self.traits = {
@@ -59,20 +59,20 @@ class SchemeGenerator:
             for name, gen in self.traits_gens.items()
         }
 
-        for sub_gen in self.subschemes.values():
+        for sub_gen in self.subsections.values():
             sub_gen.draw_traits(draw)
 
-        for name, sub_gen in self.subschemes.items():
+        for name, sub_gen in self.subsections.items():
             cls = sub_gen.get_cls()
-            self.traits[name] = subscheme(cls)
+            self.traits[name] = subsection(cls)
 
-    def draw_instance(self, draw: Drawer) -> Scheme:
+    def draw_instance(self, draw: Drawer) -> Section:
         self.draw_traits(draw)
         return self.get_cls()()
 
-    def st_inst(self) -> st.SearchStrategy[Scheme]:
+    def st_inst(self) -> st.SearchStrategy[Section]:
         @st.composite
-        def strat(draw: Drawer) -> Scheme:
+        def strat(draw: Drawer) -> Section:
             return self.draw_instance(draw)
 
         return strat()
@@ -85,7 +85,7 @@ class SchemeGenerator:
             values = {
                 name: draw(gen.st_value())
                 for name, gen in self.traits_gens.items()
-                if name not in self.subschemes
+                if name not in self.subsections
             }
             return values
 
@@ -103,7 +103,7 @@ class SchemeGenerator:
         def strat(draw: Drawer) -> dict[str, t.Any]:
             def recurse(gen: t.Self) -> dict[str, t.Any]:
                 values = draw(gen.st_values_single())
-                for sub_name, sub_gen in gen.subschemes.items():
+                for sub_name, sub_gen in gen.subsections.items():
                     values[sub_name] = recurse(sub_gen)
                 return values
 
@@ -112,63 +112,63 @@ class SchemeGenerator:
         return strat()
 
 
-def scheme_gen_to_cls(
-    scheme_gen: SchemeGenerator, **kwargs
-) -> st.SearchStrategy[type[Scheme]]:
+def section_gen_to_cls(
+    section_gen: SectionGenerator, **kwargs
+) -> st.SearchStrategy[type[Section]]:
     @st.composite
-    def strat(draw) -> type[Scheme]:
-        scheme_gen.draw_traits(draw)
-        cls = scheme_gen.get_cls()
+    def strat(draw) -> type[Section]:
+        section_gen.draw_traits(draw)
+        cls = section_gen.get_cls()
         return cls
 
     return strat()
 
 
-def scheme_st_to_cls(
-    strat: st.SearchStrategy[SchemeGenerator], **kwargs
-) -> st.SearchStrategy[type[Scheme]]:
+def section_st_to_cls(
+    strat: st.SearchStrategy[SectionGenerator], **kwargs
+) -> st.SearchStrategy[type[Section]]:
     @st.composite
-    def out(draw: Drawer) -> type[Scheme]:
+    def out(draw: Drawer) -> type[Section]:
         gen = draw(strat)
-        return draw(scheme_gen_to_cls(gen, **kwargs))
+        return draw(section_gen_to_cls(gen, **kwargs))
 
     return out()
 
 
-def scheme_gen_to_instance(
-    scheme_gen: SchemeGenerator, **kwargs
-) -> st.SearchStrategy[Scheme]:
+def section_gen_to_instance(
+    section_gen: SectionGenerator, **kwargs
+) -> st.SearchStrategy[Section]:
     @st.composite
-    def strat(draw) -> Scheme:
-        scheme_gen.draw_traits(draw)
-        cls = scheme_gen.get_cls()
-        values = draw(scheme_gen.st_values())
+    def strat(draw) -> Section:
+        section_gen.draw_traits(draw)
+        cls = section_gen.get_cls()
+        values = draw(section_gen.st_values())
         return cls.instanciate_recursively(values)
 
     return strat()
 
 
-def scheme_st_to_instance(
-    strat: st.SearchStrategy[SchemeGenerator], **kwargs
-) -> st.SearchStrategy[Scheme]:
+def section_st_to_instance(
+    strat: st.SearchStrategy[SectionGenerator], **kwargs
+) -> st.SearchStrategy[Section]:
     @st.composite
-    def out(draw: Drawer) -> Scheme:
+    def out(draw: Drawer) -> Section:
         gen = draw(strat)
-        return draw(scheme_gen_to_instance(gen, **kwargs))
+        return draw(section_gen_to_instance(gen, **kwargs))
 
     return out()
 
 
-def scheme_gen_to_instances(
-    scheme_gen: SchemeGenerator, n: int = 2, **kwargs
-) -> st.SearchStrategy[tuple[Scheme, ...]]:
+def section_gen_to_instances(
+    section_gen: SectionGenerator, n: int = 2, **kwargs
+) -> st.SearchStrategy[tuple[Section, ...]]:
     @st.composite
-    def strat(draw: Drawer) -> tuple[Scheme, ...]:
-        scheme_gen.draw_traits(draw)
-        cls = scheme_gen.get_cls()
+    def strat(draw: Drawer) -> tuple[Section, ...]:
+        section_gen.draw_traits(draw)
+        cls = section_gen.get_cls()
         instances = []
         for _ in range(n):
-            values = draw(scheme_gen.st_values())
+            values = draw(section_gen.st_values())
             inst = cls.instanciate_recursively(values)
             instances.append(inst)
         return tuple(instances)
@@ -176,25 +176,25 @@ def scheme_gen_to_instances(
     return strat()
 
 
-def scheme_st_to_instances(
-    strat: st.SearchStrategy[SchemeGenerator],
+def section_st_to_instances(
+    strat: st.SearchStrategy[SectionGenerator],
     n: int = 2,
     **kwargs,
-) -> st.SearchStrategy[tuple[Scheme, ...]]:
+) -> st.SearchStrategy[tuple[Section, ...]]:
     @st.composite
-    def out(draw: Drawer) -> tuple[Scheme, ...]:
+    def out(draw: Drawer) -> tuple[Section, ...]:
         gen = draw(strat)
-        return draw(scheme_gen_to_instances(gen, **kwargs))
+        return draw(section_gen_to_instances(gen, **kwargs))
 
     return out()
 
 
-def st_scheme_gen_single_trait(**kwargs) -> st.SearchStrategy[SchemeGenerator]:
+def st_section_gen_single_trait(**kwargs) -> st.SearchStrategy[SectionGenerator]:
     @st.composite
-    def strat(draw: Drawer) -> SchemeGenerator:
+    def strat(draw: Drawer) -> SectionGenerator:
         trait_gen = draw(st_trait_gen(**kwargs))
         name = draw(st_varname)
-        return SchemeGenerator("single", {name: trait_gen})
+        return SectionGenerator("single", {name: trait_gen})
 
     return strat()
 
@@ -207,7 +207,7 @@ class ClassDummy:
 class_dummy = ClassDummy()
 
 
-class GenericTraits(Scheme):
+class GenericTraits(Section):
     # Simple traits
     bool = Bool(True)
     float = Float(0.0)
@@ -249,13 +249,13 @@ class GenericTraits(Scheme):
     union_list = Union([Int(), List(Int())], default_value=[0])
 
 
-S = t.TypeVar("S", bound=Scheme)
+S = t.TypeVar("S", bound=Section)
 
 
-class SchemeInfo(t.Generic[S]):
+class SectionInfo(t.Generic[S]):
     # TODO add aliases
-    scheme: type[S]
-    subschemes: dict[str, "SchemeInfo"] = {}
+    section: type[S]
+    subsections: dict[str, "SectionInfo"] = {}
 
     traits: dict[str, TraitType] = {}
 
@@ -267,7 +267,7 @@ class SchemeInfo(t.Generic[S]):
     def __init_subclass__(cls) -> None:
         # make copies to avoid interferences
         cls.traits = dict(cls.traits)
-        cls.subschemes = dict(cls.subschemes)
+        cls.subsections = dict(cls.subsections)
 
         cls.traits_this_level = list(cls.traits.keys())
         cls.traits_this_level.sort()
@@ -276,9 +276,9 @@ class SchemeInfo(t.Generic[S]):
         cls.traits_total = list(cls.traits_this_level)
         cls.keys_total = list(cls.traits_this_level)
 
-        # recurse in subschemes
-        for name, sub_info in cls.subschemes.items():
-            # subscheme is a key
+        # recurse in subsections
+        for name, sub_info in cls.subsections.items():
+            # subsection is a key
             cls.keys_this_level.append(name)
 
             cls.traits_total += [f"{name}.{k}" for k in sub_info.traits_total]
@@ -293,7 +293,7 @@ class SchemeInfo(t.Generic[S]):
             trait = cls.traits[key]
             return trait.default()
         sub, *subkey = key.split(".")
-        return cls.subschemes[sub].default(".".join(subkey))
+        return cls.subsections[sub].default(".".join(subkey))
 
     @classmethod
     def value_strat(cls, key: str) -> st.SearchStrategy:
@@ -302,7 +302,7 @@ class SchemeInfo(t.Generic[S]):
             trait = cls.traits[key]
             return trait_to_strat(trait)
         sub, *subkey = key.split(".")
-        return cls.subschemes[sub].value_strat(".".join(subkey))
+        return cls.subsections[sub].value_strat(".".join(subkey))
 
     @classmethod
     def values_strat(cls) -> st.SearchStrategy[dict]:
@@ -343,9 +343,9 @@ class SchemeInfo(t.Generic[S]):
         return strat()
 
 
-class GenericTraitsInfo(SchemeInfo[GenericTraits]):
-    scheme = GenericTraits
-    subschemes = {}
+class GenericTraitsInfo(SectionInfo[GenericTraits]):
+    section = GenericTraits
+    subsections = {}
 
     traits = dict(
         bool=Bool(True),
@@ -451,67 +451,67 @@ class GenericTraitsInfo(SchemeInfo[GenericTraits]):
         return generic_args
 
 
-class TwinSubscheme(Scheme):
+class TwinSubsection(Section):
     int = Int(0)
     list_int = List(Int(), default_value=[0, 1])
 
 
-class TwinSubschemeInfo(SchemeInfo):
-    scheme = TwinSubscheme
+class TwinSubsectionInfo(SectionInfo):
+    section = TwinSubsection
 
     traits = dict(int=Int(0), list_int=List(Int(), default_value=[0, 1]))
 
 
-class GenericScheme(GenericTraits):
-    sub_generic = subscheme(GenericTraits)
+class GenericSection(GenericTraits):
+    sub_generic = subsection(GenericTraits)
 
-    twin_a = subscheme(TwinSubscheme)
-    twin_b = subscheme(TwinSubscheme)
+    twin_a = subsection(TwinSubsection)
+    twin_b = subsection(TwinSubsection)
 
-    class sub_twin(Scheme):
-        twin_c = subscheme(TwinSubscheme)
+    class sub_twin(Section):
+        twin_c = subsection(TwinSubsection)
 
-    class deep_sub(Scheme):
-        sub_generic_deep = subscheme(GenericTraits)
+    class deep_sub(Section):
+        sub_generic_deep = subsection(GenericTraits)
 
-    class empty_a(Scheme):
+    class empty_a(Section):
         pass
 
-    class empty_b(Scheme):
-        class empty_c(Scheme):
+    class empty_b(Section):
+        class empty_c(Section):
             pass
 
 
-class SubTwinInfo(SchemeInfo):
-    scheme = GenericScheme._sub_twinSchemeDef  # type: ignore[attr-defined]
-    subschemes = dict(twin_c=TwinSubschemeInfo())
+class SubTwinInfo(SectionInfo):
+    section = GenericSection._sub_twinSectionDef  # type: ignore[attr-defined]
+    subsections = dict(twin_c=TwinSubsectionInfo())
 
 
-class DeepSubInfo(SchemeInfo):
-    scheme = GenericScheme._deep_subSchemeDef  # type: ignore[attr-defined]
-    subschemes = dict(sub_generic_deep=GenericTraitsInfo())
+class DeepSubInfo(SectionInfo):
+    section = GenericSection._deep_subSectionDef  # type: ignore[attr-defined]
+    subsections = dict(sub_generic_deep=GenericTraitsInfo())
 
 
-class Empty_a_Info(SchemeInfo):
-    scheme = GenericScheme._empty_aSchemeDef  # type: ignore[attr-defined]
+class Empty_a_Info(SectionInfo):
+    section = GenericSection._empty_aSectionDef  # type: ignore[attr-defined]
 
 
-class Empty_c_Info(SchemeInfo):
-    scheme = GenericScheme._empty_bSchemeDef._empty_cSchemeDef  # type: ignore[attr-defined]
+class Empty_c_Info(SectionInfo):
+    section = GenericSection._empty_bSectionDef._empty_cSectionDef  # type: ignore[attr-defined]
 
 
-class Empty_b_Info(SchemeInfo):
-    scheme = GenericScheme._empty_bSchemeDef  # type: ignore[attr-defined]
-    subschemes = dict(empty_c=Empty_c_Info())
+class Empty_b_Info(SectionInfo):
+    section = GenericSection._empty_bSectionDef  # type: ignore[attr-defined]
+    subsections = dict(empty_c=Empty_c_Info())
 
 
-class GenericSchemeInfo(GenericTraitsInfo):
+class GenericSectionInfo(GenericTraitsInfo):
     # TODO add aliases
-    scheme = GenericScheme
-    subschemes = dict(
+    section = GenericSection
+    subsections = dict(
         sub_generic=GenericTraitsInfo(),
-        twin_a=TwinSubschemeInfo(),
-        twin_b=TwinSubschemeInfo(),
+        twin_a=TwinSubsectionInfo(),
+        twin_b=TwinSubsectionInfo(),
         sub_twin=SubTwinInfo(),
         deep_sub=DeepSubInfo(),
         empty_a=Empty_a_Info(),
@@ -551,8 +551,8 @@ class GenericSchemeInfo(GenericTraitsInfo):
         return generic_args
 
 
-"""Here we should define a typical scheme, with nested subschemes defined via function
-subscheme or dynamically, with various traits (simple and composed).
+"""Here we should define a typical section, with nested subsections defined via function
+subsection or dynamically, with various traits (simple and composed).
 it should be used for basic stuff that would not translate super well in hypothesis.
 we can manipulate very clearly the trait, their values, if they are default or None.
 
@@ -560,13 +560,13 @@ we can have multiple instances that have different values. (we should also check
 hand that different instances don't interfere with each other this is super important,
 how ?)
 
-We can keep track of some information as well such as the number of traits, subschemes,
+We can keep track of some information as well such as the number of traits, subsections,
 etc to have easy access to it. Maybe it's not its place but another module that defines
-a series of peculiar schemes ? Meh, I was thinking deeply nested subschemes but is that
+a series of peculiar sections ? Meh, I was thinking deeply nested subsections but is that
 THAT important ? It can be the subject of one or two tests that define themselves the
-whole scheme.
+whole section.
 
-it should contain twin subschemes that we keep knowledge of. ie subschemes (on the same
-level and on different nesting level) that are different instances of the same subscheme
+it should contain twin subsections that we keep knowledge of. ie subsections (on the same
+level and on different nesting level) that are different instances of the same subsection
 class. Keep the the path of each trait and its siblings.
 """

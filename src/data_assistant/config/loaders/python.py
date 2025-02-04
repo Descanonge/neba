@@ -11,7 +11,7 @@ from ..util import get_trait_typehint, underline, wrap_text
 from .core import ConfigValue, FileLoader, SerializerDefault
 
 if t.TYPE_CHECKING:
-    from ..scheme import Scheme
+    from ..scheme import Section
 
 
 class PyConfigContainer:
@@ -82,7 +82,7 @@ class PyLoader(FileLoader):
 
         c.group.subgroup.parameter = True
 
-    Arbitrary schemes and sub-schemes can be specified. The object ``c`` is already
+    Arbitrary sections and sub-sections can be specified. The object ``c`` is already
     defined. It is a simple object only meant to allow for this syntax
     (:class:`PyConfigContainer`). Any code will be run, so some logic can be used in the
     config files directly (changing a value depending on OS or hostname for instance).
@@ -119,7 +119,7 @@ class PyLoader(FileLoader):
 
     def _to_lines(self, comment: str = "full") -> list[str]:
         """Return lines of configuration file corresponding to the app config tree."""
-        lines = self.serialize_scheme(self.app, [], comment=comment)
+        lines = self.serialize_section(self.app, [], comment=comment)
 
         lines.append("")
         for key, value in self.config.items():
@@ -130,10 +130,10 @@ class PyLoader(FileLoader):
 
         return lines
 
-    def serialize_scheme(
-        self, scheme: Scheme, fullpath: list[str], comment: str = "full"
+    def serialize_section(
+        self, section: Section, fullpath: list[str], comment: str = "full"
     ) -> list[str]:
-        """Serialize a Scheme and its subschemes recursively.
+        """Serialize a Section and its subsections recursively.
 
         If comments are present, trait are separated by double comment lines (##) that
         can be read by editors as magic cells separations.
@@ -142,11 +142,11 @@ class PyLoader(FileLoader):
         """
         lines = []
         if comment != "none":
-            lines += self.wrap_comment(scheme.emit_description())
+            lines += self.wrap_comment(section.emit_description())
 
         lines.append("")
 
-        for name, trait in sorted(scheme.traits(config=True).items()):
+        for name, trait in sorted(section.traits(config=True).items()):
             value = self.serializer.default(trait)
 
             if comment != "none":
@@ -176,12 +176,12 @@ class PyLoader(FileLoader):
             if comment != "none":
                 lines.append("")
 
-        for name, subscheme in sorted(scheme.trait_values(subscheme=True).items()):
+        for name, subsection in sorted(section.trait_values(subsection=True).items()):
             lines.append("")
-            lines.append(f"## {subscheme.__class__.__name__} (.{name}) ##")
+            lines.append(f"## {subsection.__class__.__name__} (.{name}) ##")
             underline(lines, "#")
-            lines += self.serialize_scheme(
-                subscheme, fullpath + [name], comment=comment
+            lines += self.serialize_section(
+                subsection, fullpath + [name], comment=comment
             )
 
         return lines

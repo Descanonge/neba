@@ -5,14 +5,13 @@ from __future__ import annotations
 import logging
 import sys
 import typing as t
-from collections import abc
 from os import path
 
 from traitlets import Bool, List, Unicode, Union
 from traitlets.config.configurable import MultipleInstanceError, SingletonConfigurable
 
 from .loaders import CLILoader, ConfigValue
-from .scheme import Scheme
+from .scheme import Section
 from .util import ConfigErrorHandler, nest_dict
 
 if t.TYPE_CHECKING:
@@ -20,14 +19,14 @@ if t.TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-S = t.TypeVar("S", bound=Scheme)
+S = t.TypeVar("S", bound=Section)
 
-_SingleS = t.TypeVar("_SingleS", bound="SingletonScheme")
+_SingleS = t.TypeVar("_SingleS", bound="SingletonSection")
 
 
-class SingletonScheme(Scheme, SingletonConfigurable):
+class SingletonSection(Section, SingletonConfigurable):
     @classmethod
-    def _walk_mro(cls) -> t.Generator[type[SingletonScheme], None, None]:
+    def _walk_mro(cls) -> t.Generator[type[SingletonSection], None, None]:
         """Walk the cls.mro() for parent classes that are also singletons.
 
         For use in instance()
@@ -35,8 +34,8 @@ class SingletonScheme(Scheme, SingletonConfigurable):
         for parent in cls.mro():
             if (
                 issubclass(cls, parent)
-                and issubclass(parent, SingletonScheme)
-                and parent != SingletonScheme
+                and issubclass(parent, SingletonSection)
+                and parent != SingletonSection
             ):
                 yield parent
 
@@ -71,16 +70,16 @@ class SingletonScheme(Scheme, SingletonConfigurable):
         pass
 
 
-class ApplicationBase(SingletonScheme):
+class ApplicationBase(SingletonSection):
     """Base application class.
 
     Orchestrate the loading of configuration keys from files or from command line
     arguments.
-    Pass the combined configuration keys to the appropriate schemes in the configuration
+    Pass the combined configuration keys to the appropriate sections in the configuration
     tree structure. This validate the values and instanciate the configuration objects.
     """
 
-    _separate_sections: dict[str, type[Scheme]] = {}
+    _separate_sections: dict[str, type[Section]] = {}
     """Separate configuration sections."""
 
     strict_parsing = Bool(
@@ -107,7 +106,7 @@ class ApplicationBase(SingletonScheme):
         True,
         help=(
             """
-            Instanciate all schemes in the configuration tree at application start.
+            Instanciate all sections in the configuration tree at application start.
 
             Instanciation is necessary to fully validate the values of the configuration
             parameters, but in case systematic instanciation is unwanted this can be
@@ -134,12 +133,12 @@ class ApplicationBase(SingletonScheme):
         #             f"Separate section {name} clashes with existing "
         #             f"attribute in {cls.__name__}"
         #         )
-        #     setattr(cls, name, subscheme(section))
+        #     setattr(cls, name, subsection(section))
 
         super().__init_subclass__(**kwargs)
 
     def __init__(self) -> None:
-        # No super.__init__, it would instanciate recursively subschemes
+        # No super.__init__, it would instanciate recursively subsections
 
         # Useless-ish but we need to initialize the logger
         # otherwise it is going to be modified on its first access in __del__
@@ -177,7 +176,7 @@ class ApplicationBase(SingletonScheme):
         - Load configuration file(s)
         - Merge configurations
         - (Re)Apply configuration to Application
-        - Instanciate schemes objects (optional)
+        - Instanciate sections objects (optional)
 
         Instanciation is necessary to fully validate the values of the configuration
         parameters, but in case systematic instanciation is unwanted this can be
@@ -192,7 +191,7 @@ class ApplicationBase(SingletonScheme):
             If True, do not parse command line arguments. If not None, this argument
             overrides :attr:`ignore_cli`.
         instanciate
-            If True, instanciate all schemes. If not None, this argument overrides
+            If True, instanciate all sections. If not None, this argument overrides
             :attr:`auto_instanciate`.
         """
         # TODO: Catch errors and silence them if setting is not strict
@@ -217,7 +216,7 @@ class ApplicationBase(SingletonScheme):
         if instanciate is None:
             instanciate = self.auto_instanciate
         if instanciate:
-            self._init_subschemes(config)
+            self._init_subsections(config)
 
     def _create_cli_loader(
         self, argv: list[str] | None, log: logging.Logger | None = None, **kwargs
@@ -304,11 +303,11 @@ class ApplicationBase(SingletonScheme):
         """Resolve all keys in the config and validate it.
 
         Keys can use aliases/shortcuts, and also be under the form of "class keys"
-        ``SchemeClassName.trait_name = ...``. We normalize all keys as dot separated
+        ``SectionClassName.trait_name = ...``. We normalize all keys as dot separated
         attributes names, without shortcuts, that point a trait.
         Keys that do not resolve to any known trait will raise error.
 
-        The trait and containing scheme class will be added to each :class:`ConfigValue`.
+        The trait and containing section class will be added to each :class:`ConfigValue`.
 
         Parameters
         ----------
@@ -323,13 +322,13 @@ class ApplicationBase(SingletonScheme):
         first = cv.path[0]
 
         separate = first in self._separate_sections
-        scheme = self._separate_sections.get(first, self)
+        section = self._separate_sections.get(first, self)
 
         out = cv.copy()
         # If an error happens in resolve_key, we have a fallback
         fullkey = cv.key
         with ConfigErrorHandler(self, cv.key):
-            fullkey, container_cls, trait = scheme.resolve_key(cv.key)
+            fullkey, container_cls, trait = section.resolve_key(cv.key)
             out.container_cls = container_cls
             out.trait = trait
 

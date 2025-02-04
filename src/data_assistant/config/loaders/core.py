@@ -21,7 +21,7 @@ from ..util import (
 
 if t.TYPE_CHECKING:
     from .application import ApplicationBase
-    from .scheme import Scheme
+    from .scheme import Section
 
 Undefined = Sentinel(
     "Undefined", "data-assistant", "Configuration value not (yet) set or parsed."
@@ -353,8 +353,8 @@ class DictLikeLoaderMixin(ConfigLoader):
     """Load a configuration from a mapping.
 
     As there are no way to differentiate between a mapping for a dictionary trait and
-    one for a nested scheme, we need to check the existing keys before resolving. We
-    only look for existing subschemes and aliases, otherwise we assume this is a
+    one for a nested section, we need to check the existing keys before resolving. We
+    only look for existing subsections and aliases, otherwise we assume this is a
     dict-like value.
     """
 
@@ -367,20 +367,20 @@ class DictLikeLoaderMixin(ConfigLoader):
         input = nest_dict(input)
 
         def recurse(
-            d: abc.Mapping, scheme: type[Scheme], key: list[str]
+            d: abc.Mapping, section: type[Section], key: list[str]
         ) -> abc.Iterable[ConfigValue]:
             for k, v in d.items():
-                if k in scheme._subschemes:
+                if k in section._subsections:
                     assert isinstance(v, abc.Mapping)
-                    yield from recurse(v, scheme._subschemes[k], key + [k])
+                    yield from recurse(v, section._subsections[k], key + [k])
 
-                elif k in scheme.aliases:
+                elif k in section.aliases:
                     assert isinstance(v, abc.Mapping)
                     # resolve alias
-                    sub = scheme
-                    alias = scheme.aliases[k].split(".")
+                    sub = section
+                    alias = section.aliases[k].split(".")
                     for al in alias:
-                        sub = sub._subschemes[al]
+                        sub = sub._subsections[al]
                     yield from recurse(v, sub, key + alias)
 
                 else:

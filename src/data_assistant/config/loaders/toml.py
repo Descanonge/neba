@@ -16,7 +16,7 @@ if t.TYPE_CHECKING:
     from tomlkit.container import Container as TOMLContainer
     from tomlkit.container import Item, Table
 
-    from .scheme import Scheme
+    from .scheme import Section
 
     T = t.TypeVar("T", bound=TOMLContainer | Table)
 
@@ -58,7 +58,7 @@ class TomlkitLoader(FileLoader):
         """Return lines of configuration file corresponding to the app config tree."""
         doc = tomlkit.document()
 
-        self.serialize_scheme(doc, self.app, [], comment=comment)
+        self.serialize_section(doc, self.app, [], comment=comment)
 
         class_keys: dict[str, dict[str, t.Any]] = {}
         for key, value in self.config.items():
@@ -75,17 +75,17 @@ class TomlkitLoader(FileLoader):
 
         return tomlkit.dumps(doc).splitlines()
 
-    def serialize_scheme(
-        self, t: T, scheme: Scheme, fullpath: list[str], comment: str = "full"
+    def serialize_section(
+        self, t: T, section: Section, fullpath: list[str], comment: str = "full"
     ) -> T:
-        """Serialize a Scheme and its subschemes recursively.
+        """Serialize a Section and its subsections recursively.
 
         We use the extented capabilities of :mod:`tomlkit`.
         """
         if comment != "none":
-            self.wrap_comment(t, scheme.emit_description())
+            self.wrap_comment(t, section.emit_description())
 
-        for name, trait in scheme.traits(config=True).items():
+        for name, trait in section.traits(config=True).items():
             if comment != "none":
                 t.add(tomlkit.nl())
             lines: list[str] = []
@@ -126,11 +126,11 @@ class TomlkitLoader(FileLoader):
 
             self.wrap_comment(t, lines)
 
-        for name, subscheme in sorted(scheme.trait_values(subscheme=True).items()):
+        for name, subsection in sorted(section.trait_values(subsection=True).items()):
             t.add(
                 name,
-                self.serialize_scheme(
-                    tomlkit.table(), subscheme, fullpath + [name], comment=comment
+                self.serialize_section(
+                    tomlkit.table(), subsection, fullpath + [name], comment=comment
                 ),
             )
 

@@ -1,6 +1,6 @@
 """Specify parameters in a configuration tree."""
 
-from .application import ApplicationBase, SingletonScheme
+from .application import ApplicationBase, SingletonSection
 from .loaders import (
     CLILoader,
     ConfigLoader,
@@ -9,7 +9,7 @@ from .loaders import (
     FileLoader,
     Undefined,
 )
-from .scheme import Scheme, subscheme
+from .scheme import Section, subsection
 from .util import FixableTrait, RangeTrait, tag_all_traits
 
 __all__ = [
@@ -22,11 +22,11 @@ __all__ = [
     "FixableTrait",
     "PyLoader",
     "RangeTrait",
-    "Scheme",
-    "SingletonScheme",
+    "Section",
+    "SingletonSection",
     "TomlkitLoader",
     "Undefined",
     "YamlLoader",
-    "subscheme",
+    "subsection",
     "tag_all_traits",
 ]

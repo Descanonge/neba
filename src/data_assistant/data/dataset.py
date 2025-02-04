@@ -8,8 +8,7 @@ import logging
 import typing as t
 from collections import abc
 
-from ..config.scheme import Scheme
-from ..config.util import nest_dict
+from ..config.scheme import Section
 from .loader import LoaderAbstract
 from .module import CachedModule, Module
 from .params import ParamsManagerAbstract
@@ -132,7 +131,7 @@ class HasModules:
                     initialized += ancestor.mro()
 
 
-class Dataset(t.Generic[T_Params, T_Source, T_Data], HasModules, Scheme):
+class Dataset(t.Generic[T_Params, T_Source, T_Data], HasModules, Section):
     """DataManager base object.
 
     Registers modules for parameters management, source management, data loading,
@@ -179,18 +178,18 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data], HasModules, Scheme):
 
     def __init_subclass__(cls, /, **kwargs) -> None:
         HasModules.__init_subclass__(**kwargs)
-        Scheme.__init_subclass__(**kwargs)
+        Section.__init_subclass__(**kwargs)
 
     def __init__(self, params: t.Any | None = None, **kwargs) -> None:
         self._reset_callbacks = {}
 
         # extract trait from kwargs
         config = {}
-        for name in itertools.chain(self.trait_names(config=True), self._subschemes):
+        for name in itertools.chain(self.trait_names(config=True), self._subsections):
             if name in kwargs:
                 config[name] = kwargs.pop(name)
 
-        Scheme.__init__(self, config)
+        Section.__init__(self, config)
 
         self._instanciate_modules(params=params, **kwargs)
         self._init_modules()
@@ -225,8 +224,8 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data], HasModules, Scheme):
     def params(self) -> T_Params:
         """Parameters values for this instance."""
         # TODO: should return frozen object
-        # frozen dict, a version of scheme that is frozen?
-        # maybe separate scheme into FrozenScheme and Scheme(FrozenScheme)?
+        # frozen dict, a version of section that is frozen?
+        # maybe separate section into FrozenSection and Section(FrozenSection)?
         return self.params_manager._params
 
     def set_params(

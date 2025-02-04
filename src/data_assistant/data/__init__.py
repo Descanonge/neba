@@ -3,7 +3,7 @@
 from .dataset import Dataset
 from .loader import LoaderAbstract
 from .module import CachedModule, Module, autocached
-from .params import ParamsManager, ParamsManagerAbstract, ParamsManagerScheme
+from .params import ParamsManager, ParamsManagerAbstract, ParamsManagerSection
 from .register import DatasetStore
 from .source import (
     FileFinderSource,
@@ -27,7 +27,7 @@ __all__ = [
     "MultiFileSource",
     "ParamsManager",
     "ParamsManagerAbstract",
-    "ParamsManagerScheme",
+    "ParamsManagerSection",
     "ParamsMap",
     "SimpleSource",
     "SourceIntersection",

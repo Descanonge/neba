@@ -1,6 +1,6 @@
-"""Scheme: nested equivalent of Configurable.
+"""Section: nested equivalent of Configurable.
 
-Defines a :class:`Scheme` class meant to be used in place of
+Defines a :class:`Section` class meant to be used in place of
 :class:`traitlets.config.Configurable` that make possible deeply nested configurations.
 """
 
@@ -13,7 +13,7 @@ from collections import abc
 from inspect import Parameter, signature
 from textwrap import dedent
 
-from traitlets import Bool, Enum, Instance, Sentinel, TraitType, Undefined
+from traitlets import Enum, Instance, Sentinel, TraitType, Undefined
 from traitlets.config import HasTraits
 
 from .loaders import ConfigValue
@@ -34,109 +34,109 @@ if t.TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 
-S = t.TypeVar("S", bound="Scheme")
+S = t.TypeVar("S", bound="Section")
 
 
-def subscheme(scheme: type[S]) -> Instance[S]:
-    """Transform a subscheme into a proper trait.
+def subsection(section: type[S]) -> Instance[S]:
+    """Transform a subsection class into a proper trait.
 
-    To make the specification easier, an attribute of type :class:`Scheme` will
+    To make the specification easier, an attribute of type :class:`Section` will
     automatically be transformed into a proper :class:`Instance` trait using this
     function. It can be used "manually" as well, this will most notably help static
     type checkers understand what is happening.
 
-    So when specifying a subscheme the two lines below are equivalent::
+    So when specifying a subsection the two lines below are equivalent::
 
-        subgroup = MySubgroupScheme
-        subgroup = subscheme(MySubgroupScheme)
+        sub_name = MySubSection
+        sub_name = subsection(MySubSection)
 
     """
-    return Instance(scheme, args=(), kw={}).tag(subscheme=True, config=False)
+    return Instance(section, args=(), kw={}).tag(subsection=True, config=False)
 
 
 def _name_to_classdef(name: str) -> str:
-    return f"_{name}SchemeDef"
+    return f"_{name}SectionDef"
 
 
-class Scheme(HasTraits):
+class Section(HasTraits):
     """Object holding configurable values.
 
     This class inherits from :class:`traitlets.config.Configurable` and so can hold
     configurable attributes as :class:`traits<traitlets.TraitType>`, but also expands to
-    allow nested configuration. Other Scheme classes can be set as attribute
+    allow nested configuration. Other Section classes can be set as attribute
     in order to specify parameters in deeper nested levels.
 
     The main features of this class are:
 
     * all traits are automatically tagged as configurable (``.tag(config=True)``),
       unless already tagged.
-    * Any class attribute that is a subclass of Scheme will be registered as a nested
-      *subscheme* and replaced by a :class:`traitlets.Instance` trait, tagged as a
-      "subscheme" in its metadata.
-    * Any nested class definition (subclass of Scheme) will also be considered as a
-      subscheme whose name is that of the class. The class definition will be kept under
-      another attribute name (``_{subscheme}SchemeDef``).
-    * Shortcuts to nested subschemes can be defined in the :attr:`aliases` attribute.
+    * Any class attribute that is a subclass of Section will be registered as a nested
+      *subsection* and replaced by a :class:`traitlets.Instance` trait, tagged as a
+      "subsection" in its metadata.
+    * Any nested class definition (subclass of Section) will also be considered as a
+      subsection whose name is that of the class. The class definition will be kept under
+      another attribute name (``_{subsection}SectionDef``).
+    * Shortcuts to nested subsections can be defined in the :attr:`aliases` attribute.
       This allows to specify shorter keys (in command line or config files).
 
     The API expand to recursively retrieve all traits (or their values) from this
-    scheme and its subschemes. It defines help emitting functions, suitable for
+    section and its subsections. It defines help emitting functions, suitable for
     command line help message. It also enables having unique keys that point to a
     specific trait in the configuration tree (see :meth:`resolve_key`).
     """
 
     _application_cls: type[ApplicationBase] | None = None
 
-    _subschemes: dict[str, type[Scheme]] = {}
-    """Mapping of nested Scheme classes."""
+    _subsections: dict[str, type[Section]] = {}
+    """Mapping of nested Section classes."""
 
     _attr_completion_only_traits: bool = False
     """Only keep configurable traits in attribute completion."""
 
-    _dynamic_subschemes = True
-    """Allow dynamic definition of subschemes.
+    _dynamic_subsections = True
+    """Allow dynamic definition of subsections.
 
-    Any attribute that is a Scheme will be converted to a trait instance and added to
-    the subschemes. Class definitions will be modified appropriately.
+    Any attribute that is a Section will be converted to a trait instance and added to
+    the subsections. Class definitions will be modified appropriately.
     """
 
     aliases: dict[str, str] = {}
     """Mapping of aliases/shortcuts.
 
-    The shortcut name maps to the subscheme it points to, for example:
+    The shortcut name maps to the subsection it points to, for example:
 
-        {"short": "some.deeply.nested.subscheme"}
+        {"short": "some.deeply.nested.subsection"}
 
     will allow to specify parameters in two equivalent ways:
 
-        some.deeply.nested.subscheme.my_parameter = 2
+        some.deeply.nested.subsection.my_parameter = 2
         short.my_parameter = 2
     """
 
     def __init_subclass__(cls, /, **kwargs):
         super().__init_subclass__(**kwargs)
-        cls._setup_scheme()
+        cls._setup_section()
 
     @classmethod
-    def _setup_scheme(cls) -> None:
+    def _setup_section(cls) -> None:
         """Set up the class after definition.
 
         This hook is run in :meth:`__init_subclass__`, after any subclass of
-        :class:`Scheme` is defined.
+        :class:`Section` is defined.
 
-        By default, deals with the objective of Scheme: tagging all traits as
-        configurable, and setting up attributes that are subclasses of Scheme
-        as :class:`~traitlets.Instance` traits, and registering them as subschemes.
+        By default, deals with the objective of Section: tagging all traits as
+        configurable, and setting up attributes that are subclasses of Section
+        as :class:`~traitlets.Instance` traits, and registering them as subsections.
 
         This method can be modified by subclasses in need of specific behavior. Do not
         forget to call the ``super()`` version, and if traits are added/modified it
         might be necessary to call :meth:`traitlets.traitlets.HasTraits.setup_class`
         (``cls.setup_class(cls.__dict__)``).
         """
-        cls._subschemes = {}
+        cls._subsections = {}
         classdict = cls.__dict__
 
-        to_add: dict[str, type[Scheme]] = {}
+        to_add: dict[str, type[Section]] = {}
 
         for k, v in classdict.items():
             # tag traits as configurable
@@ -144,11 +144,11 @@ class Scheme(HasTraits):
                 if v.metadata.get("config", True):
                     v.tag(config=True)
 
-            if not cls._dynamic_subschemes:
+            if not cls._dynamic_subsections:
                 continue
 
-            # Add Scheme definitions
-            if isinstance(v, type) and issubclass(v, Scheme) and k == v.__name__:
+            # Add Section definitions
+            if isinstance(v, type) and issubclass(v, Section) and k == v.__name__:
                 to_add[k.rstrip("_")] = v
 
         for k, v in to_add.items():
@@ -158,32 +158,32 @@ class Scheme(HasTraits):
             v.__qualname__ = f"{cls.__qualname__}.{new_name}"
             setattr(cls, new_name, v)
 
-            # And add a subscheme
-            setattr(cls, k, subscheme(v))
+            # And add a subsection
+            setattr(cls, k, subsection(v))
 
-        # add ancestors subschemes
+        # add ancestors subsections
         for base in cls.__bases__:
-            if issubclass(base, Scheme):
-                cls._subschemes |= base._subschemes
+            if issubclass(base, Section):
+                cls._subsections |= base._subsections
 
-        # register new subschemes
+        # register new subsections
         for k, v in classdict.items():
             if isinstance(v, Instance):
                 # if v.klass is str, transform to corresponding type
                 v._resolve_classes()
                 assert isinstance(v.klass, type)  # maybe into a try/except block?
-                if issubclass(v.klass, Scheme):
-                    cls._subschemes[k] = v.klass
-                    v.tag(subscheme=True, config=False)
+                if issubclass(v.klass, Section):
+                    cls._subsections[k] = v.klass
+                    v.tag(subsection=True, config=False)
 
         cls.setup_class(classdict)  # type: ignore
 
         # Check aliases
         for short, alias in cls.aliases.items():
-            subscheme_cls = cls
+            subsection_cls = cls
             for key in alias.split("."):
                 try:
-                    subscheme_cls = subscheme_cls._subschemes[key]
+                    subsection_cls = subsection_cls._subsections[key]
                 except KeyError as err:
                     raise KeyError(
                         f"Alias '{short}:{alias}' in {cls.__name__} malformed."
@@ -215,7 +215,7 @@ class Scheme(HasTraits):
         config |= kwargs
 
         with self.hold_trait_notifications():
-            self._init_subschemes(config)
+            self._init_subsections(config)
             self._init_direct_traits(config)
 
         if config:
@@ -227,16 +227,16 @@ class Scheme(HasTraits):
         config |= kwargs
 
         log.info("instanciate %s with %s", self.__class__.__name__, config)
-        for name in self.trait_names(config=True, subscheme=None):
+        for name in self.trait_names(config=True, subsection=None):
             if name in config:
                 value = config.pop(name)
                 if isinstance(value, ConfigValue):
                     value = value.get_value()
                 setattr(self, name, value)
 
-    def _init_subschemes(self, config: dict[str, t.Any], **kwargs):
+    def _init_subsections(self, config: dict[str, t.Any], **kwargs):
         config |= kwargs
-        for name, subcls in self._subschemes.items():
+        for name, subcls in self._subsections.items():
             sub_inst = subcls(config.pop(name, {}))
             setattr(self, name, sub_inst)
 
@@ -257,16 +257,16 @@ class Scheme(HasTraits):
         line = "\u2574"
         branch = "\u251c" + line
         elbow = "\u2514" + line
-        branch_subscheme = "\u251d" + "\u2501" * len(line) + "\u2511"
-        elbow_subscheme = "\u2515" + "\u2501" * len(line) + "\u2511"
+        branch_subsection = "\u251d" + "\u2501" * len(line) + "\u2511"
+        elbow_subsection = "\u2515" + "\u2501" * len(line) + "\u2511"
         pipe = "\u2502" + " " * len(line)
         blank = " " * len(pipe)
 
         lines = [self.__class__.__name__]
-        traits = self.traits(config=True, subscheme=None)
+        traits = self.traits(config=True, subsection=None)
         for i, (key, trait) in enumerate(traits.items()):
             symb = branch
-            if i == len(traits) - 1 and not self._subschemes:
+            if i == len(traits) - 1 and not self._subsections:
                 symb = elbow
 
             trait_cls = get_trait_typehint(trait, mode="minimal")
@@ -286,14 +286,14 @@ class Scheme(HasTraits):
 
             lines.append(f"{header}{symb}{key}: {value}  {trait_str}")
 
-        for i, name in enumerate(self._subschemes):
+        for i, name in enumerate(self._subsections):
             lines.append(header + pipe)
-            is_last = i == len(self._subschemes) - 1
+            is_last = i == len(self._subsections) - 1
 
-            subscheme: Scheme = getattr(self, name)
-            sublines = subscheme._get_lines(header + (blank if is_last else pipe))
+            subsection: Section = getattr(self, name)
+            sublines = subsection._get_lines(header + (blank if is_last else pipe))
 
-            symb = elbow_subscheme if is_last else branch_subscheme
+            symb = elbow_subsection if is_last else branch_subsection
             sublines[0] = f"{header}{symb}{name}:"
             lines += sublines
 
@@ -303,84 +303,84 @@ class Scheme(HasTraits):
         if not self._attr_completion_only_traits:
             return super().__dir__()
         configurables = set(self.trait_names(config=True))
-        subschemes = set(self._subschemes.keys())
-        return configurables | subschemes
+        subsections = set(self._subsections.keys())
+        return configurables | subsections
 
     # - Mapping methods
 
     def keys(
-        self, subschemes: bool = False, recursive: bool = True, aliases: bool = False
+        self, subsections: bool = False, recursive: bool = True, aliases: bool = False
     ) -> list[str]:
-        """Return iterable of keys leading to subschemes and traits.
+        """Return iterable of keys leading to subsections and traits.
 
         Parameters
         ----------
-        subschemes
-            If True (default is False), keys can lead to subschemes instances.
+        subsections
+            If True (default is False), keys can lead to subsections instances.
         recursive
-            If True (default), return keys for parameters from all subschemes.
+            If True (default), return keys for parameters from all subsections.
         aliases
             If True (default is False), include aliases.
         """
         return list(
-            self._keys(subschemes=subschemes, recursive=recursive, aliases=aliases)
+            self._keys(subsections=subsections, recursive=recursive, aliases=aliases)
         )
 
     def _keys(
-        self, subschemes: bool = False, recursive: bool = True, aliases: bool = False
+        self, subsections: bool = False, recursive: bool = True, aliases: bool = False
     ) -> abc.Generator[str]:
-        trait_names = self.trait_names(subscheme=None, config=True)
+        trait_names = self.trait_names(subsection=None, config=True)
         yield from filter(lambda s: not s.startswith("_"), trait_names)
 
-        subs: list[abc.Iterable] = [self._subschemes]
+        subs: list[abc.Iterable] = [self._subsections]
         if aliases:
             subs.append(self.aliases.keys())
 
         for name in itertools.chain(*subs):
-            subscheme = self[name]
-            if subschemes:
+            subsection = self[name]
+            if subsections:
                 yield name
             if recursive:
-                sub_traits = subscheme.keys(subschemes=subschemes, aliases=aliases)
+                sub_traits = subsection.keys(subsections=subsections, aliases=aliases)
                 yield from (f"{name}.{s}" for s in sub_traits)
 
     def values(
-        self, subschemes: bool = False, recursive: bool = True, aliases: bool = False
+        self, subsections: bool = False, recursive: bool = True, aliases: bool = False
     ) -> list[t.Any]:
-        """List of subschemes instances and trait values.
+        """List of subsections instances and trait values.
 
         In the same order as :meth:`keys`.
 
         Parameters
         ----------
-        subschemes
-            If True (default is False), values include subschemes instances.
+        subsections
+            If True (default is False), values include subsections instances.
         recursive
-            If True (default), return all subschemes.
+            If True (default), return all subsections.
         aliases
             If True (default is False), include aliases.
         """
-        keys = self.keys(subschemes=subschemes, recursive=recursive, aliases=aliases)
+        keys = self.keys(subsections=subsections, recursive=recursive, aliases=aliases)
         return [self[key] for key in keys]
 
     def items(
-        self, subschemes: bool = False, recursive: bool = True, aliases: bool = False
+        self, subsections: bool = False, recursive: bool = True, aliases: bool = False
     ) -> list[tuple[str, t.Any]]:
         """Return mapping of keys to values.
 
-        Keys can lead to subschemes instances or trait values.
+        Keys can lead to subsections instances or trait values.
 
         Parameters
         ----------
-        subschemes
-            If True (default is False), keys can map to subschemes instances.
+        subsections
+            If True (default is False), keys can map to subsections instances.
         recursive
-            If True (default), return parameters from all subschemes. Otherwise limit to
-            only this scheme.
+            If True (default), return parameters from all subsections. Otherwise limit to
+            only this section.
         aliases
             If True (default is False), include aliases.
         """
-        keys = self.keys(subschemes=subschemes, recursive=recursive, aliases=aliases)
+        keys = self.keys(subsections=subsections, recursive=recursive, aliases=aliases)
         return [(key, self[key]) for key in keys]
 
     def get(self, key: str, default: t.Any | None = None) -> t.Any:
@@ -393,27 +393,27 @@ class Scheme(HasTraits):
     def __getitem__(self, key: str) -> t.Any:
         """Obtain value it `key`."""
         fullpath = key.split(".")
-        subscheme = self
+        subsection = self
         for i, name in enumerate(fullpath):
-            if name in subscheme._subschemes:
-                subscheme = getattr(subscheme, name)
+            if name in subsection._subsections:
+                subsection = getattr(subsection, name)
                 continue
-            elif name in subscheme.aliases:
-                subscheme = subscheme[subscheme.aliases[name]]
+            elif name in subsection.aliases:
+                subsection = subsection[subsection.aliases[name]]
                 continue
-            if i == len(fullpath) - 1 and name in subscheme.trait_names(config=True):
-                return getattr(subscheme, name)
+            if i == len(fullpath) - 1 and name in subsection.trait_names(config=True):
+                return getattr(subsection, name)
                 continue
             raise KeyError(
                 f"Could not resolve key {key} "
-                f"('{name}' not in {subscheme.__class__.__name__})"
+                f"('{name}' not in {subsection.__class__.__name__})"
             )
 
-        return subscheme
+        return subsection
 
     def __contains__(self, key: str) -> bool:
-        """Return if key leads to an existing subscheme or trait."""
-        return key in self.keys(subschemes=True, aliases=True)
+        """Return if key leads to an existing subsection or trait."""
+        return key in self.keys(subsections=True, aliases=True)
 
     def __iter__(self) -> abc.Iterable[str]:
         """Iterate over possible keys.
@@ -427,9 +427,9 @@ class Scheme(HasTraits):
         return len(list(self.keys()))
 
     def __eq__(self, other: t.Any) -> bool:
-        """Check equality with other scheme.
+        """Check equality with other section.
 
-        If *other* is not a Scheme, will return False. Both scheme must have the same
+        If *other* is not a Section, will return False. Both section must have the same
         keys and same values.
         """
         if not isinstance(other, type(self)):
@@ -455,15 +455,15 @@ class Scheme(HasTraits):
         """
         *prefix, trait_name = key.split(".")
         if len(prefix) == 0:
-            subscheme = self
+            subsection = self
         else:
-            subscheme = self[".".join(prefix)]
+            subsection = self[".".join(prefix)]
 
-        if trait_name not in subscheme.trait_names():
-            clsname = subscheme.__class__.__name__
-            raise KeyError(f"No trait '{trait_name}' in scheme {clsname}.")
+        if trait_name not in subsection.trait_names():
+            clsname = subsection.__class__.__name__
+            raise KeyError(f"No trait '{trait_name}' in section {clsname}.")
 
-        setattr(subscheme, trait_name, value)
+        setattr(subsection, trait_name, value)
 
     def setdefault(
         self,
@@ -474,7 +474,7 @@ class Scheme(HasTraits):
         """Set a trait to a value if it exists.
 
         If the trait exists, return its value. Otherwise, the *default* argument must be
-        provide a trait instance to add it to the scheme, it is set to *value* if it is
+        provide a trait instance to add it to the section, it is set to *value* if it is
         provided as well.
 
         Parameters
@@ -492,7 +492,7 @@ class Scheme(HasTraits):
         if default is None:
             raise TypeError(
                 f"Key '{key}' does not exist. A trait argument must be "
-                " supplied to be added to the scheme."
+                " supplied to be added to the section."
             )
         self.add_trait(key, default)
         if value is not Undefined:
@@ -501,73 +501,73 @@ class Scheme(HasTraits):
         return self[key]
 
     def pop(self, key: str, other: t.Any | None = None) -> t.Any:
-        """Schemes do not support the *pop* operation.
+        """Sections do not support the *pop* operation.
 
         A trait cannot be deleted.
         """
-        raise TypeError("Schemes do not support 'pop'. A trait cannot be deleted")
+        raise TypeError("Sections do not support 'pop'. A trait cannot be deleted")
 
     def popitem(self) -> tuple[str, t.Any]:
-        """Schemes do not support the *popitem* operation.
+        """Sections do not support the *popitem* operation.
 
         A trait cannot be deleted.
         """
-        raise TypeError("Schemes do not support 'popitem'. A trait cannot be deleted")
+        raise TypeError("Sections do not support 'popitem'. A trait cannot be deleted")
 
     def clear(self) -> None:
-        """Schemes do not support the *clear* operation.
+        """Sections do not support the *clear* operation.
 
         A trait cannot be deleted. You may use :meth:`reset` to reset all traits to
         their default value.
         """
         raise TypeError(
-            "Schemes do not support 'clear'. A trait cannot be deleted. "
+            "Sections do not support 'clear'. A trait cannot be deleted. "
             "You may use 'reset' to reset all traits to their default value."
         )
 
     def reset(self) -> None:
         """Reset all traits to their default value."""
 
-        def func(scheme: Scheme, traits, key: str, trait: TraitType, path):
-            setattr(scheme, key, trait.default())
+        def func(section: Section, traits, key: str, trait: TraitType, path):
+            setattr(section, key, trait.default())
 
         self.remap(func, config=True)
 
     def update(
         self,
-        other: Scheme | abc.Mapping[str, t.Any] | None = None,
+        other: Section | abc.Mapping[str, t.Any] | None = None,
         allow_new: bool = False,
         raise_on_miss: bool = False,
         **kwargs,
     ):
-        """Update values of this Scheme traits.
+        """Update values of this Section traits.
 
         Some trait that do not exist in this instance, but are specified can be added.
-        Currently whole subschemes cannot be added.
+        Currently whole subsections cannot be added.
 
         Parameters
         ----------
         other
-            Other Scheme to take traits values from (recursively). It can also be a
+            Other Section to take traits values from (recursively). It can also be a
             flat mapping of full path keys (``"some.path.to.trait"``) to values or
             trait instances, which default value will be used.
         allow_new
-            If True, allow creating new traits for this Scheme. A new trait must can be
-            a trait in `other` if it is a Scheme; in a mapping it must be a trait
+            If True, allow creating new traits for this Section. A new trait must can be
+            a trait in `other` if it is a Section; in a mapping it must be a trait
             instance which default value will be used. Default is False.
         raise_on_miss
             If True, raise an exception if a trait in `other` is placed on a path that
-            does not lead to an existing subscheme or trait. Default is False.
+            does not lead to an existing subsection or trait. Default is False.
         kwargs
             Same as `other`.
         """
-        input_scheme = False
+        input_section = False
         values: dict[str, t.Any]
         if other is None:
             values = {}
-        elif isinstance(other, Scheme):
+        elif isinstance(other, Section):
             values = dict(other)
-            input_scheme = True
+            input_section = True
         else:
             values = dict(other)
         values |= kwargs
@@ -581,11 +581,11 @@ class Scheme(HasTraits):
 
                 if isinstance(value, TraitType):
                     newtrait = value
-                elif input_scheme:
+                elif input_section:
                     newtrait = other.traits_recursive(flatten=True)[key]  # type: ignore[union-attr]
                 else:
                     raise TypeError(
-                        "A new trait must be specified as a TraitType or from a Scheme "
+                        "A new trait must be specified as a TraitType or from a Section "
                         f"({key}: {type(value)})"
                     )
 
@@ -600,7 +600,7 @@ class Scheme(HasTraits):
     # - end of Mutable Mapping methods
 
     def add_trait(self, key: str, trait: TraitType, allow_recursive: bool = True):
-        """Add a trait to this scheme or one of its subscheme.
+        """Add a trait to this section or one of its subsection.
 
         The trait name cannot be already in use.
 
@@ -608,37 +608,37 @@ class Scheme(HasTraits):
         ----------
         key
             Path of dot separated attribute names leading to the trait to add. It can
-            also only be a trait name to add to *this* scheme.
+            also only be a trait name to add to *this* section.
         trait
             Trait instance to add.
         allow_recursive
-            If True (default), subschemes specified in *key* that are not contained in
-            this scheme will be added automatically. Otherwise, this will raise on
-            unknown subschemes in *key*.
+            If True (default), subsections specified in *key* that are not contained in
+            this section will be added automatically. Otherwise, this will raise on
+            unknown subsections in *key*.
         """
         *prefix, trait_name = key.split(".")
 
-        scheme = self
+        section = self
         for name in prefix:
-            if name in scheme._subschemes:
+            if name in section._subsections:
                 pass
-            # subscheme does not exist
+            # subsection does not exist
             elif allow_recursive:
-                scheme.add_traits(**{name: subscheme(Scheme)})
-                scheme._subschemes[name] = Scheme
+                section.add_traits(**{name: subsection(Section)})
+                section._subsections[name] = Section
             else:
                 raise KeyError(
-                    f"There is no scheme '{name}', and creating subschemes "
+                    f"There is no section '{name}', and creating subsections "
                     f"to add trait '{key}' was not allowed."
                 )
 
-            # scheme exists or has been added
-            scheme = getattr(scheme, name)
+            # section exists or has been added
+            section = getattr(section, name)
 
-        if trait_name in scheme.trait_names():
+        if trait_name in section.trait_names():
             raise KeyError(f"Trait '{key}' already exists.")
 
-        scheme.add_traits(**{trait_name: trait})
+        section.add_traits(**{trait_name: trait})
 
     def as_dict(
         self, recursive: bool = True, aliases: bool = False, flatten: bool = True
@@ -648,8 +648,8 @@ class Scheme(HasTraits):
         Parameters
         ----------
         recursive
-            If True (default), return parameters from all subschemes. Otherwise limit to
-            only this scheme.
+            If True (default), return parameters from all subsections. Otherwise limit to
+            only this section.
         aliases
             If True (default is False), include aliases.
         flatten
@@ -657,19 +657,19 @@ class Scheme(HasTraits):
             Otherwise return a nested dictionnary.
         """
         output = dict(
-            self.items(subschemes=False, recursive=recursive, aliases=aliases)
+            self.items(subsections=False, recursive=recursive, aliases=aliases)
         )
         if not flatten:
             output = nest_dict(output)
         return output
 
     def select(self, *keys: str, flatten: bool = False) -> dict[str, t.Any]:
-        """Select parameters from this schemes or its subschemes.
+        """Select parameters from this sections or its subsections.
 
         Parameters
         ----------
         keys
-            Keys leading to parameters. To select parameters from subschemes, use
+            Keys leading to parameters. To select parameters from subsections, use
             dot-separated syntax like ``"some.nested.parameter"``.
         flatten
             If True (default), return a flat dictionnary with dot-separated keys.
@@ -681,10 +681,10 @@ class Scheme(HasTraits):
         return output
 
     @classmethod
-    def _subschemes_recursive(cls) -> abc.Iterator[type[Scheme]]:
-        """Iterate recursively over all subschemes."""
-        for subscheme in cls._subschemes.values():
-            yield from subscheme._subschemes_recursive()
+    def _subsections_recursive(cls) -> abc.Iterator[type[Section]]:
+        """Iterate recursively over all subsections."""
+        for subsection in cls._subsections.values():
+            yield from subsection._subsections_recursive()
         yield cls
 
     @classmethod
@@ -692,15 +692,15 @@ class Scheme(HasTraits):
         """Return nested/recursive dict of all traits."""
         config: dict[t.Any, t.Any] = dict()
         config.update(cls.class_own_traits(config=True))
-        for name, subscheme in cls._subschemes.items():
-            config[name] = subscheme.class_traits_recursive()
+        for name, subsection in cls._subsections.items():
+            config[name] = subsection.class_traits_recursive()
         return config
 
     # Lifted from traitlets.config.application.Application
     @classmethod
     def _classes_inc_parents(
-        cls, classes: abc.Iterable[type[Scheme]] | None = None
-    ) -> abc.Generator[type[Scheme], None, None]:
+        cls, classes: abc.Iterable[type[Section]] | None = None
+    ) -> abc.Generator[type[Section], None, None]:
         """Iterate through configurable classes, including configurable parents.
 
         Children should always be after parents, and each class should only be
@@ -709,22 +709,22 @@ class Scheme(HasTraits):
         Parameters
         ----------
         classes
-            The list of classes to start from; if not set, uses all nested subschemes.
+            The list of classes to start from; if not set, uses all nested subsections.
         """
         if classes is None:
-            classes = cls._subschemes_recursive()
+            classes = cls._subsections_recursive()
 
         seen = set()
         for c in classes:
             # We want to sort parents before children, so we reverse the MRO
             for parent in reversed(c.mro()):
-                if issubclass(parent, Scheme) and (parent not in seen):
+                if issubclass(parent, Section) and (parent not in seen):
                     seen.add(parent)
                     yield parent
 
     def remap(
         self,
-        func: abc.Callable[[Scheme, dict, str, TraitType, list[str]], None] | None,
+        func: abc.Callable[[Section, dict, str, TraitType, list[str]], None] | None,
         flatten: bool = False,
         **metadata,
     ) -> dict[str, t.Any]:
@@ -742,28 +742,28 @@ class Scheme(HasTraits):
             dictionnary.
         flatten:
             If True, return a flat dictionary (not nested) with each key being the full
-            path of subscheme leading to a trait, separated by dots (ie
+            path of subsection leading to a trait, separated by dots (ie
             ``"some.path.to.trait"``). Default is False.
         metadata:
             Select only some traits which metadata satistify this argument.
         """
 
-        def recurse(scheme: Scheme, outsec: dict, path: list[str]):
-            for name, trait in scheme.traits(**metadata, subscheme=None).items():
+        def recurse(section: Section, outsec: dict, path: list[str]):
+            for name, trait in section.traits(**metadata, subsection=None).items():
                 fullpath = path + [name]
                 key = ".".join(fullpath) if flatten else name
                 outsec[key] = trait
                 if func is not None:
-                    func(scheme, outsec, key, trait, fullpath)
+                    func(section, outsec, key, trait, fullpath)
 
-            for name in scheme._subschemes:
+            for name in section._subsections:
                 if flatten:
                     sub_outsec = outsec
                 else:
                     outsec[name] = {}
                     sub_outsec = outsec[name]
 
-                recurse(getattr(scheme, name), sub_outsec, path + [name])
+                recurse(getattr(section, name), sub_outsec, path + [name])
 
         output: dict[str, t.Any] = dict()
         recurse(self, output, [])
@@ -804,7 +804,7 @@ class Scheme(HasTraits):
         return output
 
     @classmethod
-    def resolve_key(cls, key: str | list[str]) -> tuple[str, type[Scheme], TraitType]:
+    def resolve_key(cls, key: str | list[str]) -> tuple[str, type[Section], TraitType]:
         """Resolve a key.
 
         This method is meant to be used pre-instanciation.
@@ -813,17 +813,17 @@ class Scheme(HasTraits):
         ----------
         key
             Dot separated (or a list of) attribute names that point to a trait in the
-            configuration tree, starting from this Scheme.
+            configuration tree, starting from this Section.
             It might contain aliases/shortcuts.
 
         Returns
         -------
         fullkey
             Dot separated attribute names that *unambiguously* and *uniquely* point to a
-            trait in the config tree, starting from this Scheme, ending with the trait
+            trait in the config tree, starting from this Section, ending with the trait
             name.
-        subscheme
-            The :class:`Scheme` *class* that contains the trait.
+        subsection
+            The :class:`Section` *class* that contains the trait.
         trait
             The :class:`trait<traitlets.TraitType>` object corresponding to the key.
         """
@@ -832,30 +832,30 @@ class Scheme(HasTraits):
 
         *prefix, trait_name = key
         fullkey = []
-        subscheme = cls
+        subsection = cls
         for subkey in prefix:
-            if subkey in subscheme._subschemes:
-                subscheme = subscheme._subschemes[subkey]
+            if subkey in subsection._subsections:
+                subsection = subsection._subsections[subkey]
                 fullkey.append(subkey)
             elif subkey in cls.aliases:
                 alias = cls.aliases[subkey].split(".")
                 fullkey += alias
                 for alias_subkey in alias:
-                    subscheme = subscheme._subschemes[alias_subkey]
+                    subsection = subsection._subsections[alias_subkey]
             else:
                 raise UnknownConfigKeyError(
-                    f"Scheme '{'.'.join(fullkey)}' ({_subscheme_clsname(subscheme)}) "
-                    f"has no subscheme or alias '{subkey}'."
+                    f"Section '{'.'.join(fullkey)}' ({_subsection_clsname(subsection)}) "
+                    f"has no subsection or alias '{subkey}'."
                 )
 
-        if not hasattr(subscheme, trait_name):
+        if not hasattr(subsection, trait_name):
             raise UnknownConfigKeyError(
-                f"Scheme '{'.'.join(fullkey)}' ({_subscheme_clsname(subscheme)}) "
+                f"Section '{'.'.join(fullkey)}' ({_subsection_clsname(subsection)}) "
                 f"has no trait '{trait_name}'."
             )
-        trait = getattr(subscheme, trait_name)
+        trait = getattr(subsection, trait_name)
 
-        return ".".join(fullkey + [trait_name]), subscheme, trait
+        return ".".join(fullkey + [trait_name]), subsection, trait
 
     @staticmethod
     def merge_configs(
@@ -886,14 +886,14 @@ class Scheme(HasTraits):
         return out
 
     def help(self) -> None:
-        """Print description of this scheme and its traits."""
+        """Print description of this section and its traits."""
         print("\n".join(self.emit_help()))
 
     def emit_help(self, fullpath: list[str] | None = None) -> list[str]:
-        """Return help for this scheme, and its subschemes recursively.
+        """Return help for this section, and its subsections recursively.
 
-        Contains the name of this scheme, its description if it has one, eventual
-        aliases/shortcuts, help on each trait, and same thing recursively on subschemes.
+        Contains the name of this section, its description if it has one, eventual
+        aliases/shortcuts, help on each trait, and same thing recursively on subsections.
 
         Format the help so that it can be used as help for specifying values from the
         command line.
@@ -925,16 +925,16 @@ class Scheme(HasTraits):
                 self.emit_trait_help(fullpath + [name], trait), initial_indent=False
             )
 
-        for name in sorted(self._subschemes):
+        for name in sorted(self._subsections):
             add_spacer(lines)
             lines += getattr(self, name).emit_help(fullpath + [name])
 
         return lines
 
     def emit_description(self) -> list[str]:
-        """Return lines of description of this scheme.
+        """Return lines of description of this section.
 
-        Take the scheme docstring if defined, and format it nicely (wraps it, remove
+        Take the section docstring if defined, and format it nicely (wraps it, remove
         trailing whitespace, etc.). Return a list of lines.
         """
         doc = self.__doc__
@@ -953,7 +953,7 @@ class Scheme(HasTraits):
         return lines
 
     def emit_trait_help(self, fullpath: list[str], trait: TraitType) -> list[str]:
-        """Return lines of help for a trait of this scheme.
+        """Return lines of help for a trait of this section.
 
         Format the help so that it can be used as help for specifying values from the
         command line.
@@ -1021,23 +1021,23 @@ class Scheme(HasTraits):
         return params
 
 
-def _subscheme_clsname(scheme: type[Scheme] | Scheme, module: bool = True) -> str:
-    if not isinstance(scheme, type):
-        scheme = scheme.__class__
+def _subsection_clsname(section: type[Section] | Section, module: bool = True) -> str:
+    if not isinstance(section, type):
+        section = section.__class__
 
     mod = ""
     if module:
         try:
-            mod = scheme.__module__
+            mod = section.__module__
         except AttributeError:
             pass
 
     try:
-        name = scheme.__qualname__
+        name = section.__qualname__
     except AttributeError:
-        return str(scheme)
+        return str(section)
 
     return ".".join([mod, name])
 
 
-abc.MutableMapping[str, t.Any].register(Scheme)
+abc.MutableMapping[str, t.Any].register(Section)

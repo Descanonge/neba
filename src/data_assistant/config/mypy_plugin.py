@@ -1,4 +1,4 @@
-"""Mypy plugin to handle dynamic Scheme definitions.
+"""Mypy plugin to handle dynamic Section definitions.
 
 Use by adding to the list of plugins in your mypy configuration:
 ``"data_assistant.config.mypy_plugin"``
@@ -13,45 +13,45 @@ from mypy.types import Instance, TypeVarLikeType
 
 from data_assistant.config.scheme import _name_to_classdef
 
-SCHEME_FULLNAME = "data_assistant.config.scheme.Scheme"
+SECTION_FULLNAME = "data_assistant.config.scheme.Section"
 
 
-class SchemePlugin(Plugin):
-    """Plugin for dynamic schemes."""
+class SectionPlugin(Plugin):
+    """Plugin for dynamic sections."""
 
     def get_base_class_hook(
         self, fullname: str
     ) -> abc.Callable[[ClassDefContext], None] | None:
-        """Adapt to the dynamic definition of subschemes."""
+        """Adapt to the dynamic definition of subsections."""
         sym = self.lookup_fully_qualified(fullname)
         if sym and isinstance(sym.node, TypeInfo):
-            if any(base.fullname == SCHEME_FULLNAME for base in sym.node.mro):
-                return self._transform_scheme
+            if any(base.fullname == SECTION_FULLNAME for base in sym.node.mro):
+                return self._transform_section
 
         return None
 
-    def _transform_scheme(self, ctx: ClassDefContext) -> None:
-        transformer = SchemeTransformer(ctx)
+    def _transform_section(self, ctx: ClassDefContext) -> None:
+        transformer = SectionTransformer(ctx)
         transformer.transform()
 
 
-class SchemeTransformer:
-    """Reproduce the dynamic definition of Schemes.
+class SectionTransformer:
+    """Reproduce the dynamic definition of Sections.
 
-    Nested class definitions (of Schemes) are automatically considered as subschemes
+    Nested class definitions (of Sections) are automatically considered as subsections
     of the same name as the class.
 
     Notably:
 
-    * modify nested class defs: change their name to "_{name}SchemeDef" to hide them
+    * modify nested class defs: change their name to "_{name}SectionDef" to hide them
       while conserving them
-    * add an attribute corresponding to the subscheme (traitlets.Instance[_SchemeDef])
+    * add an attribute corresponding to the subsection (traitlets.Instance[_SectionDef])
 
     We note in metadata the classes that have been modified so that we do not touch
     them on further passes.
     """
 
-    METADATA_KEY = "SchemeTransformerPluginData"
+    METADATA_KEY = "SectionTransformerPluginData"
 
     def __init__(self, ctx: ClassDefContext):
         self.ctx = ctx
@@ -71,8 +71,8 @@ class SchemeTransformer:
 
         Can return early if additional passes are needed.
         """
-        subschemes_defs = self.collect_subschemes_defs()
-        new_defs = self.modify_class_defs(subschemes_defs)
+        subsections_defs = self.collect_subsections_defs()
+        new_defs = self.modify_class_defs(subsections_defs)
 
         self.metadata["moved_class_defs"] = [_name_to_classdef(n) for n in new_defs]
 
@@ -81,15 +81,15 @@ class SchemeTransformer:
                 self.api.defer()
             return
 
-        subschemes_info = {n: k.info for n, k in new_defs.items()}
-        self.assign_attributes(subschemes_info)
+        subsections_info = {n: k.info for n, k in new_defs.items()}
+        self.assign_attributes(subsections_info)
 
-    def assign_attributes(self, subschemes: dict[str, TypeInfo]):
-        """Assign new attributes corresponding to subschemes.
+    def assign_attributes(self, subsections: dict[str, TypeInfo]):
+        """Assign new attributes corresponding to subsections.
 
-        We replace by traitlets.Instance[_someSchemeDef].
+        We replace by traitlets.Instance[_someSectionDef].
         """
-        for name, info in subschemes.items():
+        for name, info in subsections.items():
             typ = Instance(self.traitlets_inst_info, [Instance(info, [])])
             add_attribute_to_class(
                 self.api,
@@ -127,14 +127,16 @@ class SchemeTransformer:
 
         setattr(node, attr, ".".join(split))
 
-    def modify_class_defs(self, subschemes: dict[str, ClassDef]) -> dict[str, ClassDef]:
-        """Modify subscheme class defs to hide them.
+    def modify_class_defs(
+        self, subsections: dict[str, ClassDef]
+    ) -> dict[str, ClassDef]:
+        """Modify subsection class defs to hide them.
 
-        It also frees the spot for our new subscheme attribute (so we don't need to
+        It also frees the spot for our new subsection attribute (so we don't need to
         completely remove the old definition either).
         """
         new_defs = {}
-        for sub_name, old_def in subschemes.items():
+        for sub_name, old_def in subsections.items():
             new_def = old_def
 
             # Change name
@@ -179,11 +181,11 @@ class SchemeTransformer:
 
         return True
 
-    def collect_subschemes_defs(self) -> dict[str, ClassDef]:
-        """Find the subschemes to modify.
+    def collect_subsections_defs(self) -> dict[str, ClassDef]:
+        """Find the subsections to modify.
 
         Do not return classes defs that have the name of previously modified defs
-        (ie either have the name of a previous subscheme or a previously hidden class).
+        (ie either have the name of a previous subsection or a previously hidden class).
         """
         moved_class_defs: list[str] = self.metadata.get("moved_class_defs", [])
 
@@ -194,11 +196,11 @@ class SchemeTransformer:
                 if (
                     _name_to_classdef(name) not in moved_class_defs
                     and isinstance(stmt.info, TypeInfo)
-                    and stmt.info.has_base(SCHEME_FULLNAME)
+                    and stmt.info.has_base(SECTION_FULLNAME)
                 ):
                     found[name] = stmt
         return found
 
 
 def plugin(version: str) -> type[Plugin]:
-    return SchemePlugin
+    return SectionPlugin
