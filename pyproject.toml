@@ -37,7 +37,7 @@ dependencies = [
 'Homepage' = 'https://gitlab.in2p3.fr/biofronts/data-assistant'
 
 [tool.mypy]
-# plugins = ['numpy.typing.mypy_plugin', 'data_assistant.config.mypy_plugin']
+plugins = ['numpy.typing.mypy_plugin', 'data_assistant.config.mypy_plugin']
 ignore_missing_imports = true
 
 [tool.ruff]

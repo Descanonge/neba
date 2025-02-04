@@ -12,13 +12,13 @@ from data_assistant.config.loaders.python import PyConfigContainer, PyLoader
 from data_assistant.config.util import ConfigParsingError
 
 # from data_assistant.config.loaders.python import PyLoader
-from ..section_generation import GenericSection, GenericSectionInfo
+from ..generic_sections import GenericConfig, GenericConfigInfo
 
 LOADERS: list[type[ConfigLoader]]
 FILE_LOADERS: list[type[FileLoader]]
 
 
-class App(ApplicationBase, GenericSection):
+class App(ApplicationBase, GenericConfig):
     file_loaders = [PyLoader]
     pass
 
@@ -112,15 +112,17 @@ class TestCLILoader:
 
     def test_parsing(self):
         args = []
-        for k, v in GenericSectionInfo.generic_args().items():
+        ref = {}
+        for k, (arg, value) in GenericConfigInfo.generic_args().items():
+            ref[k] = value
             args.append(f"--{k}")
-            args += v
+            args += arg
 
         app = App()
         parsed = app.parse_command_line(args)
 
         parsed = {k: v.get_value() for k, v in parsed.items()}
-        assert GenericSectionInfo().generic_values() == parsed
+        assert ref == parsed
 
     def test_classkey(self):
         args = "--App.int 15 --GenericTraits.list_int 1 2 --TwinSubsection.int 3"
@@ -183,13 +185,13 @@ class TestPythonLoader:
         conf = app.load_config_files()
         conf = {k: v.get_value() for k, v in conf.items()}
 
-        assert conf == GenericSectionInfo.generic_values()
+        assert conf == GenericConfigInfo.generic_values()
 
-    @given(values=GenericSectionInfo.values_half_strat())
+    @given(values=GenericConfigInfo.values_half_strat())
     def test_write_and_read_half(self, values: dict):
         self.assert_write_read(values)
 
-    @given(values=GenericSectionInfo.values_all_strat())
+    @given(values=GenericConfigInfo.values_all_strat())
     def test_write_and_read_all(self, values: dict):
         self.assert_write_read(values)
 
