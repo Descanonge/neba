@@ -807,8 +807,6 @@ class Section(HasTraits):
     def resolve_key(cls, key: str | list[str]) -> tuple[str, type[Section], TraitType]:
         """Resolve a key.
 
-        This method is meant to be used pre-instanciation.
-
         Parameters
         ----------
         key
@@ -843,16 +841,19 @@ class Section(HasTraits):
                 for alias_subkey in alias:
                     subsection = subsection._subsections[alias_subkey]
             else:
+                secname = ".".join(fullkey) + " " if fullkey else ""
+                secname += f"({_subsection_clsname(subsection)})"
                 raise UnknownConfigKeyError(
-                    f"Section '{'.'.join(fullkey)}' ({_subsection_clsname(subsection)}) "
-                    f"has no subsection or alias '{subkey}'."
+                    f"Section {secname} has no subsection or alias '{subkey}'."
                 )
 
-        if not hasattr(subsection, trait_name):
+        if trait_name not in subsection.class_trait_names(config=True, subsection=None):
+            secname = ".".join(fullkey) + " " if fullkey else ""
+            secname += f"({_subsection_clsname(subsection)})"
             raise UnknownConfigKeyError(
-                f"Section '{'.'.join(fullkey)}' ({_subsection_clsname(subsection)}) "
-                f"has no trait '{trait_name}'."
+                f"Section {secname} has no trait '{trait_name}'."
             )
+
         trait = getattr(subsection, trait_name)
 
         return ".".join(fullkey + [trait_name]), subsection, trait
