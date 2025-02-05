@@ -39,36 +39,6 @@ class SingletonSection(Section, SingletonConfigurable):
             ):
                 yield parent
 
-    @classmethod
-    def instance(cls: type[_SingleS], *args: t.Any, **kwargs: t.Any) -> _SingleS:
-        """Return a global instance of this class.
-
-        This method create a new instance if none have previously been created
-        and returns a previously created instance is one already exists.
-
-        The arguments and keyword arguments passed to this method are passed
-        on to the :meth:`__init__` method of the class upon instantiation.
-        """
-        # Create and save the instance
-        if cls._instance is None:
-            inst = cls(*args, **kwargs)
-            inst._after_init()
-            # Now make sure that the instance will also be returned by
-            # parent classes' _instance attribute.
-            for parent in cls._walk_mro():
-                parent._instance = inst  # type: ignore[assignment]
-
-        if isinstance(cls._instance, cls):
-            return cls._instance
-        else:
-            raise MultipleInstanceError(
-                f"An incompatible sibling of '{cls.__name__}' is already instantiated"
-                f" as singleton: {type(cls._instance).__name__}"
-            )
-
-    def _after_init(self) -> None:
-        pass
-
 
 class ApplicationBase(SingletonSection):
     """Base application class.
@@ -137,7 +107,7 @@ class ApplicationBase(SingletonSection):
 
         super().__init_subclass__(**kwargs)
 
-    def __init__(self) -> None:
+    def __init__(self, start: bool = True, **kwargs) -> None:
         # No super.__init__, it would instanciate recursively subsections
 
         # Useless-ish but we need to initialize the logger
@@ -155,8 +125,8 @@ class ApplicationBase(SingletonSection):
         self.extra_parameters: dict[str, t.Any] = {}
         """Extra parameters retrieved by the command line parser."""
 
-    def _after_init(self) -> None:
-        self.start()
+        if start:
+            self.start(**kwargs)
 
     @classmethod
     def register_section(cls, section: type[S]) -> type[S]:
