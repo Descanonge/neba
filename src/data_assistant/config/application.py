@@ -93,6 +93,9 @@ class ApplicationBase(SingletonSection):
     look at the extension.
     """
 
+    _extra_parameters_args: list[tuple[list, dict[str, t.Any]]] = []
+    """Extra parameters passed to the command line parser."""
+
     @classmethod
     def __init_subclass__(cls, /, **kwargs) -> None:
         # for section in cls.sections:
@@ -120,8 +123,6 @@ class ApplicationBase(SingletonSection):
         self.file_conf: dict[str, ConfigValue] = {}
         """Configuration values obtained from configuration files."""
 
-        self._extra_parameters_args: list[tuple[list, dict[str, t.Any]]] = []
-        """Extra parameters passed to the command line parser."""
         self.extra_parameters: dict[str, t.Any] = {}
         """Extra parameters retrieved by the command line parser."""
 
@@ -228,6 +229,21 @@ class ApplicationBase(SingletonSection):
             argv = argv[idx + 1 :]
         return argv
 
+    @classmethod
+    def add_extra_parameter(cls, *args, **kwargs):
+        """Add an extra parameter to the CLI argument parser.
+
+        Extra parameters will be available after CLI parsing in
+        :attr:`extra_parameters`.
+
+        Parameters
+        ----------
+        args, kwargs
+            Passed to :meth:`argparse.ArgumentParser.add_argument`.
+
+        """
+        cls._extra_parameters_args.append((args, kwargs))
+
     def load_config_files(self) -> dict[str, ConfigValue]:
         """Return configuration loaded from files."""
         if isinstance(self.config_files, str):
@@ -307,20 +323,6 @@ class ApplicationBase(SingletonSection):
 
         out.key = fullkey
         return out
-
-    def add_extra_parameter(self, *args, **kwargs):
-        """Add an extra parameter to the CLI argument parser.
-
-        Extra parameters will be available after CLI parsing in
-        :attr:`extra_parameters`.
-
-        Parameters
-        ----------
-        args, kwargs
-            Passed to :meth:`argparse.ArgumentParser.add_argument`.
-
-        """
-        self._extra_parameters_args.append((args, kwargs))
 
     def write_config(
         self,
