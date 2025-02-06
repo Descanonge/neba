@@ -190,7 +190,8 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data], HasModules, Section):
 
         self._instanciate_modules(params=params, **kwargs)
         self._init_modules()
-        self.set_params(params, **kwargs)
+        if params is not None or kwargs:
+            self.update_params(params, **kwargs)
 
     def __str__(self) -> str:
         """Return a string representation."""
