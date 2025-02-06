@@ -55,6 +55,7 @@ class HasModules:
     """Mapping from attribute names to module instances. Filled during initialization."""
 
     def __init_subclass__(cls, /, **kwargs) -> None:
+        super().__init_subclass__(**kwargs)
         cls._check_registered()
 
     @classmethod
@@ -175,10 +176,6 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data], HasModules, Section):
     source: SourceAbstract[T_Source]
     loader: LoaderAbstract[T_Source, T_Data]
     writer: WriterAbstract[T_Source, T_Data]
-
-    def __init_subclass__(cls, /, **kwargs) -> None:
-        HasModules.__init_subclass__(**kwargs)
-        Section.__init_subclass__(**kwargs)
 
     def __init__(self, params: t.Any | None = None, **kwargs) -> None:
         self._reset_callbacks = {}
