@@ -98,7 +98,7 @@ class ParamsManager(ParamsManagerAbstract[dict[str, t.Any]]):
 T_Section = t.TypeVar("T_Section", bound=Section)
 
 
-class ParamsManagerSection(ParamsManagerAbstract[T_Section]):
+class ParamsManagerSectionAbstract(ParamsManagerAbstract[T_Section]):
     """Parameters are stored in a Section object.
 
     Set and update methods rely on :meth:`.Section.update` to merge the new parameters
@@ -107,19 +107,7 @@ class ParamsManagerSection(ParamsManagerAbstract[T_Section]):
 
     RAISE_ON_MISS: bool = True
 
-    SECTION_CLS: type[T_Section]
-    """Section class to use as parameters."""
-
     _params: T_Section
-
-    def _init_module(self) -> None:
-        if not hasattr(self, "SECTION_CLS"):
-            app = self.dm._application_cls
-            self.SECTION_CLS = app if app is not None else Section  # type: ignore[assignment]
-
-        self._params = self.SECTION_CLS()
-
-        self._reset_params()
 
     def set_params(
         self,
@@ -170,3 +158,30 @@ class ParamsManagerSection(ParamsManagerAbstract[T_Section]):
 
     def _reset_params(self) -> None:
         self._params.reset()
+
+
+class ParamsManagerSection(ParamsManagerSectionAbstract[T_Section]):
+    """Parameters are stored in a Section object.
+
+    Set and update methods rely on :meth:`.Section.update` to merge the new parameters
+    values to :attr:`params`.
+    """
+
+    SECTION_CLS: type[T_Section] = Section  # type: ignore[assignment]
+    """Section class to use as parameters."""
+
+    _params: T_Section
+
+    def _init_module(self) -> None:
+        self._params = self.SECTION_CLS()
+
+
+class ParamsManagerApp(ParamsManagerSectionAbstract[T_Section]):
+    def _init_module(self) -> None:
+        app_cls = self.dm._application_cls
+        if app_cls is None:
+            raise TypeError(
+                "ParamsManagerApp requires the application type to be set "
+                "on the data manager. Use @Application.register_section."
+            )
+        self._params = app_cls.instance().copy()

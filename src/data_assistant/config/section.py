@@ -306,6 +306,10 @@ class Section(HasTraits):
         subsections = set(self._subsections.keys())
         return configurables | subsections
 
+    def copy(self) -> t.Self:
+        config = self.as_dict(flatten=False)
+        return self.__class__(config)
+
     # - Mapping methods
 
     def keys(
