@@ -1,3 +1,5 @@
+# Created from GenericConfigInfo.generic_args
+
 c.bool = False
 c.float = 1.0
 c.int = 1

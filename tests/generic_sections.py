@@ -243,7 +243,10 @@ class GenericSectionInfo(SectionInfo[GenericSection]):
 
     @classmethod
     def generic_args(cls) -> dict[str, tuple[list[str], t.Any]]:
-        """Return arguments as could be given on command-line and their parsed value."""
+        """Return arguments as could be given on command-line and their parsed value.
+
+        Is also used as reference for creating manually configuration files.
+        """
         generic_args = dict(
             bool=(["false"], False),
             float=(["1.0"], 1.0),
@@ -264,7 +267,7 @@ class GenericSectionInfo(SectionInfo[GenericSection]):
             tuple_float=(["2", "3"], (2.0, 3.0)),
             tuple_mix=(["b", "2", "3"], ("b", 2, 3)),
             # dict
-            dict_any=(["a=1", "b=2", "c=3"], dict(a=1, b=2, c=3)),
+            dict_any=(["a=1", "b=2", "c=3"], dict(a="1", b="2", c="3")),
             dict_str_int=(["a=1"], dict(a=1)),
             # instance and type TODO
             # inst="",

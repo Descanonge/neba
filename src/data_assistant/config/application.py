@@ -218,6 +218,7 @@ class ApplicationBase(SingletonSection):
     def get_argv(self) -> list[str] | None:
         """Return command line arguments.
 
+        TODO: update
         Currently return None, which can be passed down to the parser
         :class:`argparse.ArgumentParser`.
         To handle more complex cases, like separating arguments for different

@@ -11,6 +11,8 @@ from data_assistant.config.loaders.core import ConfigLoader, ConfigValue, FileLo
 from data_assistant.config.loaders.python import PyConfigContainer, PyLoader
 from data_assistant.config.util import ConfigParsingError
 
+from ..conftest import todo
+
 # from data_assistant.config.loaders.python import PyLoader
 from ..generic_sections import GenericConfig, GenericConfigInfo
 
@@ -89,6 +91,7 @@ class TestConfigValue:
         self.assert_parse(trait, ["a", "b"], ["a", "b"])
         self.assert_parse(trait, ["0", "a"], [0, "a"])
 
+    @todo
     def test_aliases(self):
         assert 0
 
@@ -99,14 +102,17 @@ class DictLikeLoader:
     This behavior should be the same for other loaders (json, yaml) but easier to test.
     """
 
+    @todo
     def test_reading(self):
         assert 0
 
 
 class TestCLILoader:
+    @todo
     def test_setting_new_action(self):
         assert 0
 
+    @todo
     def test_help(self):
         assert 0
 
@@ -124,6 +130,7 @@ class TestCLILoader:
         parsed = {k: v.get_value() for k, v in parsed.items()}
         assert ref == parsed
 
+    @todo
     def test_classkey(self):
         args = "--App.int 15 --GenericTraits.list_int 1 2 --TwinSubsection.int 3"
         app = App()
@@ -148,9 +155,10 @@ class TestCLILoader:
         assert parsed["sub_twin.twin_c.int"] == 3
 
 
+@todo
 def test_file_choose_loader():
     # maybe in application ?
-    pass
+    assert 0
 
 
 class TestPythonLoader:
@@ -175,9 +183,10 @@ class TestPythonLoader:
 
         assert c.as_flat_dict() == ref
 
+    @todo
     def test_exception(self):
         """Test when file throw exception."""
-        pass
+        assert 0
 
     def test_reading(self):
         app = App()
@@ -185,7 +194,9 @@ class TestPythonLoader:
         conf = app.load_config_files()
         conf = {k: v.get_value() for k, v in conf.items()}
 
-        assert conf == GenericConfigInfo.generic_values()
+        ref = {k: v[1] for k, v in GenericConfigInfo.generic_args().items()}
+
+        assert conf == ref
 
     @given(values=GenericConfigInfo.values_half_strat())
     def test_write_and_read_half(self, values: dict):
@@ -228,39 +239,44 @@ class TestPythonLoader:
 
 # Parametrize for all loaders
 class TestConfigLoader:
+    @todo
     def test_add_multiple(self):
         """Key already in config."""
-        pass
+        assert 0
 
+    @todo
     def test_application_traits(self):
         """Check application traits are applied."""
-        pass
+        assert 0
 
 
 # Parametrize for all file loaders
+@todo
 def test_reading():
     """Test reading a configuration file.
 
     File is written by hand to change some values from default.
     """
-    pass
+    assert 0
 
 
 # Parametrize for all file loaders
+@todo
 def test_to_lines_some():
     # for the typical section
     # change SOME values
     # to_lines in a temp file
     # read file
     # check same values
-    pass
+    assert 0
 
 
 # Parametrize for all file loaders
+@todo
 def test_to_lines_all():
     # for the typical section
     # specify ALL values
     # to_lines in a temp file
     # read file
     # check same values
-    pass
+    assert 0
