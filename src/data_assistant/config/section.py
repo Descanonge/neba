@@ -698,12 +698,21 @@ class Section(HasTraits):
         yield cls
 
     @classmethod
-    def class_traits_recursive(cls) -> dict:
-        """Return nested/recursive dict of all traits."""
+    def class_traits_recursive(cls, own_traits: bool = False) -> dict:
+        """Return nested/recursive dict of all traits.
+
+        Parameters
+        ----------
+        own_traits:
+            If True do not list traits from parent classes. Default to False.
+        """
         config: dict[t.Any, t.Any] = dict()
-        config.update(cls.class_own_traits(config=True))
+        if own_traits:
+            config.update(cls.class_own_traits(config=True))
+        else:
+            config.update(cls.class_traits(config=True))
         for name, subsection in cls._subsections.items():
-            config[name] = subsection.class_traits_recursive()
+            config[name] = subsection.class_traits_recursive(own_traits=own_traits)
         return config
 
     # Lifted from traitlets.config.application.Application
