@@ -3,7 +3,12 @@
 from .dataset import Dataset
 from .loader import LoaderAbstract
 from .module import CachedModule, Module, autocached
-from .params import ParamsManager, ParamsManagerAbstract, ParamsManagerSection
+from .params import (
+    ParamsManager,
+    ParamsManagerAbstract,
+    ParamsManagerApp,
+    ParamsManagerSection,
+)
 from .register import DatasetStore
 from .source import (
     FileFinderSource,
@@ -13,6 +18,7 @@ from .source import (
     SourceIntersection,
     SourceUnion,
 )
+from .util import import_all
 from .writer import CachedWriter, Splitable, SplitWriterMixin, WriterAbstract
 
 __all__ = [
@@ -27,6 +33,7 @@ __all__ = [
     "MultiFileSource",
     "ParamsManager",
     "ParamsManagerAbstract",
+    "ParamsManagerApp",
     "ParamsManagerSection",
     "ParamsMap",
     "SimpleSource",
@@ -36,4 +43,5 @@ __all__ = [
     "Splitable",
     "WriterAbstract",
     "autocached",
+    "import_all",
 ]

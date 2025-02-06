@@ -8,7 +8,7 @@ import typing as t
 from os import path
 
 from traitlets import Bool, List, Unicode, Union
-from traitlets.config.configurable import MultipleInstanceError, SingletonConfigurable
+from traitlets.config.configurable import SingletonConfigurable
 
 from .loaders import CLILoader, ConfigValue
 from .section import Section
@@ -95,20 +95,6 @@ class ApplicationBase(SingletonSection):
 
     _extra_parameters_args: list[tuple[list, dict[str, t.Any]]] = []
     """Extra parameters passed to the command line parser."""
-
-    @classmethod
-    def __init_subclass__(cls, /, **kwargs) -> None:
-        # for section in cls.sections:
-        #     section._application = cls
-        #     name = section.__name__
-        #     if hasattr(cls, name):
-        #         raise AttributeError(
-        #             f"Separate section {name} clashes with existing "
-        #             f"attribute in {cls.__name__}"
-        #         )
-        #     setattr(cls, name, subsection(section))
-
-        super().__init_subclass__(**kwargs)
 
     def __init__(self, start: bool = True, **kwargs) -> None:
         # No super.__init__, it would instanciate recursively subsections
