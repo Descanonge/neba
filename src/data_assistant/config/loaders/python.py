@@ -6,13 +6,11 @@ import typing as t
 from collections import abc
 from textwrap import dedent
 
-from traitlets import Enum, TraitType, Type
+from traitlets import Enum, Instance, TraitType, Type
 
+from ..section import Section
 from ..util import get_trait_typehint, underline, wrap_text
 from .core import ConfigValue, FileLoader, SerializerDefault
-
-if t.TYPE_CHECKING:
-    from ..section import Section
 
 
 class PyConfigContainer:
@@ -61,6 +59,11 @@ class PyConfigContainer:
 
 class SerializerPython(SerializerDefault):
     def default(self, trait: TraitType, key: str | None = None) -> str:
+        if trait.default_value is None:
+            if isinstance(trait, Type | Instance) and trait.klass is not None:
+                return self.value(trait, trait.klass)
+            return "None"
+
         try:
             return trait.default_value_repr()
         except Exception:
@@ -68,7 +71,10 @@ class SerializerPython(SerializerDefault):
 
     def value(self, trait: TraitType, value: t.Any, key: str | None = None) -> str:
         if type(trait) is Type:
-            return f"{value.__module__}.{value.__qualname__}"
+            try:
+                return f"{value.__module__}.{value.__qualname__}"
+            except AttributeError:
+                pass
         return repr(value)
 
 
@@ -122,9 +128,11 @@ class PyLoader(FileLoader):
         """Return lines of configuration file corresponding to the app config tree."""
         lines = self.serialize_section(self.app, [], comment=comment)
 
-        lines.append("")
-        for key, value in self.config.items():
-            lines.append(f"c.{key} = {value.get_value()!r}")
+        for name, section in self.app._separate_sections.items():
+            lines.append("")
+            lines.append(f"## {section.__name__} ##")
+            underline(lines, "#")
+            lines += self.serialize_section(section, [name], comment=comment)
 
         # newline at the end of file
         lines.append("")
@@ -132,7 +140,10 @@ class PyLoader(FileLoader):
         return lines
 
     def serialize_section(
-        self, section: Section, fullpath: list[str], comment: str = "full"
+        self,
+        section: Section | type[Section],
+        fullpath: list[str],
+        comment: str = "full",
     ) -> list[str]:
         """Serialize a Section and its subsections recursively.
 
@@ -147,7 +158,12 @@ class PyLoader(FileLoader):
 
         lines.append("")
 
-        for name, trait in sorted(section.traits(config=True).items()):
+        if isinstance(section, type):
+            traits = section.class_traits(config=True)
+        else:
+            traits = section.traits(config=True)
+
+        for name, trait in sorted(traits.items()):
             value = self.serializer.default(trait)
 
             if comment != "none":
@@ -177,7 +193,12 @@ class PyLoader(FileLoader):
             if comment != "none":
                 lines.append("")
 
-        for name, subsection in sorted(section.trait_values(subsection=True).items()):
+        for name in sorted(section._subsections):
+            if isinstance(section, type):
+                subsection = section._subsections[name]
+            else:
+                subsection = getattr(section, name)
+
             lines.append("")
             lines.append(f"## {subsection.__class__.__name__} (.{name}) ##")
             underline(lines, "#")

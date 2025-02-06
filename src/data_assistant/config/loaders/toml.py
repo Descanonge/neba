@@ -9,14 +9,13 @@ from textwrap import dedent
 import tomlkit
 from traitlets import Enum
 
+from ..section import Section
 from ..util import get_trait_typehint, wrap_text
 from .core import ConfigValue, FileLoader
 
 if t.TYPE_CHECKING:
     from tomlkit.container import Container as TOMLContainer
     from tomlkit.container import Item, Table
-
-    from .section import Section
 
     T = t.TypeVar("T", bound=TOMLContainer | Table)
 
@@ -60,23 +59,19 @@ class TomlkitLoader(FileLoader):
 
         self.serialize_section(doc, self.app, [], comment=comment)
 
-        class_keys: dict[str, dict[str, t.Any]] = {}
-        for key, value in self.config.items():
-            cls, name = key.split(".")
-            if cls not in class_keys:
-                class_keys[cls] = {}
-            class_keys[cls][name] = value.get_value()
-
-        for cls in class_keys:
-            tab = tomlkit.table()
-            for key, value in class_keys[cls].items():
-                tab.add(key, self._sanitize_item(value))
-            doc.add(cls, tab)
+        for name, section in self.app._separate_sections.items():
+            print(f"serializing {name}")
+            table = doc.add(name, tomlkit.table())
+            self.serialize_section(table, section, [name], comment=comment)
 
         return tomlkit.dumps(doc).splitlines()
 
     def serialize_section(
-        self, t: T, section: Section, fullpath: list[str], comment: str = "full"
+        self,
+        t: T,
+        section: Section | type[Section],
+        fullpath: list[str],
+        comment: str = "full",
     ) -> T:
         """Serialize a Section and its subsections recursively.
 
@@ -85,7 +80,14 @@ class TomlkitLoader(FileLoader):
         if comment != "none":
             self.wrap_comment(t, section.emit_description())
 
-        for name, trait in section.traits(config=True).items():
+        if isinstance(section, type):
+            traits = section.class_traits(config=True)
+        else:
+            traits = section.traits(config=True)
+
+        print("traits are: ", list(traits.keys()))
+
+        for name, trait in traits.items():
             if comment != "none":
                 t.add(tomlkit.nl())
             lines: list[str] = []
@@ -126,7 +128,11 @@ class TomlkitLoader(FileLoader):
 
             self.wrap_comment(t, lines)
 
-        for name, subsection in sorted(section.trait_values(subsection=True).items()):
+        for name in sorted(section._subsections):
+            if isinstance(section, type):
+                subsection = section._subsections[name]
+            else:
+                subsection = getattr(section, name)
             t.add(
                 name,
                 self.serialize_section(
