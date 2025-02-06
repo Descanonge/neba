@@ -12,7 +12,7 @@ from traitlets.config.configurable import SingletonConfigurable
 
 from .loaders import CLILoader, ConfigValue
 from .section import Section
-from .util import ConfigErrorHandler, nest_dict
+from .util import ConfigErrorHandler, flatten_dict, nest_dict
 
 if t.TYPE_CHECKING:
     from .loaders import ConfigValue, FileLoader
@@ -120,6 +120,23 @@ class ApplicationBase(SingletonSection):
         section._application_cls = cls
         cls._separate_sections[section.__name__] = section
         return section
+
+    def _get_lines(self, header: str = "") -> list[str]:
+        lines = super()._get_lines(header)
+
+        for name, section in self._separate_sections.items():
+            conf = nest_dict(self.conf)
+            if name not in conf:
+                continue
+            conf = flatten_dict(conf[name])
+            traits = flatten_dict(section.class_traits_recursive())
+
+            # TODO: maybe do it nested
+            lines += [header, name]
+            for i, (key, value) in enumerate(conf.items()):
+                is_last = i == len(conf) - 1
+                lines.append(section._get_line_trait(key, traits[key], is_last, value))
+        return lines
 
     def start(
         self,
@@ -294,18 +311,21 @@ class ApplicationBase(SingletonSection):
         """
         first = cv.path[0]
 
-        separate = first in self._separate_sections
+        is_separate = first in self._separate_sections
         section = self._separate_sections.get(first, self)
 
         out = cv.copy()
+        if is_separate:
+            out.key = ".".join(out.path[1:])
+
         # If an error happens in resolve_key, we have a fallback
-        fullkey = cv.key
+        fullkey = out.key
         with ConfigErrorHandler(self, cv.key):
-            fullkey, container_cls, trait = section.resolve_key(cv.key)
+            fullkey, container_cls, trait = section.resolve_key(out.key)
             out.container_cls = container_cls
             out.trait = trait
 
-        if separate:
+        if is_separate:
             fullkey = f"{first}.{fullkey}"
 
         out.key = fullkey

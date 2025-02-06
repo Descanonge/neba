@@ -36,6 +36,14 @@ log = logging.getLogger(__name__)
 
 S = t.TypeVar("S", bound="Section")
 
+_line = "\u2574"
+_branch = "\u251c" + _line
+_elbow = "\u2514" + _line
+_branch_subsection = "\u251d" + "\u2501" * len(_line) + "\u2511"
+_elbow_subsection = "\u2515" + "\u2501" * len(_line) + "\u2511"
+_pipe = "\u2502" + " " * len(_line)
+_blank = " " * len(_pipe)
+
 
 def subsection(section: type[S]) -> Instance[S]:
     """Transform a subsection class into a proper trait.
@@ -254,50 +262,48 @@ class Section(HasTraits):
         return "\n".join(self._get_lines())
 
     def _get_lines(self, header: str = "") -> list[str]:
-        line = "\u2574"
-        branch = "\u251c" + line
-        elbow = "\u2514" + line
-        branch_subsection = "\u251d" + "\u2501" * len(line) + "\u2511"
-        elbow_subsection = "\u2515" + "\u2501" * len(line) + "\u2511"
-        pipe = "\u2502" + " " * len(line)
-        blank = " " * len(pipe)
-
         lines = [self.__class__.__name__]
         traits = self.traits(config=True, subsection=None)
         for i, (key, trait) in enumerate(traits.items()):
-            symb = branch
-            if i == len(traits) - 1 and not self._subsections:
-                symb = elbow
-
-            trait_cls = get_trait_typehint(trait, mode="minimal")
-            value = trait.get(self)
-            default = trait.default()
-
-            to_add = []
-            if value != default:
-                to_add += [f"default: {default}"]
-            if isinstance(trait, Enum) and trait.values is not None:
-                to_add += [str(trait.values)]
-
-            trait_str = f"{trait_cls}"
-            if to_add:
-                trait_str += f"[{', '.join(to_add)}]"
-            trait_str = f"({trait_str})"
-
-            lines.append(f"{header}{symb}{key}: {value}  {trait_str}")
+            is_last = i == len(traits) - 1 and not self._subsections
+            lines.append(
+                header + self._get_line_trait(key, trait, is_last, trait.get(self))
+            )
 
         for i, name in enumerate(self._subsections):
-            lines.append(header + pipe)
+            lines.append(header + _pipe)
             is_last = i == len(self._subsections) - 1
 
             subsection: Section = getattr(self, name)
-            sublines = subsection._get_lines(header + (blank if is_last else pipe))
+            sublines = subsection._get_lines(header + (_blank if is_last else _pipe))
 
-            symb = elbow_subsection if is_last else branch_subsection
+            symb = _elbow_subsection if is_last else _branch_subsection
             sublines[0] = f"{header}{symb}{name}:"
             lines += sublines
 
         return lines
+
+    @classmethod
+    def _get_line_trait(
+        cls, key: str, trait: TraitType, elbow: bool, value: t.Any
+    ) -> str:
+        symb = _elbow if elbow else _branch
+
+        trait_cls = get_trait_typehint(trait, mode="minimal")
+        default = trait.default()
+
+        to_add = []
+        if value != default:
+            to_add += [f"default: {default}"]
+        if isinstance(trait, Enum) and trait.values is not None:
+            to_add += [str(trait.values)]
+
+        trait_str = f"{trait_cls}"
+        if to_add:
+            trait_str += f"[{', '.join(to_add)}]"
+        trait_str = f"({trait_str})"
+
+        return f"{symb}{key}: {value}  {trait_str}"
 
     def __dir__(self):
         if not self._attr_completion_only_traits:
@@ -936,13 +942,14 @@ class Section(HasTraits):
 
         return lines
 
-    def emit_description(self) -> list[str]:
+    @classmethod
+    def emit_description(cls) -> list[str]:
         """Return lines of description of this section.
 
         Take the section docstring if defined, and format it nicely (wraps it, remove
         trailing whitespace, etc.). Return a list of lines.
         """
-        doc = self.__doc__
+        doc = cls.__doc__
         if not doc:
             return []
 
