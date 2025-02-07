@@ -7,17 +7,18 @@ from collections import abc
 from textwrap import dedent
 
 import tomlkit
+from tomlkit.container import Container
+from tomlkit.items import InlineTable, Item, String, Table, Trivia
 from traitlets import Enum
 
 from ..section import Section
 from ..util import get_trait_typehint, wrap_text
 from .core import ConfigValue, FileLoader
 
-if t.TYPE_CHECKING:
-    from tomlkit.container import Container as TOMLContainer
-    from tomlkit.container import Item, Table
+T = t.TypeVar("T", bound=Container | Table)
 
-    T = t.TypeVar("T", bound=TOMLContainer | Table)
+# TODO: inline tables for dict traits could get too longs, maybe we could find a way to
+# accept proper tables (like we do for dict based loaders ?)
 
 
 class TomlkitLoader(FileLoader):
@@ -42,7 +43,7 @@ class TomlkitLoader(FileLoader):
         def recurse(table: T, key: list[str]) -> abc.Iterator[ConfigValue]:
             for k, v in table.items():
                 newkey = key + [k]
-                if isinstance(v, tomlkit.api.Table):
+                if isinstance(v, Table):
                     yield from recurse(v, newkey)
                 else:
                     fullkey = ".".join(newkey)
@@ -60,7 +61,6 @@ class TomlkitLoader(FileLoader):
         self.serialize_section(doc, self.app, [], comment=comment)
 
         for name, section in self.app._separate_sections.items():
-            print(f"serializing {name}")
             table = doc.add(name, tomlkit.table())
             self.serialize_section(table, section, [name], comment=comment)
 
@@ -84,8 +84,6 @@ class TomlkitLoader(FileLoader):
             traits = section.class_traits(config=True)
         else:
             traits = section.traits(config=True)
-
-        print("traits are: ", list(traits.keys()))
 
         for name, trait in traits.items():
             if comment != "none":
@@ -148,15 +146,22 @@ class TomlkitLoader(FileLoader):
         Take care of specific cases when default value is None or a type.
         """
         if value is None:
-            return tomlkit.items.String.from_raw("")
+            return String.from_raw("")
+
+        # tomlkit only creates InlineTables if parent is Array, so we do it manually
+        if isinstance(value, dict):
+            out = InlineTable(Container(), Trivia(), False)
+            for k, v in value.items():
+                out[k] = tomlkit.item(v, _parent=out, _sort_keys=False)
+            return out
 
         # convert types to string
         if isinstance(value, type):
-            return tomlkit.items.String.from_raw(f"{value.__module__}.{value.__name__}")
+            return String.from_raw(f"{value.__module__}.{value.__name__}")
 
         return tomlkit.item(value)
 
-    def wrap_comment(self, item: Table | TOMLContainer, text: str | list[str]):
+    def wrap_comment(self, item: Table | Container, text: str | list[str]):
         """Wrap text correctly and add it to a toml container as comment lines."""
         if not isinstance(text, str):
             text = "\n".join(text)
