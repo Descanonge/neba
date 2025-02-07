@@ -13,7 +13,7 @@ from traitlets import Enum
 
 from ..section import Section
 from ..util import get_trait_typehint, wrap_text
-from .core import ConfigValue, FileLoader
+from .core import ConfigValue, DictLikeLoaderMixin, FileLoader
 
 T = t.TypeVar("T", bound=Container | Table)
 
@@ -21,7 +21,7 @@ T = t.TypeVar("T", bound=Container | Table)
 # accept proper tables (like we do for dict based loaders ?)
 
 
-class TomlkitLoader(FileLoader):
+class TomlkitLoader(FileLoader, DictLikeLoaderMixin):
     """Load config from TOML files using tomlkit library.
 
     The :mod:`tomlkit` library is the default for data-assistant, as it allows precise
@@ -39,20 +39,7 @@ class TomlkitLoader(FileLoader):
         with open(self.full_filename) as fp:
             root_table = tomlkit.load(fp)
 
-        # flatten tables
-        def recurse(table: T, key: list[str]) -> abc.Iterator[ConfigValue]:
-            for k, v in table.items():
-                newkey = key + [k]
-                if isinstance(v, Table):
-                    yield from recurse(v, newkey)
-                else:
-                    fullkey = ".".join(newkey)
-                    value = ConfigValue(v, fullkey, origin=self.filename)
-                    # no parsing, directly to values
-                    value.value = value.input
-                    yield value
-
-        yield from recurse(root_table, [])
+        return self.resolve_mapping(root_table.unwrap(), origin=self.filename)
 
     def _to_lines(self, comment: str = "full") -> list[str]:
         """Return lines of configuration file corresponding to the app config tree."""
