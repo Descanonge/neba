@@ -249,7 +249,7 @@ class ConfigLoader:
                 cv.parse()
             setattr(self.app, traitname, cv.get_value())
 
-    def load_config(self, *args, **kwargs) -> abc.Iterabor[ConfigValue]:
+    def load_config(self, *args, **kwargs) -> abc.Iterator[ConfigValue]:
         """Populate the config attribute from a source.
 
         :Not implemented:
@@ -370,7 +370,14 @@ class DictLikeLoaderMixin(ConfigLoader):
             d: abc.Mapping, section: type[Section], key: list[str]
         ) -> abc.Iterator[ConfigValue]:
             for k, v in d.items():
-                if k in section._subsections:
+                if (
+                    hasattr(section, "_separate_sections")
+                    and k in section._separate_sections
+                ):
+                    assert isinstance(v, abc.Mapping)
+                    yield from recurse(v, section._separate_sections[k], [k])
+
+                elif k in section._subsections:
                     assert isinstance(v, abc.Mapping)
                     yield from recurse(v, section._subsections[k], key + [k])
 
