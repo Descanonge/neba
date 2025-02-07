@@ -400,7 +400,7 @@ class DictLikeLoaderMixin(ConfigLoader):
         yield from recurse(input, self.app.__class__, [])
 
 
-class DictLikeLoader(DictLikeLoaderMixin):
+class DictLoader(DictLikeLoaderMixin):
     """Loader for mappings."""
 
     def load_config(

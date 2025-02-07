@@ -17,7 +17,7 @@ class JsonEncoderTypes(json.JSONEncoder):
         return super().default(o)
 
 
-class JsonLoader(DictLikeLoaderMixin, FileLoader):
+class JsonLoader(FileLoader, DictLikeLoaderMixin):
     """Loader for JSON files.
 
     :Experimental:

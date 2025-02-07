@@ -28,13 +28,13 @@ types of keys:
 """
 
 from .cli import CLILoader
-from .core import ConfigLoader, ConfigValue, DictLikeLoader, FileLoader, Undefined
+from .core import ConfigLoader, ConfigValue, DictLoader, FileLoader, Undefined
 
 __all__ = [
     "CLILoader",
     "ConfigLoader",
     "ConfigValue",
-    "DictLikeLoader",
+    "DictLoader",
     "FileLoader",
     "Undefined",
 ]
