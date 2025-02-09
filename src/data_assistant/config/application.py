@@ -49,8 +49,8 @@ class ApplicationBase(SingletonSection):
     tree structure. This validate the values and instanciate the configuration objects.
     """
 
-    _separate_sections: dict[str, type[Section]] = {}
-    """Separate configuration sections."""
+    _orphaned_sections: dict[str, type[Section]] = {}
+    """Orphaned configuration sections."""
 
     strict_parsing = Bool(
         True,
@@ -116,15 +116,15 @@ class ApplicationBase(SingletonSection):
             self.start(**kwargs)
 
     @classmethod
-    def register_section(cls, section: type[S]) -> type[S]:
+    def register_orphan(cls, section: type[S]) -> type[S]:
         section._application_cls = cls
-        cls._separate_sections[section.__name__] = section
+        cls._orphaned_sections[section.__name__] = section
         return section
 
     def _get_lines(self, header: str = "") -> list[str]:
         lines = super()._get_lines(header)
 
-        for name, section in self._separate_sections.items():
+        for name, section in self._orphaned_sections.items():
             conf = nest_dict(self.conf)
             if name not in conf:
                 continue
@@ -311,11 +311,11 @@ class ApplicationBase(SingletonSection):
         """
         first = cv.path[0]
 
-        is_separate = first in self._separate_sections
-        section = self._separate_sections.get(first, self)
+        is_orphan = first in self._orphaned_sections
+        section = self._orphaned_sections.get(first, self)
 
         out = cv.copy()
-        if is_separate:
+        if is_orphan:
             out.key = ".".join(out.path[1:])
 
         # If an error happens in resolve_key, we have a fallback
@@ -325,7 +325,7 @@ class ApplicationBase(SingletonSection):
             out.container_cls = container_cls
             out.trait = trait
 
-        if is_separate:
+        if is_orphan:
             fullkey = f"{first}.{fullkey}"
 
         out.key = fullkey

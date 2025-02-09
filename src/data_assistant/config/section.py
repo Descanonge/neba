@@ -214,10 +214,10 @@ class Section(HasTraits):
             if app is None and self._application_cls is not None:
                 app = self._application_cls.instance()
             if app is not None:
-                if clsname not in app._separate_sections:
+                if clsname not in app._orphaned_sections:
                     raise KeyError(f"'{clsname}' is not among registered sections.")
 
-                app_conf: dict[str, t.Any] = nest_dict(app.conf).get(clsname, {})
+                app_conf: dict[str, t.Any] = nest_dict(app.get_orphan_conf(clsname))
                 config = app_conf | config
 
         config |= kwargs

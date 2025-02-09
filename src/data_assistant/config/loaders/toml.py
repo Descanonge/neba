@@ -47,7 +47,7 @@ class TomlkitLoader(FileLoader, DictLikeLoaderMixin):
 
         self.serialize_section(doc, self.app, [], comment=comment)
 
-        for name, section in self.app._separate_sections.items():
+        for name, section in self.app._orphaned_sections.items():
             table = doc.add(name, tomlkit.table())
             self.serialize_section(table, section, [name], comment=comment)
 

@@ -371,8 +371,8 @@ class DictLikeLoaderMixin(ConfigLoader):
         ) -> abc.Iterator[ConfigValue]:
             for k, v in d.items():
                 if (
-                    hasattr(section, "_separate_sections")
-                    and k in section._separate_sections
+                    hasattr(section, "_orphaned_sections")
+                    and k in section._orphaned_sections
                 ):
                     assert isinstance(v, abc.Mapping)
                     yield from recurse(v, section._separate_sections[k], [k])
