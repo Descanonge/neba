@@ -121,6 +121,22 @@ class ApplicationBase(SingletonSection):
         cls._orphaned_sections[section.__name__] = section
         return section
 
+    def get_orphan_conf(self, section: Section | str) -> dict[str, t.Any]:
+        """Return flat dictionnary of keys from section."""
+        if isinstance(section, Section):
+            section = type(section).__name__
+
+        if section not in self._orphaned_sections:
+            raise KeyError(f"{type(self).__name__} has no orphaned section {section}")
+
+        out = {}
+        for fullkey, v in self.conf.items():
+            first, *key = fullkey.split(".")
+            if first == section:
+                out[".".join(key)] = v
+
+        return out
+
     def _get_lines(self, header: str = "") -> list[str]:
         lines = super()._get_lines(header)
 
