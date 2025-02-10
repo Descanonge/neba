@@ -375,7 +375,7 @@ class DictLikeLoaderMixin(ConfigLoader):
                     and k in section._orphaned_sections
                 ):
                     assert isinstance(v, abc.Mapping)
-                    yield from recurse(v, section._separate_sections[k], [k])
+                    yield from recurse(v, section._orphaned_sections[k], [k])
 
                 elif k in section._subsections:
                     assert isinstance(v, abc.Mapping)
