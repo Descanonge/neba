@@ -154,6 +154,21 @@ class ApplicationBase(SingletonSection):
                 lines.append(section._get_line_trait(key, traits[key], is_last, value))
         return lines
 
+    def copy(self) -> ApplicationBase:
+        out: ApplicationBase = self.__class__(start=False)
+
+        # Copy Section values
+        config = self.as_dict(flatten=False)
+        Section.__init__(out, config)
+
+        # Copy retrieved conf
+        out.conf = self.conf
+        out.cli_conf = self.cli_conf
+        out.file_conf = self.file_conf
+        out.extra_parameters = self.extra_parameters
+
+        return out
+
     def start(
         self,
         argv: list[str] | None = None,

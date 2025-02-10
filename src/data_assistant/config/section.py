@@ -234,7 +234,6 @@ class Section(HasTraits):
     def _init_direct_traits(self, config: dict[str, t.Any], **kwargs):
         config |= kwargs
 
-        log.info("instanciate %s with %s", self.__class__.__name__, config)
         for name in self.trait_names(config=True, subsection=None):
             if name in config:
                 value = config.pop(name)
@@ -300,7 +299,7 @@ class Section(HasTraits):
 
         trait_str = f"{trait_cls}"
         if to_add:
-            trait_str += f"[{', '.join(to_add)}]"
+            trait_str += f" [{', '.join(to_add)}]"
         trait_str = f"({trait_str})"
 
         return f"{symb}{key}: {value}  {trait_str}"
