@@ -243,10 +243,13 @@ class ApplicationBase(SingletonSection):
         To handle more complex cases, like separating arguments for different
         applications (with ``--`` typically), more logic can be setup here.
         """
-        argv = sys.argv[1:]
-        if "--" in argv:
-            idx = argv.index("--")
-            argv = argv[idx + 1 :]
+        exe, *argv = sys.argv
+        if path.splitext(path.basename(exe))[0] in ["ipython", "ipykernel_launcher"]:
+            if "--" in argv:
+                idx = argv.index("--")
+                argv = argv[idx + 1 :]
+            else:
+                return []
         return argv
 
     @classmethod
