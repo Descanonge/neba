@@ -211,7 +211,7 @@ class FileFinderSource(MultiFileSource, CachedModule):
         """
         raise NotImplementedError("Implement in your DataManager class.")
 
-    def get_filename(self, **fixes) -> str:
+    def get_filename(self, relative: bool = False, **fixes) -> str:
         """Create a filename corresponding to a set of parameters values.
 
         All parameters must be defined, either by the parent
@@ -219,6 +219,8 @@ class FileFinderSource(MultiFileSource, CachedModule):
 
         Parameters
         ----------
+        relative:
+            If True, make the file relative to the root directory. Default is False.
         fixes:
             Parameters to fix to specific values. Only parameters defined in the
             filename pattern can be fixed. Will take precedence over the
@@ -238,7 +240,7 @@ class FileFinderSource(MultiFileSource, CachedModule):
         # Remove parameters set to None, FileFinder is not equipped for that
         fixes = {p: value for p, value in fixes.items() if value is not None}
 
-        filename = self.filefinder.make_filename(fixes)
+        filename = self.filefinder.make_filename(fixes, relative=relative)
         return filename
 
     @property
