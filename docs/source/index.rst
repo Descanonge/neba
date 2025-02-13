@@ -7,13 +7,12 @@ Data-Asistant documentation
 
 ..
 
-   Help manage multiple datasets when overwhelmed with many files and
-   parameters.
+   Help manage multiple datasets and a full configuration.
 
 Configuration
 =============
 
-It provides two independent modules. The first one for managing the
+The module of this package first allows to manage the
 :doc:`configuration<configuration>` of a project, providing the means to specify
 a structured, nested configuration in python code using the existing `traitlets
 <https://traitlets.readthedocs.io>`__ library. This allows type-checking, value

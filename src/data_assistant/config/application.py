@@ -7,7 +7,7 @@ import sys
 import typing as t
 from os import path
 
-from traitlets import Bool, List, Unicode, Union
+from traitlets import Bool, Bunch, Enum, Int, List, Unicode, Union, default, observe
 from traitlets.config.configurable import SingletonConfigurable
 
 from .loaders import CLILoader, ConfigValue
@@ -22,6 +22,8 @@ log = logging.getLogger(__name__)
 S = t.TypeVar("S", bound=Section)
 
 _SingleS = t.TypeVar("_SingleS", bound="SingletonSection")
+
+IS_PYTHONW = sys.executable and sys.executable.endswith("pythonw.exe")
 
 
 class SingletonSection(Section, SingletonConfigurable):
@@ -62,6 +64,73 @@ class ApplicationBase(SingletonSection):
         code enclosed in a :class:`~.util.ConfigErrorHandler` context manager.
         """,
     )
+
+    # The log level for the application
+    log_level = Union(
+        [Enum(("DEBUG", "INFO", "WARN", "ERROR", "CRITICAL")), Int()],
+        default_value="INFO",
+        help="Set the log level by value or name.",
+    )
+
+    log_datefmt = Unicode(
+        "%Y-%m-%d %H:%M:%S",
+        help="The date format used by logging formatters for %(asctime)s",
+    )
+
+    log_format = Unicode(
+        "[%(levelname)s]%(name)s:: %(message)s",
+        help="The Logging format template",
+    )
+
+    _logging_configured: bool = False
+
+    def _get_logging_config(self) -> dict:
+        config = {
+            "version": 1,
+            "handlers": {
+                "console": {
+                    "class": "logging.StreamHandler",
+                    "formatter": "console",
+                    "level": logging.getLevelName(self.log_level),  # type:ignore[call-overload]
+                    "stream": "ext://sys.stderr",
+                },
+            },
+            "formatters": {
+                "console": {
+                    "format": self.log_format,
+                    "datefmt": self.log_datefmt,
+                },
+            },
+            "loggers": {
+                self.__class__.__name__: {
+                    "level": "DEBUG",
+                    "handlers": ["console"],
+                }
+            },
+            "disable_existing_loggers": False,
+        }
+        if IS_PYTHONW:
+            del config["handlers"]
+            del config["loggers"]
+
+        return config
+
+    @observe("log_format", "log_datefmt", "log_level")
+    def _observe_log_format_change(self, change: Bunch) -> None:
+        self._configure_logging()
+
+    @observe("log", type="default")
+    def _observe_log_default(self, change: Bunch) -> None:
+        self._configure_logging()
+        self._logging_configured = True
+
+    def _configure_logging(self) -> None:
+        config = self._get_logging_config()
+        logging.config.dictConfig(config)
+
+    @default("log")
+    def _log_default(self) -> logging.Logger:
+        return logging.getLogger(self.__class__.__name__)
 
     config_files = Union(
         [Unicode(), List(Unicode())],
