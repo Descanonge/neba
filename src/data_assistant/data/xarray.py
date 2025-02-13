@@ -70,6 +70,9 @@ class XarrayMultiFileLoader(LoaderAbstract[list[str], xr.Dataset]):
 
     OPEN_MFDATASET_KWARGS: dict[str, t.Any] = {}
 
+    def preprocess(self) -> abc.Callable[[xr.Dataset], xr.Dataset]:
+        raise NotImplementedError
+
     def load_data_concrete(self, source: abc.Sequence[str], **kwargs) -> xr.Dataset:
         """Return a dataset object.
 
@@ -87,6 +90,10 @@ class XarrayMultiFileLoader(LoaderAbstract[list[str], xr.Dataset]):
         import xarray as xr
 
         kwargs = self.OPEN_MFDATASET_KWARGS | kwargs
+
+        if kwargs["preprocess"] is True:
+            kwargs["preprocess"] = self.preprocess()
+
         ds = xr.open_mfdataset(source, **kwargs)
         return ds
 
