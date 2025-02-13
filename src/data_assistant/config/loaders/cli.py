@@ -23,7 +23,7 @@ class DefaultOptionDict(dict[str, Action]):
     :meth:`_set_action_create`).
     """
 
-    option_pattern = re.compile(r"^--?[A-Za-z_]\w*(\.\w+)*$")
+    option_pattern = re.compile(r"^--?[A-Za-z_][\w-]*(\.[\w-]+)*$")
     """Regular expression that unknown argument must match.
 
     By default, starts with one or two hyphens followed by any number of dot-separated
