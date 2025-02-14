@@ -91,7 +91,7 @@ class XarrayMultiFileLoader(LoaderAbstract[list[str], xr.Dataset]):
 
         kwargs = self.OPEN_MFDATASET_KWARGS | kwargs
 
-        if kwargs["preprocess"] is True:
+        if kwargs.get("preprocess", False) is True:
             kwargs["preprocess"] = self.preprocess()
 
         ds = xr.open_mfdataset(source, **kwargs)
