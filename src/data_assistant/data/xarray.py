@@ -534,7 +534,7 @@ class XarraySplitWriter(SplitWriterMixin, XarrayMultiFileWriter):
 
         # user asked to not resample
         if not time_freq:
-            return [ds_unit for _, ds_unit in ds.groupby("time", squeeze=False)]
+            return [ds.isel(time=i) for i in range(ds.time.size)]
 
         if isinstance(time_freq, str):
             # User defined
