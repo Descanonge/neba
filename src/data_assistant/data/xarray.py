@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import itertools
 import logging
 import os
 import typing as t
@@ -11,7 +10,7 @@ from collections import abc
 import xarray as xr
 
 from .loader import LoaderAbstract
-from .util import T_Source
+from .util import T_Source, cut_slices
 from .writer import SplitWriterMixin, WriterAbstract
 
 if t.TYPE_CHECKING:
@@ -549,6 +548,7 @@ class XarraySplitWriter(SplitWriterMixin, XarrayMultiFileWriter):
 
         log.debug("Split with frequency %s", freq)
 
+        # FIXME: problem if ds.time.size < 3
         infreq = xr.infer_freq(ds.time)
         if infreq is not None and infreq == freq:
             log.debug(
@@ -650,12 +650,3 @@ class XarraySplitWriter(SplitWriterMixin, XarrayMultiFileWriter):
             calls.append((outfile, ds))
 
         return calls
-
-
-def cut_slices(total_size: int, slice_size: int) -> list[slice]:
-    """Return list of slices of size at most ``slice_size``."""
-    slices = itertools.starmap(
-        slice,
-        itertools.pairwise(itertools.chain(range(0, total_size, slice_size), [None])),
-    )
-    return list(slices)

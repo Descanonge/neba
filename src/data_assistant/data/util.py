@@ -1,3 +1,4 @@
+import itertools
 import typing as t
 from collections import abc
 
@@ -35,3 +36,12 @@ def import_all(file, /) -> None:
 
     for f in files:
         importlib.import_module(f)
+
+
+def cut_slices(total_size: int, slice_size: int) -> list[slice]:
+    """Return list of slices of size at most ``slice_size``."""
+    slices = itertools.starmap(
+        slice,
+        itertools.pairwise(itertools.chain(range(0, total_size, slice_size), [None])),
+    )
+    return list(slices)
