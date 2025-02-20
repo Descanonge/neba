@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import sys
 import typing as t
+from collections.abc import Callable
 from os import path
 
 from traitlets import Bool, Bunch, Enum, Int, List, Unicode, Union, default, observe
@@ -27,6 +28,8 @@ IS_PYTHONW = sys.executable and sys.executable.endswith("pythonw.exe")
 
 
 class SingletonSection(Section, SingletonConfigurable):
+    """Provide a global Section instance."""
+
     @classmethod
     def _walk_mro(cls) -> t.Generator[type[SingletonSection], None, None]:
         """Walk the cls.mro() for parent classes that are also singletons.
@@ -40,6 +43,12 @@ class SingletonSection(Section, SingletonConfigurable):
                 and parent != SingletonSection
             ):
                 yield parent
+
+    # Only for documentation
+    @classmethod
+    def instance(cls) -> t.Self:
+        """Return the global instance, create it if needed."""
+        return super().instance()
 
 
 class ApplicationBase(SingletonSection):
@@ -185,10 +194,26 @@ class ApplicationBase(SingletonSection):
             self.start(**kwargs)
 
     @classmethod
-    def register_orphan(cls, section: type[S]) -> type[S]:
-        section._application_cls = cls
-        cls._orphaned_sections[section.__name__] = section
-        return section
+    def register_orphan(
+        cls, auto_retrieve: bool = True
+    ) -> Callable[[type[S]], type[S]]:
+        """Return a decorator to register a section as orphaned.
+
+        Parameters
+        ----------
+        auto_retrieve:
+            If True (default), the application class will be registered in the section
+            object, which will use it to recover its parametrs from the application
+            global instance.
+        """
+
+        def func(section: type[S]) -> type[S]:
+            if auto_retrieve:
+                section._application_cls = cls
+            cls._orphaned_sections[section.__name__] = section
+            return section
+
+        return func
 
     def get_orphan_conf(self, section: Section | str) -> dict[str, t.Any]:
         """Return flat dictionnary of keys from section."""
