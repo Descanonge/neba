@@ -5,12 +5,10 @@
 Configuration management
 ************************
 
-This package provide a submodule :mod:`.config` to help managing the parameters
+This package provides a submodule :mod:`.config` to help managing the parameters
 of a project. It requires to specify the parameters in python code: their type,
-default value, help string, etc. It relies on the
-`traitlets <https://traitlets.readthedocs.io>`__ package to do this, in which we
-can define *traits*: class attributes that are type-checked. More on the
-motivations behind the design choices :doc:`here<motivations>`.
+default value, help string, etc. It relies on the core of the
+`traitlets <https://traitlets.readthedocs.io>`__ package to do this
 
 .. note::
 
@@ -23,27 +21,28 @@ Once defined, the parameters values can be recovered from configuration files
 (python files like with traitlets, but also TOML or YAML files), and
 from the command line as well.
 
-The help string of each trait is used to generate command line help, fully
-documented configuration files, and the plugin :mod:`.autodoc_trait` integrates
-it in sphinx documentations.
+The help string of each trait is used to generate command line help (completion
+on the way), fully documented configuration files, and the :mod:`.autodoc_trait`
+plugin integrates it in sphinx documentations.
 
 .. currentmodule:: data_assistant.config
 
 Specifying parameters
 =====================
 
-Parameters are specified as class attributes of a :class:`~.section.Section`
-class, and are subclasses of :class:`traitlets.TraitType` (for instance
-:class:`~traitlets.Float`, :class:`~traitlets.Unicode`, or
-:class:`~traitlets.List`).
+The configuration is specified through :class:`~.section.Section` classes. Each
+section can contain parameters: class attribute of type
+:class:`traitlets.TraitType` (for instance :class:`~traitlets.Float`,
+:class:`~traitlets.Unicode`, or :class:`~traitlets.List`), or other (nested)
+sections.
 
 .. _traits-explain:
 
 .. note::
 
    Traits can be confusing at first. They are a sort of
-   :external+python:doc:`descriptor<howto/descriptor>`. A trait is an
-   **instance** bound to a **class**. Let's take for instance::
+   :external+python:doc:`descriptor<howto/descriptor>`. A container class
+   has instances of traits bound as class attribute. For instance::
 
      class Container(Section):
          name = Float(default_value=1.)
@@ -86,8 +85,8 @@ In the example above we have two parameters available at ``param_a`` and
 
 For ease of use and readability, subsections can also be defined directly inside
 another section class definition. The name of such a nested class will be used
-for the corresponding subsection attribute. The class will be renamed and moved
-moved under the attribute ``_{name}SectionDef``. For example::
+for the corresponding subsection attribute. The class definition will be renamed
+and moved moved under the attribute ``_{name}SectionDef``. For example::
 
     class MyConfig(Section):
 
@@ -104,22 +103,28 @@ moved under the attribute ``_{name}SectionDef``. For example::
             class b(Section):
                 location = Unicode("/somewhere/else")
 
-As it is a bit unorthodox and as of now not thoroughly tested, the automatic
-promotion of attributes can be disabled by directly setting the class attribute
+    MyConfig().sst.a.location = "/fantastic"
+
+As it could be seen as a bit unorthodox, the automatic promotion of sections can
+be disabled by directly setting the class attribute
 :attr:`Section._dynamic_subsections` to False.
 
 A mypy plugin is provided to support these dynamic definitions. Add it to the
-list of plugins in your mypy configuration file, for instance for
-'pyproject.toml'::
+list of plugins in your mypy configuration file, for instance in
+'*pyproject.toml*'::
 
     [mypy]
     plugins = ['data_assistant.config.mypy_plugin']
 
 
+Application
+===========
+
 The principal section, at the root of the configuration tree, is the
-:class:`application<.application.ApplicationBase>`. It can hold directly all
-your parameters, or nested sub-sections. It will be responsible for gathering the
-parameters from configuration files and the command line.
+:class:`Application<.application.ApplicationBase>`. As a subclass of
+:class:`~.Section`, it can hold directly all your parameters, or nested
+subsections. It will also be responsible for gathering the parameters from
+configuration files and the command line and some more.
 
 Here is a rather simple example::
 
@@ -146,6 +151,77 @@ Here is a rather simple example::
      >>> app = App()
      >>> app.physical.years = [2023, 2024]
 
+Global instance
+---------------
+
+
+The application class can provide a single, global instance of itself. It can be
+accessed with :meth:`App.instance()<.SingletonSection.instance>`, the instance
+will be returned or created.
+
+There can be only one global instance among all subclasses of
+:class:`.ApplicationBase`. So::
+
+    class AppOne(ApplicationBase):
+        ...
+
+    class AppTwo(ApplicationBase):
+        ...
+
+    app_one = AppOne().instance()
+    # So far this ok, but...
+    app_two = AppTwo().instance()
+    # will raise, as there is already a global application of type AppOne
+
+.. important::
+
+   Instances not created through this mechanism do not count::
+
+     a = App()
+     b = App.instance()
+     a != b
+
+
+Orphan sections
+---------------
+
+When starting the application, the section objects are instantiated. However
+it might be desirable to have complex section objects that should not be
+instantiated directly, or not at every execution.
+
+To that end, the application provide the class decorator
+:meth:`~.ApplicationBase.register_orphan()`. It will do two things:
+
+- Register the section in the application. It will not be instantiated but its
+  parameters will be known and retrieved.
+- Register the application class in the section. It will then be used
+  automatically to recover parameters when instantiating the section. This can
+  be deactivated by passing ``auto_retrieve=False`` to the register decorator.
+
+For example::
+
+    @App.register_orphan()
+    class MyOrphan(Section):
+        year = Int(2000)
+
+    m = MyOrphan()
+
+This will automatically start a global application instance, recover parameters
+and apply it to the orphan section.
+
+
+Logging
+-------
+
+The base application contains some parameters to easily log information. A
+logger instance is available at :attr:`~.ApplicationBase.log` that will log to
+the console (stderr), and can be configured via the (trait) parameters
+:attr:`~.ApplicationBase.log_level`, :attr:`~.ApplicationBase.log_format`, and
+:attr:`~.ApplicationBase.log_datefmt`.
+
+The configuration of the logging setup is kept minimal. Users needing to
+configure it further may look into :meth:`.ApplicationBase._get_logging_config`.
+
 Accessing parameters
 ====================
 
@@ -155,53 +231,47 @@ This has the advantages to allow for deeply nested access::
 
   app.some.deeply.nested.trait = 2
 
-It also is still using the features of traitlets: type checking, value
-validation, "on-change" callbacks, dynamic default value generation. This can
-ensure for instance that a configuration stays valid.
-Refer to the :external+traitlets:doc:`traitlets documentation<using_traitlets>`
-for more details on how to use these features.
+.. note::
 
-Obtaining all parameters
-------------------------
+    It also is still using the features of traitlets: type checking, value
+    validation, "on-change" callbacks, dynamic default value generation. This
+    can ensure that a configuration stays valid. Refer to the
+    :external+traitlets:doc:`traitlets documentation<using_traitlets>` for more
+    details on how to use these features.
 
-TODO: Now it support dictionary operations. use ``dict(section)`` or
-eventually ``section.as_dict()`` if a nested dict is needed.
+Every section also features all operations of a :class:`dict`.
+Parameters can be accessed with a single key of dot-separated names::
 
-But of course, it is often necessary to pass parameters to code that is not
-supporting Sections.
-Thus Sections allow to obtain parameters in more universal python dictionaries.
-The methods :meth:`.Section.values_recursive`, :meth:`.Section.traits_recursive`,
-and :meth:`.Section.defaults_recursive` return nested or flat dictionaries
-of all the parameters the section (and its sub-sections) contains. To limit to
-only the parameters of this section (and *not* its sub-sections) use
-:meth:`.Section.values` with arguments ``(subsections=False, recursive=False)``.
+  app["some.deeply.nested.trait"] = 2
+  # or
+  app["some"]["deeply.nested.trait"] = 2
 
-So for instance we can retrieve all our application parameters::
+All parameters can be obtained as a flat dictionary simply with
+``dict(my_section)``. If a nested dictionary is required,
+:meth:`.Section.as_dict` will do the trick.
 
-  >>> app.values_recursive()
-  {
-      ... application related parameters like
-      log_level: "INFO",
-      ...
-      "computation": {
-          "parallel": False,
-          "n_cores": 1
-      },
-      "physical": {
-          "threshold": 2.5,
-          "data_name": "SST",
-          "years": [2023, 2024]
-      }
-  }
+Some of the dictionary methods have additional arguments
+available. For instance, by default :meth:`~.Section.keys`,
+:meth:`~.Section.values` and :meth:`~.Section.items` do not list subsections
+objects, are fully recursive, and do not list aliases.
 
-It works for any section instance, so we can retrieve only the computation
-parameters::
+.. important::
 
-  >>> app.computation.values_recursive()
-  {
-      "parallel": False,
-      "n_cores": 1
-  }
+    This omission is done to allow ``dict(section)`` to be equivalent to
+    ``section``, but it can be changed (``section.keys(aliases=True)``).
+    Similarly, ``len`` and ``iter`` do not account for subsections and aliases.
+
+    However for ease of use other methods such as "get", "set" and "contains"
+    will do::
+
+        >>> "subsection" in section
+        True
+        >>> section["subsection"]  # No KeyError
+
+To extract other information, one can use :meth:`.Section.traits_recursive`, and
+:meth:`.Section.defaults_recursive` which return nested or flat dictionaries of
+all traits instances and their default values respectively.
+
 
 .. _mapping-interface:
 
