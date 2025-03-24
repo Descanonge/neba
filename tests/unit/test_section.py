@@ -555,7 +555,7 @@ class TestResolveKey(SectionTest):
         assert issubclass(section_cls, TwinSubsection)
         assert isinstance(trait, Int)
 
-        # TODO: test alias
+        # TODO: test aliases
 
     def test_wrong_keys(self, info: GenericConfigInfo):
         def assert_bad_key(key: str):

@@ -37,6 +37,7 @@ tests:
   script:
     - pip install .[tests]
     - pytest --junitxml='$JUNIT_PATH' --cov=data_assistant --cov=tests -m 'not todo' tests
+    - coverage xml
   coverage: /TOTAL.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/
   artifacts:
     when: always
@@ -46,7 +47,7 @@ tests:
       junit: '$JUNIT_PATH'
       coverage_report:
         coverage_format: cobertura
-        path: coverage/coverage.xml
+        path: coverage.xml
 
 
 pages:
