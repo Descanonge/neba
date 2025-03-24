@@ -25,21 +25,36 @@ default:
 tests:
   extends:
     - .standard-rules
+  rules:
+    - changes:
+      - data_assistant/**/*
+      - tests/**/*
   stage: tests
   needs: []
+  variables:
+    JUNIT_PATH: "test_report.xml"
   script:
     - pip install .[tests]
-    - pytest --cov=data_assistant --cov=tests -m 'not todo' tests
+    - pytest --junitxml='$JUNIT_PATH' --cov=data_assistant --cov=tests -m 'not todo' tests
   coverage: /TOTAL.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/
   artifacts:
+    when: always
+    paths:
+      - '$JUNIT_PATH'
     reports:
+      junit: '$JUNIT_PATH'
       coverage_report:
         coverage_format: cobertura
         path: coverage/coverage.xml
 
+
 pages:
   extends:
     - .standard-rules
+  rules:
+    - changes:
+      - data_assistant/**/*
+      - docs/**/*
   stage: docs
   needs: []
   variables:
