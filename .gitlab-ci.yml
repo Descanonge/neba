@@ -35,9 +35,14 @@ tests:
   variables:
     JUNIT_PATH: "test_report.xml"
   script:
-    - pip install .[tests]
-    - pytest --junitxml='$JUNIT_PATH' --cov=data_assistant --cov=tests -m 'not todo' tests
-    - coverage xml
+    - >
+      pip install .[tests]
+
+      pytest --junitxml='$JUNIT_PATH'
+      --cov=data_assistant --cov=tests
+      -m 'not todo' tests || exit_code=$?
+
+      coverage xml
   coverage: /TOTAL.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/
   artifacts:
     when: always
