@@ -42,7 +42,7 @@ tests:
       --cov=data_assistant --cov=tests
       -m 'not todo' tests || exit_code=$?
 
-      coverage xml
+      coverage xml -o coverage/coverage.xml
   coverage: /TOTAL.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/
   artifacts:
     when: always
@@ -53,7 +53,7 @@ tests:
       junit: '$JUNIT_PATH'
       coverage_report:
         coverage_format: cobertura
-        path: coverage.xml
+        path: coverage/coverage.xml
 
 
 pages:
