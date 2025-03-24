@@ -4,10 +4,7 @@ Here we should define a typical section, with nested subsections defined via fun
 subsection or dynamically, with various traits (simple and composed).
 It should be used for basic stuff that would not translate super well in hypothesis.
 We can manipulate very clearly the trait, their values, if they are default or None.
-
-We can have multiple instances that have different values. (we should also check before
-hand that different instances don't interfere with each other this is super important,
-how ?)
+We can have multiple instances that have different values.
 
 We can keep track of some information as well such as the number of traits, subsections,
 etc to have easy access to it.
@@ -148,14 +145,16 @@ class SectionInfo(t.Generic[S]):
         return strat()
 
 
-class ClassDummy:
+class DummyClass:
     """Used for Instance and Type traits."""
 
     def __repr__(self):
         return f"{self.__class__.__name__}()"
 
 
-class_dummy = ClassDummy()
+dummy_instance = DummyClass()
+DummySubclass = type("DummySubclass", (DummyClass,), {})
+dummy_subinstance = DummySubclass()
 
 
 class GenericSection(Section):
@@ -193,8 +192,8 @@ class GenericSection(Section):
     )
 
     # Instance and Type
-    # inst = Instance(ClassDummy, default_value=class_dummy, args=(), kw={})
-    # type = Type(klass=ClassDummy)
+    inst = Instance(DummyClass, default_value=dummy_instance, args=(), kw={})
+    type = Type(klass=DummyClass)
 
     # Union
     union_num = Union([Int(), Float()], default_value=0.0)
@@ -233,8 +232,8 @@ class GenericSectionInfo(SectionInfo[GenericSection]):
             value_trait=Int(), key_trait=Unicode(), default_value={"a": 0, "b": 1}
         ),
         # Instance and Type
-        # inst=Instance(ClassDummy, default_value=class_dummy, args=(), kw={}),
-        # type=Type(klass=ClassDummy),
+        inst=Instance(DummyClass, default_value=dummy_instance, args=(), kw={}),
+        type=Type(klass=DummyClass),
         # Union
         union_num=Union([Int(), Float()], default_value=0.0),
         union_num_str=Union([Int(), Float(), Unicode()], default_value="0"),
@@ -269,9 +268,8 @@ class GenericSectionInfo(SectionInfo[GenericSection]):
             # dict
             dict_any=(["a=1", "b=2", "c=3"], dict(a="1", b="2", c="3")),
             dict_str_int=(["a=1"], dict(a=1)),
-            # instance and type TODO
-            # inst="",
-            # type="",
+            # type (instance not parsable)
+            type=(["tests.generic_sections.DummySubclass"], DummySubclass),
             # Union
             union_num=(["1"], 1),
             union_num_str=(["a"], "a"),
