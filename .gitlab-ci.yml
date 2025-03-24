@@ -1,6 +1,7 @@
 
 stages:
   - docs
+  - tests
 
 .standard-rules:
   rules:
@@ -21,6 +22,20 @@ default:
     - virtualenv venv
     - source venv/bin/activate
 
+tests:
+  extends:
+    - .standard-rules
+  stage: tests
+  script:
+    - pip install .[dev]
+    - pytest --cov=data_assistant --cov=tests -m 'not todo' tests
+  coverage: /TOTAL.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage/coverage.xml
+
 pages:
   extends:
     - .standard-rules
@@ -28,9 +43,7 @@ pages:
   variables:
     DOC_BUILD_DIR: _build
   script:
-    - pip install sphinx sphinx-book-theme
-    - pip install numpy xarray dask distributed filefinder
-    - pip install -e .
+    - pip install .[dev]
     - cd docs
     - sphinx-build -b html -d $DOC_BUILD_DIR/doctrees ./source $DOC_BUILD_DIR/html
     - mv $DOC_BUILD_DIR/html "$CI_PROJECT_DIR/public"
