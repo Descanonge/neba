@@ -7,6 +7,13 @@ from collections import abc
 
 from traitlets import TraitType
 
+try:
+    import argcomplete
+
+    _HAS_ARGCOMPLETE = True
+except ImportError:
+    _HAS_ARGCOMPLETE = False
+
 from ..util import MultipleConfigKeyError, UnknownConfigKeyError, get_trait_typehint
 from .core import ConfigLoader, ConfigValue, Undefined
 
@@ -55,6 +62,9 @@ class CLILoader(ConfigLoader):
         for key, trait in self.keys.items():
             self.add_argument(key, trait)
 
+        if _HAS_ARGCOMPLETE:
+            argcomplete.autocomplete(self.parser)
+
     def create_parser(self, **kwargs) -> argparse.ArgumentParser:
         """Create a parser instance."""
         parser = argparse.ArgumentParser(
@@ -66,7 +76,7 @@ class CLILoader(ConfigLoader):
         )
         return parser
 
-    def add_argument(self, key: str, trait: TraitType | None):
+    def add_argument(self, key: str, trait: TraitType):
         """Add argument to the parser."""
         keys = [key]
         if self.propose_hyphens:
@@ -85,6 +95,7 @@ class CLILoader(ConfigLoader):
             type=str,
             nargs="*",
             metavar="",
+            help=trait.help.split("\n")[0].strip(),
         )
 
     def load_config(self, argv: list[str] | None = None) -> abc.Iterator[ConfigValue]:
