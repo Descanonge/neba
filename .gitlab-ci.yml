@@ -48,7 +48,7 @@ tests:
     when: always
     paths:
       - '$JUNIT_PATH'
-      - coverage.xml
+      - coverage/coverage.xml
     reports:
       junit: '$JUNIT_PATH'
       coverage_report:
