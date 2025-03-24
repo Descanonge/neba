@@ -335,6 +335,8 @@ class Empty_b_Info(SectionInfo):
 
 
 class GenericConfigInfo(GenericSectionInfo):
+    # TODO add aliases
+
     section = GenericConfig
     subsections = dict(
         sub_generic=GenericSectionInfo(),

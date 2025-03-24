@@ -43,6 +43,8 @@ tests:
       -m 'not todo' tests || exit_code=$?
 
       coverage xml -o coverage/coverage.xml
+
+      $exit_code
   coverage: /TOTAL.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/
   artifacts:
     when: always
