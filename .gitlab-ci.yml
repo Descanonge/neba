@@ -1,7 +1,7 @@
 
 stages:
-  - docs
   - tests
+  - docs
 
 .standard-rules:
   rules:
@@ -26,8 +26,9 @@ tests:
   extends:
     - .standard-rules
   stage: tests
+  needs: []
   script:
-    - pip install .[dev]
+    - pip install .[tests]
     - pytest --cov=data_assistant --cov=tests -m 'not todo' tests
   coverage: /TOTAL.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/
   artifacts:
@@ -40,10 +41,11 @@ pages:
   extends:
     - .standard-rules
   stage: docs
+  needs: []
   variables:
     DOC_BUILD_DIR: _build
   script:
-    - pip install .[dev]
+    - pip install .[docs]
     - cd docs
     - sphinx-build -b html -d $DOC_BUILD_DIR/doctrees ./source $DOC_BUILD_DIR/html
     - mv $DOC_BUILD_DIR/html "$CI_PROJECT_DIR/public"

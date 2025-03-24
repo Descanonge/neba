@@ -29,28 +29,36 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    'xarray>=2023.7',
-    'dask>=2023.7',
+    'xarray',
+    'dask',
     'dask-jobqueue',
     'filefinder>=1.2',
     'ruff',
     'mypy>=1.5',
     'pytest>=7.4',
     'coverage',
-    'pycov',
+    'pytest-cov',
     'hypothesis',
     'sphinx',
     'sphinx-book-theme',
 ]
 tests = [
-    'xarray>=2023.7',
-    'dask>=2023.7',
+    'xarray',
+    'dask',
     'dask-jobqueue',
     'filefinder>=1.2',
     'pytest>=7.4',
     'coverage',
     'pytest-cov',
     'hypothesis',
+]
+docs = [
+    'xarray',
+    'dask',
+    'dask-jobqueue',
+    'filefinder>=1.2',
+    'sphinx',
+    'sphinx-book-theme',
 ]
 
 
