@@ -155,10 +155,7 @@ class EnumGen(TraitGenerator[Enum]):
 
 
 class ComposedGenerator(TraitGenerator[T_Trait]):
-    """Generator with inner(s) trait(s).
-
-    No features, mainly for type checking.
-    """
+    """Generator with inner(s) trait(s)."""
 
 
 class ContainerGen(ComposedGenerator[T_Trait]):

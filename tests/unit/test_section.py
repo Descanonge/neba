@@ -28,6 +28,8 @@ log = logging.getLogger(__name__)
 
 
 class SectionTest:
+    """Make available a config and information about it."""
+
     @pytest.fixture
     def info(self) -> GenericConfigInfo:
         return GenericConfigInfo()

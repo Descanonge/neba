@@ -320,7 +320,7 @@ class Section(HasTraits):
     def keys(
         self, subsections: bool = False, recursive: bool = True, aliases: bool = False
     ) -> list[str]:
-        """Return iterable of keys leading to subsections and traits.
+        """Return list of keys leading to subsections and traits.
 
         Parameters
         ----------
@@ -689,30 +689,85 @@ class Section(HasTraits):
             output = nest_dict(output)
         return output
 
+    @t.overload
+    @classmethod
+    def class_traits_recursive(
+        cls,
+        subsections: t.Literal[False] = ...,
+        recursive: bool = ...,
+        aliases: bool = ...,
+        own_traits: bool = ...,
+    ) -> dict[str, TraitType]: ...
+
+    @t.overload
+    @classmethod
+    def class_traits_recursive(
+        cls,
+        subsections: bool = ...,
+        recursive: bool = ...,
+        aliases: bool = ...,
+        own_traits: bool = ...,
+    ) -> dict[str, TraitType | type[Section]]: ...
+
+    @classmethod
+    def class_traits_recursive(
+        cls,
+        subsections: bool = False,
+        recursive: bool = True,
+        aliases: bool = False,
+        own_traits: bool = False,
+    ) -> dict[str, TraitType | type[Section]] | dict[str, TraitType]:
+        """Return flat dict of all traits.
+
+        Parameters
+        ----------
+        subsections
+            If True (default is False), keys can map to subsections instances.
+        recursive
+            If True (default), return parameters from all subsections. Otherwise limit to
+            only this section.
+        aliases
+            If True (default is False), include aliases.
+        own_traits:
+            If True do not list traits from parent classes. Default to False.
+        """
+        output: abc.Mapping[str, TraitType | type[Section]]
+        if own_traits:
+            output = cls.class_own_traits(subsection=None, config=True)
+        else:
+            output = cls.class_traits(subsection=None, config=True)
+
+        output = {k: v for k, v in output.items() if not k.startswith("_")}
+
+        subs = cls._subsections.copy()
+        if aliases and recursive:
+            for shortcut, target in cls.aliases.items():
+                subsection = cls
+                for subname in target.split("."):
+                    subsection = subsection._subsections[subname]
+                subs[shortcut] = subsection
+
+        for name, subsection in subs.items():
+            if subsections:
+                output[name] = subsection
+            if recursive:
+                sub_output = subsection.class_traits_recursive(
+                    subsections=subsections,
+                    recursive=True,
+                    aliases=aliases,
+                    own_traits=own_traits,
+                )
+                sub_output = {f"{name}.{k}": v for k, v in sub_output.items()}
+                output.update(sub_output)
+
+        return output
+
     @classmethod
     def _subsections_recursive(cls) -> abc.Iterator[type[Section]]:
         """Iterate recursively over all subsections."""
         for subsection in cls._subsections.values():
             yield from subsection._subsections_recursive()
         yield cls
-
-    @classmethod
-    def class_traits_recursive(cls, own_traits: bool = False) -> dict:
-        """Return nested/recursive dict of all traits.
-
-        Parameters
-        ----------
-        own_traits:
-            If True do not list traits from parent classes. Default to False.
-        """
-        config: dict[t.Any, t.Any] = dict()
-        if own_traits:
-            config.update(cls.class_own_traits(config=True))
-        else:
-            config.update(cls.class_traits(config=True))
-        for name, subsection in cls._subsections.items():
-            config[name] = subsection.class_traits_recursive(own_traits=own_traits)
-        return config
 
     # Lifted from traitlets.config.application.Application
     @classmethod
