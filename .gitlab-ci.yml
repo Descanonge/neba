@@ -7,10 +7,6 @@ stages:
   rules:
     - if: $CI_PIPELINE == 'merge_request_event'
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    - changes:
-      - src/**/*
-      - pyproject.toml
-      - .gitlab-ci.yml
 
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
@@ -31,7 +27,9 @@ tests:
     - .standard-rules
   rules:
     - changes:
+      - src/**/*
       - tests/**/*
+      - pyproject.toml
   stage: tests
   needs: []
   variables:
@@ -56,7 +54,9 @@ pages:
     - .standard-rules
   rules:
     - changes:
+      - src/**/*
       - docs/**/*
+      - pyproject.toml
   stage: docs
   needs: []
   variables:
