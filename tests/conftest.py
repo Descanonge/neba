@@ -11,7 +11,7 @@ settings.register_profile(
 settings.register_profile("dev", max_examples=50)
 settings.register_profile("debug", max_examples=5, verbosity=Verbosity.verbose)
 
-settings.load_profile(os.getenv("HYPOTHESIS_PROFILE", "debug").lower())
+settings.load_profile(os.getenv("HYPOTHESIS_PROFILE", "dev").lower())
 
 
 def pytest_configure(config: pytest.Config):
