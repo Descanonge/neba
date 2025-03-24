@@ -10,7 +10,7 @@ name = 'data-assistant'
 authors = [
     {name='Clément Haëck', email='clement.haeck@locean.ipsl.fr'}
 ]
-description = 'Help manage multi-file datasets'
+description = 'Help manage parameters and datasets'
 
 readme = 'README.md'
 requires-python = '>=3.11'
@@ -24,14 +24,35 @@ classifiers = [
 ]
 
 dependencies = [
-"traitlets>=5.13"
+    "traitlets>=5.13"
 ]
 
-# dependencies = [
-#     'xarray>=2023.7',
-#     'dask>=2023.7',
-#     'filefinder>=1.0'
-# ]
+[project.optional-dependencies]
+dev = [
+    'xarray>=2023.7',
+    'dask>=2023.7',
+    'dask-jobqueue',
+    'filefinder>=1.2',
+    'ruff',
+    'mypy>=1.5',
+    'pytest>=7.4',
+    'coverage',
+    'pycov',
+    'hypothesis',
+    'sphinx',
+    'sphinx-book-theme',
+]
+tests = [
+    'xarray>=2023.7',
+    'dask>=2023.7',
+    'dask-jobqueue',
+    'filefinder>=1.2',
+    'pytest>=7.4',
+    'coverage',
+    'pytest-cov',
+    'hypothesis',
+]
+
 
 [project.urls]
 'Homepage' = 'https://gitlab.in2p3.fr/biofronts/data-assistant'
