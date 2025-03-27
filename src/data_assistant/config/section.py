@@ -602,7 +602,7 @@ class Section(HasTraits):
 
             # trait exists or has been added
             if isinstance(value, TraitType):
-                value = value.default
+                value = value.default()
 
             self[key] = value
 
