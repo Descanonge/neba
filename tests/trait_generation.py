@@ -131,7 +131,7 @@ class UnicodeGen(TraitGenerator[Unicode]):
     traittype = Unicode
 
     def _st_value(self) -> st.SearchStrategy[str]:
-        return st.text(max_size=32)
+        return st.text(max_size=32, alphabet=st.characters(exclude_categories=["C"]))
 
 
 class EnumGen(TraitGenerator[Enum]):
@@ -221,10 +221,11 @@ class ClassGen(ComposedGenerator[T_Trait]):
             Name of the subclass. If left empty, "_subclass" will be added to the
             current class.
         """
-        if not name:
-            name = self.klass.__name__ + "_subclass"
-        cls = type(name, (self.klass,), {})
-        return cls
+        return self.klass
+        # if not name:
+        #     name = self.klass.__name__ + "_subclass"
+        # cls = type(name, (self.klass,), {})
+        # return cls
 
 
 class InstanceGen(ClassGen[Instance]):

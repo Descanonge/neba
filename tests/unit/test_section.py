@@ -208,22 +208,33 @@ class TestInstanciation(SectionTest):
             else:
                 assert s[key] == info.default(key)
 
-    @todo
-    def test_needed_value(self):
-        """Check section that has a trait without default value."""
-        # check exception at instanciation
-        # check it makes it if value is given at instanciation
-        assert 0
-
-    @todo
-    def test_twin_siblings(self):
+    def test_twin_siblings(self, section: GenericConfig):
         """Two subsections on are from the same class."""
-        assert 0
+        # non-mutable trait
+        section.twin_a.int = 0
+        section.twin_b.int = 0
+        section.twin_a.int = 1
+        assert section.twin_b.int == 0
 
-    @todo
-    def test_twin_recursive(self):
+        # mutable trait
+        section.twin_a.list_int = [0]
+        section.twin_b.list_int = [0]
+        section.twin_a.list_int.append(1)
+        assert section.twin_b.list_int == [0]
+
+    def test_twin_recursive(self, section: GenericConfig):
         """Two sections at different nesting level are from the same class."""
-        assert 0
+        # non-mutable trait
+        section.twin_a.int = 0
+        section.sub_twin.twin_c.int = 0
+        section.twin_a.int = 1
+        assert section.sub_twin.twin_c.int == 0
+
+        # mutable trait
+        section.twin_a.list_int = [0]
+        section.sub_twin.twin_c.list_int = [0]
+        section.twin_a.list_int.append(1)
+        assert section.sub_twin.twin_c.list_int == [0]
 
 
 # Do it for default values and changed values ?
@@ -298,7 +309,7 @@ class TestMappingInterface(SectionTest):
         assert section_a == section_a
         assert section_a == section_b
 
-    def test_keys(self, info, section):
+    def test_keys(self, info: GenericConfigInfo, section: GenericConfig):
         assert info.keys_total == list(section.keys(subsections=True))
         assert info.keys_this_level == list(
             section.keys(subsections=True, recursive=False)
@@ -306,11 +317,11 @@ class TestMappingInterface(SectionTest):
         assert info.traits_total == list(section.keys())
         assert info.traits_this_level == list(section.keys(recursive=False))
 
-    def test_values(self, info, section):
+    def test_values(self, info: GenericConfigInfo, section: GenericConfig):
         for k, v in zip(info.traits_total, section.values(), strict=True):
             assert info.default(k) == v
 
-    def test_items(self, info, section):
+    def test_items(self, info: GenericConfigInfo, section: GenericConfig):
         for ref, (k, v) in zip(info.traits_total, section.items(), strict=True):
             assert ref == k
             if ref in info.traits_total:
@@ -441,22 +452,26 @@ class TestMutableMappingInterface(SectionTest):
             else:
                 assert section[key] == info.default(key)
 
-    @todo
-    def test_update_add_traits(self):
-        assert 0
+    def test_update_add_traits(self, section: GenericConfig):
+        section.update(
+            {"new_trait": Int(10)},
+            allow_new=True,
+        )
+        assert section["new_trait"] == 10
+        section.update(
+            {"sub_generic.new_trait": Int(20), "new_section.new_trait": Int(30)},
+            allow_new=True,
+        )
+        assert section["sub_generic.new_trait"] == 20
+        assert section["new_section.new_trait"] == 30
 
-    @todo
-    def test_update_wrong(self):
-        # refuse permission to add traits
-        # wrong inputs to add a trait
-        assert 0
-
-    @todo
-    def test_twin_siblings(self):
-        """Two subsections are from the same class."""
-        # check changing one does not affect the other. On mutable and non-mutable
-        # traits.
-        assert 0
+    def test_update_wrong(self, section: GenericConfig):
+        with pytest.raises(RuntimeError):
+            section.update({"new_trait": Int(10)})
+        with pytest.raises(KeyError):
+            section.update({"new_trait": Int(10)}, raise_on_miss=True)
+        with pytest.raises(TypeError):
+            section.update({"new_trait": 10}, allow_new=True)
 
 
 class TestTraitListing(SectionTest):
@@ -505,39 +520,45 @@ class TestTraitListing(SectionTest):
         assert 0
 
 
-class TestRemap:
-    @todo
-    def test_remap(self):
+class TestRemap(SectionTest):
+    def test_visited_keys(self, section: GenericSection):
+        visited_keys = []
+
+        def func(section, traits: dict, trait_name, trait, fullpath: list[str]):
+            visited_keys.append(".".join(fullpath))
+
+        section.remap(func)
+        assert visited_keys == section.keys()
+
+    def test_side_effects(self, info: GenericConfigInfo, section: GenericSection):
         """Test the remap function.
 
-        Ensure all keys are visited (but no unexepected ones), that their path is correct.
         Ensure the modifications are kept, without side effect.
         """
-        assert 0
 
-    @todo
-    def test_visited_keys(self):
-        assert 0
+        def to_none(section, traits: dict, trait_name, trait, fullpath: list[str]):
+            traits[trait_name] = None
 
-    @todo
-    def test_modification(self):
-        assert 0
+        output = section.remap(to_none, flatten=True)
+        assert output == {k: None for k in info.traits_total}
 
-    @todo
-    def test_remap_twins(self):
-        """Test the remap function when some subsections are the same class.
+        for k in info.traits_total:
+            assert section[k] == info.default(k)
 
-        Make sure there is no unintended consequences.
-        """
-        assert 0
+    @given(values=GenericConfigInfo.values_all_strat())
+    def test_modification(self, values: dict):
+        def func(section, traits: dict, trait_name, trait, fullpath: list[str]):
+            section[trait_name] = values[".".join(fullpath)]
+
+        section = GenericConfig()
+        section.remap(func)
+
+        for k, v in values.items():
+            assert section[k] == v
 
 
 class TestResolveKey(SectionTest):
     """Test key resolution."""
-
-    @todo
-    def test_resolve_class_key(self):
-        pass
 
     def test_resolve_key(self):
         key, section_cls, trait = GenericConfig.resolve_key("bool")
@@ -555,7 +576,9 @@ class TestResolveKey(SectionTest):
         assert issubclass(section_cls, TwinSubsection)
         assert isinstance(trait, Int)
 
-        # TODO: test aliases
+    @todo
+    def test_aliases(self):
+        assert 0
 
     def test_wrong_keys(self, info: GenericConfigInfo):
         def assert_bad_key(key: str):

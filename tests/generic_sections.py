@@ -269,7 +269,10 @@ class GenericSectionInfo(SectionInfo[GenericSection]):
             dict_any=(["a=1", "b=2", "c=3"], dict(a="1", b="2", c="3")),
             dict_str_int=(["a=1"], dict(a=1)),
             # type (instance not parsable)
-            type=(["tests.generic_sections.DummySubclass"], DummySubclass),
+            type=(
+                ["tests.generic_sections.DummySubclass"],
+                "tests.generic_sections.DummySubclass",
+            ),
             # Union
             union_num=(["1"], 1),
             union_num_str=(["a"], "a"),

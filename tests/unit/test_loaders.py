@@ -9,6 +9,7 @@ from traitlets import Instance, Int, List, TraitType, Type, Unicode, Union
 from data_assistant.config.application import ApplicationBase
 from data_assistant.config.loaders.core import ConfigLoader, ConfigValue, FileLoader
 from data_assistant.config.loaders.python import PyConfigContainer, PyLoader
+from data_assistant.config.loaders.toml import TomlkitLoader
 from data_assistant.config.util import ConfigParsingError
 
 from ..conftest import todo
@@ -21,8 +22,8 @@ FILE_LOADERS: list[type[FileLoader]]
 
 
 class App(ApplicationBase, GenericConfig):
-    file_loaders = [PyLoader]
-    pass
+    file_loaders = [PyLoader, TomlkitLoader]
+    config_files = []
 
 
 class TestConfigValue:
@@ -109,10 +110,6 @@ class DictLikeLoader:
 
 class TestCLILoader:
     @todo
-    def test_setting_new_action(self):
-        assert 0
-
-    @todo
     def test_help(self):
         assert 0
 
@@ -124,41 +121,75 @@ class TestCLILoader:
             args.append(f"--{k}")
             args += arg
 
-        app = App()
+        app = App(start=False)
         parsed = app.parse_command_line(args)
 
         parsed = {k: v.get_value() for k, v in parsed.items()}
         assert ref == parsed
 
     @todo
-    def test_classkey(self):
-        args = "--App.int 15 --GenericTraits.list_int 1 2 --TwinSubsection.int 3"
-        app = App()
-        parsed = app.parse_command_line(args.split(" "))
-        parsed = {k: v.get_value() for k, v in parsed.items()}
-
-        # --App.int 15
-        assert parsed["int"] == 15
-        # without effect on GenericTraits
-        assert "sub_generic.int" not in parsed
-
-        # --GenericTraits.list_int 1 2
-        assert parsed["sub_generic.list_int"] == [1, 2]
-        assert parsed["deep_sub.sub_generic_deep.list_int"] == [1, 2]
-        # without effect on App
-        assert "list_int" not in parsed
-        assert app.list_int == [0]
-
-        # --TwinSubsection.int 3
-        assert parsed["twin_a.int"] == 3
-        assert parsed["twin_b.int"] == 3
-        assert parsed["sub_twin.twin_c.int"] == 3
+    def test_orphans(self):
+        pass
 
 
 @todo
 def test_file_choose_loader():
     # maybe in application ?
     assert 0
+
+
+class TestTomlLoader:
+    def test_reading(self):
+        app = App(start=False)
+        app.config_files = "./tests/unit/config.toml"
+        conf = app.load_config_files()
+        conf = {k: v.get_value() for k, v in conf.items()}
+
+        # toml only outputs lists so here we convert them
+        # Traitlets does this otherwise
+        ref = {k: v[1] for k, v in GenericConfigInfo.generic_args().items()}
+        conf = {
+            k: tuple(v) if isinstance(ref[k], tuple) else v for k, v in conf.items()
+        }
+        conf = {k: set(v) if isinstance(ref[k], set) else v for k, v in conf.items()}
+
+        assert conf == ref
+
+    @given(values=GenericConfigInfo.values_half_strat())
+    def test_write_and_read_half(self, values: dict):
+        self.assert_write_read(values)
+
+    @given(values=GenericConfigInfo.values_all_strat())
+    def test_write_and_read_all(self, values: dict):
+        self.assert_write_read(values)
+
+    def assert_write_read(self, values: dict):
+        app = App(argv=[])
+        traits = app.traits_recursive(flatten=True)
+        defaults = app.defaults_recursive(flatten=True)
+
+        # Modify values and store them
+        ref = {}
+        for k, v in values.items():
+            # Instances/Types must be imported in config file, not automatic yet
+            if type(traits[k]) in [Instance]:
+                continue
+            # ignore thoses equal as default values, they will not be written
+            if v == defaults[k]:
+                continue
+
+            app[k] = v
+            ref[k] = v
+
+        with NamedTemporaryFile(suffix=".toml") as conf_file:
+            filename = conf_file.name
+            app.write_config(filename, clobber="overwrite", comment="none")
+
+            App.config_files = [filename]
+            app = App(argv=[])
+
+        for k in ref:
+            assert app[k] == values[k]
 
 
 class TestPythonLoader:
@@ -189,7 +220,7 @@ class TestPythonLoader:
         assert 0
 
     def test_reading(self):
-        app = App()
+        app = App(argv=[])
         app.config_files = "./tests/unit/config.py"
         conf = app.load_config_files()
         conf = {k: v.get_value() for k, v in conf.items()}
@@ -207,13 +238,13 @@ class TestPythonLoader:
         self.assert_write_read(values)
 
     def assert_write_read(self, values: dict):
-        app = App()
+        app = App(argv=[])
         traits = app.traits_recursive(flatten=True)
         defaults = app.defaults_recursive(flatten=True)
         ref = {}
         for k, v in values.items():
             # Instances/Types must be imported in config file, not automatic yet
-            if type(traits[k]) in [Instance, Type]:
+            if type(traits[k]) in [Instance]:
                 continue
             if v == defaults[k]:
                 continue
@@ -221,20 +252,17 @@ class TestPythonLoader:
             app[k] = v
 
         with NamedTemporaryFile(suffix=".py") as conf_file:
-            # filename = conf_file.name
-            filename = "tmp_config.py"
+            filename = conf_file.name
             app.write_config(filename, clobber="overwrite", comment="none")
 
             for line in conf_file.readlines():
                 print(line)
 
-            app = App()
-            app.config_files = filename
-            conf = app.load_config_files()
+            App.config_files = [filename]
+            app = App(argv=[])
 
-        conf = {k: v.get_value() for k, v in conf.items()}
-
-        assert conf == ref
+        for k in ref:
+            assert app[k] == values[k]
 
 
 # Parametrize for all loaders

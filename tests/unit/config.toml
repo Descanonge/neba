@@ -1,0 +1,113 @@
+# Created from GenericConfigInfo.generic_args
+
+bool = false
+float = 1.0
+int = 1
+str = "value"
+enum_int = 2
+enum_str = "b"
+enum_mix = 2
+
+# lists
+list_int = [1, 2]
+list_str = ["b", "c"]
+list_any = ["1", "b"]
+
+# sets
+set_int = [3, 4]
+set_any = ["1", "a", "c"]
+set_union = [1, "a", "c"]
+
+# tuples
+tuple_float = [2.0, 3.0]
+tuple_mix = ["b", 2, 3]
+
+# dict
+dict_any = {a="1", b="2", c="3"}
+dict_str_int = {a=1}
+
+# instance and type TODO
+# c.inst =
+type = "tests.generic_sections.DummySubclass"
+
+# union
+union_num = 1
+union_num_str = "a"
+union_list = [1, 2]
+
+[sub_generic]
+bool = false
+float = 1.0
+int = 1
+str = "value"
+enum_int = 2
+enum_str = "b"
+enum_mix = 2
+
+# lists
+list_int = [1, 2]
+list_str = ["b", "c"]
+list_any = ["1", "b"]
+
+# sets
+set_int = [3, 4]
+set_any = ["1", "a", "c"]
+set_union = [1, "a", "c"]
+
+# tuples
+tuple_float = [2.0, 3.0]
+tuple_mix = ["b", 2, 3]
+
+
+# instance and type TODO
+# c.inst =
+type = "tests.generic_sections.DummySubclass"
+
+# union
+union_num = 1
+union_num_str = "a"
+union_list = [1, 2]
+
+# dict
+dict_str_int = {a=1}
+# here we test more verbose syntax
+[sub_generic.dict_any]
+a = "1"
+b = "2"
+c = "3"
+
+[deep_sub.sub_generic_deep]
+bool = false
+float = 1.0
+int = 1
+str = "value"
+enum_int = 2
+enum_str = "b"
+enum_mix = 2
+
+# lists
+list_int = [1, 2]
+list_str = ["b", "c"]
+list_any = ["1", "b"]
+
+# sets
+set_int = [3, 4]
+set_any = ["1", "a", "c"]
+set_union = [1, "a", "c"]
+
+# tuples
+tuple_float = [2.0, 3.0]
+tuple_mix = ["b", 2, 3]
+
+# dict
+dict_any = {a="1", b="2", c="3"}
+dict_str_int = {a=1}
+
+# instance and type TODO
+# c.inst =
+type = "tests.generic_sections.DummySubclass"
+
+# union
+union_num = 1
+union_num_str = "a"
+union_list = [1, 2]
