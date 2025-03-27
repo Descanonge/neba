@@ -362,40 +362,43 @@ class DictLikeLoaderMixin(ConfigLoader):
         self, input: abc.Mapping, origin: str | None = None
     ) -> abc.Iterator[ConfigValue]:
         """Flatten an input nested mapping."""
-        # Some keys might be dot-separated. To make sure we are completely nested:
-        input = flatten_dict(input)
-        input = nest_dict(input)
 
         def recurse(
             d: abc.Mapping, section: type[Section], key: list[str]
         ) -> abc.Iterator[ConfigValue]:
             for k, v in d.items():
-                if (
-                    hasattr(section, "_orphaned_sections")
-                    and k in section._orphaned_sections
-                ):
-                    assert isinstance(v, abc.Mapping)
-                    yield from recurse(v, section._orphaned_sections[k], [k])
+                # key might be dot-separated
+                for subkey in k.split("."):
+                    if (
+                        hasattr(section, "_orphaned_sections")
+                        and subkey in section._orphaned_sections
+                    ):
+                        assert isinstance(v, abc.Mapping)
+                        yield from recurse(
+                            v, section._orphaned_sections[subkey], [subkey]
+                        )
 
-                elif k in section._subsections:
-                    assert isinstance(v, abc.Mapping)
-                    yield from recurse(v, section._subsections[k], key + [k])
+                    elif subkey in section._subsections:
+                        assert isinstance(v, abc.Mapping)
+                        yield from recurse(
+                            v, section._subsections[subkey], key + [subkey]
+                        )
 
-                elif k in section.aliases:
-                    assert isinstance(v, abc.Mapping)
-                    # resolve alias
-                    sub = section
-                    alias = section.aliases[k].split(".")
-                    for al in alias:
-                        sub = sub._subsections[al]
-                    yield from recurse(v, sub, key + alias)
+                    elif subkey in section.aliases:
+                        assert isinstance(v, abc.Mapping)
+                        # resolve alias
+                        sub = section
+                        alias = section.aliases[subkey].split(".")
+                        for al in alias:
+                            sub = sub._subsections[al]
+                        yield from recurse(v, sub, key + alias)
 
-                else:
-                    fullkey = ".".join(key + [k])
-                    value = ConfigValue(v, fullkey, origin=origin)
-                    # no parsing, directly to values
-                    value.value = value.input
-                    yield value
+                    else:
+                        fullkey = ".".join(key + [subkey])
+                        value = ConfigValue(v, fullkey, origin=origin)
+                        # no parsing, directly to values
+                        value.value = value.input
+                        yield value
 
         yield from recurse(input, self.app.__class__, [])
 
