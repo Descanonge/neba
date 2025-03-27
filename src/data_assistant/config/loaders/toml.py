@@ -17,9 +17,6 @@ from .core import ConfigValue, DictLikeLoaderMixin, FileLoader
 
 T = t.TypeVar("T", bound=Container | Table)
 
-# TODO: inline tables for dict traits could get too longs, maybe we could find a way to
-# accept proper tables (like we do for dict based loaders ?)
-
 
 class TomlkitLoader(FileLoader, DictLikeLoaderMixin):
     """Load config from TOML files using tomlkit library.
@@ -138,11 +135,17 @@ class TomlkitLoader(FileLoader, DictLikeLoaderMixin):
             return String.from_raw("")
 
         # tomlkit only creates InlineTables if parent is Array, so we do it manually
+        # TODO: inline tables for dict traits could get too longs, maybe we could find a
+        # way to accept proper tables (like we do for dict based loaders ?)
         if isinstance(value, dict):
             out = InlineTable(Container(), Trivia(), False)
             for k, v in value.items():
                 out[k] = tomlkit.item(v, _parent=out, _sort_keys=False)
             return out
+
+        # Toml does not support sets
+        if isinstance(value, set):
+            value = list(value)
 
         # convert types to string
         if isinstance(value, type):
