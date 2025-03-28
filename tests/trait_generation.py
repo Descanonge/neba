@@ -131,7 +131,10 @@ class UnicodeGen(TraitGenerator[Unicode]):
     traittype = Unicode
 
     def _st_value(self) -> st.SearchStrategy[str]:
-        return st.text(max_size=32, alphabet=st.characters(exclude_categories=["C"]))
+        return st.text(
+            max_size=32,
+            alphabet=st.characters(categories=["L", "M", "N", "P", "S", "Zs"]),
+        )
 
 
 class EnumGen(TraitGenerator[Enum]):

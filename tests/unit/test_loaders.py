@@ -23,7 +23,9 @@ FILE_LOADERS: list[type[FileLoader]]
 
 class App(ApplicationBase, GenericConfig):
     file_loaders = [PyLoader, TomlkitLoader]
-    config_files = []
+
+
+App.config_files.default_value = []
 
 
 class TestConfigValue:
@@ -109,9 +111,21 @@ class DictLikeLoader:
 
 
 class TestCLILoader:
-    @todo
     def test_help(self):
-        assert 0
+        with pytest.raises(SystemExit):
+            App(argv=["--help"])
+        with pytest.raises(SystemExit):
+            App(argv=["-h"])
+
+    def test_list_parameters(self, capsys):
+        with pytest.raises(SystemExit):
+            App(argv=["--list-parameters"])
+        captured = capsys.readouterr()
+        listed_parameters = captured.err.splitlines()
+        traits = App.class_traits_recursive(subsections=False, aliases=True)
+        for param in listed_parameters:
+            assert param.split()[0].removeprefix("--") in traits
+        assert len(traits) == len(listed_parameters)
 
     def test_parsing(self):
         args = []
