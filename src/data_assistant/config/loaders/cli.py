@@ -53,7 +53,7 @@ class CLILoader(ConfigLoader):
         self.parser = self.create_parser()
 
         self.parser.add_argument("-h", "--help", action="store_true")
-        self.parser.add_argument("--list_parameters", action="store_true")
+        self.parser.add_argument("--list-parameters", action="store_true")
 
         self.keys = self.app.class_traits_recursive(
             subsections=False, recursive=True, aliases=True
