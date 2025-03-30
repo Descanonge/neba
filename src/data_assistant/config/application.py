@@ -174,7 +174,12 @@ class ApplicationBase(SingletonSection):
     _extra_parameters_args: list[tuple[list, dict[str, t.Any]]] = []
     """Extra parameters passed to the command line parser."""
 
-    def __init__(self, start: bool = True, **kwargs) -> None:
+    file_conf: dict[str, ConfigValue]
+    """Configuration values obtained from configuration files."""
+    cli_conf: dict[str, ConfigValue]
+    """Configuration values obtained from command line arguments."""
+
+    def __init__(self, /, start: bool = True, **kwargs) -> None:
         # No super.__init__, it would instanciate recursively subsections
 
         # Useless-ish but we need to initialize the logger
@@ -182,13 +187,9 @@ class ApplicationBase(SingletonSection):
         # which will trigger the logging configuration at a bad time
         self.log.debug("Starting applications")
 
-        self.cli_conf: dict[str, ConfigValue] = {}
-        """Configuration values obtained from command line arguments."""
-        self.file_conf: dict[str, ConfigValue] = {}
-        """Configuration values obtained from configuration files."""
-
-        self.extra_parameters: dict[str, t.Any] = {}
-        """Extra parameters retrieved by the command line parser."""
+        self.cli_conf = {}
+        self.file_conf = {}
+        self.extra_parameters = {}
 
         if start:
             self.start(**kwargs)
