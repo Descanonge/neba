@@ -7,10 +7,16 @@ from hypothesis import given
 from traitlets import Instance, Int, List, TraitType, Type, Unicode, Union
 
 from data_assistant.config.application import ApplicationBase
-from data_assistant.config.loaders.core import ConfigLoader, ConfigValue, FileLoader
+from data_assistant.config.loaders.cli import CLILoader
+from data_assistant.config.loaders.core import (
+    ConfigLoader,
+    ConfigValue,
+    DictLoader,
+    FileLoader,
+)
 from data_assistant.config.loaders.python import PyConfigContainer, PyLoader
 from data_assistant.config.loaders.toml import TomlkitLoader
-from data_assistant.config.util import ConfigParsingError
+from data_assistant.config.util import ConfigParsingError, MultipleConfigKeyError
 
 from ..conftest import todo
 
@@ -99,15 +105,20 @@ class TestConfigValue:
         assert 0
 
 
-class DictLikeLoader:
-    """Test on python dict.
+class TestDictLoader:
+    """Test on python dict."""
 
-    This behavior should be the same for other loaders (json, yaml) but easier to test.
-    """
+    @given(values=GenericConfigInfo.values_strat_nested())
+    def test_flat(self, values: tuple[dict, dict]):
+        values_nest, values_flat = values
 
-    @todo
-    def test_reading(self):
-        assert 0
+        app = App(argv=[], start=False)
+        app._init_subsections({})
+
+        loader = DictLoader(app)
+        conf_cv = loader.get_config(values_nest)
+        conf = {k: v.get_value() for k, v in conf_cv.items()}
+        assert conf == values_flat
 
 
 class TestCLILoader:
@@ -281,11 +292,6 @@ class TestPythonLoader:
 
 # Parametrize for all loaders
 class TestConfigLoader:
-    @todo
-    def test_add_multiple(self):
-        """Key already in config."""
-        assert 0
-
     @todo
     def test_application_traits(self):
         """Check application traits are applied."""

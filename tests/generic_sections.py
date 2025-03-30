@@ -30,6 +30,7 @@ from traitlets import (
 )
 
 from data_assistant.config.section import Section, subsection
+from data_assistant.config.util import nest_dict
 
 from .trait_generation import trait_to_strat
 from .util import Drawer
@@ -113,8 +114,29 @@ class SectionInfo(t.Generic[S]):
         @st.composite
         def strat(draw: Drawer) -> dict:
             keys = draw(st.lists(st.sampled_from(cls.traits_total)))
-            out = {k: draw(cls.value_strat(k)) for k in keys}
-            return out
+            return {key: draw(cls.value_strat(key)) for key in keys}
+
+        return strat()
+
+    @classmethod
+    def values_strat_nested(cls) -> st.SearchStrategy[tuple[dict, dict]]:
+        """Strategy of values for a random selection of keys."""
+
+        @st.composite
+        def strat(draw: Drawer) -> tuple[dict, dict]:
+            keys = draw(st.lists(st.sampled_from(cls.traits_total)))
+            out_nest: dict = {}
+            out_flat: dict = {}
+            for key in keys:
+                value = draw(cls.value_strat(key))
+                subout = out_nest
+                keypath = key.split(".")
+                for subkey in keypath[:-1]:
+                    subout.setdefault(subkey, {})
+                    subout = subout[subkey]
+                subout[keypath[-1]] = value
+                out_flat[key] = value
+            return out_nest, out_flat
 
         return strat()
 
@@ -148,13 +170,19 @@ class SectionInfo(t.Generic[S]):
 class DummyClass:
     """Used for Instance and Type traits."""
 
+    def __init__(self, value: int):
+        self.value = value
+
+    def __eq__(self, other) -> bool:
+        return self.value == other.value
+
     def __repr__(self):
         return f"{self.__class__.__name__}()"
 
 
-dummy_instance = DummyClass()
+dummy_instance = DummyClass(1)
 DummySubclass = type("DummySubclass", (DummyClass,), {})
-dummy_subinstance = DummySubclass()
+dummy_subinstance = DummySubclass(1)
 
 
 class GenericSection(Section):
@@ -192,7 +220,7 @@ class GenericSection(Section):
     )
 
     # Instance and Type
-    inst = Instance(DummyClass, default_value=dummy_instance, args=(), kw={})
+    inst = Instance(DummyClass, default_value=dummy_instance, args=(1,), kw={})
     type = Type(klass=DummyClass)
 
     # Union

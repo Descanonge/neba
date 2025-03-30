@@ -11,13 +11,7 @@ from os import path
 from traitlets.traitlets import HasTraits, TraitError, TraitType, Union
 from traitlets.utils.sentinel import Sentinel
 
-from ..util import (
-    ConfigError,
-    ConfigParsingError,
-    MultipleConfigKeyError,
-    flatten_dict,
-    nest_dict,
-)
+from ..util import ConfigParsingError, MultipleConfigKeyError
 
 if t.TYPE_CHECKING:
     from .application import ApplicationBase

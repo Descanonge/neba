@@ -513,8 +513,12 @@ Despite not being easily readable, the JSON format is supported via
 :class:`.JsonLoader` and the builtin module :external+python:mod:`json`. The
 decoder and encoder class can be customized.
 
-It is planned to add support for Yaml format via :class:`.YamlLoader` and a
-third party module to be chosen.
+.. important::
+
+   At the moment, the JsonLoader is untested.
+
+It is planned to add support for Yaml format via :class:`.YamlLoader` with a
+third party library.
 
 From the command line
 ---------------------

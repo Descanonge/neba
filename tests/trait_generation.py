@@ -34,6 +34,19 @@ from traitlets import (
 from tests.util import Drawer, T_Trait
 
 
+class DummyClass:
+    """Used for Instance and Type traits."""
+
+    def __init__(self, value: int):
+        self.value = value
+
+    def __eq__(self, other) -> bool:
+        return self.value == other.value
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}()"
+
+
 class TraitGenerator(t.Generic[T_Trait]):
     """Generate a trait and valid values.
 
@@ -240,7 +253,12 @@ class InstanceGen(ClassGen[Instance]):
     traittype: type[Instance] = Instance
 
     def _st_value(self) -> st.SearchStrategy:
-        return st.sampled_from([self.klass(), self.get_subclass()()])
+        @st.composite
+        def strat(draw: Drawer):
+            klass = draw(st.sampled_from([self.klass, self.get_subclass()]))
+            return draw(st.builds(klass))
+
+        return strat()
 
 
 class TypeGen(ClassGen[Type]):
