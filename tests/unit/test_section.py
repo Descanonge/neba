@@ -6,7 +6,7 @@ import pytest
 from hypothesis import given, settings
 from traitlets import Bool, Int
 
-from data_assistant.config import Section, subsection
+from data_assistant.config import Section
 from data_assistant.config.util import UnknownConfigKeyError, nest_dict
 
 from ..conftest import todo

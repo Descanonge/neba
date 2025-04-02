@@ -28,7 +28,7 @@ c.dict_str_int = dict(a=1)
 
 # instance and type TODO
 # c.inst =
-c.type = "tests.generic_sections.DummySubclass"
+c.type = "tests.trait_generation.DummySubclass"
 
 # union
 c.union_num = 1
@@ -63,7 +63,7 @@ c.sub_generic.dict_any = dict(a="1", b="2", c="3")
 c.sub_generic.dict_str_int = dict(a=1)
 
 # instance and type
-c.sub_generic.type = "tests.generic_sections.DummySubclass"
+c.sub_generic.type = "tests.trait_generation.DummySubclass"
 
 # union
 c.sub_generic.union_num = 1
@@ -98,7 +98,7 @@ c.deep_sub.sub_generic_deep.dict_any = dict(a="1", b="2", c="3")
 c.deep_sub.sub_generic_deep.dict_str_int = dict(a=1)
 
 # instance and type
-c.deep_sub.sub_generic_deep.type = "tests.generic_sections.DummySubclass"
+c.deep_sub.sub_generic_deep.type = "tests.trait_generation.DummySubclass"
 
 # union
 c.deep_sub.sub_generic_deep.union_num = 1

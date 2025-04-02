@@ -152,6 +152,10 @@ class TestCLILoader:
         parsed = {k: v.get_value() for k, v in parsed.items()}
         assert ref == parsed
 
+    def test_duplicate_keys(self):
+        with pytest.raises(MultipleConfigKeyError):
+            App(argv="--sub-generic.int 1 --sub-generic.int 2".split())
+
     @todo
     def test_orphans(self):
         pass
@@ -215,6 +219,10 @@ class TestTomlLoader:
 
         for k in ref:
             assert app[k] == values[k]
+
+    @todo
+    def test_duplicate_keys(self):
+        assert 0
 
 
 class TestPythonLoader:
@@ -288,6 +296,10 @@ class TestPythonLoader:
 
         for k in ref:
             assert app[k] == values[k]
+
+    @todo
+    def test_duplicate_keys(self):
+        assert 0
 
 
 # Parametrize for all loaders

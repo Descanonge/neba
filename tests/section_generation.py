@@ -5,7 +5,7 @@ import typing as t
 import hypothesis.strategies as st
 from traitlets import TraitType
 
-from data_assistant.config.section import Section, subsection
+from data_assistant.config.section import Section
 
 from .trait_generation import TraitGenerator, st_trait_gen
 from .util import Drawer, st_varname

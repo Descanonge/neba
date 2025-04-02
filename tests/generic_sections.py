@@ -29,10 +29,10 @@ from traitlets import (
     Union,
 )
 
-from data_assistant.config.section import Section, subsection
+from data_assistant.config.section import Section
 from data_assistant.config.util import nest_dict
 
-from .trait_generation import trait_to_strat
+from .trait_generation import DummyClass, trait_to_strat
 from .util import Drawer
 
 S = t.TypeVar("S", bound=Section)
@@ -167,24 +167,6 @@ class SectionInfo(t.Generic[S]):
         return strat()
 
 
-class DummyClass:
-    """Used for Instance and Type traits."""
-
-    def __init__(self, value: int):
-        self.value = value
-
-    def __eq__(self, other) -> bool:
-        return self.value == other.value
-
-    def __repr__(self):
-        return f"{self.__class__.__name__}()"
-
-
-dummy_instance = DummyClass(1)
-DummySubclass = type("DummySubclass", (DummyClass,), {})
-dummy_subinstance = DummySubclass(1)
-
-
 class GenericSection(Section):
     """Generic section containing a wide selection of traits."""
 
@@ -220,7 +202,7 @@ class GenericSection(Section):
     )
 
     # Instance and Type
-    inst = Instance(DummyClass, default_value=dummy_instance, args=(1,), kw={})
+    inst = Instance(DummyClass, default_value=DummyClass(1), args=(), kw={})
     type = Type(klass=DummyClass)
 
     # Union
@@ -260,7 +242,7 @@ class GenericSectionInfo(SectionInfo[GenericSection]):
             value_trait=Int(), key_trait=Unicode(), default_value={"a": 0, "b": 1}
         ),
         # Instance and Type
-        inst=Instance(DummyClass, default_value=dummy_instance, args=(), kw={}),
+        inst=Instance(DummyClass, default_value=DummyClass(1), args=(), kw={}),
         type=Type(klass=DummyClass),
         # Union
         union_num=Union([Int(), Float()], default_value=0.0),
@@ -298,8 +280,8 @@ class GenericSectionInfo(SectionInfo[GenericSection]):
             dict_str_int=(["a=1"], dict(a=1)),
             # type (instance not parsable)
             type=(
-                ["tests.generic_sections.DummySubclass"],
-                "tests.generic_sections.DummySubclass",
+                ["tests.trait_generation.DummySubclass"],
+                "tests.trait_generation.DummySubclass",
             ),
             # Union
             union_num=(["1"], 1),
