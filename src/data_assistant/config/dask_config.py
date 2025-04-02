@@ -26,7 +26,7 @@ from traitlets import (
 )
 from traitlets.utils.importstring import import_item
 
-from .section import Section, subsection
+from .section import Section
 from .util import tag_all_traits
 
 log = logging.getLogger(__name__)
@@ -501,9 +501,10 @@ class DaskConfig(Section):
 
         Only add the subsections corresponding to the ``selected_clusters`` attribute.
         """
+        # FIXME: completey broken by removal of subsections as traitlets.Instances
         # Add selected cluster types
         for name in cls.selected_clusters:
-            setattr(cls, name, subsection(cls.cluster_names[name]))
+            setattr(cls, name, cls.cluster_names[name])
 
         super()._setup_section()
 

@@ -13,7 +13,7 @@ from collections import abc
 from inspect import Parameter, signature
 from textwrap import dedent
 
-from traitlets import Enum, Instance, Sentinel, TraitType, Undefined
+from traitlets import Enum, Sentinel, TraitType, Undefined
 from traitlets.config import HasTraits
 
 from .loaders import ConfigValue
@@ -43,23 +43,6 @@ _branch_subsection = "\u251d" + "\u2501" * len(_line) + "\u2511"
 _elbow_subsection = "\u2515" + "\u2501" * len(_line) + "\u2511"
 _pipe = "\u2502" + " " * len(_line)
 _blank = " " * len(_pipe)
-
-
-def subsection(section: type[S]) -> Instance[S]:
-    """Transform a subsection class into a proper trait.
-
-    To make the specification easier, an attribute of type :class:`Section` will
-    automatically be transformed into a proper :class:`Instance` trait using this
-    function. It can be used "manually" as well, this will most notably help static
-    type checkers understand what is happening.
-
-    So when specifying a subsection the two lines below are equivalent::
-
-        sub_name = MySubSection
-        sub_name = subsection(MySubSection)
-
-    """
-    return Instance(section, args=(), kw={}).tag(subsection=True, config=False)
 
 
 def _name_to_classdef(name: str) -> str:
@@ -143,8 +126,8 @@ class Section(HasTraits):
         """
         cls._subsections = {}
         classdict = cls.__dict__
-
         to_add: dict[str, type[Section]] = {}
+        to_remove = []
 
         for k, v in classdict.items():
             # tag traits as configurable
@@ -152,37 +135,25 @@ class Section(HasTraits):
                 if v.metadata.get("config", True):
                     v.tag(config=True)
 
-            if not cls._dynamic_subsections:
-                continue
-
-            # Add Section definitions
-            if isinstance(v, type) and issubclass(v, Section) and k == v.__name__:
-                to_add[k.rstrip("_")] = v
+            if isinstance(v, type) and issubclass(v, Section):
+                # change location of class definition
+                new_name = _name_to_classdef(k)
+                v.__name__ = new_name
+                v.__qualname__ = f"{cls.__qualname__}.{new_name}"
+                cls._subsections[k] = v
+                to_add[new_name] = v
+                to_remove.append(k)
 
         for k, v in to_add.items():
-            # change location of class definition
-            new_name = _name_to_classdef(k)
-            v.__name__ = new_name
-            v.__qualname__ = f"{cls.__qualname__}.{new_name}"
-            setattr(cls, new_name, v)
-
-            # And add a subsection
-            setattr(cls, k, subsection(v))
+            setattr(cls, k, v)
+        for k in to_remove:
+            # Remove it for now, it will be replaced by the instance
+            delattr(cls, k)
 
         # add ancestors subsections
         for base in cls.__bases__:
             if issubclass(base, Section):
                 cls._subsections |= base._subsections
-
-        # register new subsections
-        for k, v in classdict.items():
-            if isinstance(v, Instance):
-                # if v.klass is str, transform to corresponding type
-                v._resolve_classes()
-                assert isinstance(v.klass, type)  # maybe into a try/except block?
-                if issubclass(v.klass, Section):
-                    cls._subsections[k] = v.klass
-                    v.tag(subsection=True, config=False)
 
         cls.setup_class(classdict)  # type: ignore
 
@@ -208,6 +179,7 @@ class Section(HasTraits):
 
         if config is None:
             config = {}
+        # copy
         config = dict(config)
 
         if app is not False:
@@ -223,8 +195,8 @@ class Section(HasTraits):
         config |= kwargs
 
         with self.hold_trait_notifications():
-            self._init_subsections(config)
             self._init_direct_traits(config)
+        self._init_subsections(config)
 
         if config:
             raise KeyError(f"Extra parameters for {clsname} {list(config.keys())}")
@@ -234,7 +206,7 @@ class Section(HasTraits):
     def _init_direct_traits(self, config: dict[str, t.Any], **kwargs):
         config |= kwargs
 
-        for name in self.trait_names(config=True, subsection=None):
+        for name in self.trait_names(config=True):
             if name in config:
                 value = config.pop(name)
                 if isinstance(value, ConfigValue):
@@ -262,7 +234,7 @@ class Section(HasTraits):
 
     def _get_lines(self, header: str = "") -> list[str]:
         lines = [self.__class__.__name__]
-        traits = self.traits(config=True, subsection=None)
+        traits = self.traits(config=True)
         for i, (key, trait) in enumerate(traits.items()):
             is_last = i == len(traits) - 1 and not self._subsections
             lines.append(
@@ -270,6 +242,9 @@ class Section(HasTraits):
             )
 
         for i, name in enumerate(self._subsections):
+            # not instianted
+            if not hasattr(self, name):
+                continue
             lines.append(header + _pipe)
             is_last = i == len(self._subsections) - 1
 
@@ -633,8 +608,8 @@ class Section(HasTraits):
                 pass
             # subsection does not exist
             elif allow_recursive:
-                section.add_traits(**{name: subsection(Section)})
                 section._subsections[name] = Section
+                setattr(self, name, Section())
             else:
                 raise KeyError(
                     f"There is no section '{name}', and creating subsections "
@@ -733,9 +708,9 @@ class Section(HasTraits):
         """
         output: abc.Mapping[str, TraitType | type[Section]]
         if own_traits:
-            output = cls.class_own_traits(subsection=None, config=True)
+            output = cls.class_own_traits(config=True)
         else:
-            output = cls.class_traits(subsection=None, config=True)
+            output = cls.class_traits(config=True)
 
         output = {k: v for k, v in output.items() if not k.startswith("_")}
 

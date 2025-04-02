@@ -9,7 +9,7 @@ from .loaders import (
     FileLoader,
     Undefined,
 )
-from .section import Section, subsection
+from .section import Section
 from .util import FixableTrait, RangeTrait, tag_all_traits
 
 __all__ = [
@@ -26,6 +26,5 @@ __all__ = [
     "SingletonSection",
     "Undefined",
     "YamlLoader",
-    "subsection",
     "tag_all_traits",
 ]

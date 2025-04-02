@@ -6,7 +6,7 @@ Use by adding to the list of plugins in your mypy configuration:
 
 from collections import abc
 
-from mypy.nodes import MDEF, ClassDef, PlaceholderNode, SymbolTableNode, TypeInfo
+from mypy.nodes import MDEF, ClassDef, SymbolTableNode, TypeInfo
 from mypy.plugin import ClassDefContext, Plugin, SemanticAnalyzerPluginInterface
 from mypy.plugins.common import add_attribute_to_class
 from mypy.types import Instance, TypeVarLikeType
@@ -76,11 +76,6 @@ class SectionTransformer:
 
         self.metadata["moved_class_defs"] = [_name_to_classdef(n) for n in new_defs]
 
-        if not self.register_traitlets_instance():
-            if self.api.final_iteration:
-                self.api.defer()
-            return
-
         subsections_info = {n: k.info for n, k in new_defs.items()}
         self.assign_attributes(subsections_info)
 
@@ -90,7 +85,7 @@ class SectionTransformer:
         We replace by traitlets.Instance[_someSectionDef].
         """
         for name, info in subsections.items():
-            typ = Instance(self.traitlets_inst_info, [Instance(info, [])])
+            typ = Instance(info, [])
             add_attribute_to_class(
                 self.api,
                 self.cls,
@@ -163,23 +158,6 @@ class SectionTransformer:
             new_defs[sub_name] = new_def
 
         return new_defs
-
-    def register_traitlets_instance(self) -> bool:
-        """Register the traitlets Type information.
-
-        Return False if mypy failed to resolve the import.
-        """
-        self.api.add_plugin_dependency("traitlets")
-        sym = self.api.lookup_fully_qualified_or_none("traitlets.Instance")
-        if (
-            sym is None
-            or isinstance(sym, PlaceholderNode)
-            or not isinstance(sym.node, TypeInfo)
-        ):
-            return False
-        self.traitlets_inst_info: TypeInfo = sym.node
-
-        return True
 
     def collect_subsections_defs(self) -> dict[str, ClassDef]:
         """Find the subsections to modify.
