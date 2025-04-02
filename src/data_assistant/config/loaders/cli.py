@@ -41,7 +41,7 @@ class CLILoader(ConfigLoader):
     string (:attr:`_DOT`).
     """
 
-    propose_hyphens: bool = False
+    propose_hyphens: bool = True
     """Whether to propose parameters under both snake case `my_parameter`
     and kebab case `my-parameter`."""
 
