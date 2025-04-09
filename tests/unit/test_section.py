@@ -6,7 +6,7 @@ import pytest
 from hypothesis import given, settings
 from traitlets import Bool, Int
 
-from data_assistant.config import Section
+from data_assistant.config import Section, Subsection
 from data_assistant.config.util import UnknownConfigKeyError, nest_dict
 
 from ..conftest import todo
@@ -45,7 +45,7 @@ class TestDefinition(SectionTest):
     Especially metaclass stuff.
     """
 
-    def test_dynamic_definition(self):
+    def test_dynamic_definition(self) -> None:
         """Test that nested class defs will be found.
 
         And only those. Make sure name must follow rules.
@@ -55,7 +55,7 @@ class TestDefinition(SectionTest):
             control = Int(0)
 
         class S(Section):
-            normal = subsection(NormalSubsection)
+            normal = Subsection(NormalSubsection)
 
             class a(Section):
                 control = Int(0)
@@ -68,10 +68,10 @@ class TestDefinition(SectionTest):
         cls_b = S._bSectionDef
         cls_c = S._bSectionDef._cSectionDef
 
-        assert issubclass(S._subsections["a"], cls_a)
-        assert issubclass(S._subsections["b"], cls_b)
-        assert issubclass(S._subsections["b"]._subsections["c"], cls_c)
-        assert issubclass(S._subsections["normal"], NormalSubsection)
+        assert issubclass(S._subsections["a"].klass, cls_a)
+        assert issubclass(S._subsections["b"].klass, cls_b)
+        assert issubclass(S._subsections["b"].klass._subsections["c"].klass, cls_c)
+        assert issubclass(S._subsections["normal"].klass, NormalSubsection)
 
         inst = S()
         assert isinstance(inst.a, cls_a)
@@ -114,7 +114,7 @@ class TestDefinition(SectionTest):
             class a(Section):
                 control = Int(0)
 
-            dynamic = subsection(Dynamic)
+            dynamic = Subsection(Dynamic)
 
         assert "a" not in Static._subsections
         assert "dynamic" in Static._subsections
@@ -132,12 +132,8 @@ class TestDefinition(SectionTest):
             for key in info.traits_this_level:
                 trait = section.traits()[key]
                 assert trait.metadata["config"] is True
-                assert trait.metadata.get("subsection", None) is None
 
             for name, sub_info in info.subsections.items():
-                trait = section.traits()[name]
-                assert trait.metadata["config"] is False
-                assert trait.metadata["subsection"] is True
                 test_tagged_section(sub_info, section[name])
 
         test_tagged_section(info, section)
@@ -190,7 +186,7 @@ class TestInstanciation(SectionTest):
 
         def test_subsection_class(info, section):
             for name, sub_info in info.subsections.items():
-                assert issubclass(section._subsections[name], sub_info.section)
+                assert issubclass(section._subsections[name].klass, sub_info.section)
                 assert isinstance(section[name], sub_info.section)
                 test_subsection_class(sub_info, section[name])
 
@@ -414,7 +410,7 @@ class TestMutableMappingInterface(SectionTest):
         with pytest.raises(KeyError):
             section.add_trait("dict_any", Int(1))
 
-        # recursive (no adding)
+        # recursive (not adding sections)
         section.add_trait("deep_sub.sub_generic_deep.new_trait", Int(10))
         assert "deep_sub.sub_generic_deep.new_trait" in section
         assert "new_trait" in section.deep_sub.sub_generic_deep.trait_names()

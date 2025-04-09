@@ -49,6 +49,33 @@ def _name_to_classdef(name: str) -> str:
     return f"_{name}SectionDef"
 
 
+class Subsection(t.Generic[S]):
+    """Descriptor for subsection.
+
+    I do not use traitlets.Instance because it initialize eagerly, I would prefer to
+    wait before initializing recursivey all subsections.
+    """
+
+    klass: type[S]
+    private_name: str
+
+    def __init__(self, section: type[S]):
+        self.klass = section
+
+    def __set_name__(self, owner: type[S], name: str):
+        self.private_name = "__" + name
+
+    def __get__(self, obj: Section | None, objtype=None) -> S:
+        if not hasattr(obj, self.private_name):
+            raise AttributeError(
+                f"Subsection {self.private_name} has not been initialized."
+            )
+        return getattr(obj, self.private_name)
+
+    def __set__(self, obj: Section, value: S):
+        setattr(obj, self.private_name, value)
+
+
 class Section(HasTraits):
     """Object holding configurable values.
 
@@ -78,7 +105,7 @@ class Section(HasTraits):
 
     _application_cls: type[ApplicationBase] | None = None
 
-    _subsections: dict[str, type[Section]] = {}
+    _subsections: dict[str, Subsection] = {}
     """Mapping of nested Section classes."""
 
     _attr_completion_only_traits: bool = False
@@ -126,8 +153,7 @@ class Section(HasTraits):
         """
         cls._subsections = {}
         classdict = cls.__dict__
-        to_add: dict[str, type[Section]] = {}
-        to_remove = []
+        to_add: dict[str, t.Any] = {}
 
         for k, v in classdict.items():
             # tag traits as configurable
@@ -135,20 +161,28 @@ class Section(HasTraits):
                 if v.metadata.get("config", True):
                     v.tag(config=True)
 
-            if isinstance(v, type) and issubclass(v, Section):
+            if (
+                cls._dynamic_subsections
+                and isinstance(v, type)
+                and issubclass(v, Section)
+                and v.__qualname__ == f"{cls.__qualname__}.{v.__name__}"
+            ):
                 # change location of class definition
                 new_name = _name_to_classdef(k)
                 v.__name__ = new_name
                 v.__qualname__ = f"{cls.__qualname__}.{new_name}"
-                cls._subsections[k] = v
                 to_add[new_name] = v
-                to_remove.append(k)
+                subsec = Subsection(v)
+                subsec.__set_name__(cls, k)
+                to_add[k] = subsec
 
         for k, v in to_add.items():
             setattr(cls, k, v)
-        for k in to_remove:
-            # Remove it for now, it will be replaced by the instance
-            delattr(cls, k)
+
+        # register subsections
+        for k, v in classdict.items():
+            if isinstance(v, Subsection):
+                cls._subsections[k] = v
 
         # add ancestors subsections
         for base in cls.__bases__:
@@ -162,7 +196,7 @@ class Section(HasTraits):
             subsection_cls = cls
             for key in alias.split("."):
                 try:
-                    subsection_cls = subsection_cls._subsections[key]
+                    subsection_cls = subsection_cls._subsections[key].klass
                 except KeyError as err:
                     raise KeyError(
                         f"Alias '{short}:{alias}' in {cls.__name__} malformed."
@@ -216,7 +250,7 @@ class Section(HasTraits):
     def _init_subsections(self, config: dict[str, t.Any], **kwargs):
         config |= kwargs
         for name, subcls in self._subsections.items():
-            sub_inst = subcls(config.pop(name, {}))
+            sub_inst = subcls.klass(config.pop(name, {}))
             setattr(self, name, sub_inst)
 
     def postinit(self):
@@ -714,12 +748,12 @@ class Section(HasTraits):
 
         output = {k: v for k, v in output.items() if not k.startswith("_")}
 
-        subs = cls._subsections.copy()
+        subs = {k: v.klass for k, v in cls._subsections.items()}
         if aliases and recursive:
             for shortcut, target in cls.aliases.items():
                 subsection = cls
                 for subname in target.split("."):
-                    subsection = subsection._subsections[subname]
+                    subsection = subsection._subsections[subname].klass
                 subs[shortcut] = subsection
 
         for name, subsection in subs.items():
@@ -740,7 +774,7 @@ class Section(HasTraits):
     @classmethod
     def _subsections_recursive(cls) -> abc.Iterator[type[Section]]:
         """Iterate recursively over all subsections."""
-        for subsection in cls._subsections.values():
+        for subsection in (v.klass for v in cls._subsections.values()):
             yield from subsection._subsections_recursive()
         yield cls
 
@@ -881,13 +915,13 @@ class Section(HasTraits):
         subsection = cls
         for subkey in prefix:
             if subkey in subsection._subsections:
-                subsection = subsection._subsections[subkey]
+                subsection = subsection._subsections[subkey].klass
                 fullkey.append(subkey)
             elif subkey in cls.aliases:
                 alias = cls.aliases[subkey].split(".")
                 fullkey += alias
                 for alias_subkey in alias:
-                    subsection = subsection._subsections[alias_subkey]
+                    subsection = subsection._subsections[alias_subkey].klass
             else:
                 secname = ".".join(fullkey) + " " if fullkey else ""
                 secname += f"({_subsection_clsname(subsection)})"

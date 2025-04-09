@@ -48,10 +48,6 @@ class SectionGenerator:
         for sub_gen in self.subsections.values():
             sub_gen.draw_traits(draw)
 
-        for name, sub_gen in self.subsections.items():
-            cls = sub_gen.get_cls()
-            self.traits[name] = subsection(cls)
-
     def draw_instance(self, draw: Drawer) -> Section:
         self.draw_traits(draw)
         return self.get_cls()()

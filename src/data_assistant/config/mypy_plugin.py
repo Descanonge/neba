@@ -6,14 +6,15 @@ Use by adding to the list of plugins in your mypy configuration:
 
 from collections import abc
 
-from mypy.nodes import MDEF, ClassDef, SymbolTableNode, TypeInfo
+from mypy.nodes import MDEF, ClassDef, PlaceholderNode, SymbolTableNode, TypeInfo
 from mypy.plugin import ClassDefContext, Plugin, SemanticAnalyzerPluginInterface
 from mypy.plugins.common import add_attribute_to_class
 from mypy.types import Instance, TypeVarLikeType
 
 from data_assistant.config.section import _name_to_classdef
 
-SECTION_FULLNAME = "data_assistant.config.section.Section"
+SECTION = "data_assistant.config.section.Section"
+SUBSECTION = "data_assistant.config.section.Subsection"
 
 
 class SectionPlugin(Plugin):
@@ -24,8 +25,10 @@ class SectionPlugin(Plugin):
     ) -> abc.Callable[[ClassDefContext], None] | None:
         """Adapt to the dynamic definition of subsections."""
         sym = self.lookup_fully_qualified(fullname)
+
+        # Dynamic class definition
         if sym and isinstance(sym.node, TypeInfo):
-            if any(base.fullname == SECTION_FULLNAME for base in sym.node.mro):
+            if any(base.fullname == SECTION for base in sym.node.mro):
                 return self._transform_section
 
         return None
@@ -45,7 +48,7 @@ class SectionTransformer:
 
     * modify nested class defs: change their name to "_{name}SectionDef" to hide them
       while conserving them
-    * add an attribute corresponding to the subsection (traitlets.Instance[_SectionDef])
+    * add an attribute corresponding to the subsection (Subsection[_SectionDef])
 
     We note in metadata the classes that have been modified so that we do not touch
     them on further passes.
@@ -76,6 +79,11 @@ class SectionTransformer:
 
         self.metadata["moved_class_defs"] = [_name_to_classdef(n) for n in new_defs]
 
+        if not self.register_subsection():
+            if self.api.final_iteration:
+                self.api.defer()
+            return
+
         subsections_info = {n: k.info for n, k in new_defs.items()}
         self.assign_attributes(subsections_info)
 
@@ -85,7 +93,7 @@ class SectionTransformer:
         We replace by traitlets.Instance[_someSectionDef].
         """
         for name, info in subsections.items():
-            typ = Instance(info, [])
+            typ = Instance(self.subsection_info, [Instance(info, [])])
             add_attribute_to_class(
                 self.api,
                 self.cls,
@@ -130,6 +138,18 @@ class SectionTransformer:
         It also frees the spot for our new subsection attribute (so we don't need to
         completely remove the old definition either).
         """
+
+        # Recursively alter the fullname of Nodes
+        def change_node(node, old, new, index):
+            if isinstance(node, TypeVarLikeType):
+                self.change_fullname(node, old, new, index, "fullname")
+                return
+            self.change_fullname(node, old, new, index, "_fullname")
+            if isinstance(node, TypeInfo):
+                change_node(node.defn, old, new, index)
+                for sym in node.names.values():
+                    change_node(sym.node, old, new, index)
+
         new_defs = {}
         for sub_name, old_def in subsections.items():
             new_def = old_def
@@ -139,20 +159,9 @@ class SectionTransformer:
             index = len(new_def.info.fullname.split(".")) - 1
             new_def.name = new_name
 
-            # Recursively alter the fullname of Nodes
-            def change_node(node):
-                if isinstance(node, TypeVarLikeType):
-                    self.change_fullname(node, sub_name, new_name, index, "fullname")
-                    return
-                self.change_fullname(node, sub_name, new_name, index, "_fullname")
-                if isinstance(node, TypeInfo):
-                    change_node(node.defn)
-                    for sym in node.names.values():
-                        change_node(sym.node)
-
             # Add definition to table
             def_node = SymbolTableNode(MDEF, new_def.info, plugin_generated=True)
-            change_node(def_node.node)
+            change_node(def_node.node, sub_name, new_name, index)
             self.api.add_symbol_table_node(new_name, def_node)
 
             new_defs[sub_name] = new_def
@@ -174,10 +183,27 @@ class SectionTransformer:
                 if (
                     _name_to_classdef(name) not in moved_class_defs
                     and isinstance(stmt.info, TypeInfo)
-                    and stmt.info.has_base(SECTION_FULLNAME)
+                    and stmt.info.has_base(SECTION)
                 ):
                     found[name] = stmt
         return found
+
+    def register_subsection(self) -> bool:
+        """Register the Subsection descriptor information.
+
+        Return False if mypy failed to resolve the import.
+        """
+        self.api.add_plugin_dependency("data_assistant")
+        sym = self.api.lookup_fully_qualified_or_none(SUBSECTION)
+        if (
+            sym is None
+            or isinstance(sym, PlaceholderNode)
+            or not isinstance(sym.node, TypeInfo)
+        ):
+            return False
+        self.subsection_info: TypeInfo = sym.node
+
+        return True
 
 
 def plugin(version: str) -> type[Plugin]:

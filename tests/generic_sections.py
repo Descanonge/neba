@@ -29,8 +29,7 @@ from traitlets import (
     Union,
 )
 
-from data_assistant.config.section import Section
-from data_assistant.config.util import nest_dict
+from data_assistant.config.section import Section, Subsection
 
 from .trait_generation import DummyClass, trait_to_strat
 from .util import Drawer
@@ -305,16 +304,16 @@ class TwinSubsectionInfo(SectionInfo):
 class GenericConfig(GenericSection):
     """An example configuration with nested configuration."""
 
-    sub_generic = subsection(GenericSection)
+    sub_generic = Subsection(GenericSection)
 
-    twin_a = subsection(TwinSubsection)
-    twin_b = subsection(TwinSubsection)
+    twin_a = Subsection(TwinSubsection)
+    twin_b = Subsection(TwinSubsection)
 
     class sub_twin(Section):
-        twin_c = subsection(TwinSubsection)
+        twin_c = Subsection(TwinSubsection)
 
     class deep_sub(Section):
-        sub_generic_deep = subsection(GenericSection)
+        sub_generic_deep = Subsection(GenericSection)
 
     class empty_a(Section):
         pass
@@ -325,25 +324,25 @@ class GenericConfig(GenericSection):
 
 
 class SubTwinInfo(SectionInfo):
-    section = GenericConfig._sub_twinSectionDef  # type: ignore[attr-defined]
+    section = GenericConfig._sub_twinSectionDef
     subsections = dict(twin_c=TwinSubsectionInfo())
 
 
 class DeepSubInfo(SectionInfo):
-    section = GenericConfig._deep_subSectionDef  # type: ignore[attr-defined]
+    section = GenericConfig._deep_subSectionDef
     subsections = dict(sub_generic_deep=GenericSectionInfo())
 
 
 class Empty_a_Info(SectionInfo):
-    section = GenericConfig._empty_aSectionDef  # type: ignore[attr-defined]
+    section = GenericConfig._empty_aSectionDef
 
 
 class Empty_c_Info(SectionInfo):
-    section = GenericConfig._empty_bSectionDef._empty_cSectionDef  # type: ignore[attr-defined]
+    section = GenericConfig._empty_bSectionDef._empty_cSectionDef
 
 
 class Empty_b_Info(SectionInfo):
-    section = GenericConfig._empty_bSectionDef  # type: ignore[attr-defined]
+    section = GenericConfig._empty_bSectionDef
     subsections = dict(empty_c=Empty_c_Info())
 
 
