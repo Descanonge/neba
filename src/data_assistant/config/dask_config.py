@@ -26,7 +26,7 @@ from traitlets import (
 )
 from traitlets.utils.importstring import import_item
 
-from .section import Section
+from .section import Section, Subsection
 from .util import tag_all_traits
 
 log = logging.getLogger(__name__)
@@ -472,7 +472,7 @@ class DaskClusterSLURM(DaskClusterJobQueue):
         return kwargs
 
 
-DEFAULT_CLUSTER_NAMES = {
+DEFAULT_CLUSTER_SECTIONS = {
     "local": DaskLocalCluster,
     "pbs": DaskClusterPBS,
     "slurm": DaskClusterSLURM,
@@ -482,13 +482,12 @@ DEFAULT_CLUSTER_NAMES = {
 class DaskConfig(Section):
     """Section for Dask management."""
 
-    cluster_names: dict[str, type[DaskClusterAbstract]] = DEFAULT_CLUSTER_NAMES
+    _cluster_sections: dict[str, type[DaskClusterAbstract]] = DEFAULT_CLUSTER_SECTIONS
 
-    # cannot be changed from a subclass
-    selected_clusters: list[str] = list(DEFAULT_CLUSTER_NAMES.keys())
+    configurable_clusters: list[str] = list(DEFAULT_CLUSTER_SECTIONS.keys())
 
     cluster_type = Enum(
-        list(DEFAULT_CLUSTER_NAMES.keys()),
+        list(DEFAULT_CLUSTER_SECTIONS.keys()),
         default_value="slurm",
         help="Cluster type to use.",
     )
@@ -499,18 +498,19 @@ class DaskConfig(Section):
     def _setup_section(cls):
         """Set up the class after definition.
 
-        Only add the subsections corresponding to the ``selected_clusters`` attribute.
+        Only add the subsections corresponding to the ``configurable_clusters`` attribute.
         """
-        # FIXME: completey broken by removal of subsections as traitlets.Instances
         # Add selected cluster types
-        for name in cls.selected_clusters:
-            setattr(cls, name, cls.cluster_names[name])
+        for name in cls.configurable_clusters:
+            subsec = Subsection(cls._cluster_sections[name])
+            subsec.__set_name__(cls, name)
+            setattr(cls, name, subsec)
 
         super()._setup_section()
 
         # Setup cluster_type default values
-        cls.cluster_type.values = cls.selected_clusters
-        cls.cluster_type.default_value = cls.selected_clusters[0]
+        cls.cluster_type.values = cls.configurable_clusters
+        cls.cluster_type.default_value = cls.configurable_clusters[0]
 
     @classmethod
     def set_selected_clusters(cls, select: Sequence[str]):
@@ -518,10 +518,19 @@ class DaskConfig(Section):
 
         Only those selected will be available to configure as subsections.
         """
+        # check we have sections defined
+        for name in select:
+            if name not in cls._cluster_sections:
+                raise KeyError(
+                    f"Selected cluster type '{name}' has no corresponding "
+                    "configuration section defined (in _cluster_sections)."
+                )
+
         # Remove all DaskClusterAbstract attributes
-        for name in cls.selected_clusters:
+        for name in cls.configurable_clusters:
             delattr(cls, name)
-        cls.selected_clusters = list(select)
+
+        cls.configurable_clusters = list(select)
         cls._setup_section()
 
     @property
