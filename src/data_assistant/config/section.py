@@ -45,14 +45,10 @@ _pipe = "\u2502" + " " * len(_line)
 _blank = " " * len(_pipe)
 
 
-def _name_to_classdef(name: str) -> str:
-    return f"_{name}SectionDef"
-
-
 class Subsection(t.Generic[S]):
     """Descriptor for subsection.
 
-    I do not use traitlets.Instance because it initialize eagerly, I would prefer to
+    I do not use traitlets.Instance because it initializes eagerly, I would prefer to
     wait before initializing recursivey all subsections.
     """
 
@@ -142,10 +138,6 @@ class Section(HasTraits):
         This hook is run in :meth:`__init_subclass__`, after any subclass of
         :class:`Section` is defined.
 
-        By default, deals with the objective of Section: tagging all traits as
-        configurable, and setting up attributes that are subclasses of Section
-        as :class:`~traitlets.Instance` traits, and registering them as subsections.
-
         This method can be modified by subclasses in need of specific behavior. Do not
         forget to call the ``super()`` version, and if traits are added/modified it
         might be necessary to call :meth:`traitlets.traitlets.HasTraits.setup_class`
@@ -168,7 +160,7 @@ class Section(HasTraits):
                 and v.__qualname__ == f"{cls.__qualname__}.{v.__name__}"
             ):
                 # change location of class definition
-                new_name = _name_to_classdef(k)
+                new_name = f"_{k}SectionDef"
                 v.__name__ = new_name
                 v.__qualname__ = f"{cls.__qualname__}.{new_name}"
                 to_add[new_name] = v
@@ -206,9 +198,17 @@ class Section(HasTraits):
         self,
         config: abc.Mapping[str, t.Any] | None = None,
         *,
-        app: ApplicationBase | t.Literal[False] | None = None,
+        init_subsections: bool = True,
         **kwargs,
     ):
+        """Initialize section.
+
+        Parameters
+        ----------
+        config
+            Nested dictionary containing values for the traits of this section, and
+            its subsections. If a value is missing, the trait default value is used.
+        """
         clsname = self.__class__.__name__
 
         if config is None:
@@ -216,15 +216,13 @@ class Section(HasTraits):
         # copy
         config = dict(config)
 
-        if app is not False:
-            if app is None and self._application_cls is not None:
-                app = self._application_cls.instance()
-            if app is not None:
-                if clsname not in app._orphaned_sections:
-                    raise KeyError(f"'{clsname}' is not among registered sections.")
+        if self._application_cls is not None:
+            app = self._application_cls.instance()
+            if clsname not in app._orphaned_sections:
+                raise KeyError(f"'{clsname}' is not among registered sections.")
 
-                app_conf: dict[str, t.Any] = nest_dict(app.get_orphan_conf(clsname))
-                config = app_conf | config
+            app_conf: dict[str, t.Any] = nest_dict(app.get_orphan_conf(clsname))
+            config = app_conf | config
 
         config |= kwargs
 
