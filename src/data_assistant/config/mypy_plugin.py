@@ -11,10 +11,17 @@ from mypy.plugin import ClassDefContext, Plugin, SemanticAnalyzerPluginInterface
 from mypy.plugins.common import add_attribute_to_class
 from mypy.types import Instance, TypeVarLikeType
 
-from data_assistant.config.section import _name_to_classdef
-
 SECTION = "data_assistant.config.section.Section"
 SUBSECTION = "data_assistant.config.section.Subsection"
+
+
+def _name_to_classdef(name: str) -> str:
+    """Return new section definition attribute.
+
+    This is the same code as in config/section.py but we do not import it to avoid
+    circular weirdnesss.
+    """
+    return f"_{name}SectionDef"
 
 
 class SectionPlugin(Plugin):
@@ -77,7 +84,7 @@ class SectionTransformer:
         subsections_defs = self.collect_subsections_defs()
         new_defs = self.modify_class_defs(subsections_defs)
 
-        self.metadata["moved_class_defs"] = [_name_to_classdef(n) for n in new_defs]
+        self.metadata["moved_class_defs"] = [f"_{n}SectionDef" for n in new_defs]
 
         if not self.register_subsection():
             if self.api.final_iteration:
