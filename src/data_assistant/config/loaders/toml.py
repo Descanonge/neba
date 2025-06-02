@@ -11,9 +11,12 @@ from tomlkit.container import Container
 from tomlkit.items import InlineTable, Item, String, Table, Trivia
 from traitlets import Enum
 
-from ..section import Section
-from ..util import get_trait_typehint, wrap_text
+from data_assistant.config.util import get_trait_typehint, wrap_text
+
 from .core import ConfigValue, DictLikeLoaderMixin, FileLoader
+
+if t.TYPE_CHECKING:
+    from data_assistant.config.section import Section
 
 T = t.TypeVar("T", bound=Container | Table)
 

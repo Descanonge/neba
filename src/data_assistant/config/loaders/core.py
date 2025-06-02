@@ -375,7 +375,7 @@ class DictLikeLoaderMixin(ConfigLoader):
                     elif subkey in section._subsections:
                         assert isinstance(v, abc.Mapping)
                         yield from recurse(
-                            v, section._subsections[subkey], key + [subkey]
+                            v, section._subsections[subkey].klass, key + [subkey]
                         )
 
                     elif subkey in section.aliases:
@@ -384,7 +384,7 @@ class DictLikeLoaderMixin(ConfigLoader):
                         sub = section
                         alias = section.aliases[subkey].split(".")
                         for al in alias:
-                            sub = sub._subsections[al]
+                            sub = sub._subsections[al].klass
                         yield from recurse(v, sub, key + alias)
 
                     else:
