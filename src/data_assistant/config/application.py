@@ -22,8 +22,6 @@ log = logging.getLogger(__name__)
 
 S = t.TypeVar("S", bound=Section)
 
-IS_PYTHONW = sys.executable and sys.executable.endswith("pythonw.exe")
-
 
 class MultipleInstanceError(RuntimeError):
     """Multiple Instances for a Singleton are not allowed."""
@@ -91,6 +89,14 @@ class ApplicationBase(SingletonSection, LoggingConfigurable):
     _orphaned_sections: dict[str, type[Section]] = {}
     """Orphaned configuration sections."""
 
+    file_loaders: list[type[FileLoader]] = []
+    """List of possible configuration loaders from file, for different formats.
+
+    Each will be tried until an appropriate loader is found. Currently, loaders only
+    look at the extension.
+    """
+    # -- Config --
+
     strict_parsing = Bool(
         True,
         help="""\
@@ -101,73 +107,6 @@ class ApplicationBase(SingletonSection, LoggingConfigurable):
         code enclosed in a :class:`~.util.ConfigErrorHandler` context manager.
         """,
     )
-
-    # The log level for the application
-    log_level = Union(
-        [Enum(("DEBUG", "INFO", "WARN", "ERROR", "CRITICAL")), Int()],
-        default_value="INFO",
-        help="Set the log level by value or name.",
-    )
-
-    log_datefmt = Unicode(
-        "%Y-%m-%d %H:%M:%S",
-        help="The date format used by logging formatters for %(asctime)s",
-    )
-
-    log_format = Unicode(
-        "[%(levelname)s]%(name)s:: %(message)s",
-        help="The Logging format template",
-    )
-
-    _logging_configured: bool = False
-
-    def _get_logging_config(self) -> dict:
-        config = {
-            "version": 1,
-            "handlers": {
-                "console": {
-                    "class": "logging.StreamHandler",
-                    "formatter": "console",
-                    "level": logging.getLevelName(self.log_level),  # type:ignore[call-overload]
-                    "stream": "ext://sys.stderr",
-                },
-            },
-            "formatters": {
-                "console": {
-                    "format": self.log_format,
-                    "datefmt": self.log_datefmt,
-                },
-            },
-            "loggers": {
-                self.__class__.__name__: {
-                    "level": "DEBUG",
-                    "handlers": ["console"],
-                }
-            },
-            "disable_existing_loggers": False,
-        }
-        if IS_PYTHONW:
-            del config["handlers"]
-            del config["loggers"]
-
-        return config
-
-    @observe("log_format", "log_datefmt", "log_level")
-    def _observe_log_format_change(self, change: Bunch) -> None:
-        self._configure_logging()
-
-    @observe("log", type="default")
-    def _observe_log_default(self, change: Bunch) -> None:
-        self._configure_logging()
-        self._logging_configured = True
-
-    def _configure_logging(self) -> None:
-        config = self._get_logging_config()
-        logging.config.dictConfig(config)
-
-    @default("log")
-    def _log_default(self) -> logging.Logger:
-        return logging.getLogger(self.__class__.__name__)
 
     config_files = Union(
         [Unicode(), List(Unicode())],
@@ -192,38 +131,102 @@ class ApplicationBase(SingletonSection, LoggingConfigurable):
 
     ignore_cli = Bool(False, help="If True, do not parse command line arguments.")
 
-    file_loaders: list[type[FileLoader]] = []
-    """List of possible configuration loaders from file, for different formats.
+    # -- Log config --
 
-    Each will be tried until an appropriate loader is found. Currently, loaders only
-    look at the extension.
-    """
+    log_level = Union(
+        [Enum(("DEBUG", "INFO", "WARN", "ERROR", "CRITICAL")), Int()],
+        default_value="INFO",
+        help="Set the log level by value or name.",
+    )
 
-    _extra_parameters_args: list[tuple[list, dict[str, t.Any]]] = []
-    """Extra parameters passed to the command line parser."""
+    log_datefmt = Unicode(
+        "%Y-%m-%d %H:%M:%S",
+        help="The date format used by logging formatters for %(asctime)s",
+    )
+
+    log_format = Unicode(
+        "[%(levelname)s]%(name)s:: %(message)s",
+        help="The Logging format template",
+    )
+
+    _logging_configured: bool = False
+
+    def _get_logging_config(self) -> dict:
+        """Return dictionary config for logging.
+
+        See :func:`logging.config.dictConfig`.
+
+        Whenever the relevant traits or the logger are modified, callbacks events will
+        use this method to create a configuration dict. It can be overriden in your
+        application class to modify the logging configuration further.
+        """
+        config = {
+            "version": 1,
+            "handlers": {
+                "console": {
+                    "class": "logging.StreamHandler",
+                    "formatter": "console",
+                    "stream": "ext://sys.stderr",
+                },
+            },
+            "formatters": {
+                "console": {
+                    "format": self.log_format,
+                    "datefmt": self.log_datefmt,
+                },
+            },
+            "loggers": {
+                f"{self.__class__.__module__}.{self.__class__.__name__}": {
+                    "level": logging.getLevelName(self.log_level),
+                    "handlers": ["console"],
+                }
+            },
+            "disable_existing_loggers": False,
+        }
+
+        return config
+
+    @observe("log_format", "log_datefmt", "log_level")
+    def _observe_log_format_change(self, change: Bunch) -> None:
+        self._configure_logging()
+
+    @observe("log", type="default")
+    def _observe_log_default(self, change: Bunch) -> None:
+        self._configure_logging()
+
+    def _configure_logging(self) -> None:
+        config = self._get_logging_config()
+        logging.config.dictConfig(config)
+        self._logging_configured = True
+
+    @default("log")
+    def _log_default(self) -> logging.Logger:
+        return logging.getLogger(
+            f"{self.__class__.__module__}.{self.__class__.__name__}"
+        )
+
+    # -- Instance attributes --
 
     conf: dict[str, ConfigValue]
-    """Configuration values obtained from command line arguments
-    and configuration files."""
-    file_conf: dict[str, ConfigValue]
-    """Configuration values obtained from configuration files."""
+    """Configuration values obtained from command line arguments and configuration
+    files."""
     cli_conf: dict[str, ConfigValue]
     """Configuration values obtained from command line arguments."""
+    file_conf: dict[str, ConfigValue]
+    """Configuration values obtained from configuration files."""
     extra_parameters: dict[str, t.Any]
     """Extra parameters retrieved by the command line parser."""
+    _extra_parameters_args: list[tuple[list, dict[str, t.Any]]]
+    """Extra parameters passed to the command line parser."""
 
     def __init__(self, /, start: bool = True, **kwargs) -> None:
         # No super.__init__, it would instanciate recursively subsections
-
-        # Useless-ish but we need to initialize the logger
-        # otherwise it is going to be modified on its first access in __del__
-        # which will trigger the logging configuration at a bad time
-        self.log.debug("Starting applications")
 
         self.conf = {}
         self.cli_conf = {}
         self.file_conf = {}
         self.extra_parameters = {}
+        self._extra_parameters_args = []
 
         if start:
             self.start(**kwargs)

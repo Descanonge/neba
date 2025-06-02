@@ -222,6 +222,11 @@ the console (stderr), and can be configured via the (trait) parameters
 The configuration of the logging setup is kept minimal. Users needing to
 configure it further may look into :meth:`.ApplicationBase._get_logging_config`.
 
+.. note::
+
+   The logger will have the application class fullname (module + class name), so
+   logging inheritance rules will apply.
+
 Accessing parameters
 ====================
 
