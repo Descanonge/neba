@@ -63,11 +63,17 @@ class SingletonSection(Section):
             return cls._instance
         return cls(*args, **kwargs)
 
-    def copy(self):
-        """Copy not allowed for singleton."""
-        raise MultipleInstanceError(
-            f"Copy not allowed for singleton {self.__class.__.__name__}"
+    def copy(self) -> Section:  # type: ignore [override]
+        """Return a copy as a configuration Section."""
+        # TODO test
+        classdict: dict[str, t.Any] = {}
+        classdict.update(
+            {name: trait for name, trait in self.traits(config=True).items()}
         )
+        classdict.update({name: sub for name, sub in self._subsections.items()})
+        cls = type(f"{self.__class__.__name__}Copy", (Section,), classdict)
+        config = self.values_recursive()
+        return cls(config)
 
 
 class ApplicationBase(SingletonSection, LoggingConfigurable):
