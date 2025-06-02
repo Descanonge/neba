@@ -9,7 +9,7 @@ from collections.abc import Callable
 from os import path
 
 from traitlets import Bool, Bunch, Enum, Int, List, Unicode, Union, default, observe
-from traitlets.config.configurable import SingletonConfigurable
+from traitlets.config.configurable import LoggingConfigurable
 
 from .loaders import CLILoader, ConfigValue
 from .section import Section
@@ -22,42 +22,64 @@ log = logging.getLogger(__name__)
 
 S = t.TypeVar("S", bound=Section)
 
-_SingleS = t.TypeVar("_SingleS", bound="SingletonSection")
-
 IS_PYTHONW = sys.executable and sys.executable.endswith("pythonw.exe")
 
 
-class SingletonSection(Section, SingletonConfigurable):
-    """Provide a global Section instance."""
+class MultipleInstanceError(RuntimeError):
+    """Multiple Instances for a Singleton are not allowed."""
+
+
+class SingletonSection(Section):
+    """Singleton Section.
+
+    Only one instance is created. `__new__` will raise if an instance already exists.
+    Use :meth:`instance` to get the existing instance or a new instance if necessary.
+
+    Classic `Singleton(...)` is intended as a convenience for users. :meth:`instance` is
+    intended as a safe alternative, for developpers that might have more chances to use
+    it.
+
+    Note this is different from traitlets singletons, that do not allow concurrent
+    instances with the same singleton parent class. Here two subclasses of the
+    singleton are allowed.
+    """
+
+    _instance: t.Self
+
+    def __new__(cls, *args, **kwargs):
+        if hasattr(cls, "_instance"):
+            raise MultipleInstanceError(
+                f"{cls.__name__} already has an instance running. "
+                f"Use {cls.__name__}.instance() to obtain an existing or new instance."
+            )
+        inst = super().__new__(cls, *args, **kwargs)
+        cls._instance = inst
+        return inst
 
     @classmethod
-    def _walk_mro(cls) -> t.Generator[type[SingletonSection], None, None]:
-        """Walk the cls.mro() for parent classes that are also singletons.
+    def instance(cls, *args, **kwargs) -> t.Self:
+        """Return running instance if existing, otherwise a new instance."""
+        if hasattr(cls, "_instance"):
+            return cls._instance
+        return cls(*args, **kwargs)
 
-        For use in instance()
-        """
-        for parent in cls.mro():
-            if (
-                issubclass(cls, parent)
-                and issubclass(parent, SingletonSection)
-                and parent != SingletonSection
-            ):
-                yield parent
-
-    # Only for documentation
-    @classmethod
-    def instance(cls) -> t.Self:
-        """Return the global instance, create it if needed."""
-        return super().instance()
+    def copy(self):
+        """Copy not allowed for singleton."""
+        raise MultipleInstanceError(
+            f"Copy not allowed for singleton {self.__class.__.__name__}"
+        )
 
 
-class ApplicationBase(SingletonSection):
+class ApplicationBase(SingletonSection, LoggingConfigurable):
     """Base application class.
 
     Orchestrate the loading of configuration keys from files or from command line
     arguments.
     Pass the combined configuration keys to the appropriate sections in the configuration
     tree structure. This validate the values and instanciate the configuration objects.
+
+    This is a singleton, only one instance is allowed. See :class:`SingletonSection` for
+    details.
     """
 
     _orphaned_sections: dict[str, type[Section]] = {}
@@ -254,21 +276,6 @@ class ApplicationBase(SingletonSection):
                 is_last = i == len(conf) - 1
                 lines.append(section._get_line_trait(key, traits[key], is_last, value))
         return lines
-
-    def copy(self) -> ApplicationBase:
-        out: ApplicationBase = self.__class__(start=False)
-
-        # Copy Section values
-        config = self.as_dict(flatten=False)
-        Section.__init__(out, config)
-
-        # Copy retrieved conf
-        out.conf = self.conf
-        out.cli_conf = self.cli_conf
-        out.file_conf = self.file_conf
-        out.extra_parameters = self.extra_parameters
-
-        return out
 
     def start(
         self,
