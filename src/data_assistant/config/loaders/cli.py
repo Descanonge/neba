@@ -14,7 +14,12 @@ try:
 except ImportError:
     _HAS_ARGCOMPLETE = False
 
-from ..util import MultipleConfigKeyError, UnknownConfigKeyError, get_trait_typehint
+from data_assistant.config.util import (
+    MultipleConfigKeyError,
+    UnknownConfigKeyError,
+    get_trait_typehint,
+)
+
 from .core import ConfigLoader, ConfigValue, Undefined
 
 _DOT = "__DOT__"

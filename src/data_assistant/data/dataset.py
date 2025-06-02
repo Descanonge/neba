@@ -8,7 +8,8 @@ import logging
 import typing as t
 from collections import abc
 
-from ..config.section import Section
+from data_assistant.config.section import Section
+
 from .loader import LoaderAbstract
 from .module import CachedModule, Module
 from .params import ParamsManagerAbstract

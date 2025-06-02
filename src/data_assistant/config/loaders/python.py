@@ -8,8 +8,9 @@ from textwrap import dedent
 
 from traitlets import Enum, Instance, TraitType, Type
 
-from ..section import Section
-from ..util import get_trait_typehint, underline, wrap_text
+from data_assistant.config.section import Section
+from data_assistant.config.util import get_trait_typehint, underline, wrap_text
+
 from .core import ConfigValue, FileLoader, SerializerDefault
 
 

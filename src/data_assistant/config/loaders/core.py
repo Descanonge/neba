@@ -11,11 +11,11 @@ from os import path
 from traitlets.traitlets import HasTraits, TraitError, TraitType, Union
 from traitlets.utils.sentinel import Sentinel
 
-from ..util import ConfigParsingError, MultipleConfigKeyError
+from data_assistant.config.util import ConfigParsingError, MultipleConfigKeyError
 
 if t.TYPE_CHECKING:
-    from .application import ApplicationBase
-    from .section import Section
+    from data_assistant.config.application import ApplicationBase
+    from data_assistant.config.section import Section
 
 Undefined = Sentinel(
     "Undefined", "data-assistant", "Configuration value not (yet) set or parsed."
