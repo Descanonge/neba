@@ -179,13 +179,15 @@ class TestInstanciation(SectionTest):
 
     # What about weird traits, like hidden traits ? "_mytrait"
 
-    def test_simple(self, info: GenericConfigInfo):
-        """Simple instanciation."""
+    def test_basic(self):
         _ = Section()
-        section = info.section()
+        cls = type("Subclass", (Section,), {})
+        _ = cls()
 
+    def test_subsections(self, info: GenericConfigInfo, section: GenericConfig):
         def test_subsection_class(info, section):
             for name, sub_info in info.subsections.items():
+                assert isinstance(section._subsections[name], Subsection)
                 assert issubclass(section._subsections[name].klass, sub_info.section)
                 assert isinstance(section[name], sub_info.section)
                 test_subsection_class(sub_info, section[name])
@@ -203,34 +205,6 @@ class TestInstanciation(SectionTest):
                 assert s[key] == values[key]
             else:
                 assert s[key] == info.default(key)
-
-    def test_twin_siblings(self, section: GenericConfig):
-        """Two subsections on are from the same class."""
-        # non-mutable trait
-        section.twin_a.int = 0
-        section.twin_b.int = 0
-        section.twin_a.int = 1
-        assert section.twin_b.int == 0
-
-        # mutable trait
-        section.twin_a.list_int = [0]
-        section.twin_b.list_int = [0]
-        section.twin_a.list_int.append(1)
-        assert section.twin_b.list_int == [0]
-
-    def test_twin_recursive(self, section: GenericConfig):
-        """Two sections at different nesting level are from the same class."""
-        # non-mutable trait
-        section.twin_a.int = 0
-        section.sub_twin.twin_c.int = 0
-        section.twin_a.int = 1
-        assert section.sub_twin.twin_c.int == 0
-
-        # mutable trait
-        section.twin_a.list_int = [0]
-        section.sub_twin.twin_c.list_int = [0]
-        section.twin_a.list_int.append(1)
-        assert section.sub_twin.twin_c.list_int == [0]
 
 
 # Do it for default values and changed values ?
@@ -394,6 +368,34 @@ class TestMutableMappingInterface(SectionTest):
         section.reset()
         for key in values:
             assert section[key] == info.default(key)
+
+    def test_twin_siblings(self, section: GenericConfig):
+        """Two subsections on are from the same class."""
+        # non-mutable trait
+        section.twin_a.int = 0
+        section.twin_b.int = 0
+        section.twin_a.int = 1
+        assert section.twin_b.int == 0
+
+        # mutable trait
+        section.twin_a.list_int = [0]
+        section.twin_b.list_int = [0]
+        section.twin_a.list_int.append(1)
+        assert section.twin_b.list_int == [0]
+
+    def test_twin_recursive(self, section: GenericConfig):
+        """Two sections at different nesting level are from the same class."""
+        # non-mutable trait
+        section.twin_a.int = 0
+        section.sub_twin.twin_c.int = 0
+        section.twin_a.int = 1
+        assert section.sub_twin.twin_c.int == 0
+
+        # mutable trait
+        section.twin_a.list_int = [0]
+        section.sub_twin.twin_c.list_int = [0]
+        section.twin_a.list_int.append(1)
+        assert section.sub_twin.twin_c.list_int == [0]
 
     def test_add_trait(self, section: GenericConfig):
         # simple

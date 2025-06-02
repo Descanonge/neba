@@ -29,7 +29,7 @@ def test_strict_parsing_off():
 class TestStartup:
     def test_ignore_cli(self):
         # value different than what is defined in config.py and config.toml
-        app = App(argv=["--int", 2], ignore_cli=False)
+        app = App(argv=["--int", "2"], ignore_cli=True)
         assert len(app.cli_conf) == 0
         assert app.int != 2
 
