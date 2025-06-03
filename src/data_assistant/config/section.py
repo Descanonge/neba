@@ -6,7 +6,6 @@ Defines a :class:`Section` class meant to be used in place of
 
 from __future__ import annotations
 
-import itertools
 import logging
 import typing as t
 from collections import abc
@@ -22,7 +21,6 @@ from .util import (
     add_spacer,
     get_trait_typehint,
     indent,
-    nest_dict,
     stringify,
     underline,
     wrap_text,
@@ -206,22 +204,22 @@ class Section(HasTraits):
         Parameters
         ----------
         config
-            Nested dictionary containing values for the traits of this section, and
+            Flat dictionary containing values for the traits of this section, and
             its subsections. If a value is missing, the trait default value is used.
         """
         clsname = self.__class__.__name__
 
         if config is None:
             config = {}
-        # copy
-        config = dict(config)
+
+        config = dict(config)  # copy
 
         if self._application_cls is not None:
             app = self._application_cls.instance()
             if clsname not in app._orphaned_sections:
                 raise KeyError(f"'{clsname}' is not among registered sections.")
 
-            app_conf: dict[str, t.Any] = nest_dict(app.get_orphan_conf(clsname))
+            app_conf: dict[str, t.Any] = app.get_orphan_conf(clsname)
             config = app_conf | config
 
         config |= kwargs
@@ -248,7 +246,12 @@ class Section(HasTraits):
     def _init_subsections(self, config: dict[str, t.Any], **kwargs):
         config |= kwargs
         for name, subcls in self._subsections.items():
-            sub_inst = subcls.klass(config.pop(name, {}))
+            prefix = f"{name}."
+            subconfig = {k: v for k, v in config.items() if k.startswith(prefix)}
+            for k in subconfig:
+                config.pop(k)
+            subconfig = {k.removeprefix(prefix): v for k, v in subconfig.items()}
+            sub_inst = subcls.klass(subconfig)
             setattr(self, name, sub_inst)
 
     def postinit(self):
@@ -665,7 +668,7 @@ class Section(HasTraits):
             self.items(subsections=False, recursive=recursive, aliases=aliases)
         )
         if not flatten:
-            output = nest_dict(output)
+            output = self.nest_dict(output)
         return output
 
     def select(self, *keys: str, flatten: bool = False) -> dict[str, t.Any]:
@@ -682,7 +685,7 @@ class Section(HasTraits):
         """
         output = {k: self[k] for k in keys}
         if not flatten:
-            output = nest_dict(output)
+            output = self.nest_dict(output)
         return output
 
     @t.overload
@@ -724,7 +727,7 @@ class Section(HasTraits):
         Parameters
         ----------
         subsections
-            If True (default is False), keys can map to subsections instances.
+            If True (default is False), keys can map to subsections classes.
         recursive
             If True (default), return parameters from all subsections. Otherwise limit to
             only this section.
@@ -816,6 +819,39 @@ class Section(HasTraits):
                 if issubclass(parent, Section) and (parent not in seen):
                     seen.add(parent)
                     yield parent
+
+    @classmethod
+    def nest_dict(cls, flat: abc.Mapping[str, t.Any]) -> dict[str, t.Any]:
+        """Nest a dictionnary according to the structure of this section."""
+        nested: dict[str, t.Any] = {}
+        for key, val in flat.items():
+            subconf = nested
+            section = cls
+            subkeys = key.split(".")
+            for i, subkey in enumerate(subkeys):
+                if subkey in section._subsections:
+                    section = section._subsections[subkey].klass
+                    subconf = subconf.setdefault(subkey, {})
+                else:
+                    subconf[".".join(subkeys[i:])] = val
+                    break
+        return nested
+
+    @classmethod
+    def flatten_dict(cls, nested: abc.Mapping[str, t.Any]) -> dict[str, t.Any]:
+        """Flatten a dictionnary according to the structure of this section."""
+        flat: dict[str, t.Any] = {}
+
+        def recurse(d: abc.Mapping, fullpath: list[str], section: type[Section]):
+            for key, val in d.items():
+                newpath = fullpath + [key]
+                if key in section._subsections:
+                    recurse(val, newpath, section._subsections[key].klass)
+                    continue
+                flat[".".join(newpath)] = val
+
+        recurse(flat, [], cls)
+        return flat
 
     def remap(
         self,

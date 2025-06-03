@@ -13,7 +13,6 @@ from traitlets.config.configurable import LoggingConfigurable
 
 from .loaders import CLILoader, ConfigValue
 from .section import Section
-from .util import ConfigErrorHandler, flatten_dict, nest_dict
 
 if t.TYPE_CHECKING:
     from .loaders import ConfigValue, FileLoader
@@ -70,7 +69,7 @@ class SingletonSection(Section):
         )
         classdict.update({name: sub for name, sub in self._subsections.items()})
         cls = type(f"{self.__class__.__name__}Copy", (Section,), classdict)
-        config = self.values_recursive()
+        config = self.values()
         return cls(config)
 
 
@@ -273,16 +272,20 @@ class ApplicationBase(SingletonSection, LoggingConfigurable):
         lines = super()._get_lines(header)
 
         for name, section in self._orphaned_sections.items():
-            conf = nest_dict(self.conf)
-            if name not in conf:
+            prefix = f"{name}."
+            subconf = {
+                k.removeprefix(prefix): v
+                for k, v in self.conf.items()
+                if k.startswith(prefix)
+            }
+            if not subconf:
                 continue
-            conf = flatten_dict(conf[name])
-            traits = flatten_dict(section.class_traits_recursive())
+            traits = section.traits_recursive(config=True, flatten=True)
 
             # TODO: maybe do it nested
             lines += [header, name]
-            for i, (key, value) in enumerate(conf.items()):
-                is_last = i == len(conf) - 1
+            for i, (key, value) in enumerate(subconf.items()):
+                is_last = i == len(self.conf) - 1
                 lines.append(section._get_line_trait(key, traits[key], is_last, value))
         return lines
 
@@ -332,13 +335,12 @@ class ApplicationBase(SingletonSection, LoggingConfigurable):
         self.conf = self.merge_configs(self.file_conf, self.cli_conf)
 
         # Apply config relevant to this instance (only self, not recursive)
-        config = nest_dict(self.conf)
-        self._init_direct_traits(config)
+        self._init_direct_traits(self.conf)
 
         if instanciate is None:
             instanciate = self.auto_instanciate
         if instanciate:
-            self._init_subsections(config)
+            self._init_subsections(self.conf)
 
     def _create_cli_loader(
         self, argv: list[str] | None, log: logging.Logger | None = None, **kwargs
@@ -592,3 +594,6 @@ class ApplicationBase(SingletonSection, LoggingConfigurable):
     def exit(self, exit_status: int | str = 0):
         """Exit python interpreter."""
         sys.exit(exit_status)
+
+    def __del__(self) -> None:
+        delattr(self.__class__, "_instance")
