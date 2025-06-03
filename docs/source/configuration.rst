@@ -329,7 +329,7 @@ Using :meth:`.Section.select` we can select only some of the parameters by name:
    method :meth:`.Section.remap` that map a user function on a nested (or flat)
    dictionary of traits.
 
-   Functions :func:`.util.nest_dict` and :func:`.util.flatten_dict` can also
+   Methods :meth:`.Section.nest_dict` and :func:`.Section.flatten_dict` can also
    be useful in manipulating dictionaries.
 
 Some parameters may be destined for a specific function. It is possible to

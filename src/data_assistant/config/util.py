@@ -293,57 +293,6 @@ class FixableTrait(Union):
         )
 
 
-def nest_dict(config: abc.Mapping[str, t.Any]) -> dict[str, t.Any]:
-    """Transform a flat config dictionary into a nested dictionnary.
-
-    Parameters
-    ----------
-    config
-        A flat dictionnary, keys are dot-separated to indicate nesting.
-
-    Returns
-    -------
-    config
-        A nested dictionnary mapping keys to sub-dictionnaries or values.
-    """
-    nested_conf: dict[str, t.Any] = {}
-    for key, val in config.items():
-        subconf = nested_conf
-        for subkey in key.split(".")[:-1]:
-            subconf = subconf.setdefault(subkey, {})
-        subconf[key.split(".")[-1]] = val
-    return nested_conf
-
-
-def flatten_dict(config: abc.Mapping[str, t.Any]) -> dict[str, t.Any]:
-    """Transform a nested config dictionary into a flat dictionnary.
-
-    Parameters
-    ----------
-    config
-        A nested dictionnary.
-
-    Returns
-    -------
-    config
-        A flat dictionnary mapping dot-separated keys to values.
-    """
-    flat_conf: dict[str, t.Any] = {}
-
-    def recurse(d: abc.Mapping, fullpath: list[str]):
-        for key, val in d.items():
-            newpath = fullpath + [key]
-            # empty dict will be treated as key={}
-            if isinstance(val, abc.Mapping) and val:
-                recurse(val, newpath)
-                continue
-            flat_conf[".".join(newpath)] = val
-
-    recurse(config, [])
-
-    return flat_conf
-
-
 def tag_all_traits(**metadata) -> abc.Callable:
     """Tag all class-own traits.
 
