@@ -338,27 +338,15 @@ class Section(HasTraits):
         aliases
             If True (default is False), include aliases.
         """
-        return list(
-            self._keys(subsections=subsections, recursive=recursive, aliases=aliases)
-        )
-
-    def _keys(
-        self, subsections: bool = False, recursive: bool = True, aliases: bool = False
-    ) -> abc.Generator[str]:
-        trait_names = self.trait_names(subsection=None, config=True)
-        yield from filter(lambda s: not s.startswith("_"), trait_names)
-
-        subs: list[abc.Iterable] = [self._subsections]
-        if aliases:
-            subs.append(self.aliases.keys())
-
-        for name in itertools.chain(*subs):
-            subsection = self[name]
-            if subsections:
-                yield name
-            if recursive:
-                sub_traits = subsection.keys(subsections=subsections, aliases=aliases)
-                yield from (f"{name}.{s}" for s in sub_traits)
+        return [
+            name
+            for name, _ in self._traits_recursive(
+                subsections=subsections,
+                recursive=recursive,
+                aliases=aliases,
+                config=True,
+            )
+        ]
 
     def values(
         self, subsections: bool = False, recursive: bool = True, aliases: bool = False
@@ -699,33 +687,39 @@ class Section(HasTraits):
 
     @t.overload
     @classmethod
-    def class_traits_recursive(
+    def _traits_recursive(
         cls,
-        subsections: t.Literal[False] = ...,
+        subsections: t.Literal[False],
         recursive: bool = ...,
         aliases: bool = ...,
         own_traits: bool = ...,
-    ) -> dict[str, TraitType]: ...
+        **metadata,
+    ) -> abc.Generator[tuple[str, TraitType]]: ...
 
     @t.overload
     @classmethod
-    def class_traits_recursive(
+    def _traits_recursive(
         cls,
         subsections: bool = ...,
         recursive: bool = ...,
         aliases: bool = ...,
         own_traits: bool = ...,
-    ) -> dict[str, TraitType | type[Section]]: ...
+        **metadata,
+    ) -> abc.Generator[tuple[str, TraitType | type[Section]]]: ...
 
     @classmethod
-    def class_traits_recursive(
+    def _traits_recursive(
         cls,
         subsections: bool = False,
         recursive: bool = True,
         aliases: bool = False,
         own_traits: bool = False,
-    ) -> dict[str, TraitType | type[Section]] | dict[str, TraitType]:
-        """Return flat dict of all traits.
+        **metadata,
+    ) -> abc.Generator[tuple[str, TraitType | type[Section]]]:
+        """Generate pairs of keys / traits.
+
+        Traits are identical for class and instances. This method is thus used by
+        class_traits_recursive, traits_recursive and keys.
 
         Parameters
         ----------
@@ -739,36 +733,56 @@ class Section(HasTraits):
         own_traits:
             If True do not list traits from parent classes. Default to False.
         """
-        output: abc.Mapping[str, TraitType | type[Section]]
-        if own_traits:
-            output = cls.class_own_traits(config=True)
-        else:
-            output = cls.class_traits(config=True)
-
-        output = {k: v for k, v in output.items() if not k.startswith("_")}
+        traits = (
+            cls.class_own_traits(**metadata)
+            if own_traits
+            else cls.class_traits(**metadata)
+        )
+        traits = {k: v for k, v in traits.items() if not k.startswith("_")}
+        yield from traits.items()
 
         subs = {k: v.klass for k, v in cls._subsections.items()}
         if aliases and recursive:
-            for shortcut, target in cls.aliases.items():
-                subsection = cls
-                for subname in target.split("."):
-                    subsection = subsection._subsections[subname].klass
-                subs[shortcut] = subsection
+            for shortcut, alias in cls.aliases.items():
+                target = cls
+                for subname in alias.split("."):
+                    target = target._subsections[subname].klass
+                subs[shortcut] = target
 
         for name, subsection in subs.items():
             if subsections:
-                output[name] = subsection
+                yield name, subsection
             if recursive:
-                sub_output = subsection.class_traits_recursive(
+                subtraits = subsection._traits_recursive(
                     subsections=subsections,
                     recursive=True,
                     aliases=aliases,
                     own_traits=own_traits,
+                    **metadata,
                 )
-                sub_output = {f"{name}.{k}": v for k, v in sub_output.items()}
-                output.update(sub_output)
+                yield from ((f"{name}.{k}", v) for k, v in subtraits)
 
-        return output
+    @classmethod
+    def traits_recursive(
+        cls, flatten: bool = False, **metadata
+    ) -> dict[str, TraitType]:
+        """Return dictionnary of all traits."""
+        traits = dict(
+            cls._traits_recursive(
+                subsections=False, recursive=True, aliases=False, **metadata
+            )
+        )
+        if not flatten:
+            cls.nest_dict(traits)
+        return traits
+
+    @classmethod
+    def defaults_recursive(
+        cls, config=True, flatten: bool = False, **metadata
+    ) -> dict[str, t.Any]:
+        """Return nested dictionnary of default traits values."""
+        traits = cls.traits_recursive()
+        return {k: t.default() for k, t in traits.items()}
 
     @classmethod
     def _subsections_recursive(cls) -> abc.Iterator[type[Section]]:
@@ -848,40 +862,6 @@ class Section(HasTraits):
 
         output: dict[str, t.Any] = dict()
         recurse(self, output, [])
-        return output
-
-    def traits_recursive(self, flatten: bool = False, **metadata) -> dict[str, t.Any]:
-        """Return nested dictionnary of traits."""
-        return self.remap(func=None, flatten=flatten, **metadata)
-
-    def defaults_recursive(
-        self, config=True, flatten: bool = False, **metadata
-    ) -> dict[str, t.Any]:
-        """Return nested dictionnary of default traits values."""
-
-        def f(configurable, output, key, trait, path):
-            output[key] = trait.default()
-
-        output = self.remap(f, config=config, flatten=flatten, **metadata)
-        return output
-
-    def values_recursive(
-        self, config=True, flatten: bool = False, **metadata
-    ) -> dict[str, t.Any]:
-        """Return nested dictionnary of traits values.
-
-        .. important:: For users
-
-            Consider using :meth:`as_dict` instead. The result is
-            the same (save for ordering of keys). Its code is simpler,
-            better tested. Use this method if you need to select
-            traits using their metadata.
-        """
-
-        def f(configurable, output, key, trait, path):
-            output[key] = trait.get(configurable)
-
-        output = self.remap(f, config=config, flatten=flatten, **metadata)
         return output
 
     @classmethod
