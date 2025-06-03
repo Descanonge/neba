@@ -46,6 +46,9 @@ _blank = " " * len(_pipe)
 class Subsection(t.Generic[S]):
     """Descriptor for subsection.
 
+    Automatically generate a subclass of a given section. This ensures that a same
+    section class can be re-used in different places in a configuration without clashes.
+
     I do not use traitlets.Instance because it initializes eagerly, I would prefer to
     wait before initializing recursivey all subsections.
     """
@@ -54,7 +57,7 @@ class Subsection(t.Generic[S]):
     private_name: str
 
     def __init__(self, section: type[S]):
-        self.klass = section
+        self.klass = type(section.__name__, (section,), {})
 
     def __set_name__(self, owner: type[S], name: str):
         self.private_name = "__" + name
