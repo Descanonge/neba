@@ -516,21 +516,10 @@ class TestTraitListing(SectionTest):
         keys = list(sec.traits_recursive(config=True, tagged=None).keys())
         assert keys == ["normal", "sub.normal"]
 
-    @todo
-    def test_class_traits_recursive(self):
-        assert 0
-
-    @todo
-    def test_traits_recursive(self):
-        assert 0
-
-    @todo
-    def test_default_recursive(self):
-        assert 0
-
-    @todo
-    def test_values_recursive(self):
-        assert 0
+    def test_default_recursive(self, info: GenericConfigInfo, section: GenericConfig):
+        assert list(section.defaults_recursive().keys()) == info.traits_total
+        for k, v in section.defaults_recursive().items():
+            assert info.default(k) == v
 
     @todo
     def test_value_from_func_signature(self):
