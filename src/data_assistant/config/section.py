@@ -956,11 +956,13 @@ class Section(HasTraits):
 
         return out
 
-    def help(self) -> None:
+    @classmethod
+    def help(cls) -> None:
         """Print description of this section and its traits."""
-        print("\n".join(self.emit_help()))
+        print("\n".join(cls.emit_help()))
 
-    def emit_help(self, fullpath: list[str] | None = None) -> list[str]:
+    @classmethod
+    def emit_help(cls, fullpath: list[str] | None = None) -> list[str]:
         """Return help for this section, and its subsections recursively.
 
         Contains the name of this section, its description if it has one, eventual
@@ -972,33 +974,33 @@ class Section(HasTraits):
         if fullpath is None:
             fullpath = []
 
-        title = self.__class__.__name__
+        title = cls.__class__.__name__
         if fullpath:  # we are not at root
             title = f"{'.'.join(fullpath)} ({title})"
         lines = [title]
         underline(lines)
 
-        description = self.emit_description()
+        description = cls.emit_description()
         if description:
             lines += description
             lines.append("")
 
         # aliases
-        if self.aliases:
+        if cls.aliases:
             add_spacer(lines)
             lines.append("Aliases:")
             underline(lines)
-            for short, long in self.aliases.items():
+            for short, long in cls.aliases.items():
                 lines.append(f"{short}: {long}")
 
-        for name, trait in sorted(self.traits(config=True).items()):
+        for name, trait in sorted(cls.class_traits(config=True).items()):
             lines += indent(
-                self.emit_trait_help(fullpath + [name], trait), initial_indent=False
+                cls.emit_trait_help(fullpath + [name], trait), initial_indent=False
             )
 
-        for name in sorted(self._subsections):
+        for name in sorted(cls._subsections):
             add_spacer(lines)
-            lines += getattr(self, name).emit_help(fullpath + [name])
+            lines += cls._subsections[name].klass.emit_help(fullpath + [name])
 
         return lines
 
@@ -1024,7 +1026,8 @@ class Section(HasTraits):
 
         return lines
 
-    def emit_trait_help(self, fullpath: list[str], trait: TraitType) -> list[str]:
+    @classmethod
+    def emit_trait_help(cls, fullpath: list[str], trait: TraitType) -> list[str]:
         """Return lines of help for a trait of this section.
 
         Format the help so that it can be used as help for specifying values from the
