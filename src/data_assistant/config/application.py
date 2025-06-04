@@ -482,7 +482,7 @@ class ApplicationBase(Section, LoggingConfigurable):
         clobber:
             If the target file already exists, either:
 
-            * abort: the file is left as-is
+            * abort: do nothing
             * overwrite: the file is completely overwritten with the current
               configuration
             * update: the configuration keys specified in the existing file are kept.
@@ -555,10 +555,9 @@ class ApplicationBase(Section, LoggingConfigurable):
                 config = self.merge_configs(config, from_file)
 
         loader.config = config
-        lines = loader.to_lines(comment=comment)
 
-        with open(filename, "w") as f:
-            f.write("\n".join(lines))
+        with open(filename, "w") as fp:
+            loader.write(fp, comment=comment)
 
     def exit(self, exit_status: int | str = 0):
         """Exit python interpreter."""

@@ -125,7 +125,7 @@ class PyLoader(FileLoader):
             cv.value = cv.input
             yield cv
 
-    def _to_lines(self, comment: str = "full") -> list[str]:
+    def write(self, fp: t.IO[str], comment: str = "full"):
         """Return lines of configuration file corresponding to the app config tree."""
         lines = self.serialize_section(self.app, [], comment=comment)
 
@@ -138,7 +138,7 @@ class PyLoader(FileLoader):
         # newline at the end of file
         lines.append("")
 
-        return lines
+        fp.writelines([f"{line}\n" for line in lines])
 
     def serialize_section(
         self,

@@ -1,10 +1,13 @@
-"""Toml configuration file loader."""
+"""Toml configuration file loader.
+
+We use :mod:`tomlkit` to parse file.
+"""
 
 from __future__ import annotations
 
 from collections import abc
 from textwrap import dedent
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import IO, TYPE_CHECKING, Any, TypeVar
 
 import tomlkit
 from tomlkit.container import Container
@@ -33,15 +36,13 @@ class TomlkitLoader(FileLoader, DictLikeLoaderMixin):
 
     def load_config(self) -> abc.Iterator[ConfigValue]:
         """Populate the config attribute from TOML file.
-
-        We use :mod:`tomlkit` to parse file.
-        """
+        """Populate the config attribute from TOML file."""
         with open(self.full_filename) as fp:
             root_table = tomlkit.load(fp)
 
         return self.resolve_mapping(root_table.unwrap(), origin=self.filename)
 
-    def _to_lines(self, comment: str = "full") -> list[str]:
+    def write(self, fp: IO[str], comment: str = "full"):
         """Return lines of configuration file corresponding to the app config tree."""
         doc = tomlkit.document()
 
@@ -53,7 +54,7 @@ class TomlkitLoader(FileLoader, DictLikeLoaderMixin):
             self.serialize_section(table, section, [name], comment=comment)
             doc.add(name, table)
 
-        return tomlkit.dumps(doc).splitlines()
+        tomlkit.dump(doc, fp)
 
     def serialize_section(
         self,

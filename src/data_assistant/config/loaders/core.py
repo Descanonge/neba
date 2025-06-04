@@ -294,11 +294,13 @@ class FileLoader(ConfigLoader):
         _, ext = path.splitext(filename)
         return ext.lstrip(".") in cls.extensions
 
-    def to_lines(self, comment: t.Any = None) -> list[str]:
-        """Generate lines of a configuration file corresponding to the app config tree.
+    def write(self, fp: t.IO, comment: t.Any = None):
+        """Write a configuration file corresponding to the loader config.
 
         Parameters
         ----------
+        fp
+            File stream to write to.
         comment
             Include more or less information as comments. Can be one of:
 
@@ -309,38 +311,8 @@ class FileLoader(ConfigLoader):
             Note that the line containing the key and default value, for instance
             ``traitname = 2`` will be commented since we do not need to parse/load the
             default value.
-        show_existing_keys
-            If True, do not comment ``key = value`` lines that are present in the
-            original file (default is False).
         """
-        return self._to_lines(comment=comment)
-
-    def _to_lines(self, comment: t.Any = None) -> list[str]:
-        """Generate lines of a configuration file corresponding to the app config tree.
-
-        If `show_existing_keys` is true, the keys present in the original file are
-        loaded into this instance :attr:`config` attribute.
-        This includes unresolved class-keys. It is advised to pop keys from the
-        configuration as the application config-tree is walked. At the end, only
-        class keys should be left.
-
-        Parameters
-        ----------
-        comment
-            Include more or less information as comments. Can be one of:
-
-            * full: all information about traits is included
-            * no-help: trait help attribute is not included
-            * none: no information is included, only the key and default value
-
-            Note that the line containing the key and default value, for instance
-            ``traitname = 2`` will be commented since we do not need to parse/load the
-            default value.
-        show_existing_keys
-            If True, do not comment ``key = value`` lines that are present in this
-            loader instance :attr:`config` attribute (default is False).
-        """
-        raise NotImplementedError("Implement for different file formats.")
+        raise NotImplementedError()
 
 
 class DictLikeLoaderMixin(ConfigLoader):
