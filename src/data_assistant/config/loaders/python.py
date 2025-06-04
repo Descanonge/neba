@@ -127,7 +127,7 @@ class PyLoader(FileLoader):
 
     def write(self, fp: t.IO[str], comment: str = "full"):
         """Return lines of configuration file corresponding to the app config tree."""
-        lines = self.serialize_section(self.app, [], comment=comment)
+        lines = self.serialize_section(self.app.__class__, [], comment=comment)
 
         for name, section in self.app._orphaned_sections.items():
             lines.append("")
@@ -142,7 +142,7 @@ class PyLoader(FileLoader):
 
     def serialize_section(
         self,
-        section: Section | type[Section],
+        section: type[Section],
         fullpath: list[str],
         comment: str = "full",
     ) -> list[str]:
@@ -159,10 +159,7 @@ class PyLoader(FileLoader):
 
         lines.append("")
 
-        if isinstance(section, type):
-            traits = section.class_traits(config=True)
-        else:
-            traits = section.traits(config=True)
+        traits = section.class_traits(config=True)
 
         for name, trait in sorted(traits.items()):
             value = self.serializer.default(trait)
@@ -195,10 +192,7 @@ class PyLoader(FileLoader):
                 lines.append("")
 
         for name in sorted(section._subsections):
-            if isinstance(section, type):
-                subsection = section._subsections[name]
-            else:
-                subsection = getattr(section, name)
+            subsection = section._subsections[name].klass
 
             lines.append("")
             lines.append(f"## {subsection.__class__.__name__} (.{name}) ##")

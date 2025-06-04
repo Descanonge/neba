@@ -35,7 +35,6 @@ class TomlkitLoader(FileLoader, DictLikeLoaderMixin):
     extensions = ["toml"]
 
     def load_config(self) -> abc.Iterator[ConfigValue]:
-        """Populate the config attribute from TOML file.
         """Populate the config attribute from TOML file."""
         with open(self.full_filename) as fp:
             root_table = tomlkit.load(fp)
@@ -46,7 +45,7 @@ class TomlkitLoader(FileLoader, DictLikeLoaderMixin):
         """Return lines of configuration file corresponding to the app config tree."""
         doc = tomlkit.document()
 
-        self.serialize_section(doc, self.app, [], comment=comment)
+        self.serialize_section(doc, self.app.__class__, [], comment=comment)
 
         for name in sorted(self.app._orphaned_sections):
             section = self.app._orphaned_sections[name]
@@ -59,21 +58,22 @@ class TomlkitLoader(FileLoader, DictLikeLoaderMixin):
     def serialize_section(
         self,
         t: T,
-        section: Section | type[Section],
+        section: type[Section],
         fullpath: list[str],
         comment: str = "full",
     ) -> T:
         """Serialize a Section and its subsections recursively.
+
+        We allow to write without the subsections initialized. The config attribute
+        will have the instances' values when possible so we don't need to access the
+        sections instances here.
 
         We use the extented capabilities of :mod:`tomlkit`.
         """
         if comment != "none":
             self.wrap_comment(t, section.emit_description())
 
-        if isinstance(section, type):
-            traits = section.class_traits(config=True)
-        else:
-            traits = section.traits(config=True)
+        traits = section.class_traits(config=True)
 
         for name, trait in traits.items():
             if comment != "none":
@@ -119,10 +119,7 @@ class TomlkitLoader(FileLoader, DictLikeLoaderMixin):
             self.wrap_comment(t, lines)
 
         for name in sorted(section._subsections):
-            if isinstance(section, type):
-                subsection = section._subsections[name].klass
-            else:
-                subsection = getattr(section, name)
+            subsection = section._subsections[name].klass
             t.add(
                 name,
                 self.serialize_section(
