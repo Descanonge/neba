@@ -457,7 +457,7 @@ class ApplicationBase(Section, LoggingConfigurable):
         self,
         filename: str | None = None,
         comment: str = "full",
-        use_current_traits: bool = True,
+        use_current_values: bool = True,
         clobber: str | None = None,
     ):
         """(Over)write a configuration file.
@@ -476,9 +476,9 @@ class ApplicationBase(Section, LoggingConfigurable):
 
             Note that the line containing the key and value, for instance
             ``traitname = 2`` will be commented if the value is equal to the default.
-        use_current_traits:
-            If True (default), any trait that has a different value from its default one
-            will be specified uncommented in the file.
+        use_current_values:
+            If True (default), use the current values of the traits instead, otherwise
+            use the trait default value.
         clobber:
             If the target file already exists, either:
 
@@ -496,10 +496,8 @@ class ApplicationBase(Section, LoggingConfigurable):
 
         # config to write, start with non-default traits
         config: dict[str, ConfigValue] = {}
-        if use_current_traits:
-            for key, default in self.defaults_recursive(
-                config=True, flatten=True
-            ).items():
+        if use_current_values:
+            for key, default in self.defaults_recursive(config=True).items():
                 if (value := self[key]) != default:
                     cv = ConfigValue(value, key)
                     cv.value = value
