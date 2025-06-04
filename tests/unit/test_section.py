@@ -471,43 +471,6 @@ class TestMutableMappingInterface(SectionTest):
             section.update({"new_trait": 10}, allow_new=True)
 
 
-class TestRemap(SectionTest):
-    def test_visited_keys(self, section: GenericSection):
-        visited_keys = []
-
-        def func(section, traits: dict, trait_name, trait, fullpath: list[str]):
-            visited_keys.append(".".join(fullpath))
-
-        section.remap(func)
-        assert visited_keys == section.keys()
-
-    def test_side_effects(self, info: GenericConfigInfo, section: GenericSection):
-        """Test the remap function.
-
-        Ensure the modifications are kept, without side effect.
-        """
-
-        def to_none(section, traits: dict, trait_name, trait, fullpath: list[str]):
-            traits[trait_name] = None
-
-        output = section.remap(to_none, flatten=True)
-        assert output == {k: None for k in info.traits_total}
-
-        for k in info.traits_total:
-            assert section[k] == info.default(k)
-
-    @given(values=GenericConfigInfo.values_all_strat())
-    def test_modification(self, values: dict):
-        def func(section, traits: dict, trait_name, trait, fullpath: list[str]):
-            section[trait_name] = values[".".join(fullpath)]
-
-        section = GenericConfig()
-        section.remap(func)
-
-        for k, v in values.items():
-            assert section[k] == v
-
-
 class TestTraitListing(SectionTest):
     """Test the trait listing abilities that use remap.
 
@@ -522,7 +485,7 @@ class TestTraitListing(SectionTest):
     def test_select(self, keys: list[str]):
         # We only test flattened, we assume nest_dict() works and is tested
         section = GenericConfig()
-        out = section.select(*keys, flatten=True)
+        out = section.select(*keys)
         assert keys == list(out.keys())
 
     def test_metadata_select(self):
@@ -541,16 +504,16 @@ class TestTraitListing(SectionTest):
         sec = MetaSection()
         keys = list(sec.trait_names())
         assert keys == ["no_config", "no_config_tagged", "normal", "normal_tagged"]
-        keys = list(sec.traits_recursive(flatten=True, config=True).keys())
+        keys = list(sec.traits_recursive(config=True).keys())
         assert keys == ["normal", "normal_tagged", "sub.normal", "sub.normal_tagged"]
-        keys = list(sec.traits_recursive(flatten=True, tagged=True).keys())
+        keys = list(sec.traits_recursive(tagged=True).keys())
         assert keys == [
             "no_config_tagged",
             "normal_tagged",
             "sub.no_config_tagged",
             "sub.normal_tagged",
         ]
-        keys = list(sec.traits_recursive(flatten=True, config=True, tagged=None).keys())
+        keys = list(sec.traits_recursive(config=True, tagged=None).keys())
         assert keys == ["normal", "sub.normal"]
 
     @todo
