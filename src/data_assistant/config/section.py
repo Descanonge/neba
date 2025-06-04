@@ -544,11 +544,11 @@ class Section(HasTraits):
 
     def reset(self) -> None:
         """Reset all traits to their default value."""
+        for name, trait in self.traits(config=True).items():
+            self[name] = trait.default()
 
-        def func(section: Section, traits, key: str, trait: TraitType, path):
-            setattr(section, key, trait.default())
-
-        self.remap(func, config=True)
+        for name in self._subsections:
+            getattr(self, name).reset()
 
     def update(
         self,
@@ -871,53 +871,6 @@ class Section(HasTraits):
 
         recurse(flat, [], cls)
         return flat
-
-    def remap(
-        self,
-        func: abc.Callable[[Section, dict, str, TraitType, list[str]], None] | None,
-        flatten: bool = False,
-        **metadata,
-    ) -> dict[str, t.Any]:
-        """Recursively apply function to traits.
-
-        Parameters
-        ----------
-        func:
-            Function to apply. Must take as argument: the current configurable,
-            a dictionnary of traits for the current configurable, the current
-            trait name, the current trait, and the current path (the list of
-            keys used to get to this configurable).
-
-            It needs not return any value. It should directly act on the
-            dictionnary.
-        flatten:
-            If True, return a flat dictionary (not nested) with each key being the full
-            path of subsection leading to a trait, separated by dots (ie
-            ``"some.path.to.trait"``). Default is False.
-        metadata:
-            Select only some traits which metadata satistify this argument.
-        """
-
-        def recurse(section: Section, outsec: dict, path: list[str]):
-            for name, trait in section.traits(**metadata, subsection=None).items():
-                fullpath = path + [name]
-                key = ".".join(fullpath) if flatten else name
-                outsec[key] = trait
-                if func is not None:
-                    func(section, outsec, key, trait, fullpath)
-
-            for name in section._subsections:
-                if flatten:
-                    sub_outsec = outsec
-                else:
-                    outsec[name] = {}
-                    sub_outsec = outsec[name]
-
-                recurse(getattr(section, name), sub_outsec, path + [name])
-
-        output: dict[str, t.Any] = dict()
-        recurse(self, output, [])
-        return output
 
     @classmethod
     def resolve_key(cls, key: str | list[str]) -> tuple[str, type[Section], TraitType]:
