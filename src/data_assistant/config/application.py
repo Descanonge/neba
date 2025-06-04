@@ -565,4 +565,5 @@ class ApplicationBase(Section, LoggingConfigurable):
         sys.exit(exit_status)
 
     def __del__(self) -> None:
-        delattr(self.__class__, "_instance")
+        if hasattr(self.__class__, "_shared_instance"):
+            delattr(self.__class__, "_shared_instance")
