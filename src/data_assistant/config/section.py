@@ -225,7 +225,7 @@ class Section(HasTraits):
         config = dict(config)  # copy
 
         if self._application_cls is not None:
-            app = self._application_cls.instance()
+            app = self._application_cls.shared()
             if clsname not in app._orphaned_sections:
                 raise KeyError(f"'{clsname}' is not among registered sections.")
 

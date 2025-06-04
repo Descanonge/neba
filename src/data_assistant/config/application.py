@@ -22,58 +22,11 @@ log = logging.getLogger(__name__)
 S = t.TypeVar("S", bound=Section)
 
 
-class MultipleInstanceError(RuntimeError):
-    """Multiple Instances for a Singleton are not allowed."""
+class SharedSection(Section):
+    """Section whose last instance created is shared."""
 
 
-class SingletonSection(Section):
-    """Singleton Section.
-
-    Only one instance is created. `__new__` will raise if an instance already exists.
-    Use :meth:`instance` to get the existing instance or a new instance if necessary.
-
-    Classic `Singleton(...)` is intended as a convenience for users. :meth:`instance` is
-    intended as a safe alternative, for developpers that might have more chances to use
-    it.
-
-    Note this is different from traitlets singletons, that do not allow concurrent
-    instances with the same singleton parent class. Here two subclasses of the
-    singleton are allowed.
-    """
-
-    _instance: t.Self
-
-    def __new__(cls, *args, **kwargs):
-        if hasattr(cls, "_instance"):
-            raise MultipleInstanceError(
-                f"{cls.__name__} already has an instance running. "
-                f"Use {cls.__name__}.instance() to obtain an existing or new instance."
-            )
-        inst = super().__new__(cls, *args, **kwargs)
-        cls._instance = inst
-        return inst
-
-    @classmethod
-    def instance(cls, *args, **kwargs) -> t.Self:
-        """Return running instance if existing, otherwise a new instance."""
-        if hasattr(cls, "_instance"):
-            return cls._instance
-        return cls(*args, **kwargs)
-
-    def copy(self) -> Section:  # type: ignore [override]
-        """Return a copy as a configuration Section."""
-        # TODO test
-        classdict: dict[str, t.Any] = {}
-        classdict.update(
-            {name: trait for name, trait in self.traits(config=True).items()}
-        )
-        classdict.update({name: sub for name, sub in self._subsections.items()})
-        cls = type(f"{self.__class__.__name__}Copy", (Section,), classdict)
-        config = self.values()
-        return cls(config)
-
-
-class ApplicationBase(SingletonSection, LoggingConfigurable):
+class ApplicationBase(SharedSection, LoggingConfigurable):
     """Base application class.
 
     Orchestrate the loading of configuration keys from files or from command line
@@ -84,6 +37,9 @@ class ApplicationBase(SingletonSection, LoggingConfigurable):
     This is a singleton, only one instance is allowed. See :class:`SingletonSection` for
     details.
     """
+
+    _shared_instance: t.Self
+    """Shared instance created/accessed by :meth:`shared`."""
 
     _orphaned_sections: dict[str, type[Section]] = {}
     """Orphaned configuration sections."""
@@ -229,6 +185,22 @@ class ApplicationBase(SingletonSection, LoggingConfigurable):
 
         if start:
             self.start(**kwargs)
+
+    @classmethod
+    def shared(cls, *args, new_shared: bool = False, **kwargs) -> t.Self:
+        """Return shared instance if existing, otherwise a new instance.
+
+        Parameters
+        ----------
+        new_shared
+            If True, create a new instance that will replace the previous shared
+            instance if it exists.
+        """
+        if hasattr(cls, "_shared_instance") and not new_shared:
+            return cls._shared_instance
+        inst = cls(*args, **kwargs)
+        cls._shared_instance = inst
+        return inst
 
     @classmethod
     def register_orphan(

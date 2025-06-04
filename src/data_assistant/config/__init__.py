@@ -1,6 +1,6 @@
 """Specify parameters in a configuration tree."""
 
-from .application import ApplicationBase, SingletonSection
+from .application import ApplicationBase
 from .loaders import (
     CLILoader,
     ConfigLoader,
@@ -23,7 +23,6 @@ __all__ = [
     "PyLoader",
     "RangeTrait",
     "Section",
-    "SingletonSection",
     "Subsection",
     "Undefined",
     "YamlLoader",
