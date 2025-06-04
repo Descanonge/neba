@@ -23,11 +23,7 @@ log = logging.getLogger(__name__)
 S = t.TypeVar("S", bound=Section)
 
 
-class SharedSection(Section):
-    """Section whose last instance created is shared."""
-
-
-class ApplicationBase(SharedSection, LoggingConfigurable):
+class ApplicationBase(Section, LoggingConfigurable):
     """Base application class.
 
     Orchestrate the loading of configuration keys from files or from command line
