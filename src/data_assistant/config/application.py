@@ -13,6 +13,7 @@ from traitlets.config.configurable import LoggingConfigurable
 
 from .loaders import CLILoader, ConfigValue
 from .section import Section
+from .util import ConfigErrorHandler
 
 if t.TYPE_CHECKING:
     from .loaders import ConfigValue, FileLoader
