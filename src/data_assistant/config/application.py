@@ -500,7 +500,9 @@ class ApplicationBase(SharedSection, LoggingConfigurable):
         # config to write, start with non-default traits
         config: dict[str, ConfigValue] = {}
         if use_current_traits:
-            for key, default in self.defaults_recursive(flatten=True).items():
+            for key, default in self.defaults_recursive(
+                config=True, flatten=True
+            ).items():
                 if (value := self[key]) != default:
                     cv = ConfigValue(value, key)
                     cv.value = value

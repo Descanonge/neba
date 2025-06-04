@@ -332,7 +332,7 @@ class Section(HasTraits):
         return configurables | subsections
 
     def copy(self) -> t.Self:
-        config = self.as_dict(flatten=False)
+        config = self.as_dict()
         return self.__class__(config)
 
     # - Mapping methods
@@ -599,7 +599,7 @@ class Section(HasTraits):
                 if isinstance(value, TraitType):
                     newtrait = value
                 elif input_section:
-                    newtrait = other.traits_recursive(flatten=True)[key]  # type: ignore[union-attr]
+                    newtrait = other.traits_recursive()[key]  # type: ignore[union-attr]
                 else:
                     raise TypeError(
                         "A new trait must be specified as a TraitType or from a Section "
@@ -668,7 +668,7 @@ class Section(HasTraits):
             parent._subsections[section._name].klass = section.__class__
 
     def as_dict(
-        self, recursive: bool = True, aliases: bool = False, flatten: bool = True
+        self, recursive: bool = True, aliases: bool = False, nest: bool = False
     ) -> dict[str, t.Any]:
         """Return traits as a dictionary.
 
@@ -678,19 +678,19 @@ class Section(HasTraits):
             If True (default), return parameters from all subsections. Otherwise limit to
             only this section.
         aliases
-            If True (default is False), include aliases.
-        flatten
-            If True (default), return a flat dictionnary with dot-separated keys.
-            Otherwise return a nested dictionnary.
+            If True, include aliases. Default is False.
+        nest
+            If True return a nested dictionnary. Otherwise return a flat dictionnary
+            with dot-separated keys. Default is False.
         """
         output = dict(
             self.items(subsections=False, recursive=recursive, aliases=aliases)
         )
-        if not flatten:
+        if nest:
             output = self.nest_dict(output)
         return output
 
-    def select(self, *keys: str, flatten: bool = False) -> dict[str, t.Any]:
+    def select(self, *keys: str, nest: bool = False) -> dict[str, t.Any]:
         """Select parameters from this sections or its subsections.
 
         Parameters
@@ -698,12 +698,12 @@ class Section(HasTraits):
         keys
             Keys leading to parameters. To select parameters from subsections, use
             dot-separated syntax like ``"some.nested.parameter"``.
-        flatten
-            If True (default), return a flat dictionnary with dot-separated keys.
-            Otherwise return a nested dictionnary.
+        nest
+            If True return a nested dictionnary. Otherwise return a flat dictionnary
+            with dot-separated keys. Default is False.
         """
         output = {k: self[k] for k in keys}
-        if not flatten:
+        if nest:
             output = self.nest_dict(output)
         return output
 
@@ -786,25 +786,26 @@ class Section(HasTraits):
 
     @classmethod
     def traits_recursive(
-        cls, flatten: bool = False, **metadata
+        cls, nest: bool = False, aliases: bool = False, **metadata
     ) -> dict[str, TraitType]:
         """Return dictionnary of all traits."""
         traits = dict(
-            cls._traits_recursive(
-                subsections=False, recursive=True, aliases=False, **metadata
-            )
+            cls._traits_recursive(subsections=False, aliases=aliases, **metadata)
         )
-        if not flatten:
-            cls.nest_dict(traits)
+        if nest:
+            traits = cls.nest_dict(traits)
         return traits
 
     @classmethod
     def defaults_recursive(
-        cls, config=True, flatten: bool = False, **metadata
+        cls, nest: bool = False, aliases: bool = False, **metadata
     ) -> dict[str, t.Any]:
         """Return nested dictionnary of default traits values."""
-        traits = cls.traits_recursive()
-        return {k: t.default() for k, t in traits.items()}
+        traits = cls._traits_recursive(subsections=False, aliases=aliases, **metadata)
+        defaults = {k: t.default() for k, t in traits}
+        if nest:
+            defaults = cls.nest_dict(defaults)
+        return defaults
 
     @classmethod
     def _subsections_recursive(cls) -> abc.Iterator[type[Section]]:

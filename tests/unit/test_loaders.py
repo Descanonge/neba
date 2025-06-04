@@ -133,7 +133,7 @@ class TestCLILoader:
             App(argv=["--list-parameters"])
         captured = capsys.readouterr()
         listed_parameters = captured.err.splitlines()
-        traits = App.class_traits_recursive(subsections=False, aliases=True)
+        traits = App.traits_recursive(aliases=True)
         for param in listed_parameters:
             assert param.split()[0].removeprefix("--") in traits
         assert len(traits) == len(listed_parameters)
