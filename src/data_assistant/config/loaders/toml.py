@@ -117,7 +117,7 @@ class TomlkitLoader(FileLoader, DictLikeLoaderMixin):
 
         for name in sorted(section._subsections):
             if isinstance(section, type):
-                subsection = section._subsections[name]
+                subsection = section._subsections[name].klass
             else:
                 subsection = getattr(section, name)
             t.add(
