@@ -2,8 +2,9 @@
 
 import json
 import typing as t
+from collections import abc
 
-from .core import DictLikeLoaderMixin, FileLoader
+from .core import ConfigValue, DictLikeLoaderMixin, FileLoader
 
 
 class JsonEncoderTypes(json.JSONEncoder):
@@ -34,7 +35,7 @@ class JsonLoader(FileLoader, DictLikeLoaderMixin):
         super().__init__(*args, **kwargs)
         self.app.log.warning("%s loader is experimental.", self.__class__)
 
-    def load_config(self) -> None:
+    def load_config(self) -> abc.Iterator[ConfigValue]:
         """Populate the config attribute from TOML file.
 
         We use builtin :mod:`json` to parse file, with eventually a custom decoder
@@ -43,18 +44,13 @@ class JsonLoader(FileLoader, DictLikeLoaderMixin):
         with open(self.full_filename) as fp:
             input = json.load(fp, cls=self.JSON_DECODER)
 
-        self.resolve_mapping(input, origin=self.filename)
+        return self.resolve_mapping(input, origin=self.filename)
 
-    def _to_lines(
-        self, comment: str = "full", show_existing_keys: bool = False
-    ) -> list[str]:
+    def write(self, fp: t.IO[str], comment: str = "full"):
         """Serialize configuration."""
         if comment != "none":
             self.app.log.warning("No comments possible in JSON format.")
 
-        output = dict(self.app)
-        # TODO Merge with self.config
-        # TODO Options: maybe only show values differing from default?
-        dump = json.dumps(output, cls=self.JSON_ENCODER, indent=2)
-
-        return dump.splitlines()
+        data = {k: cv.get_value() for k, cv in self.config.items()}
+        data = self.app.nest_dict(data)
+        json.dump(data, fp, cls=self.JSON_ENCODER, indent=2)
