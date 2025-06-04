@@ -194,8 +194,8 @@ class TestTomlLoader:
 
     def assert_write_read(self, values: dict):
         app = App(argv=[])
-        traits = app.traits_recursive(flatten=True)
-        defaults = app.defaults_recursive(flatten=True)
+        traits = app.traits_recursive()
+        defaults = app.defaults_recursive()
 
         # Modify values and store them
         ref = {}
@@ -272,8 +272,8 @@ class TestPythonLoader:
 
     def assert_write_read(self, values: dict):
         app = App(argv=[])
-        traits = app.traits_recursive(flatten=True)
-        defaults = app.defaults_recursive(flatten=True)
+        traits = app.traits_recursive()
+        defaults = app.defaults_recursive()
         ref = {}
         for k, v in values.items():
             # Instances/Types must be imported in config file, not automatic yet
