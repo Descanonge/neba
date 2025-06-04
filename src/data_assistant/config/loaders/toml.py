@@ -110,7 +110,7 @@ class TomlkitLoader(FileLoader, DictLikeLoaderMixin):
                 if isinstance(trait, Enum):
                     lines.append("Accepted values: " + repr(trait.values))
 
-            if comment != "no-help" and trait.help:
+            if comment == "full" and trait.help:
                 lines += wrap_text(trait.help)
 
             self.wrap_comment(t, lines)
