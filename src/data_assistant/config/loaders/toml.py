@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import typing as t
 from collections import abc
 from textwrap import dedent
+from typing import TYPE_CHECKING, Any, TypeVar
 
 import tomlkit
 from tomlkit.container import Container
@@ -15,10 +15,10 @@ from data_assistant.config.util import get_trait_typehint, wrap_text
 
 from .core import ConfigValue, DictLikeLoaderMixin, FileLoader
 
-if t.TYPE_CHECKING:
+if TYPE_CHECKING:
     from data_assistant.config.section import Section
 
-T = t.TypeVar("T", bound=Container | Table)
+T = TypeVar("T", bound=Container | Table)
 
 
 class TomlkitLoader(FileLoader, DictLikeLoaderMixin):
@@ -105,6 +105,8 @@ class TomlkitLoader(FileLoader, DictLikeLoaderMixin):
             if comment != "none":
                 fullkey = ".".join(fullpath + [name])
                 typehint = get_trait_typehint(trait, "minimal")
+                if trait.default() is None:
+                    default = "None"
                 lines.append(f"{fullkey} ({typehint}) default: {default}")
 
                 if isinstance(trait, Enum):
@@ -129,7 +131,7 @@ class TomlkitLoader(FileLoader, DictLikeLoaderMixin):
 
         return t
 
-    def _sanitize_item(self, value: t.Any) -> Item:
+    def _sanitize_item(self, value: Any) -> Item:
         """Return an Item to use for the line key = value.
 
         Take care of specific cases when default value is None or a type.
