@@ -185,4 +185,4 @@ class ParamsManagerApp(ParamsManagerSectionAbstract[T_Section]):
                 "ParamsManagerApp requires the application type to be set "
                 "on the data manager. Use @Application.register_section."
             )
-        self._params = app_cls.instance().copy()
+        self._params = app_cls.shared().copy()
