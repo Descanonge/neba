@@ -193,11 +193,16 @@ class ApplicationBase(Section, LoggingConfigurable):
             If True, create a new instance that will replace the previous shared
             instance if it exists.
         """
-        if hasattr(cls, "_shared_instance") and not new_shared:
+        if cls.shared_exists() and not new_shared:
             return cls._shared_instance
         inst = cls(*args, **kwargs)
         cls._shared_instance = inst
         return inst
+
+    @classmethod
+    def shared_exists(cls) -> bool:
+        """Whether a shared instance is registered."""
+        return hasattr(cls, "_shared_instance")
 
     @classmethod
     def register_orphan(
