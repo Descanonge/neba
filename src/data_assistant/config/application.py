@@ -345,11 +345,8 @@ class ApplicationBase(Section, LoggingConfigurable):
     def get_argv(self) -> list[str] | None:
         """Return command line arguments.
 
-        TODO: update
-        Currently return None, which can be passed down to the parser
-        :class:`argparse.ArgumentParser`.
-        To handle more complex cases, like separating arguments for different
-        applications (with ``--`` typically), more logic can be setup here.
+        Try to detect if launched from ipython or ipykernel (jupyter), in which case
+        strip parameters before the first '--' are stripped.
         """
         exe, *argv = sys.argv
         if path.splitext(path.basename(exe))[0] in ["ipython", "ipykernel_launcher"]:
@@ -424,7 +421,8 @@ class ApplicationBase(Section, LoggingConfigurable):
         attributes names, without shortcuts, that point a trait.
         Keys that do not resolve to any known trait will raise error.
 
-        The trait and containing section class will be added to each :class:`ConfigValue`.
+        The trait and containing section class will be added to each
+        :class:`ConfigValue`.
 
         Parameters
         ----------
@@ -435,6 +433,7 @@ class ApplicationBase(Section, LoggingConfigurable):
         -------
         resolved_config
             Flat mapping of normalized keys to their ConfigValue
+
         """
         first = cv.path[0]
 

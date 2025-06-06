@@ -7,8 +7,8 @@ Configuration management
 
 This package provides a submodule :mod:`.config` to help managing the parameters
 of a project. It requires to specify the parameters in python code: their type,
-default value, help string, etc. It relies on the core of the
-`traitlets <https://traitlets.readthedocs.io>`__ package to do this
+default value, help string, etc. It relies on the `traitlets
+<https://traitlets.readthedocs.io>`__ package to do this
 
 .. note::
 
@@ -18,7 +18,7 @@ default value, help string, etc. It relies on the core of the
    :class:`~config.application.ApplicationBase` class.
 
 Once defined, the parameters values can be recovered from configuration files
-(python files like with traitlets, but also TOML or YAML files), and
+(python files as for traitlets, but also TOML or YAML files), and
 from the command line as well.
 
 The help string of each trait is used to generate command line help (completion
@@ -31,7 +31,7 @@ Specifying parameters
 =====================
 
 The configuration is specified through :class:`~.section.Section` classes. Each
-section can contain parameters: class attribute of type
+section contains parameters in the form of class attribute of type
 :class:`traitlets.TraitType` (for instance :class:`~traitlets.Float`,
 :class:`~traitlets.Unicode`, or :class:`~traitlets.List`), or other (nested)
 sections.
@@ -48,7 +48,7 @@ sections.
          name = Float(default_value=1.)
 
    From this we can access the trait instance with ``Container.name``, but it
-   only contain the parameters used for its definition, **it does not hold any
+   only contains the information used for its definition, **it does not hold any
    actual value**.
 
    But if we create an **instance of the container**, when we access ``name``
@@ -67,7 +67,7 @@ sections.
    is tied to the container instance ``c``.
 
 A section can contain other sub-sections, allowing a tree-like, nested
-configuration. It can be done by using the :func:`~section.subsection` function
+configuration. It can be done by using the :class:`~section.Subsection` class
 and setting it as an attribute in the parent section::
 
     from data_assistant.config import subsection
@@ -78,10 +78,19 @@ and setting it as an attribute in the parent section::
     class ParentSection(Section):
         param_a = Int(1)
 
-        child = subsection(ChildSection)
+        child = Subsection(ChildSection)
 
 In the example above we have two parameters available at ``param_a`` and
 ``child.param_b``.
+
+.. important::
+
+   Like traits, Subsections are also descriptors: accessing
+   ``ParentSection().child`` returns a ``ChildSection`` instance.
+
+   To be more precise, Subsection creates a dummy subclass so that the same
+   child section class can be used in multiple places in your configuration
+   without clashes.
 
 For ease of use and readability, subsections can also be defined directly inside
 another section class definition. The name of such a nested class will be used
@@ -124,7 +133,7 @@ The principal section, at the root of the configuration tree, is the
 :class:`Application<.application.ApplicationBase>`. As a subclass of
 :class:`~.Section`, it can hold directly all your parameters, or nested
 subsections. It will also be responsible for gathering the parameters from
-configuration files and the command line and some more.
+configuration files and the command line, and more.
 
 Here is a rather simple example::
 
@@ -151,42 +160,41 @@ Here is a rather simple example::
      >>> app = App()
      >>> app.physical.years = [2023, 2024]
 
-Global instance
+Shared instance
 ---------------
 
+The application class can provide a shared, global instance. It can be
+accessed with :meth:`App.shared()<.ApplicationBase.shared>`, which will return
+the shared instance, or create it and register it if it does not exist yet.
+The standard ``App()`` will not register a shared instance.
 
-The application class can provide a single, global instance of itself. It can be
-accessed with :meth:`App.instance()<.SingletonSection.instance>`, the instance
-will be returned or created.
+Starting the application
+------------------------
 
-There can be only one global instance among all subclasses of
-:class:`.ApplicationBase`. So::
+By default, when the application is instantiated it executes its starting
+sequence with the :meth:`~.ApplicationBase.start` method. It will:
 
-    class AppOne(ApplicationBase):
-        ...
+- Parse command line arguments
+- Read parameters from configuration files
+- Instantiate all subsections with the obtained parameters
 
-    class AppTwo(ApplicationBase):
-        ...
+This can be controlled with ``__init__`` arguments ``start``, ``ignore_cli``,
+and ``instantiate``.
 
-    app_one = AppOne().instance()
-    # So far this ok, but...
-    app_two = AppTwo().instance()
-    # will raise, as there is already a global application of type AppOne
+.. note::
 
-.. important::
+    Even though some features are still available if the subsections are not
+    instantiated (since the subsections classes contain information about
+    the parameters), instantiating them is necessary to fully validate the
+    parameters.
 
-   Instances not created through this mechanism do not count::
-
-     a = App()
-     b = App.instance()
-     a != b
-
+.. _orphans:
 
 Orphan sections
 ---------------
 
-When starting the application, the section objects are instantiated. However
-it might be desirable to have complex section objects that should not be
+By default, when starting the application, the section objects are instantiated.
+However it might be desirable to have complex section objects that should not be
 instantiated directly, or not at every execution.
 
 To that end, the application provide the class decorator
@@ -195,8 +203,9 @@ To that end, the application provide the class decorator
 - Register the section in the application. It will not be instantiated but its
   parameters will be known and retrieved.
 - Register the application class in the section. It will then be used
-  automatically to recover parameters when instantiating the section. This can
-  be deactivated by passing ``auto_retrieve=False`` to the register decorator.
+  automatically to recover parameters from the shared instance when
+  instantiating the section (if it exists). This can be deactivated by passing
+  ``auto_retrieve=False`` to the register decorator.
 
 For example::
 
@@ -208,7 +217,6 @@ For example::
 
 This will automatically start a global application instance, recover parameters
 and apply it to the orphan section.
-
 
 Logging
 -------
@@ -231,85 +239,58 @@ Accessing parameters
 ====================
 
 As explained :ref:`above<traits-explain>`, the **value** of parameters can be
-accessed (or changed) like attributes of the section instance that contains them.
+accessed (or changed) like attributes of the section that contains them.
 This has the advantages to allow for deeply nested access::
 
   app.some.deeply.nested.trait = 2
 
 .. note::
 
-    It also is still using the features of traitlets: type checking, value
+    It also benefits from the features of traitlets: type checking, value
     validation, "on-change" callbacks, dynamic default value generation. This
     can ensure that a configuration stays valid. Refer to the
     :external+traitlets:doc:`traitlets documentation<using_traitlets>` for more
     details on how to use these features.
 
-Every section also features all operations of a :class:`dict`.
-Parameters can be accessed with a single key of dot-separated names::
+Sections also implements the interface of a
+:class:`~collections.abc.MutableMapping` and most of the interface of a
+:class:`dict`. Parameters can be accessed with a single key of dot-separated
+attributes::
 
   app["some.deeply.nested.trait"] = 2
   # or
   app["some"]["deeply.nested.trait"] = 2
 
-All parameters can be obtained as a flat dictionary simply with
-``dict(my_section)``. If a nested dictionary is required,
-:meth:`.Section.as_dict` will do the trick.
-
-Some of the dictionary methods have additional arguments
-available. For instance, by default :meth:`~.Section.keys`,
-:meth:`~.Section.values` and :meth:`~.Section.items` do not list subsections
-objects, are fully recursive, and do not list aliases.
+By default :meth:`~.Section.keys`, :meth:`~.Section.values` and
+:meth:`~.Section.items` do not list subsections objects or aliases, but this
+can be altered. They also return flat output; to obtain a nested dictionnary
+pass ``nest=True``.
 
 .. important::
 
-    This omission is done to allow ``dict(section)`` to be equivalent to
-    ``section``, but it can be changed (``section.keys(aliases=True)``).
-    Similarly, ``len`` and ``iter`` do not account for subsections and aliases.
+    The omission of subsections and aliases is done to allow a straightforward
+    conversion with ``dict(section)``. Similarly, ``len`` and ``iter`` do not
+    account for subsections and aliases.
 
-    However for ease of use other methods such as "get", "set" and "contains"
-    will do::
+    However, other methods such as "get", "set" and "contains" will allow
+    subsections keys and aliases::
 
         >>> "subsection" in section
         True
         >>> section["subsection"]  # No KeyError
 
-To extract other information, one can use :meth:`.Section.traits_recursive`, and
-:meth:`.Section.defaults_recursive` which return nested or flat dictionaries of
-all traits instances and their default values respectively.
-
-
-.. _mapping-interface:
-
-Mapping interface
------------------
-
-The Section class also implements the interface of a
-:external+python:ref:`mapping<collections-abstract-base-classes>` (notably for
-instance :meth:`~.Section.keys`, :meth:`~.Section.values`, :meth:`~.Section.items`,
-:meth:`~.Section.get`, as well as contains, iter, and len operations).
-The keys to access this mapping can directly lead to a deeply nested parameter,
-by joining the successive subsections names with dots like so::
-
-    >>> app["some.deeply.nested.parameter"]
-    the parameter value
-
-To modify the parameter values, one can access to it directly as we have seen,
-but we can also use the set-item operation, both are equivalent::
-
-    app.some.deeply.nested.parameter = 3
-    app["some.deeply.nested.parameter"] = 3
-
-Additionally, it implements an :meth:`~.Section.update` method allowing to modify
-a section with a mapping of several parameters::
+Sections have an :meth:`~.Section.update` method allowing to modify a it with a
+mapping of several parameters (or another section instance)::
 
     app.update({"computation.n_cores": 10, "physical.threshold": 5.})
 
-It can add new traits to the section with some specific input, see the docstring
-for details. This should be considered experimental (even more so than the rest
-of this library anyway).
+Similarly to :meth:`~.Section.setdefault`, it can add new traits to the section
+with some specific input, see the docstring for details.
 
-Some other methods of :class:`dict`, such as binary-or, could be implemented in
-the future.
+.. tip::
+
+   It is possible to only show configurable traits in autocompletion. Simply set
+   :attr:`~.Section._attr_completion_only_traits` to True.
 
 
 Obtaining subsets of all parameters
@@ -317,20 +298,11 @@ Obtaining subsets of all parameters
 
 Using :meth:`.Section.select` we can select only some of the parameters by name::
 
-  >>> app.select("physical.threshold", "computation.n_cores", flatten=True)
+  >>> app.select("physical.threshold", "computation.n_cores")
   {
       "physical.threshold": 2.5,
       "computation.n_cores": 1
   }
-
-.. note::
-
-   Users wanting to automate some logic on nested dictionaries can lever the
-   method :meth:`.Section.remap` that map a user function on a nested (or flat)
-   dictionary of traits.
-
-   Methods :meth:`.Section.nest_dict` and :func:`.Section.flatten_dict` can also
-   be useful in manipulating dictionaries.
 
 Some parameters may be destined for a specific function. It is possible to
 select those by name as shown above, or one could tag the target traits during
@@ -339,10 +311,10 @@ definition like so::
   some_parameter = Bool(True).tag(for_this_function=True)
 
 These traits can then automatically be retrieved using the `metadata` argument
-of the function above (adding ``for_this_function=True`` to the call).
-Sections also feature a specialized function for this use case:
+of many methods such as :meth:`~Section.keys` or :meth:`~Section.select`.
+
 :meth:`.Section.trait_values_from_func_signature` will find the parameters that
-share the same name as arguments in the function signature.
+share the same name as arguments from a function signature.
 
 Input parameters
 ================
@@ -360,28 +332,29 @@ the rest of the process.
 
 The parameters found are then normalized: each resulting parameter key is unique
 and unambiguous. This provides a first layer of checking the input: keys that do
-not lead to a known parameter will raise errors. This permit to merge the
-parameters obtained from different files and CLI. Finally, the application will
-recursively instanciate all sections while passing the configuration values.
-Unspecified values will take the trait default value. All values will undergo
-validation from traitlets.
+not lead to a known parameter will raise errors. This allows to merge the
+parameters obtained from different files and from CLI. Parameters are stored
+in :attr:`~.ApplicationBase.file_conf`, :attr:`~.ApplicationBase.cli_conf`
+and :attr:`~.ApplicationBase.conf`.
+
+Finally, the application will recursively instantiate all sections while passing
+the configuration values. Unspecified values will take the trait default value.
+All values will undergo validation from traitlets.
+
+The configuration values are retrieved by :class:`.ConfigLoader` objects adapted
+for each source. Its output will be a **flat** dictionary mapping *resolved
+keys* to a :class:`.ConfigValue`.
 
 .. note::
 
-   In some specific cases, instanciating the whole configuration tree could be
-   costly. It is thus possible to deactivate the automatic instanciation with
-   :attr:`.ApplicationBase.auto_instanciate` and arguments to
-   :attr:`.ApplicationBase.start`. However, a parameters value can only be
-   verified by a trait if its container is instanciated.
-
-In all cases (files and CLI) the configuration values are retrieved by a
-:class:`.ConfigLoader` subclass adapted for the source. Its output will be a
-**flat** dictionary mapping *resolved keys* to :class:`.ConfigValue`.
+   The :class:`.ConfigValue` class allows to store more information about the
+   value: its provenance, the original string and parsed value if applicable,
+   and a priority value used when merging configs. To obtain a value, simply use
+   :meth:`.ConfigValue.get_value`.
 
 A "resolved" key is a succession of attribute names pointing to a trait,
-starting from the application. It is thus unique. With the same example as above
-for instance: ``physical.years``. There can be more levels if the configuration
-is deeply nested ``section.subsection.sub_subsection.etc.traitname``.
+starting from the application. It is unique. With the same example as above for
+instance: ``physical.years``.
 
 .. important::
 
@@ -392,35 +365,16 @@ is deeply nested ``section.subsection.sub_subsection.etc.traitname``.
 
     Aliases are expanded when the configuration is resolved.
 
-A parameter can also be input as a "class-key", similarly to how it is done in
-vanilla traitlets. It consists of the name of section class and a trait name:
-``SomeSectionClassName.trait_name``. It cannot be nested further (this
-complicates how to do merging quite a bit). When the configuration is resolved,
-class-keys are transformed to the corresponding fully resolved key(s). Still
-with the same example: ``PhysicalParams.years`` will be resolved to
-``physical.years``.
-
-The value associated to a class-key, even after being resolved, is given a
-lower priority. So if we somehow input::
-
-    physical.threshold = 1
-    PhysicalParams.threshold = 5
-
-After merging configurations, the retained value will be 1, whatever the order
-the keys were given in.
-
-.. note::
-
-   Unlike vanilla traitlets, the way we populate instances allows to have
-   multiple instances of the same Section with different configurations. This
-   is why a single class-key can point to multiple locations in the
-   configuration tree.
+A parameter can also be input for an "orphan section", similarly to how it is
+done in vanilla traitlets. It consists of the name of a section class and a
+trait name: ``SomeSectionClassName.trait_name``. The section must be registered
+beforehand (see :ref:`orphans`).
 
 
 From configuration files
 ------------------------
 
-The application can take parameter values from configuration files by invoking
+The application can retrieve parameters from configuration files by invoking
 :meth:`.ApplicationBase.load_config_files`. It will load the file (or files)
 specified in :attr:`.ApplicationBase.config_files`. If multiple files are
 specified, the parameter from one file will replace those from the previous
@@ -436,34 +390,13 @@ be used.
    of handling a file. Currently, it only looks at the file extension, but more
    advanced logic could be implemented if necessary.
 
-As any other subclass of :class:`.ConfigLoader`, :class:`.FileLoader` needs only
-to implement the :meth:`~.ConfigLoader.load_config` method that needs to
-populate the flat configuration dictionary at :attr:`~.ConfigLoader.config`.
-ConfigLoader will ensure that the configuration is resolved, cleaned-up and
-ready to be used by the application.
-
-.. note::
-
-   A "flat configuration dictionary" is a simple dictionary mapping keys
-   leading to traits in the configuration tree to :class:`.ConfigValue`
-   instances. The keys can contains aliases or be class-keys that will be
-   automatically resolved later.
-
-   The :class:`.ConfigValue` class allows to store more information about the
-   value: its provenance, the original string and parsed value if applicable,
-   and a priority value used when merging configs. To obtain a value, simply use
-   :meth:`.ConfigValue.get_value`.
-
-The file loaders have an additional feature in the :meth:`.FileLoader.to_lines`
-method. It generates the lines for a valid configuration file of the
-corresponding format, following the default values of the application
-subsections. If the file loader has its :attr:`~.ConfigLoader.config` dictionary
-populated (manually or by reading from an existing file) it will use these
-values instead. This allows to generate lengthy configuration files, with
-different amounts of additional information in comments. The end user can simply
-use :meth:`.ApplicationBase.write_config` which automatically deals with an
-existing configuration file that may need to be updated, while keeping its
-current values (or not).
+File loaders can implement :meth:`.FileLoader.write` to generate a valid
+configuration file of the corresponding format, following the values of present
+in its :attr:`~.ConfigLoader.config` attribute. This allows to generate lengthy
+configuration files, with different amounts of additional information in
+comments. The end user can simply use :meth:`.ApplicationBase.write_config`
+which automatically deals with an existing configuration file that may need to
+be updated, while keeping its current values (or not).
 
 .. note::
 
@@ -495,8 +428,8 @@ traitlets is doing it. To load a configuration file, the file loader
 will be bound to the ``c`` variable in the script/configuration file. It allows
 arbitrarily nested attribute setting so that the following syntax is valid::
 
-    c.group.subgroup.parameter = 5
-    c.ClassName.parameter = True
+    c.section.subesection.parameter = 5
+    c.OrphanSection.parameter = True
 
 .. important::
 
@@ -514,23 +447,21 @@ multiple configuration files in :attr:`.ApplicationBase.config_files`,
 remembering that each configuration file replaces the values of the previous one
 in the list.
 
-Despite not being easily readable, the JSON format is supported via
+`Yaml <https://yaml.org/>`__ is supported via :class:`.YamlLoader` and the
+third-party module `pyyaml <https://pyyaml.org/wiki/PyYAMLDocumentation>`. It
+does not allow generating input with comments (and the alternative ``ruamel``
+does not seem as reliable).
+
+Despite not being easily readable, the JSON format is also supported via
 :class:`.JsonLoader` and the builtin module :external+python:mod:`json`. The
 decoder and encoder class can be customized.
-
-.. important::
-
-   At the moment, the JsonLoader is untested.
-
-It is planned to add support for Yaml format via :class:`.YamlLoader` with a
-third party library.
 
 From the command line
 ---------------------
 
 Parameters can be set from parsing command line arguments, although it can be
 skipped by either setting the :attr:`.ApplicationBase.ignore_cli` trait or
-the *ignore_cli* argument to :meth:`.ApplicationBase.start`. The configuration
+the ``ignore_cli`` argument to :meth:`.ApplicationBase.start`. The configuration
 obtained will be stored in the :attr:`~.ApplicationBase.cli_conf` attribute and
 will take priority over parameters from configuration files.
 
@@ -538,15 +469,15 @@ The keys are indicated following **one or two** hyphen. Any subsequent hyphen is
 replaced by an underscore. So ``-computation.n_cores`` and
 ``--computation.n-cores`` are equivalent. As already noted, parameters keys can
 be dot-separated paths leading to a trait. Aliases can be used for brevity.
-Class-keys are input with the same syntax (``--ClassName.trait_name``).
+Orphan sections parameters are input with the same syntax
+(``--OrphanSection.trait_name``).
 
 .. note ::
 
     The list of command line arguments is obtained by
-    :meth:`.ApplicationBase.get_argv`. By default, it returns None, so that it
-    is left to the underlying parser to do it. But more logic could be input
-    there, for instance to deal with multiple layers of arguments separated by
-    double hyphens.
+    :meth:`.ApplicationBase.get_argv`. It tries to detect if python was launched
+    from IPython or Jupyter, in which case it strips the arguments before
+    the first '--'.
 
 The loading of command line parameters is done by :class:`.CLILoader`. One of
 the main differences with other loaders is that all arguments need to be parsed.
@@ -556,9 +487,7 @@ have a reference to the corresponding trait (which itself has methods
 
 .. note::
 
-    Currently, the parsing can fail in some nested types of unions and
-    containers. :meth:`.ConfigValue.parse` tries to mitigates this, but is not
-    thoroughly tested for all possible deep nestings.
+   Nested containers parameters (list of list e.g.) are not currently supported.
 
 Extra parameters to the argument parser can be added using
 :meth:`.ApplicationBase.add_extra_parameter`. The values will be available after
@@ -567,19 +496,17 @@ CLI parsing in :attr:`.ApplicationBase.extra_parameters`.
 .. note:: Implementation details
 
     :class:`.CLILoader` relies on the builtin :external+python:mod:`argparse`.
-    Rather than listing all possible keys to every parameters (accounting for
-    aliases and class-keys) as would normally be required, we borrow some
-    trickery from traitlets. The dictionaries holding the actions
-    (``argparse.ArgumentParser._option_string_actions`` and
-    ``argparse.ArgumentParser._optionals._option_string_actions``) are replaced
-    by a dict subclass :class:`.DefaultOptionDict` that creates a new action if
-    a key is missing (ie whenever a parameter is given).
+    All possible keys to every parameters (accounting for aliases and orphan
+    sections) are listed. By default, both underscores and hyphens are allowed,
+    and each parameter can start with one or two hyphen. This can be changed
+    with class attributes :attr:`.CLILoader.allow_kebab` and
+    :attr:`.CLILoader.prefix`.
 
-So for any and every parameter, the argument :external+python:ref:`action` is
+For any and every parameter, the argument :external+python:ref:`action` is
 "append", with type :class:`str` (since the parsing is left to traitlets), and
-``nargs="*"`` meaning that any parameter can receive any number of values.
-To indicate multiple values, for a list trait for instance, the following syntax
-is to be used::
+``nargs="*"`` meaning that any parameter can receive any number of values. To
+indicate multiple values, for a list trait for instance, the following syntax is
+to be used::
 
     --physical.years 2015 2016 2017
 
@@ -587,33 +514,25 @@ is to be used::
 
     --physical.years 2015 --physical.years 2016 ...
 
-This will raise an error, to avoid possible errors in user input due to
-inattention.
-
-.. note::
-
-   The default action can be changed, check the documentation and code of
-   :mod:`.config.loaders.cli` for more details.
+This will raise an error, to avoid possible mistakes in user input.
 
 The packages provides a new type of trait: :class:`.RangeTrait`, that is a list
-of integers, but can be parsed from a sort of slice specification of the form
-``start:stop[:step]``. So that ``--year=2002:2005`` will be parsed as
-``[2002, 2003, 2004, 2005]``. Note that 'stop' is **inclusive**.
+of integers, but can be parsed from a slice specification in the form
+``start:stop[:step]``. So that ``--year=2002:2005`` will be parsed as ``[2002,
+2003, 2004, 2005]``. Note that 'stop' is **inclusive**.
 
 
 From a dictionary
 -----------------
 
-The loader :class:`.DictLikeLoader` can transform any nested mapping into a
-proper configuration object (flat dictionary mapping do-separated keys to
-:class:`.ConfigValue`). It deals in a quite straightforward manner with the
-issue of differentiating between a nested mapping corresponding to an eventual
-trait and one corresponding to further nesting in a subsection. It simply checks
-if the key is a known subsection or alias, otherwise it assumes the key
-corresponds to a parameter value.
+The loader :class:`.DictLoader` can transform any nested mapping into a proper
+configuration. It deals in a quite straightforward manner with the issue of
+differentiating between a nested mapping corresponding to an eventual trait and
+one corresponding to further nesting in a subsection. It simply checks if the
+key is a known subsection or alias, otherwise it assumes the key corresponds to
+a parameter value.
 
 .. note::
 
-    The file loaders :class:`.YamlLoader` and :class:`.JsonLoader` are based on
-    it, as they only return a nested mapping without means to differentiate the
-    two types of nesting.
+    The loaders :class:`.TomlkitLoader`, :class:`.YamlLoader` and
+    :class:`.JsonLoader` are based on it, as they return a nested mapping.

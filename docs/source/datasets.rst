@@ -123,7 +123,7 @@ Dataset parameters
 A dataset instance is supposed to represent a specific set of parameters.
 Changing parameters might affect modules, and thus it is recommended to change
 parameters using :meth:`.DataManagerBase.set_params` or
-:meth:`.DataManagerBase.update_params`. After the parameters have been modified,
+:meth:`.DataManagerBase.reset_params`. After the parameters have been modified,
 this function will launch all "reset callbacks" that have been registered by
 modules. For instance, some modules may use a cache and need to void it after a
 parameters change.
@@ -150,7 +150,7 @@ save the initial parameters and restore them when exiting::
     consequences.
 
 As noted above, how parameters are stored and managed can be customized. The
-default is a simple dictionnary storing the parameters: :class:`.ParamsManager`.
+default is a simple dictionary storing the parameters: :class:`.ParamsManager`.
 The package also provides :class:`.ParamsManagerSection` where parameters are
 stored in a :class:`data_assistant.config.section.Section` object. By specifying
 the exact expected type of the parameters, this can ensure the existence of
@@ -165,12 +165,11 @@ parameters::
 
 Now we are sure that ``Dataset().params`` will contain a ``threshold``
 attribute. This comes at the cost of flexibility since sections are not as
-malleable as other mutable mapping types as it only implements
-:meth:`~.Section.update` (see :ref:`mapping-interface`).
+malleable as other mutable mapping types.
 
 .. note::
 
-   The abstract parameters module is expecting that the parameters are storred
+   The abstract parameters module is expecting that the parameters are stored
    in a :class:`~collections.abc.MutableMapping`. The Section class implements
    *most* of what is needed to be mutable, but cannot delete keys.
 

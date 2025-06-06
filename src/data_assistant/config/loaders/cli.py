@@ -46,7 +46,7 @@ class CLILoader(ConfigLoader):
     string (:attr:`_DOT`).
     """
 
-    propose_hyphens: bool = True
+    allow_kebab: bool = True
     """Whether to propose parameters under both snake case `my_parameter`
     and kebab case `my-parameter`."""
 
@@ -60,9 +60,9 @@ class CLILoader(ConfigLoader):
         self.parser.add_argument("-h", "--help", action="store_true")
         self.parser.add_argument("--list-parameters", action="store_true")
 
-        self.keys = self.app.traits_recursive(recursive=True, aliases=True)
+        self.traits = self.app.traits_recursive(recursive=True, aliases=True)
 
-        for key, trait in self.keys.items():
+        for key, trait in self.traits.items():
             self.add_argument(key, trait)
 
         if _HAS_ARGCOMPLETE:
@@ -82,7 +82,7 @@ class CLILoader(ConfigLoader):
     def add_argument(self, key: str, trait: TraitType):
         """Add argument to the parser."""
         keys = [key]
-        if self.propose_hyphens:
+        if self.allow_kebab:
             keys.append(key.replace("_", "-"))
 
         flags = []
@@ -130,7 +130,7 @@ class CLILoader(ConfigLoader):
             hyphens = "-" if self.prefix == "one" else "--"
             lines = [
                 f"{hyphens}{k} ({get_trait_typehint(v, 'minimal')})"
-                for k, v in self.keys.items()
+                for k, v in self.traits.items()
             ]
             print("\n".join(lines), file=sys.stderr)
             self.app.exit()

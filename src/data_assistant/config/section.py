@@ -738,7 +738,7 @@ class Section(HasTraits):
         own_traits: bool = False,
         **metadata,
     ) -> abc.Generator[tuple[str, TraitType | type[Section]]]:
-        """Iterate over keys, traits, and values.
+        """Iterate over keys and traits.
 
         Traits are identical for class and instances. This method is thus used by
         class_traits_recursive, traits_recursive and keys.
