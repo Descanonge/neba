@@ -1,6 +1,7 @@
 """Test loaders and associated functionalities."""
 
 from tempfile import NamedTemporaryFile
+from typing import Any
 
 import pytest
 from hypothesis import given
@@ -14,8 +15,10 @@ from data_assistant.config.loaders.core import (
     DictLoader,
     FileLoader,
 )
+from data_assistant.config.loaders.json import JsonLoader
 from data_assistant.config.loaders.python import PyConfigContainer, PyLoader
 from data_assistant.config.loaders.toml import TomlkitLoader
+from data_assistant.config.loaders.yaml import YamlLoader
 from data_assistant.config.util import ConfigParsingError, MultipleConfigKeyError
 
 from ..conftest import todo
@@ -28,7 +31,7 @@ FILE_LOADERS: list[type[FileLoader]]
 
 
 class App(ApplicationBase, GenericConfig):
-    file_loaders = [PyLoader, TomlkitLoader]
+    file_loaders = [PyLoader, TomlkitLoader, YamlLoader, JsonLoader]
 
 
 App.config_files.default_value = []
@@ -113,7 +116,7 @@ class TestDictLoader:
         values_nest, values_flat = values
 
         app = App(argv=[], start=False)
-        app._init_subsections({})
+        # app._init_subsections({})
 
         loader = DictLoader(app)
         conf_cv = loader.get_config(values_nest)
@@ -167,21 +170,33 @@ def test_file_choose_loader():
     assert 0
 
 
-class TestTomlLoader:
-    def test_reading(self):
+class FileLoaderTest:
+    ext: str
+
+    convert_set_tuple = True
+
+    def get_conf(self) -> tuple[dict, dict]:
         app = App(start=False)
-        app.config_files = "./tests/unit/config.toml"
-        conf = app.load_config_files()
+        app.config_files = f"./tests/unit/config{self.ext}"
+        conf: dict[str, Any] = app.load_config_files()
         conf = {k: v.get_value() for k, v in conf.items()}
 
-        # toml only outputs lists so here we convert them
-        # Traitlets does this otherwise
         ref = {k: v[1] for k, v in GenericConfigInfo.generic_args().items()}
-        conf = {
-            k: tuple(v) if isinstance(ref[k], tuple) else v for k, v in conf.items()
-        }
-        conf = {k: set(v) if isinstance(ref[k], set) else v for k, v in conf.items()}
 
+        if self.convert_set_tuple:
+            # toml, yaml, json only outputs lists so here we convert them
+            # Traitlets does this otherwise but here we check the conf dict directly
+            conf = {
+                k: tuple(v) if isinstance(ref[k], tuple) else v for k, v in conf.items()
+            }
+            conf = {
+                k: set(v) if isinstance(ref[k], set) else v for k, v in conf.items()
+            }
+
+        return ref, conf
+
+    def test_reading(self):
+        ref, conf = self.get_conf()
         assert conf == ref
 
     @given(values=GenericConfigInfo.values_half_strat())
@@ -210,7 +225,7 @@ class TestTomlLoader:
             app[k] = v
             ref[k] = v
 
-        with NamedTemporaryFile(suffix=".toml") as conf_file:
+        with NamedTemporaryFile(suffix=self.ext) as conf_file:
             filename = conf_file.name
             app.write_config(filename, clobber="overwrite", comment="none")
 
@@ -220,13 +235,18 @@ class TestTomlLoader:
         for k in ref:
             assert app[k] == values[k]
 
+
+class TestTomlLoader(FileLoaderTest):
+    ext = ".toml"
+
     @todo
     def test_duplicate_keys(self):
         assert 0
 
 
-class TestPythonLoader:
-    """Test loading from executing python file."""
+class TestPythonLoader(FileLoaderTest):
+    ext = ".py"
+    convert_set_tuple = False
 
     def test_pyconfig_container(self):
         """Test behavior of the `c` container object."""
@@ -252,54 +272,17 @@ class TestPythonLoader:
         """Test when file throw exception."""
         assert 0
 
-    def test_reading(self):
-        app = App(argv=[])
-        app.config_files = "./tests/unit/config.py"
-        conf = app.load_config_files()
-        conf = {k: v.get_value() for k, v in conf.items()}
-
-        ref = {k: v[1] for k, v in GenericConfigInfo.generic_args().items()}
-
-        assert conf == ref
-
-    @given(values=GenericConfigInfo.values_half_strat())
-    def test_write_and_read_half(self, values: dict):
-        self.assert_write_read(values)
-
-    @given(values=GenericConfigInfo.values_all_strat())
-    def test_write_and_read_all(self, values: dict):
-        self.assert_write_read(values)
-
-    def assert_write_read(self, values: dict):
-        app = App(argv=[])
-        traits = app.traits_recursive()
-        defaults = app.defaults_recursive()
-        ref = {}
-        for k, v in values.items():
-            # Instances/Types must be imported in config file, not automatic yet
-            if type(traits[k]) in [Instance]:
-                continue
-            if v == defaults[k]:
-                continue
-            ref[k] = v
-            app[k] = v
-
-        with NamedTemporaryFile(suffix=".py") as conf_file:
-            filename = conf_file.name
-            app.write_config(filename, clobber="overwrite", comment="none")
-
-            for line in conf_file.readlines():
-                print(line)
-
-            App.config_files = [filename]
-            app = App(argv=[])
-
-        for k in ref:
-            assert app[k] == values[k]
-
     @todo
     def test_duplicate_keys(self):
         assert 0
+
+
+class TestYamlLoader(FileLoaderTest):
+    ext = ".yaml"
+
+
+class TestJsonLoader(FileLoaderTest):
+    ext = ".json"
 
 
 # Parametrize for all loaders

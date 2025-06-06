@@ -23,10 +23,7 @@ log = logging.getLogger(__name__)
 
 
 class YamlLoader(DictLikeLoaderMixin, FileLoader):
-    """Loader for Yaml files.
-
-    :Experimental:
-    """
+    """Loader for Yaml files."""
 
     extensions = ["yaml", "yml"]
 
