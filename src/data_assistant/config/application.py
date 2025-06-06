@@ -249,7 +249,7 @@ class ApplicationBase(Section, LoggingConfigurable):
             }
             if not subconf:
                 continue
-            traits = section.traits_recursive(config=True, flatten=True)
+            traits = section.traits_recursive(config=True)
 
             # TODO: maybe do it nested
             lines += [header, name]
