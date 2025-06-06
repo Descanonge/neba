@@ -863,12 +863,18 @@ class Section(HasTraits):
         def recurse(d: abc.Mapping, fullpath: list[str], section: type[Section]):
             for key, val in d.items():
                 newpath = fullpath + [key]
+                fullkey = ".".join(newpath)
                 if key in section._subsections:
+                    if not isinstance(val, abc.Mapping):
+                        raise KeyError(
+                            f"{fullkey} corresponds to a subsection, "
+                            "it should be a Mapping."
+                        )
                     recurse(val, newpath, section._subsections[key].klass)
                     continue
-                flat[".".join(newpath)] = val
+                flat[fullkey] = val
 
-        recurse(flat, [], cls)
+        recurse(nested, [], cls)
         return flat
 
     @classmethod
