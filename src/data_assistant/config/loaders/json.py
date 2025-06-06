@@ -15,14 +15,13 @@ class JsonEncoderTypes(json.JSONEncoder):
             mod = o.__module__
             name = o.__name__
             return f"{mod}.{name}"
+        if isinstance(o, set):
+            return list(o)
         return super().default(o)
 
 
 class JsonLoader(FileLoader, DictLikeLoaderMixin):
-    """Loader for JSON files.
-
-    :Experimental:
-    """
+    """Loader for JSON files."""
 
     extensions = ["json"]
 
@@ -30,10 +29,6 @@ class JsonLoader(FileLoader, DictLikeLoaderMixin):
     """Custom json decoder to use."""
     JSON_ENCODER: type[json.JSONEncoder] | None = JsonEncoderTypes
     """Custom json encoder to use."""
-
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self.app.log.warning("%s loader is experimental.", self.__class__)
 
     def load_config(self) -> abc.Iterator[ConfigValue]:
         """Populate the config attribute from TOML file.
