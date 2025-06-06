@@ -29,7 +29,7 @@ class ApplicationBase(Section, LoggingConfigurable):
     Orchestrate the loading of configuration keys from files or from command line
     arguments.
     Pass the combined configuration keys to the appropriate sections in the configuration
-    tree structure. This validate the values and instanciate the configuration objects.
+    tree structure. This validate the values and instantiate the configuration objects.
 
     This is a singleton, only one instance is allowed. See :class:`SingletonSection` for
     details.
@@ -69,15 +69,15 @@ class ApplicationBase(Section, LoggingConfigurable):
         ),
     )
 
-    auto_instanciate = Bool(
+    auto_instantiate = Bool(
         True,
         help=(
             """
-            Instanciate all sections in the configuration tree at application start.
+            Instantiate all sections in the configuration tree at application start.
 
-            Instanciation is necessary to fully validate the values of the configuration
-            parameters, but in case systematic instanciation is unwanted this can be
-            disabled (for example in case of costly instanciations)."""
+            Instantiation is necessary to fully validate the values of the configuration
+            parameters, but in case systematic instantiation is unwanted this can be
+            disabled (for example in case of costly instantiations)."""
         ),
     )
 
@@ -172,7 +172,7 @@ class ApplicationBase(Section, LoggingConfigurable):
     """Extra parameters passed to the command line parser."""
 
     def __init__(self, /, start: bool = True, **kwargs) -> None:
-        # No super.__init__, it would instanciate recursively subsections
+        # No super.__init__, it would instantiate recursively subsections
 
         self.conf = {}
         self.cli_conf = {}
@@ -262,7 +262,7 @@ class ApplicationBase(Section, LoggingConfigurable):
         self,
         argv: list[str] | None = None,
         ignore_cli: bool | None = None,
-        instanciate: bool | None = None,
+        instantiate: bool | None = None,
     ) -> None:
         """Initialize and start application.
 
@@ -270,11 +270,11 @@ class ApplicationBase(Section, LoggingConfigurable):
         - Load configuration file(s)
         - Merge configurations
         - (Re)Apply configuration to Application
-        - Instanciate sections objects (optional)
+        - Instantiate sections objects (optional)
 
-        Instanciation is necessary to fully validate the values of the configuration
-        parameters, but in case systematic instanciation is unwanted this can be
-        disabled (for example in case of costly instanciations).
+        Instantiation is necessary to fully validate the values of the configuration
+        parameters, but in case systematic instantiation is unwanted this can be
+        disabled (for example in case of costly instantiations).
 
         Parameters
         ----------
@@ -284,9 +284,9 @@ class ApplicationBase(Section, LoggingConfigurable):
         ignore_cli
             If True, do not parse command line arguments. If not None, this argument
             overrides :attr:`ignore_cli`.
-        instanciate
-            If True, instanciate all sections. If not None, this argument overrides
-            :attr:`auto_instanciate`.
+        instantiate
+            If True, instantiate all sections. If not None, this argument overrides
+            :attr:`auto_instantiate`.
         """
         # TODO: Catch errors and silence them if setting is not strict
         # Parse CLI first
@@ -306,9 +306,9 @@ class ApplicationBase(Section, LoggingConfigurable):
         # Apply config relevant to this instance (only self, not recursive)
         self._init_direct_traits(self.conf)
 
-        if instanciate is None:
-            instanciate = self.auto_instanciate
-        if instanciate:
+        if instantiate is None:
+            instantiate = self.auto_instantiate
+        if instantiate:
             self._init_subsections(self.conf)
 
     def _create_cli_loader(

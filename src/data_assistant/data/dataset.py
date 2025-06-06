@@ -77,7 +77,7 @@ class HasModules:
             type_attrs.append(spec.type_attr)
             inst_attrs.append(spec.instance_attr)
 
-    def _instanciate_modules(self, *args, **kwargs) -> None:
+    def _instantiate_modules(self, *args, **kwargs) -> None:
         self._modules = {}
 
         for spec in self._registered_modules:
@@ -100,11 +100,11 @@ class HasModules:
                     spec.type,
                 )
 
-            # Instanciate module, still permissive.
+            # Instantiate module, still permissive.
             try:
                 mod = mod_type(*args, **kwargs)
             except Exception as e:
-                log.warning("Error when instanciating module %s", mod_type, exc_info=e)
+                log.warning("Error when instantiating module %s", mod_type, exc_info=e)
 
             # link to data manager instance
             mod.dm = self  # type: ignore
@@ -165,7 +165,7 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data], HasModules, Section):
     _Loader: type[LoaderAbstract] = LoaderAbstract[T_Source, T_Data]
     _Writer: type[WriterAbstract] = WriterAbstract[T_Source, T_Data]
 
-    # Instanciated at init
+    # Instantiated at init
     _reset_callbacks: dict[str, abc.Callable[..., None]]
     """Dictionary of callbacks to run when parameters are changed/reset.
 
@@ -189,7 +189,7 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data], HasModules, Section):
 
         Section.__init__(self, config)
 
-        self._instanciate_modules(params=params, **kwargs)
+        self._instantiate_modules(params=params, **kwargs)
         self._init_modules()
         if params is not None or kwargs:
             self.update_params(params, **kwargs)

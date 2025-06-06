@@ -74,15 +74,15 @@ Defining new modules
 --------------------
 
 Dataset managers are initialized with an optional argument giving the
-parameters, and additional keyword arguments. All modules are instanciated with
+parameters, and additional keyword arguments. All modules are instantiated with
 the same arguments. Immediately after, their :attr:`~.Module.dm` attribute is
-set to the containing data manager. Once they are all instanciated, they are
+set to the containing data manager. Once they are all instantiated, they are
 initialized using the :meth:`.Module._init_module` method. This allow to be
 (mostly) sure that all other module exist if there is need for interplay.
 
 .. note::
 
-   *Mostly* because if a module fails to instanciate it will only log a warning,
+   *Mostly* because if a module fails to instantiate it will only log a warning,
    and will not be accessible.
 
 The *_init_module()* method is planned for inheritance cooperation. Each new
@@ -208,7 +208,7 @@ Module mixes
 
 Modules can be compounded together in some cases. The common API for this is
 contained in :class:`.ModuleMix`. This generates a module with multiple 'base
-modules'. It will instanciate and initialize all modules and store them in
+modules'. It will instantiate and initialize all modules and store them in
 :attr:`.ModuleMix.base_modules`.
 
 This is used for instance to obtain the :class:`union<.SourceUnion>` or

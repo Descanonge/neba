@@ -167,8 +167,8 @@ class TestDefinition(SectionTest):
                 aliases = {"short": "alias"}
 
 
-class TestInstanciation(SectionTest):
-    """Test instanciation of Sections.
+class TestInstantiation(SectionTest):
+    """Test instantiation of Sections.
 
     Make sure the recursive config is passed correctly.
 
@@ -196,7 +196,7 @@ class TestInstanciation(SectionTest):
 
     @given(values=GenericConfigInfo.values_strat())
     def test_recursive(self, values: dict):
-        """Recursive instanciation (with subsection)."""
+        """Recursive instantiation (with subsection)."""
         info = GenericConfigInfo
         s = info.section(values)
         for key in info.traits_total:

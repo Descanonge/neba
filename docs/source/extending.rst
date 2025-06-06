@@ -127,7 +127,7 @@ is referencing a parameter when specifying another. OmegaConf calls it
 :external+omegaconf:ref:`interpolation`.
 
 A first, simple implementation seems feasible. After loading configuration, we
-have a flat, fully resolved configuration. Before instanciating the sections, it
+have a flat, fully resolved configuration. Before instantiating the sections, it
 should be possible to apply interpolation: any value that is a string could be
 examined and if mention of another parameter is made, it could be replaced.
 Circle referencing should be checked.

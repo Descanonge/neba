@@ -105,7 +105,7 @@ class ModuleMix(t.Generic[T_Mod], Module):
 
     This is an abstract class and should be used as a base for creating specific mixes.
     This abstract class initialize every module in the mix.
-    Mixes are intended to be instanciated with the class method :meth:`create`.
+    Mixes are intended to be instantiated with the class method :meth:`create`.
     """
 
     T_Self = t.TypeVar("T_Self", bound="ModuleMix[T_Mod]")

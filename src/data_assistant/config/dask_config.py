@@ -541,14 +541,14 @@ class DaskConfig(Section):
     def start(self, **kwargs: t.Any):
         """Start Dask distributed client.
 
-        This method instanciates a subclass of :class:`DaskClusterAbstract` in
+        This method instantiates a subclass of :class:`DaskClusterAbstract` in
         ``self.dask``, which will start the Cluster specified by
         :attr:`DaskClusterAbstract.cluster_class` and the associated
         :class:`distributed.Client`. Both are accessible as attributes
         :attr:`dask.client` and :attr:`dask.cluster`
 
         The cluster can either be a :class:`LocalCluster` or one of the clusters
-        supported by :mod:`dask-jobqueue`. The cluster is instanciated with the
+        supported by :mod:`dask-jobqueue`. The cluster is instantiated with the
         parameters specified in the configuration, and can be overriden by
         ``kwargs``.
 

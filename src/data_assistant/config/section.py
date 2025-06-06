@@ -265,7 +265,7 @@ class Section(HasTraits):
             setattr(self, name, sub_inst)
 
     def postinit(self):
-        """Run any instructions after instanciation.
+        """Run any instructions after instantiation.
 
         This allows to set/modify traits depending on other traits values.
         """

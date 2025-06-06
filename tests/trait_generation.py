@@ -62,7 +62,7 @@ class TraitGenerator(t.Generic[T_Trait]):
     allow_none
         Same as trait parameter. If True, the value strategy can draw None.
     kwargs
-        Will be passed when instanciating trait.
+        Will be passed when instantiating trait.
     """
 
     traittype: type[T_Trait]
@@ -97,7 +97,7 @@ class TraitGenerator(t.Generic[T_Trait]):
         return self.st_value()
 
     def draw_pre_instance(self, draw: Drawer, **kwargs) -> dict[str, t.Any]:
-        """Generate keyword arguments for instanciation.
+        """Generate keyword arguments for instantiation.
 
         Merge attribute :attr:`kwargs` and argument *kwargs*, draw default value and
         add to the kwargs.

@@ -12,7 +12,7 @@ with this package.
 The features managed by the modules presented underneath inherit from abstract
 classes that define the API for that feature. Note that they are not defined
 through the :external+python:mod:`abc` module, and thus will not raise if
-instanciated. These classes are more guidelines than strict protocols.
+instantiated. These classes are more guidelines than strict protocols.
 
 .. note:: For developers
 
