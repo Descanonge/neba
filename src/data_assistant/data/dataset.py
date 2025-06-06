@@ -227,7 +227,24 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data], HasModules, Section):
         # maybe separate section into FrozenSection and Section(FrozenSection)?
         return self.params_manager._params
 
-    def set_params(
+    def update_params(
+        self, params: t.Any | None = None, reset: bool | list[str] = True, **kwargs
+    ):
+        """Update one or more parameters values.
+
+        Other parameters are kept.
+
+        Parameters
+        ----------
+        reset:
+            Passed to :meth:`reset`.
+        kwargs:
+            Other parameters values in the form ``name=value``.
+        """
+        self.params_manager.set_params(params, **kwargs)
+        self.reset(reset)
+
+    def reset_params(
         self, params: t.Any | None = None, reset: bool | list[str] = True, **kwargs
     ):
         """Set parameters values.
@@ -243,24 +260,7 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data], HasModules, Section):
             Parameters will be taken in order of first available in:
             ``kwargs``, ``params``, :attr:`PARAMS_DEFAULTS`.
         """
-        self.params_manager.set_params(params, **kwargs)
-        self.reset(reset)
-
-    def update_params(
-        self, params: t.Any | None = None, reset: bool | list[str] = True, **kwargs
-    ):
-        """Update one or more parameters values.
-
-        Other parameters are kept.
-
-        Parameters
-        ----------
-        reset:
-            Passed to :meth:`reset`.
-        kwargs:
-            Other parameters values in the form ``name=value``.
-        """
-        self.params_manager.update_params(params, **kwargs)
+        self.params_manager.reset_params(params, **kwargs)
         self.reset(reset)
 
     def save_excursion(self, save_cache: bool = False) -> _ParamsContext:
@@ -416,7 +416,7 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data], HasModules, Section):
         data = []
         with self.save_excursion():
             for p_map in params_maps:
-                self.set_params(p_map)
+                self.reset_params(p_map)
                 data.append(self.get_data(**kwargs))
 
         return data
