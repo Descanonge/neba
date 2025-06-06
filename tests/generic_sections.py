@@ -119,7 +119,7 @@ class SectionInfo(t.Generic[S]):
 
     @classmethod
     def values_strat_nested(cls) -> st.SearchStrategy[tuple[dict, dict]]:
-        """Strategy of values for a random selection of keys."""
+        """Strategy of values for a random selection of keys (both flat and nested)."""
 
         @st.composite
         def strat(draw: Drawer) -> tuple[dict, dict]:

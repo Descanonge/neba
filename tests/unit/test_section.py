@@ -561,6 +561,58 @@ class TestResolveKey(SectionTest):
         assert_bad_key("empty_b.empty_c.invalid_trait")
 
 
+class TestNestFlatten(SectionTest):
+    single_level_flat = dict(int=0, bool=1, str=2)
+
+    two_levels_flat = {
+        "int": 0,
+        "bool": 1,
+        "sub_generic.int": 10,
+        "sub_generic.bool": 11,
+        "sub_generic.str": 12,
+        "sub_generic.enum_int": 13,
+        "twin_a.int": 20,
+        "twin_a.list_int": 21,
+    }
+    two_levels_nested = dict(
+        int=0,
+        bool=1,
+        sub_generic=dict(int=10, bool=11, str=12, enum_int=13),
+        twin_a=dict(int=20, list_int=21),
+    )
+
+    deep_flat = {
+        "deep_sub.sub_generic_deep.int": 0,
+        "deep_sub.sub_generic_deep.bool": 1,
+    }
+    deep_nested = {"deep_sub": {"sub_generic_deep": {"int": 0, "bool": 1}}}
+
+    def test_nest_dict(self, section: GenericConfig):
+        assert section.nest_dict({}) == {}
+        assert section.nest_dict(self.single_level_flat) == self.single_level_flat
+        assert section.nest_dict(self.two_levels_flat) == self.two_levels_nested
+        assert section.nest_dict(self.deep_flat) == self.deep_nested
+
+    def test_flatten_dict(self, section: GenericConfig):
+        assert section.flatten_dict({}) == {}
+        assert section.flatten_dict(self.single_level_flat) == self.single_level_flat
+        assert section.flatten_dict(self.two_levels_nested) == self.two_levels_flat
+        assert section.flatten_dict(self.deep_nested) == self.deep_flat
+
+    @given(flat=GenericConfigInfo.values_strat())
+    def test_flat_to_nest_around(self, flat: dict):
+        section = GenericConfigInfo.section
+        nested = section.nest_dict(flat)
+        assert flat == section.flatten_dict(nested)
+
+    @given(dicts=GenericConfigInfo.values_strat_nested())
+    def test_flat_and_nested(self, dicts: dict):
+        nested, flat = dicts
+        section = GenericConfigInfo.section
+        assert nested == section.nest_dict(flat)
+        assert flat == section.flatten_dict(nested)
+
+
 @todo
 def test_merge_configs():
     """Test merge two different configuration dicts."""
