@@ -45,11 +45,6 @@ class TestStartup:
 
 class TestCLIParsing:
     @todo
-    def test_parse_argv(self):
-        # parse *those* argv and not default
-        assert 0
-
-    @todo
     def test_add_extra_parameter(self):
         # check it adds stuff in the right places
         assert 0
@@ -63,7 +58,7 @@ class TestCLIParsing:
 @todo
 def test_resolve_config():
     # normal keys
-    # class keys
+    # orphan keys
     # aliases
     assert 0
 

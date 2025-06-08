@@ -292,35 +292,3 @@ class TestConfigLoader:
     def test_application_traits(self):
         """Check application traits are applied."""
         assert 0
-
-
-# Parametrize for all file loaders
-@todo
-def test_reading():
-    """Test reading a configuration file.
-
-    File is written by hand to change some values from default.
-    """
-    assert 0
-
-
-# Parametrize for all file loaders
-@todo
-def test_to_lines_some():
-    # for the typical section
-    # change SOME values
-    # to_lines in a temp file
-    # read file
-    # check same values
-    assert 0
-
-
-# Parametrize for all file loaders
-@todo
-def test_to_lines_all():
-    # for the typical section
-    # specify ALL values
-    # to_lines in a temp file
-    # read file
-    # check same values
-    assert 0
