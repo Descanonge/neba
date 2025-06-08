@@ -45,43 +45,53 @@ class SectionInfo(t.Generic[S]):
     the names of traits.
     """
 
-    # TODO add aliases
-
     section: type[S]
-    subsections: dict[str, "SectionInfo"] = {}
+    subsections: dict[str, type["SectionInfo"]] = {}
+    aliases: dict[str, type["SectionInfo"]] = {}
 
     traits: dict[str, TraitType] = {}
 
-    traits_this_level: list[str]
-    """Names of traits in this section."""
-    traits_total: list[str]
-    """Names of traits in this section and its subsections."""
-    keys_this_level: list[str]
-    """Names of traits and subschemes for this section."""
-    keys_total: list[str]
-    """Names of all traits and subschemes."""
+    cache: dict[tuple[bool, bool, bool], t.Any] = {}
 
-    def __init_subclass__(cls) -> None:
-        # make copies to avoid interferences
+    def __init_subclass__(cls):
+        # Make copies
+        cls.cache = {}
         cls.traits = dict(cls.traits)
         cls.subsections = dict(cls.subsections)
+        cls.aliases = dict(cls.aliases)
 
-        cls.traits_this_level = list(cls.traits.keys())
-        cls.traits_this_level.sort()
+    @classmethod
+    def keys(
+        cls, subsections: bool = False, recursive: bool = True, aliases: bool = False
+    ) -> list[str]:
+        """Names of traits in this section and its subsections."""
+        cache_key = (subsections, recursive, aliases)
+        if (cache_out := cls.cache.get(cache_key, None)) is not None:
+            return cache_out
 
-        cls.keys_this_level = list(cls.traits_this_level)
-        cls.traits_total = list(cls.traits_this_level)
-        cls.keys_total = list(cls.traits_this_level)
-
-        # recurse in subsections
+        traits = list(cls.traits.keys())
+        traits.sort()
         for name, sub_info in cls.subsections.items():
-            # subsection is a key
-            cls.keys_this_level.append(name)
+            if subsections:
+                traits.append(name)
+            if not recursive:
+                continue
+            traits += [
+                f"{name}.{k}" for k in sub_info.keys(subsections, recursive, aliases)
+            ]
 
-            cls.traits_total += [f"{name}.{k}" for k in sub_info.traits_total]
+        if aliases:
+            for short, target in cls.aliases.items():
+                if subsections:
+                    traits.append(short)
+                if not recursive:
+                    continue
+                traits += [
+                    f"{short}.{k}" for k in target.keys(subsections, recursive, aliases)
+                ]
 
-            cls.keys_total.append(name)
-            cls.keys_total += [f"{name}.{k}" for k in sub_info.keys_total]
+        cls.cache[cache_key] = traits
+        return traits
 
     @classmethod
     def default(cls, key: str) -> t.Any:
@@ -90,7 +100,11 @@ class SectionInfo(t.Generic[S]):
             trait = cls.traits[key]
             return trait.default()
         sub, *subkey = key.split(".")
-        return cls.subsections[sub].default(".".join(subkey))
+        if sub in cls.aliases:
+            subinfo = cls.aliases[sub]
+        else:
+            subinfo = cls.subsections[sub]
+        return subinfo.default(".".join(subkey))
 
     @classmethod
     def generic_args(cls) -> dict[str, tuple[list[str], t.Any]]:
@@ -104,26 +118,30 @@ class SectionInfo(t.Generic[S]):
             trait = cls.traits[key]
             return trait_to_strat(trait)
         sub, *subkey = key.split(".")
-        return cls.subsections[sub].value_strat(".".join(subkey))
+        if sub in cls.aliases:
+            subinfo = cls.aliases[sub]
+        else:
+            subinfo = cls.subsections[sub]
+        return subinfo.value_strat(".".join(subkey))
 
     @classmethod
-    def values_strat(cls) -> st.SearchStrategy[dict]:
+    def values_strat(cls, **kwargs) -> st.SearchStrategy[dict]:
         """Strategy of values for a random selection of keys."""
 
         @st.composite
-        def strat(draw: Drawer) -> dict:
-            keys = draw(st.lists(st.sampled_from(cls.traits_total)))
+        def strat(draw: Drawer, **kwargs) -> dict:
+            keys = draw(st.lists(st.sampled_from(cls.keys(**kwargs))))
             return {key: draw(cls.value_strat(key)) for key in keys}
 
-        return strat()
+        return strat(**kwargs)
 
     @classmethod
-    def values_strat_nested(cls) -> st.SearchStrategy[tuple[dict, dict]]:
+    def values_strat_nested(cls, **kwargs) -> st.SearchStrategy[tuple[dict, dict]]:
         """Strategy of values for a random selection of keys (both flat and nested)."""
 
         @st.composite
-        def strat(draw: Drawer) -> tuple[dict, dict]:
-            keys = draw(st.lists(st.sampled_from(cls.traits_total)))
+        def strat(draw: Drawer, **kwargs) -> tuple[dict, dict]:
+            keys = draw(st.lists(st.sampled_from(cls.keys(**kwargs))))
             out_nest: dict = {}
             out_flat: dict = {}
             for key in keys:
@@ -137,33 +155,33 @@ class SectionInfo(t.Generic[S]):
                 out_flat[key] = value
             return out_nest, out_flat
 
-        return strat()
+        return strat(**kwargs)
 
     @classmethod
-    def values_half_strat(cls) -> st.SearchStrategy[dict]:
+    def values_half_strat(cls, **kwargs) -> st.SearchStrategy[dict]:
         """Strategy of values for half of keys."""
 
         @st.composite
-        def strat(draw: Drawer) -> dict:
+        def strat(draw: Drawer, **kwargs) -> dict:
             out = {
                 k: draw(cls.value_strat(k))
-                for i, k in enumerate(cls.traits_total)
+                for i, k in enumerate(cls.keys(**kwargs))
                 if i % 2 == 0
             }
             return out
 
-        return strat()
+        return strat(**kwargs)
 
     @classmethod
-    def values_all_strat(cls) -> st.SearchStrategy[dict]:
+    def values_all_strat(cls, **kwargs) -> st.SearchStrategy[dict]:
         """Strategy of values for all keys."""
 
         @st.composite
-        def strat(draw: Drawer) -> dict:
-            out = {k: draw(cls.value_strat(k)) for k in cls.traits_total}
+        def strat(draw: Drawer, **kwargs) -> dict:
+            out = {k: draw(cls.value_strat(k)) for k in cls.keys(**kwargs)}
             return out
 
-        return strat()
+        return strat(**kwargs)
 
 
 class GenericSection(Section):
@@ -304,6 +322,11 @@ class TwinSubsectionInfo(SectionInfo):
 class GenericConfig(GenericSection):
     """An example configuration with nested configuration."""
 
+    aliases = {
+        "empty_short": "empty_b.empty_c",
+        "deep_short": "deep_sub.sub_generic_deep",
+    }
+
     sub_generic = Subsection(GenericSection)
 
     twin_a = Subsection(TwinSubsection)
@@ -325,12 +348,12 @@ class GenericConfig(GenericSection):
 
 class SubTwinInfo(SectionInfo):
     section = GenericConfig._sub_twinSectionDef
-    subsections = dict(twin_c=TwinSubsectionInfo())
+    subsections = dict(twin_c=TwinSubsectionInfo)
 
 
 class DeepSubInfo(SectionInfo):
     section = GenericConfig._deep_subSectionDef
-    subsections = dict(sub_generic_deep=GenericSectionInfo())
+    subsections = dict(sub_generic_deep=GenericSectionInfo)
 
 
 class Empty_a_Info(SectionInfo):
@@ -343,20 +366,25 @@ class Empty_c_Info(SectionInfo):
 
 class Empty_b_Info(SectionInfo):
     section = GenericConfig._empty_bSectionDef
-    subsections = dict(empty_c=Empty_c_Info())
+    subsections = dict(empty_c=Empty_c_Info)
 
 
 class GenericConfigInfo(GenericSectionInfo):
     section = GenericConfig
     subsections = dict(
-        sub_generic=GenericSectionInfo(),
-        twin_a=TwinSubsectionInfo(),
-        twin_b=TwinSubsectionInfo(),
-        sub_twin=SubTwinInfo(),
-        deep_sub=DeepSubInfo(),
-        empty_a=Empty_a_Info(),
-        empty_b=Empty_b_Info(),
+        sub_generic=GenericSectionInfo,
+        twin_a=TwinSubsectionInfo,
+        twin_b=TwinSubsectionInfo,
+        sub_twin=SubTwinInfo,
+        deep_sub=DeepSubInfo,
+        empty_a=Empty_a_Info,
+        empty_b=Empty_b_Info,
     )
+
+    aliases = {
+        "empty_short": Empty_c_Info,
+        "deep_short": GenericSectionInfo,
+    }
 
     @classmethod
     def generic_args(cls) -> dict[str, tuple[list[str], t.Any]]:

@@ -194,7 +194,7 @@ class Section(HasTraits):
         # Check aliases
         for short, alias in cls.aliases.items():
             if "." in short:
-                raise ValueError("Not '.' allowed in aliases short keys.")
+                raise ValueError(f"Invalid alias '{short}': '.' is not allowed.")
             subsection_cls = cls
             for key in alias.split("."):
                 try:
