@@ -192,7 +192,7 @@ class PyLoader(FileLoader):
                 lines.append("")
 
         for name in sorted(section._subsections):
-            subsection = section._subsections[name].klass
+            subsection = section._subsections[name]
 
             lines.append("")
             lines.append(f"## {subsection.__class__.__name__} (.{name}) ##")

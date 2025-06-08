@@ -107,7 +107,7 @@ class Section(HasTraits):
 
     _application_cls: type[ApplicationBase] | None = None
 
-    _subsections: dict[str, Subsection[Section]] = {}
+    _subsections: dict[str, type[Section]] = {}
     """Mapping of nested Section classes."""
 
     _attr_completion_only_traits: bool = False
@@ -182,7 +182,7 @@ class Section(HasTraits):
             if isinstance(v, Subsection):
                 v.klass._parent = cls
                 v.klass._name = k
-                cls._subsections[k] = v
+                cls._subsections[k] = v.klass
 
         # add ancestors subsections
         for base in cls.__bases__:
@@ -196,7 +196,7 @@ class Section(HasTraits):
             subsection_cls = cls
             for key in alias.split("."):
                 try:
-                    subsection_cls = subsection_cls._subsections[key].klass
+                    subsection_cls = subsection_cls._subsections[key]
                 except KeyError as err:
                     raise KeyError(
                         f"Alias '{short}:{alias}' in {cls.__name__} malformed."
@@ -261,7 +261,7 @@ class Section(HasTraits):
             for k in subconfig:
                 config.pop(k)
             subconfig = {k.removeprefix(prefix): v for k, v in subconfig.items()}
-            sub_inst = subcls.klass(subconfig)
+            sub_inst = subcls(subconfig)
             setattr(self, name, sub_inst)
 
     def postinit(self):
@@ -665,7 +665,7 @@ class Section(HasTraits):
         section.add_traits(**{trait_name: trait})
         # need to update the subsection klass
         if (parent := section._parent) is not None:
-            parent._subsections[section._name].klass = section.__class__
+            parent._subsections[section._name] = section.__class__
 
     def as_dict(
         self, recursive: bool = True, aliases: bool = False, nest: bool = False
@@ -763,12 +763,12 @@ class Section(HasTraits):
         traits = {k: v for k, v in traits.items() if not k.startswith("_")}
         yield from traits.items()
 
-        subs = {k: v.klass for k, v in cls._subsections.items()}
+        subs = {k: v for k, v in cls._subsections.items()}
         if aliases and recursive:
             for shortcut, alias in cls.aliases.items():
                 target = cls
                 for subname in alias.split("."):
-                    target = target._subsections[subname].klass
+                    target = target._subsections[subname]
                 subs[shortcut] = target
 
         for name, subsection in subs.items():
@@ -808,7 +808,7 @@ class Section(HasTraits):
     @classmethod
     def _subsections_recursive(cls) -> abc.Iterator[type[Section]]:
         """Iterate recursively over all subsections."""
-        for subsection in (v.klass for v in cls._subsections.values()):
+        for subsection in cls._subsections.values():
             yield from subsection._subsections_recursive()
         yield cls
 
@@ -848,7 +848,7 @@ class Section(HasTraits):
             subkeys = key.split(".")
             for i, subkey in enumerate(subkeys):
                 if subkey in section._subsections:
-                    section = section._subsections[subkey].klass
+                    section = section._subsections[subkey]
                     subconf = subconf.setdefault(subkey, {})
                 else:
                     subconf[".".join(subkeys[i:])] = val
@@ -870,7 +870,7 @@ class Section(HasTraits):
                             f"{fullkey} corresponds to a subsection, "
                             "it should be a Mapping."
                         )
-                    recurse(val, newpath, section._subsections[key].klass)
+                    recurse(val, newpath, section._subsections[key])
                     continue
                 flat[fullkey] = val
 
@@ -907,13 +907,13 @@ class Section(HasTraits):
         subsection = cls
         for subkey in prefix:
             if subkey in subsection._subsections:
-                subsection = subsection._subsections[subkey].klass
+                subsection = subsection._subsections[subkey]
                 fullkey.append(subkey)
             elif subkey in cls.aliases:
                 alias = cls.aliases[subkey].split(".")
                 fullkey += alias
                 for alias_subkey in alias:
-                    subsection = subsection._subsections[alias_subkey].klass
+                    subsection = subsection._subsections[alias_subkey]
             else:
                 secname = ".".join(fullkey) + " " if fullkey else ""
                 secname += f"({_subsection_clsname(subsection)})"
@@ -1004,7 +1004,7 @@ class Section(HasTraits):
 
         for name in sorted(cls._subsections):
             add_spacer(lines)
-            lines += cls._subsections[name].klass.emit_help(fullpath + [name])
+            lines += cls._subsections[name].emit_help(fullpath + [name])
 
         return lines
 

@@ -119,7 +119,7 @@ class TomlkitLoader(FileLoader, DictLikeLoaderMixin):
             self.wrap_comment(t, lines)
 
         for name in sorted(section._subsections):
-            subsection = section._subsections[name].klass
+            subsection = section._subsections[name]
             t.add(
                 name,
                 self.serialize_section(

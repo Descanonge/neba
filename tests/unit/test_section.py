@@ -68,10 +68,10 @@ class TestDefinition(SectionTest):
         cls_b = S._bSectionDef
         cls_c = S._bSectionDef._cSectionDef
 
-        assert issubclass(S._subsections["a"].klass, cls_a)
-        assert issubclass(S._subsections["b"].klass, cls_b)
-        assert issubclass(S._subsections["b"].klass._subsections["c"].klass, cls_c)
-        assert issubclass(S._subsections["normal"].klass, NormalSubsection)
+        assert issubclass(S._subsections["a"], cls_a)
+        assert issubclass(S._subsections["b"], cls_b)
+        assert issubclass(S._subsections["b"]._subsections["c"], cls_c)
+        assert issubclass(S._subsections["normal"], NormalSubsection)
 
         inst = S()
         assert isinstance(inst.a, cls_a)
@@ -187,8 +187,7 @@ class TestInstantiation(SectionTest):
     def test_subsections(self, info: GenericConfigInfo, section: GenericConfig):
         def test_subsection_class(info, section):
             for name, sub_info in info.subsections.items():
-                assert isinstance(section._subsections[name], Subsection)
-                assert issubclass(section._subsections[name].klass, sub_info.section)
+                assert issubclass(section._subsections[name], sub_info.section)
                 assert isinstance(section[name], sub_info.section)
                 test_subsection_class(sub_info, section[name])
 
