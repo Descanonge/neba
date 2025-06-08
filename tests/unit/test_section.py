@@ -411,6 +411,9 @@ class TestMutableMappingInterface(SectionTest):
             section.add_trait("dict_any", Int(1))
 
         # recursive (not adding sections)
+        section.add_trait("deep_sub.new_trait", Int(2))
+        assert "deep_sub.new_trait" in section
+
         section.add_trait("deep_sub.sub_generic_deep.new_trait", Int(10))
         assert "deep_sub.sub_generic_deep.new_trait" in section
         assert "new_trait" in section.deep_sub.sub_generic_deep.trait_names()

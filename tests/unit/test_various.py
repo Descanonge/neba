@@ -1,11 +1,9 @@
 """Test various functions of data_assistant.config.util."""
 
-import hypothesis.strategies as st
-from hypothesis import given
 from traitlets import Dict, Enum, Instance, Int, List, Tuple, Type, Unicode, Union
 
-from data_assistant.config.util import flatten_dict, get_trait_typehint, nest_dict
-from tests.util import st_varname
+from data_assistant.config.util import get_trait_typehint
+from tests.conftest import todo
 
 
 class TestTypehint:
@@ -176,8 +174,10 @@ class TestTypehint:
         self.valid(Union([Int(allow_none=True), Unicode(allow_none=True)]), **kw)
         self.valid(Union([Int(allow_none=True), Unicode()], allow_none=True), **kw)
 
+    @todo
     def test_deep_nest(self):
         assert 0
 
+    @todo
     def test_stringify_too_long(self):
         assert 0

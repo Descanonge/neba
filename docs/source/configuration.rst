@@ -293,6 +293,20 @@ with some specific input, see the docstring for details.
    :attr:`~.Section._attr_completion_only_traits` to True.
 
 
+.. warning::
+
+   Adding traits to a Section instance (via :meth:`~.Section.add_trait`,
+   :meth:`~.Section.update`, or :meth:`~.Section.setdefault`) internally creates a
+   new class and modifies in-place the section instance; something along
+   the lines of::
+
+       section.__class__ = type("NewClass", (section.__class__), ...)
+
+   References to section classes necessary to operate the nested structure are
+   updated accordingly, but this is a possibly dangerous operation and it would
+   be preferred to set traits statically.
+
+
 Obtaining subsets of all parameters
 -----------------------------------
 

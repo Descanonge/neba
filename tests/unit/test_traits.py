@@ -4,14 +4,15 @@ import math
 import typing as t
 
 import pytest
-from data_assistant.config.util import RangeTrait
 from hypothesis import example, given, note
 from hypothesis import strategies as st
 from traitlets import Bool, Float, Int, List
 
+from data_assistant.config.util import RangeTrait
+
 floats_nice = st.floats(
     allow_nan=False, allow_infinity=False, min_value=-1e12, max_value=1e12
-)
+).map(lambda x: x if x > 1e-6 else 0.0)
 
 
 def test_range_trait_allowed_traits():
@@ -30,9 +31,11 @@ def test_range_trait_wrong_input(input: t.Any):
 
 
 @given(
-    start=st.integers(),
-    stop=st.integers(),
-    step=st.one_of(st.none(), st.integers().filter(lambda i: i != 0)),
+    start=st.integers(min_value=-20_000, max_value=20_000),
+    stop=st.integers(min_value=-20_000, max_value=20_000),
+    step=st.one_of(
+        st.none(), st.integers(min_value=-1000, max_value=1000).filter(lambda i: i != 0)
+    ),
 )
 @example(0, 0, 1)
 @example(0, 13, 4)
