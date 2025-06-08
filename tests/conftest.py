@@ -24,3 +24,21 @@ def pytest_configure(config: pytest.Config):
 
 
 todo = pytest.mark.todo
+
+
+def pytest_collection_modifyitems(items):
+    module_order = [
+        "tests.unit.test_various",
+        "tests.unit.test_section",
+        "tests.unit.test_traits",
+        "tests.unit.test_loaders",
+        "tests.unit.test_application",
+    ]
+    module_mapping = {item: item.module.__name__ for item in items}
+    sorted_items = []
+    for module in module_order:
+        sorted_items_mod = [it for it, mod in module_mapping.items() if mod == module]
+        for it in sorted_items_mod:
+            module_mapping.pop(it)
+        sorted_items += sorted_items_mod
+    items[:] = sorted_items
