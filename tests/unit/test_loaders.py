@@ -103,10 +103,6 @@ class TestConfigValue:
         self.assert_parse(trait, ["a", "b"], ["a", "b"])
         self.assert_parse(trait, ["0", "a"], [0, "a"])
 
-    @todo
-    def test_aliases(self):
-        assert 0
-
 
 class TestDictLoader:
     """Test on python dict."""
@@ -149,10 +145,13 @@ class TestCLILoader:
             args.append(f"--{k}")
             args += arg
 
+        args += ["--deep_short.alias_only", "5"]
+
         app = App(start=False)
         parsed = app.parse_command_line(args)
 
         parsed = {k: v.get_value() for k, v in parsed.items()}
+        assert parsed.pop("deep_sub.sub_generic_deep.alias_only") == 5
         assert ref == parsed
 
     def test_duplicate_keys(self):
@@ -182,6 +181,8 @@ class FileLoaderTest:
         conf = {k: v.get_value() for k, v in conf.items()}
 
         ref = {k: v[1] for k, v in GenericConfigInfo.generic_args().items()}
+        # deal with alias resolution separately
+        ref["deep_sub.sub_generic_deep.alias_only"] = 5
 
         if self.convert_set_tuple:
             # toml, yaml, json only outputs lists so here we convert them

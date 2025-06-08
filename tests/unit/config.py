@@ -104,3 +104,6 @@ c.deep_sub.sub_generic_deep.type = "tests.trait_generation.DummySubclass"
 c.deep_sub.sub_generic_deep.union_num = 1
 c.deep_sub.sub_generic_deep.union_num_str = "a"
 c.deep_sub.sub_generic_deep.union_list = [1, 2]
+
+# hard coded in tests
+c.deep_short.alias_only = 5

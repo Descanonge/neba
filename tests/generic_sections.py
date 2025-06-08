@@ -227,6 +227,9 @@ class GenericSection(Section):
     union_num_str = Union([Int(), Float(), Unicode()], default_value="0")
     union_list = Union([Int(), List(Int())], default_value=[0])
 
+    # For alias testing, it won't superseed any other trait
+    alias_only = Int(0)
+
 
 class GenericSectionInfo(SectionInfo[GenericSection]):
     section = GenericSection
@@ -265,6 +268,8 @@ class GenericSectionInfo(SectionInfo[GenericSection]):
         union_num=Union([Int(), Float()], default_value=0.0),
         union_num_str=Union([Int(), Float(), Unicode()], default_value="0"),
         union_list=Union([Int(), List(Int())], default_value=[0]),
+        # For alias testing, it won't superseed any other trait
+        alias_only=Int(0),
     )
 
     @classmethod

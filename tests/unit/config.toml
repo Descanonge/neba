@@ -111,3 +111,7 @@ type = "tests.trait_generation.DummySubclass"
 union_num = 1
 union_num_str = "a"
 union_list = [1, 2]
+
+[deep_short]
+# hard coded in tests
+alias_only = 5

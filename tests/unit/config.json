@@ -88,5 +88,7 @@
             "union_num_str": "a",
             "union_list": [1, 2]
         }
-    }
+    },
+
+    "deep_short": {"alias_only": 5}
 }
