@@ -102,7 +102,7 @@ class Section(HasTraits):
 
     # Essentially for add_trait. We need to update the class stored in the parent
     # _subsections to section.__class__ (changed by add_traits)
-    _parent: Section | None = None
+    _parent: type[Section] | None = None
     _name: str = ""
 
     _application_cls: type[ApplicationBase] | None = None
@@ -646,10 +646,11 @@ class Section(HasTraits):
                 empty = subsection.klass
 
                 empty._name = name
-                empty._parent = section
+                empty._parent = section.__class__
                 subsection.__set_name__(section.__class__, name)
-                setattr(section.__class__, name, subsection.klass())
-                section._subsections[name] = subsection
+                setattr(section.__class__, name, subsection)
+                section._subsections[name] = empty
+                setattr(section.__class__, name, empty())
             else:
                 raise KeyError(
                     f"There is no section '{name}', and creating subsections "
@@ -663,9 +664,11 @@ class Section(HasTraits):
             raise KeyError(f"Trait '{key}' already exists.")
 
         section.add_traits(**{trait_name: trait})
-        # need to update the subsection klass
+        # need to update the subsections classes
         if (parent := section._parent) is not None:
             parent._subsections[section._name] = section.__class__
+        for subcls in section._subsections.values():
+            subcls._parent = section.__class__
 
     def as_dict(
         self, recursive: bool = True, aliases: bool = False, nest: bool = False
