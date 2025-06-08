@@ -353,7 +353,7 @@ class Section(HasTraits):
         """
         return [
             name
-            for name, _ in self._traits_iter(
+            for name, _ in self._iter_traits(
                 subsections=subsections,
                 recursive=recursive,
                 aliases=aliases,
@@ -709,7 +709,7 @@ class Section(HasTraits):
 
     @t.overload
     @classmethod
-    def _traits_iter(
+    def _iter_traits(
         cls,
         subsections: t.Literal[False],
         recursive: bool = ...,
@@ -720,7 +720,7 @@ class Section(HasTraits):
 
     @t.overload
     @classmethod
-    def _traits_iter(
+    def _iter_traits(
         cls,
         subsections: bool = ...,
         recursive: bool = ...,
@@ -730,7 +730,7 @@ class Section(HasTraits):
     ) -> abc.Generator[tuple[str, TraitType | type[Section]]]: ...
 
     @classmethod
-    def _traits_iter(
+    def _iter_traits(
         cls,
         subsections: bool = False,
         recursive: bool = True,
@@ -775,7 +775,7 @@ class Section(HasTraits):
             if subsections:
                 yield name, subsection
             if recursive:
-                subtraits = subsection._traits_iter(
+                subtraits = subsection._iter_traits(
                     subsections=subsections,
                     recursive=True,
                     aliases=aliases,
@@ -789,7 +789,7 @@ class Section(HasTraits):
         cls, nest: bool = False, aliases: bool = False, **metadata
     ) -> dict[str, TraitType]:
         """Return dictionnary of all traits."""
-        traits = dict(cls._traits_iter(subsections=False, aliases=aliases, **metadata))
+        traits = dict(cls._iter_traits(subsections=False, aliases=aliases, **metadata))
         if nest:
             traits = cls.nest_dict(traits)
         return traits
@@ -799,7 +799,7 @@ class Section(HasTraits):
         cls, nest: bool = False, aliases: bool = False, **metadata
     ) -> dict[str, t.Any]:
         """Return nested dictionnary of default traits values."""
-        traits = cls._traits_iter(subsections=False, aliases=aliases, **metadata)
+        traits = cls._iter_traits(subsections=False, aliases=aliases, **metadata)
         defaults = {k: t.default() for k, t in traits}
         if nest:
             defaults = cls.nest_dict(defaults)
