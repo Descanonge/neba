@@ -193,6 +193,8 @@ class Section(HasTraits):
 
         # Check aliases
         for short, alias in cls.aliases.items():
+            if "." in short:
+                raise ValueError("Not '.' allowed in aliases short keys.")
             subsection_cls = cls
             for key in alias.split("."):
                 try:
@@ -332,6 +334,7 @@ class Section(HasTraits):
         return configurables | subsections
 
     def copy(self) -> t.Self:
+        """Return a copy."""
         config = self.as_dict()
         return self.__class__(config)
 
@@ -647,10 +650,12 @@ class Section(HasTraits):
 
                 empty._name = name
                 empty._parent = section.__class__
+                # Set up Subsection descriptor
                 subsection.__set_name__(section.__class__, name)
                 setattr(section.__class__, name, subsection)
-                section._subsections[name] = empty
+                # Assign new instance
                 setattr(section.__class__, name, empty())
+                section._subsections[name] = empty
             else:
                 raise KeyError(
                     f"There is no section '{name}', and creating subsections "
@@ -767,7 +772,7 @@ class Section(HasTraits):
         yield from traits.items()
 
         subs = {k: v for k, v in cls._subsections.items()}
-        if aliases and recursive:
+        if aliases:
             for shortcut, alias in cls.aliases.items():
                 target = cls
                 for subname in alias.split("."):
