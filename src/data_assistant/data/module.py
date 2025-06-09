@@ -186,7 +186,7 @@ class ModuleMix(t.Generic[T_Mod], Module):
         selected = self.select_func(self, **kwargs)
         return self.base_modules[selected]
 
-    def get_all(self, method: str, *args, **kwargs) -> list[t.Any]:
+    def apply_all(self, method: str, *args, **kwargs) -> list[t.Any]:
         """Get results from every base module.
 
         Every output is put in a list if not already.
@@ -197,15 +197,7 @@ class ModuleMix(t.Generic[T_Mod], Module):
             groups.append(output)
         return groups
 
-    def apply_all(self, method: str, *args, **kwargs):
-        """Apply method for every base module.
-
-        To use when the method does not output anything.
-        """
-        for mod in self.base_modules.values():
-            getattr(mod, method)(*args, **kwargs)
-
-    def get_select(
+    def apply_select(
         self, method: str, *args, select: dict[str, t.Any] | None = None, **kwargs
     ) -> list[t.Any]:
         """Get result from a single base module.
@@ -227,28 +219,8 @@ class ModuleMix(t.Generic[T_Mod], Module):
         mod = self.select(**select)
         return getattr(mod, method)(*args, **kwargs)
 
-    def apply_select(
-        self, method: str, *args, select: dict[str, t.Any] | None = None, **kwargs
-    ):
-        """Apply method for a single base module.
-
-        Module is selected with :attr:`select_func`, based on current module and
-        data-manager state. To use when the method does not output anything.
-
-
-        Parameters
-        ----------
-        method
-            Method name to run
-        args, kwargs
-            Passed to the method
-        select
-            Mapping of parameters passed to the selection function.
-        """
-        self.get_select(method, *args, select=select, **kwargs)
-
     @t.overload
-    def get(
+    def apply(
         self,
         method: str,
         all: t.Literal[True],
@@ -258,7 +230,7 @@ class ModuleMix(t.Generic[T_Mod], Module):
     ) -> list[t.Any]: ...
 
     @t.overload
-    def get(
+    def apply(
         self,
         method: str,
         all: t.Literal[False],
@@ -268,7 +240,7 @@ class ModuleMix(t.Generic[T_Mod], Module):
     ) -> t.Any: ...
 
     @t.overload
-    def get(
+    def apply(
         self,
         method: str,
         all: bool,
@@ -277,7 +249,7 @@ class ModuleMix(t.Generic[T_Mod], Module):
         **kwargs,
     ) -> t.Any | list[t.Any]: ...
 
-    def get(
+    def apply(
         self,
         method: str,
         all: bool,
@@ -300,31 +272,5 @@ class ModuleMix(t.Generic[T_Mod], Module):
             Mapping of parameters passed to the selection function.
         """
         if all:
-            return self.get_all(method, *args, **kwargs)
-        return self.get_select(method, *args, select=select, **kwargs)
-
-    def apply(
-        self,
-        method: str,
-        all: bool,
-        *args,
-        select: dict[str, t.Any] | None = None,
-        **kwargs,
-    ):
-        """Apply method for all or one of the base modules.
-
-        Parameters
-        ----------
-        method
-            Method name to run
-        all
-            If True, run method on *all* modules, otherwise only on a selected one.
-        args, kwargs
-            Passed to the method
-        select
-            Mapping of parameters passed to the selection function.
-        """
-        if all:
-            self.apply_all(method, *args, **kwargs)
-        else:
-            self.apply_select(method, *args, select=select, **kwargs)
+            return self.apply_all(method, *args, **kwargs)
+        return self.apply_select(method, *args, select=select, **kwargs)
