@@ -5,11 +5,11 @@
 Existing modules
 ****************
 
-The *DataManager* class is expected to be populated by modules (see
+The *Dataset* class is expected to be populated by modules (see
 :ref:`module-system`). Here is a quick description of modules that are bundled
 with this package.
 
-The features managed by the modules presented underneath inherit from abstract
+The features managed by the modules presented below inherit from abstract
 classes that define the API for that feature. Note that they are not defined
 through the :external+python:mod:`abc` module, and thus will not raise if
 instantiated. These classes are more guidelines than strict protocols.
@@ -23,27 +23,60 @@ instantiated. These classes are more guidelines than strict protocols.
 Parameters
 ==========
 
-The first module manages the parameters of the ``DataManager`` instance. There
-is an abstract class :class:`.ParamsManagerAbstract`, but the base data-manager
-class already sets its parameters module to :class:`.ParamsManager` (which use a
+The first module manages the parameters of the Dataset instance. There is an
+abstract class :class:`.ParamsManagerAbstract`, but the base Dataset class
+sets its parameters module to :class:`.ParamsManager` by default (which use a
 simple dictionnary for storing parameters).
 
 A :class:`.Section` can be used to store parameters using
 :class:`.ParamsManagerSection`. It allows to use the parameters retrieval from
-the :doc:`configuration<configuration>`, and restrict parameters to those
-statically defined. Parameters can be added to the section at runtime though at
-the module relies on :meth:`.Section.update`. The section to use must be specified
-as a class attribute::
+:doc:`configuration<configuration>`, and restrict parameters to those statically
+defined. Parameters can be added to the section at runtime though with
+:meth:`.Section.add_trait` or :meth:`.Section.update`. The section to use must
+be specified as a class attribute::
 
     class Parameters(Section):
         ...
 
-    class MyDataManager(ParamsSectionModule, DataManagerBase):
-        SECTION = Parameters
+    class MyDataset(Dataset):
 
-.. important::
+        class _Params(ParamsManagerSection):
+            SECTION_CLS = Parameters
 
-   Using a section is not extensively tested.
+Similarly, :class:`.ParamsManagerApp` will store parameters in a section object,
+whose parameters are obtained from a global, shared :class:`.ApplicationBase`
+instance. The dataset must be registered befored using
+:meth:`.ApplicationBase.register_orphan`. At the dataset instantiation, the
+dataset traits (if any have been defined) will be obtained from the application
+orphan sections, and the parameters module will copy the application.
+
+::
+
+    class MyApp(ApplicationBase):
+        ...
+
+    @MyApp.register_orphan()
+    class MyDataset(Dataset):
+
+        # eventually, dataset specific traits
+        data_dir = Unicode("/data")
+
+        _Params = ParamsManagerApp
+
+    # simply need to create a new instance
+    ds = MyDataset()
+
+In the example above, instanciating will retrieve a global instance of MyApp
+(creating one if necessary). The '*data_dir*' trait is configurable (in
+configuration file or command line) with the key '*MyDataset.data_dir*' and its
+value will be retrieved automatically. All traits defined in MyApp and whose
+value is obtained from configuration files and command line will be copied to
+the parameters module, and available in a MyApp copy.
+
+.. note::
+
+   The parameters are copied, changing the shared MyApp instance will not affect
+   the dataset after creation.
 
 
 Source

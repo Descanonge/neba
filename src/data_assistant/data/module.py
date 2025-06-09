@@ -17,6 +17,7 @@ class Module:
     """Module to which the data-manager delegates some functionality."""
 
     dm: Dataset
+    """Parent dataset."""
 
     @property
     def params(self) -> t.Any:

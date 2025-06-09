@@ -8,13 +8,13 @@ Dataset management
 This package has a submodule :mod:`~data_assistant.data` to ease the creation
 and management of multiple dataset with different file format, structure, etc.
 that can all depend on various parameters. Each new dataset is specified by
-creating a new subclass of :class:`~.DataManagerBase`. It contains
+creating a new subclass of :class:`~.Dataset`. It contains
 interchangeable *modules* that each cover some functionalities.
 
-If each subclass of DataManager is associated to a specific dataset, each
-*instance* of that subclass corresponds to a set of parameters that can be used
-to change aspects of the dataset on the fly: choose only files for a specific
-year, change the method to open data, etc.
+If each Dataset subclass specifies access to some data, and each *instance* of
+that subclass corresponds to a set of parameters that can be used to change
+aspects of the dataset on the fly: choose only some files for a specific year,
+change the method to open data, etc.
 
 .. _module-system:
 
@@ -23,19 +23,13 @@ Module system
 
 This framework tries to make those data managers objects as universal as
 reasonably possible. The base class does not specify a data source (it could be
-one file, multiple files, a remote datastore, ...) or a data type.
+one file, multiple files, a remote datastore, ...) or a data type (it could be
+opened by different libraries).
 
 Definition in the data manager
 ------------------------------
 
-Modules must be registered in a data-manager class in the
-:attr:`.DataManagerBase._registered_modules` attribute, which is a list of named
-tuples each containing three key informations:
-* the attribute name that will hold the module **instance**
-* the attribute name that will hold the module **type** or definition
-* the class of the module.
-
-The default :class:`.DataManagerBase` registers four modules:
+The default :class:`.Dataset` has four modules:
 
 * ``params_manager`` defined at :class:`_Params<.ParamsManager>` to manage the
   data-manager parameters
@@ -44,21 +38,24 @@ The default :class:`.DataManagerBase` registers four modules:
 * ``loader`` defined at :class:`_Loader<.LoaderAbstract>` to load data
 * ``writer`` defined at :class:`_Writer<.WriterAbstract>` to write data
 
-The parameter manager is the only one to not be abstract, being essential to the
-working of the data-manager. Like for the other modules, it can be changed to
-an appropriate subclass.
+.. note::
 
-To change a module class, we only need to change the type attribute content. It
-is expected to be done in a DataManagerBase subclass. It can be a simple
-attribute change, or even a class definition with the appropriate name, like
-so::
+    The parameter manager is the only one to not be abstract, being essential to
+    the working of the data-manager. Like for the other modules, it can be
+    changed to a subclass.
 
-    class DataManagerProjet(DataManagerBase):
+To change a module, we only need to change the module type contained in an
+attribute. It is expected to be done in a Dataset subclass. It can be a simple
+attribute change, or a class definition with the appropriate name, like so::
+
+    # simple attribute changes
+    class DataManagerProjet(Dataset):
         """Define a data-manager base for the project."""
 
         _Source = SimpleSource
         _Loader = XarrayLoader
 
+    # more complex definitions
     class SST(DataManagerProject):
 
         class _Source(DataManagerProject._Source):
@@ -73,6 +70,19 @@ so::
 Defining new modules
 --------------------
 
+Users will typically only need to use existing modules, possibly with
+redefining some of its methods. In the case more dramatic changes are necessary,
+here are more details on the module system.
+
+The :class:`.Dataset` class inherits from :class:`.HasModules` that deals with
+most of the module system. Modules must be registered in the
+:attr:`.HasModules._registered_modules` attribute, which is a list of named
+tuples each containing three key informations:
+
+* the attribute name that will hold the module **instance**
+* the attribute name that will hold the module **type** or definition
+* the class of the module.
+
 Dataset managers are initialized with an optional argument giving the
 parameters, and additional keyword arguments. All modules are instantiated with
 the same arguments. Immediately after, their :attr:`~.Module.dm` attribute is
@@ -82,39 +92,32 @@ initialized using the :meth:`.Module._init_module` method. This allow to be
 
 .. note::
 
-   *Mostly* because if a module fails to instantiate it will only log a warning,
+   'Mostly' because if a module fails to instantiate it will only log a warning,
    and will not be accessible.
 
-The *_init_module()* method is planned for inheritance cooperation. Each new
-subclass should make a *super()._init_module()* call whenever appropriate. The
-data manager initialization (:class:`.HasModules._init_modules`) will make sure
-every class in the MRO is initialized. So for instance in
-``class NewModule(SubModuleA, SubModuleB)`` both ``SubModuleA._init_module`` and
-``SubModuleB._init_module`` will be called, even though they don't necessarily
-know about each other.
+The :meth:`~.Module._init_module()` method is planned for inheritance
+cooperation. Each new subclass should make a ``super()._init_module()`` call
+whenever appropriate. The dataset initialization
+(:meth:`.HasModules._init_modules`) will make sure every class in the MRO is
+initialized. So for instance in ``class NewModule(SubModuleA, SubModuleB)`` both
+``SubModuleA._init_module`` and ``SubModuleB._init_module`` will be called, even
+though they don't necessarily know about each other.
 
 .. important::
 
-   All modules have easy access to the data-manager parameters by using
+   All modules have easy access to the dateset parameters by using
    :meth:`~.Module.params`.
 
 For the most part, modules are made to be independant of each others, but it can
-be useful to have interplay. The data-manager provides some basic API that
-plugins can leverage like :meth:`.DataManagerBase.get_source` or
-:meth:`.DataManagerBase.get_data`. For more specific features the package
-contains some abstract base classes that define the methods to be expected: for
-instance :class:`loader.LoaderAbstract`, :class:`writer.WriterAbstract`. See
-:doc:`existing_modules` for a list of available plugins.
-See :class:`.SplitWriterMixin` for an example of interplay facilitator and the
+be useful to have interplay. The dataset provides some basic API that modules
+can leverage like :meth:`.Dataset.get_source` or :meth:`.Dataset.get_data`. For
+more specific features the package contains some abstract base classes that
+define the methods to be expected: for for instance
+:class:`loader.LoaderAbstract` and :class:`writer.WriterAbstract`. See
+:doc:`existing_modules` for a list of available plugins. See
+:class:`.SplitWriterMixin` for an example of interplay facilitator and the
 implementation of :class:`.XarraySplitWriter` that has multiple submodules
 parents as discussed in the paragraph above.
-
-.. note::
-
-   The :class:`.DataManagerBase` and modules classes provided are geared for
-   dataset management in a specific way. Note that it relies on base classes
-   :class:`.HasModules` and :class:`.Module` which are quite generic, and could
-   be used in other ways.
 
 
 Dataset parameters
@@ -122,15 +125,14 @@ Dataset parameters
 
 A dataset instance is supposed to represent a specific set of parameters.
 Changing parameters might affect modules, and thus it is recommended to change
-parameters using :meth:`.DataManagerBase.set_params` or
-:meth:`.DataManagerBase.reset_params`. After the parameters have been modified,
-this function will launch all "reset callbacks" that have been registered by
-modules. For instance, some modules may use a cache and need to void it after a
-parameters change.
+parameters using :meth:`.Dataset.set_params` or :meth:`.Dataset.reset_params`.
+After the parameters have been modified, this function will launch all "reset
+callbacks" that have been registered by modules. For instance, some modules may
+use a cache and need to void it after a parameters change.
 
 It might be useful to quickly change parameters, eventually multiple times,
 before returning to the initial set of parameters. To this end, the method
-:meth:`.DataManagerBase.save_excursion` will return a context manager that will
+:meth:`.Dataset.save_excursion` will return a context manager that will
 save the initial parameters and restore them when exiting::
 
     # we have some parameters, self.params["p"] = 0
@@ -225,19 +227,19 @@ when calling ``data_manager.get_source()``.
 Mixes can run methods on its base modules, the name of the method to run can be
 passed to several methods:
 
-* ``get*`` methods are intended for method that return an output.
-* ``apply*`` methods only run the method without collecting the output.
-* ``*_all`` methods run on **all** the base modules of the mix. For instance,
-  :meth:`~.ModuleMix.get_all` will run on all base modules and return a list of
-  all outputs.
-* ``*_select`` methods will only run on a **single** module. It will be selected
+* ``apply_all`` will run on **all** the base modules of the mix and return a
+  list of outputs.
+* ``apply_select`` will only run on a **single** module. It will be selected
   by a user defined function that can be set in :meth:`~.ModuleMix.create` or
   with :meth:`.ModuleMix.set_select`. It chooses the appropriate base module
-  based on the current state of the mix module, the data-manager and its
+  based on the current state of the mix module, the dataset manager and its
   parameters, and eventual keywords arguments it might receive. It should return
   the class name of one of the module.
 
-:meth:`~.ModuleMix.get` and :meth:`~.ModuleMix.apply` will use the *all* or
-*select* version based on the value of the *all* argument.
-In all methods, *args* and *kwargs* are passed to the method that is run, and
-the *select* keyword argument is a passed to the selection function.
+For instance, ``ds.source.apply_select("get_files")`` will return the files
+obtained by the selected base module.
+
+:meth:`~.ModuleMix.apply` will use the *all* or *select* version based on the
+value of the *all* argument. In all methods, *args* and *kwargs* are passed to
+the method that is run, and the *select* keyword argument is a passed to the
+selection function.

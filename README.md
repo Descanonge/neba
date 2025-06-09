@@ -3,7 +3,6 @@
 > Manages parameters and datasets
 
 This package provides a configuration framework to retrieve parameters from configuration files and command line arguments, and a dataset definition framework to help bridge the gap between on-disk files and in-memory objects.
-Both frameworks (configuration and dataset) can be used without the other.
 
 The package provides an optional configuration section for Dask to quickly set things up, and work seamlessly both on a local or distributed cluster.
 
@@ -17,15 +16,15 @@ The configuration framework is:
 The parameters values can be retrieved from configuration files (TOML, YAML, Python files), or from the command line.
 
 The framework is based on the existing [traitlets](https://traitlets.readthedocs.io/) library. It allows type-checking, arbitrary value validation and "on-change" callbacks.
-Our package extends it to allow nesting and shifts to a more centralized configuration. The objects containing parameters are significantly extended to ease manipulation, and mimic mappings.
+This package extends it to allow nesting and shifts to a more centralized configuration. The objects containing parameters are significantly extended to ease manipulation, and mimic dictionaries.
 
-Here is a simple starting project:
+Here is a simple example project:
 ``` python
 from data_assistant.config import ApplicationBase, Section
 from traitlets import Float, List, Int, Unicode
 
 class App(Application):
-    # what files to read parameters from
+    # which files to read parameters from
     config_files = ["config.toml"]
     
     # our parameters
@@ -37,7 +36,7 @@ class App(Application):
         coefficients = List(Float(), [0.5, 1.5, 10.0])
 
 # Start a global instance and retrieve parameters
-app = App.instance()
+app = App.shared()
 print(app.model.year)
 ```
 
@@ -56,7 +55,7 @@ from data_assistant.data import Dataset, GlobSource, ParamsManager
 from data_assistant.data.xarray import XarrayMultiFileLoader
 
 class SST(Dataset):
-    # parameters module will hold in a dict
+    # parameters will be held in a simple dict
     _Params = ParamsManager
     # loader module uses xarray.open_mfdataset
     _Loader = XarrayMultiFileLoader
@@ -67,7 +66,7 @@ class SST(Dataset):
             # we use the parameters of the Dataset instance
             root = self.params["data_dir"]
             # this will automatically be joined into a path
-            return [self.params[], "SST"]
+            return [root, "SST"]
             
         def get_filename_pattern(self):
             return f"{self.params['year']}/SST_*.nc*"
@@ -76,7 +75,7 @@ ds = SST(year=2000, data_dir="/data")
 sst = ds.get_data()
 ```
 We used the parameters and loader module as is, but we configured the source module for our needs.
-Most module will use methods like this to take advantage of the parameters contained in the dataset.
+Most modules will use methods like this to take advantage of the parameters contained in the dataset.
 
 The parameters were simply stored in a dictionary filled at instantiation, but we can also use the configuration framework by registering this class as an "orphan":
 ``` python
@@ -88,9 +87,10 @@ class App(ApplicationBase):
 @App.register_orphan()
 class SST(Dataset):
     # the parameters are held in a configuration object which
-    # is automatically filled from the global app instance
+    # is automatically filled from the shared app instance
     _Params = ParamsManagerApp
 
+    # An orphan parameter, configurable as 'SST.directory'
     directory = Unicode("SST")
     
     class _Source(GlobSource)

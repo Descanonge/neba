@@ -178,6 +178,8 @@ class ParamsManagerSection(ParamsManagerSectionAbstract[T_Section]):
 
 
 class ParamsManagerApp(ParamsManagerSectionAbstract[T_Section]):
+    """Parameters are retrieved from a shared application instance."""
+
     def _init_module(self) -> None:
         app_cls = self.dm._application_cls
         if app_cls is None:
