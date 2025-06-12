@@ -814,11 +814,17 @@ class Section(HasTraits):
         return defaults
 
     @classmethod
-    def _subsections_recursive(cls) -> abc.Iterator[type[Section]]:
+    def _class_subsections_recursive(cls) -> abc.Iterator[type[Section]]:
         """Iterate recursively over all subsections."""
         for subsection in cls._subsections.values():
-            yield from subsection._subsections_recursive()
+            yield from subsection._class_subsections_recursive()
         yield cls
+
+    def _subsections_recursive(self) -> abc.Iterator[Section]:
+        """Iterate recursively over all subsections."""
+        for name in self._subsections:
+            yield from getattr(self, name)._subsections_recursive()
+        yield self
 
     # Lifted from traitlets.config.application.Application
     @classmethod
@@ -836,7 +842,7 @@ class Section(HasTraits):
             The list of classes to start from; if not set, uses all nested subsections.
         """
         if classes is None:
-            classes = cls._subsections_recursive()
+            classes = cls._class_subsections_recursive()
 
         seen = set()
         for c in classes:
