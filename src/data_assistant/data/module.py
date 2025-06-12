@@ -41,7 +41,7 @@ class Module:
 class CachedModule(Module):
     """Plugin containing a cache.
 
-    The every cached-module cache is voided on a call of :meth:`.DataManagerBase.reset`.
+    The cached-module cache is voided on a call of :meth:`.DataManagerBase.reset`.
     This is typically done everytime the parameters change.
     """
 

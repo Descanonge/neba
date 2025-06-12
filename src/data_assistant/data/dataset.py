@@ -112,25 +112,24 @@ class HasModules:
             self._modules[spec.instance_attr] = mod
             setattr(self, spec.instance_attr, mod)
 
-    def _init_modules(self) -> None:
+    def _init_module(self, module: Module) -> None:
         """Initialize all module, allow for cooperation in inheritance.
 
         _init_module will be called on all ancestors.
         """
         initialized: list[type[Module]] = list()
-        for name, mod in self._modules.items():
-            for ancestor in mod.__class__.mro():
-                if issubclass(ancestor, Module) and ancestor not in initialized:
-                    try:
-                        ancestor._init_module(mod)
-                    except Exception as e:
-                        log.warning(
-                            "Error when initializing module %s (%s)",
-                            name,
-                            ancestor,
-                            exc_info=e,
-                        )
-                    initialized += ancestor.mro()
+        for ancestor in module.__class__.mro():
+            if issubclass(ancestor, Module) and ancestor not in initialized:
+                try:
+                    ancestor._init_module(module)
+                except Exception as e:
+                    log.warning(
+                        "Error when initializing module %s (%s)",
+                        module,
+                        ancestor,
+                        exc_info=e,
+                    )
+                initialized += ancestor.mro()
 
 
 class Dataset(t.Generic[T_Params, T_Source, T_Data], HasModules, Section):
@@ -190,9 +189,12 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data], HasModules, Section):
         Section.__init__(self, config)
 
         self._instantiate_modules(params=params, **kwargs)
-        self._init_modules()
+        self._init_module(self.params_manager)
         if params is not None or kwargs:
-            self.update_params(params, **kwargs)
+            self.update(params, **kwargs)
+        self._init_module(self.source)
+        self._init_module(self.loader)
+        self._init_module(self.writer)
 
     def __str__(self) -> str:
         """Return a string representation."""
