@@ -6,6 +6,8 @@ import logging
 import typing as t
 from collections import abc
 
+from traitlets import Bunch
+
 from data_assistant.config.section import Section
 
 from .module import Module
@@ -18,12 +20,7 @@ class ParamsManagerAbstract(t.Generic[T_Params], Module):
     """Abstract Module for parameters management."""
 
     PARAMS_DEFAULTS: abc.Mapping[str, t.Any] = {}
-    """Default values of parameters.
-
-    Optional. Can be used to define default values for parameters local to a
-    data-manager, (*ie* that are not defined in project-wide with
-    :mod:`data_assistant.config`).
-    """
+    """Default values of parameters."""
 
     _params: T_Params
 
@@ -56,11 +53,49 @@ class ParamsManagerAbstract(t.Generic[T_Params], Module):
         raise NotImplementedError("Implement in a subclass of this module.")
 
 
-class ParamsManager(ParamsManagerAbstract[dict[str, t.Any]]):
+_K = t.TypeVar("_K")
+_V = t.TypeVar("_V")
+
+
+class CallbackDict(dict, t.Generic[_K, _V]):
+    """Dictionary that sends a callback on change.
+
+    Dictionary is considered flat (setting a nested key will not trigger a callback).
+
+    :Untested:
+    """
+
+    _callback: abc.Callable[[Bunch], None] | None = None
+
+    def __setitem__(self, k: _K, v: _V):
+        old = self[k]
+        super().__setitem__(k, v)
+        if self._callback is None:
+            return
+
+        # lifted from traitlets.HasTraits.set
+        try:
+            silent = bool(old == v)
+        except Exception:
+            # if there is an error in comparing, default to notify
+            silent = False
+        if silent is not True:
+            # we explicitly compare silent to True just in case the equality
+            # comparison above returns something other than True/False
+            self._callback(Bunch(name=k, old=old, new=v, type="change"))
+
+
+class ParamsManager(ParamsManagerAbstract[CallbackDict[str, t.Any]]):
     """Parameters stored in a dictionnary."""
 
     def _init_module(self) -> None:
-        self._params = {}
+        self._params = CallbackDict()
+
+        def handler(change: Bunch):
+            print("change in", change.name)
+            self.dm.reset()
+
+        self._params._callback = handler
 
     def set_params(self, params: t.Any | None, **kwargs):
         """Update one or more parameters values.
@@ -93,7 +128,7 @@ class ParamsManager(ParamsManagerAbstract[dict[str, t.Any]]):
 
     def _reset_params(self) -> None:
         """Reset parameters to their initial state (empty dict)."""
-        self._params = {}
+        self._params.clear()
 
 
 T_Section = t.TypeVar("T_Section", bound=Section)
@@ -109,6 +144,15 @@ class ParamsManagerSectionAbstract(ParamsManagerAbstract[T_Section]):
     RAISE_ON_MISS: bool = True
 
     _params: T_Section
+
+    def _setup_cache_callback(self):
+        # add callbacks to void the cache
+
+        def handler(change: Bunch):
+            self.dm.reset()
+
+        for subsection in self._params._subsections_recursive():
+            subsection.observe(handler)
 
     def set_params(
         self,
@@ -175,6 +219,7 @@ class ParamsManagerSection(ParamsManagerSectionAbstract[T_Section]):
 
     def _init_module(self) -> None:
         self._params = self.SECTION_CLS()
+        self._setup_cache_callback()
 
 
 class ParamsManagerApp(ParamsManagerSectionAbstract[T_Section]):
@@ -188,3 +233,4 @@ class ParamsManagerApp(ParamsManagerSectionAbstract[T_Section]):
                 "on the data manager. Use @Application.register_section."
             )
         self._params = app_cls.shared().copy()
+        self._setup_cache_callback()
