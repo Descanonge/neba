@@ -543,6 +543,19 @@ of integers, but can be parsed from a slice specification in the form
 ``start:stop[:step]``. So that ``--year=2002:2005`` will be parsed as ``[2002,
 2003, 2004, 2005]``. Note that 'stop' is **inclusive**.
 
+Autocompletion
+++++++++++++++
+
+Autocompletion for parameters is available via `argcomplete
+<https://github.com/kislyuk/argcomplete>`__. Install argcomplete and either
+register the scripts you need or activate global completion. In both cases you
+will need to add ``# PYTHON_ARGCOMPLETE_OK`` to the beginning of your scripts.
+
+.. note::
+
+    Completion is not available when using ipython, as it shadows our application.
+    I do not know if this is fixable.
+
 
 From a dictionary
 -----------------

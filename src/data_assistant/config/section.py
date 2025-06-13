@@ -562,8 +562,8 @@ class Section(HasTraits):
     ):
         """Update values of this Section traits.
 
-        Some trait that do not exist in this instance, but are specified can be added.
-        Currently whole subsections cannot be added.
+        This does not block trait notification. This must be done manually for all
+        the relevant sections.
 
         Parameters
         ----------
@@ -572,9 +572,9 @@ class Section(HasTraits):
             flat mapping of full path keys (``"some.path.to.trait"``) to values or
             trait instances, which default value will be used.
         allow_new
-            If True, allow creating new traits for this Section. A new trait must can be
-            a trait in `other` if it is a Section; in a mapping it must be a trait
-            instance which default value will be used. Default is False.
+            If True, allow creating new traits for this Section. If `other` is a section
+            the trait is copied over; in a mapping it must be a trait instance which
+            default value will be used. Default is False.
         raise_on_miss
             If True, raise an exception if a trait in `other` is placed on a path that
             does not lead to an existing subsection or trait. Default is False.
