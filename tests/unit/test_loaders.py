@@ -4,7 +4,7 @@ from tempfile import NamedTemporaryFile
 from typing import Any
 
 import pytest
-from hypothesis import given
+from hypothesis import HealthCheck, given, settings
 from traitlets import Instance, Int, List, TraitType, Type, Unicode, Union
 
 from data_assistant.config.application import ApplicationBase
@@ -30,11 +30,16 @@ LOADERS: list[type[ConfigLoader]]
 FILE_LOADERS: list[type[FileLoader]]
 
 
-class App(ApplicationBase, GenericConfig):
-    file_loaders = [PyLoader, TomlkitLoader, YamlLoader, JsonLoader]
+allow_fixture = settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
 
 
-App.config_files.default_value = []
+@pytest.fixture
+def App() -> type[ApplicationBase]:
+    class App(ApplicationBase, GenericConfig):
+        file_loaders = [PyLoader, TomlkitLoader, YamlLoader, JsonLoader]
+
+    App.config_files.default_value = []
+    return App
 
 
 class TestConfigValue:
@@ -108,10 +113,11 @@ class TestDictLoader:
     """Test on python dict."""
 
     @given(values=GenericConfigInfo.values_strat_nested())
-    def test_flat(self, values: tuple[dict, dict]):
+    @allow_fixture
+    def test_flat(self, values: tuple[dict, dict], App: type[ApplicationBase]):
         values_nest, values_flat = values
 
-        app = App(argv=[], start=False)
+        app: ApplicationBase = App(argv=[], start=False)
         # app._init_subsections({})
 
         loader = DictLoader(app)
@@ -121,13 +127,13 @@ class TestDictLoader:
 
 
 class TestCLILoader:
-    def test_help(self):
+    def test_help(self, App: type[ApplicationBase]):
         with pytest.raises(SystemExit):
             App(argv=["--help"])
         with pytest.raises(SystemExit):
             App(argv=["-h"])
 
-    def test_list_parameters(self, capsys):
+    def test_list_parameters(self, capsys, App: type[ApplicationBase]):
         with pytest.raises(SystemExit):
             App(argv=["--list-parameters"])
         captured = capsys.readouterr()
@@ -137,7 +143,7 @@ class TestCLILoader:
             assert param.split()[0].removeprefix("--") in traits
         assert len(traits) == len(listed_parameters)
 
-    def test_parsing(self):
+    def test_parsing(self, App: type[ApplicationBase]):
         args = []
         ref = {}
         for k, (arg, value) in GenericConfigInfo.generic_args().items():
@@ -154,13 +160,21 @@ class TestCLILoader:
         assert parsed.pop("deep_sub.sub_generic_deep.alias_only") == 5
         assert ref == parsed
 
-    def test_duplicate_keys(self):
+    def test_duplicate_keys(self, App: type[ApplicationBase]):
         with pytest.raises(MultipleConfigKeyError):
             App(argv="--sub-generic.int 1 --sub-generic.int 2".split())
 
     @todo
     def test_orphans(self):
         pass
+
+    def test_extra_parameters(self, App: type[ApplicationBase]):
+        App.add_extra_parameters(test=Int(0))
+
+        assert "extra" in App._subsections
+        app = App(argv=["--extra.test=5"])
+        assert "extra.test" in app
+        assert app["extra.test"] == 5
 
 
 @todo
@@ -174,7 +188,7 @@ class FileLoaderTest:
 
     convert_set_tuple = True
 
-    def get_conf(self) -> tuple[dict, dict]:
+    def test_reading(self, App: type[ApplicationBase]):
         app = App(start=False)
         app.config_files = f"./tests/unit/config{self.ext}"
         conf: dict[str, Any] = app.load_config_files()
@@ -194,21 +208,19 @@ class FileLoaderTest:
                 k: set(v) if isinstance(ref[k], set) else v for k, v in conf.items()
             }
 
-        return ref, conf
-
-    def test_reading(self):
-        ref, conf = self.get_conf()
         assert conf == ref
 
     @given(values=GenericConfigInfo.values_half_strat())
-    def test_write_and_read_half(self, values: dict):
-        self.assert_write_read(values)
+    @allow_fixture
+    def test_write_and_read_half(self, values: dict, App: type[ApplicationBase]):
+        self.assert_write_read(values, App)
 
     @given(values=GenericConfigInfo.values_all_strat())
-    def test_write_and_read_all(self, values: dict):
-        self.assert_write_read(values)
+    @allow_fixture
+    def test_write_and_read_all(self, values: dict, App: type[ApplicationBase]):
+        self.assert_write_read(values, App)
 
-    def assert_write_read(self, values: dict):
+    def assert_write_read(self, values: dict, App: type[ApplicationBase]):
         app = App(argv=[])
         traits = app.traits_recursive()
         defaults = app.defaults_recursive()

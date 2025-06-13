@@ -139,10 +139,6 @@ class CLILoader(ConfigLoader):
         for name, value in dargs.items():
             key = name.replace(_DOT, ".")
 
-            if key in self.app.extra_parameters:
-                self.app.extra_parameters[key] = value
-                continue
-
             # Check that the key was specified only once
             if len(value) > 1:
                 raise MultipleConfigKeyError(key, value)

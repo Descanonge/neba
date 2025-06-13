@@ -488,38 +488,31 @@ Orphan sections parameters are input with the same syntax
 
 .. note ::
 
-    The list of command line arguments is obtained by
-    :meth:`.ApplicationBase.get_argv`. It tries to detect if python was launched
-    from IPython or Jupyter, in which case it strips the arguments before
-    the first '--'.
+    This can be changed with attributes of the corresponding loader class:
+    :attr:`.CLILoader.allow_kebab` and :attr:`.CLILoader.prefix`.
 
-The loading of command line parameters is done by :class:`.CLILoader`. One of
-the main differences with other loaders is that all arguments need to be parsed.
-This is done by :meth:`.ConfigValue.parse` that, at the time of parsing, should
-have a reference to the corresponding trait (which itself has methods
-``from_string`` and ``from_string_list`` for containers).
+All command line arguments need to be parsed. The corresponding trait object
+will deal with the parsing, using its ``from_string`` or ``from_string_list``
+(for containers) methods.
 
 .. note::
 
    Nested containers parameters (list of list e.g.) are not currently supported.
 
-Extra parameters to the argument parser can be added using
-:meth:`.ApplicationBase.add_extra_parameter`. The values will be available after
-CLI parsing in :attr:`.ApplicationBase.extra_parameters`.
+.. note ::
 
-.. note:: Implementation details
+    The list of command line arguments is obtained by
+    :meth:`.ApplicationBase.get_argv`. It tries to detect if python was launched
+    from IPython or Jupyter, in which case it strips the arguments before
+    the first '--'.
 
-    :class:`.CLILoader` relies on the builtin :external+python:mod:`argparse`.
-    All possible keys to every parameters (accounting for aliases and orphan
-    sections) are listed. By default, both underscores and hyphens are allowed,
-    and each parameter can start with one or two hyphen. This can be changed
-    with class attributes :attr:`.CLILoader.allow_kebab` and
-    :attr:`.CLILoader.prefix`.
+List arguments
+++++++++++++++
 
 For any and every parameter, the argument :external+python:ref:`action` is
 "append", with type :class:`str` (since the parsing is left to traitlets), and
 ``nargs="*"`` meaning that any parameter can receive any number of values. To
-indicate multiple values, for a list trait for instance, the following syntax is
+indicate multiple values, for a List trait for instance, the following syntax is
 to be used::
 
     --physical.years 2015 2016 2017
@@ -530,7 +523,22 @@ to be used::
 
 This will raise an error, to avoid possible mistakes in user input.
 
-The packages provides a new type of trait: :class:`.RangeTrait`, that is a list
+Extra parameters
+++++++++++++++++
+
+Extra parameters to the argument parser can be added with
+:meth:`.ApplicationBase.add_extra_parameters`. This will add traits to a section
+named "extra", created if needed. This is useful when needing a parameter for a
+single script for instance. If in our script we write::
+
+    App.add_extra_parameters(threshold=Float(5.0))
+
+we can then pass a parameter by command line at ``--extra.threshold``.
+
+Range Trait
++++++++++++
+
+The packages provides a new type of trait: :class:`.RangeTrait`, which is a list
 of integers, but can be parsed from a slice specification in the form
 ``start:stop[:step]``. So that ``--year=2002:2005`` will be parsed as ``[2002,
 2003, 2004, 2005]``. Note that 'stop' is **inclusive**.

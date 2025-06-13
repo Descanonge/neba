@@ -5,10 +5,21 @@ from __future__ import annotations
 import logging
 import sys
 import typing as t
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from os import path
 
-from traitlets import Bool, Bunch, Enum, Int, List, Unicode, Union, default, observe
+from traitlets import (
+    Bool,
+    Bunch,
+    Enum,
+    Int,
+    List,
+    TraitType,
+    Unicode,
+    Union,
+    default,
+    observe,
+)
 from traitlets.config.configurable import LoggingConfigurable
 
 from .loaders import CLILoader, ConfigValue
@@ -166,10 +177,6 @@ class ApplicationBase(Section, LoggingConfigurable):
     """Configuration values obtained from command line arguments."""
     file_conf: dict[str, ConfigValue]
     """Configuration values obtained from configuration files."""
-    extra_parameters: dict[str, t.Any]
-    """Extra parameters retrieved by the command line parser."""
-    _extra_parameters_args: list[tuple[list, dict[str, t.Any]]]
-    """Extra parameters passed to the command line parser."""
 
     def __init__(self, /, start: bool = True, **kwargs) -> None:
         # No super.__init__, it would instantiate recursively subsections
@@ -177,8 +184,6 @@ class ApplicationBase(Section, LoggingConfigurable):
         self.conf = {}
         self.cli_conf = {}
         self.file_conf = {}
-        self.extra_parameters = {}
-        self._extra_parameters_args = []
 
         if start:
             self.start(**kwargs)
@@ -337,9 +342,6 @@ class ApplicationBase(Section, LoggingConfigurable):
         if argv is None:
             argv = self.get_argv()
         loader = self._create_cli_loader(argv, **kwargs)
-        for args, kwargs in self._extra_parameters_args:
-            action = loader.parser.add_argument(*args, **kwargs)
-            self.extra_parameters[action.dest] = action.default
         return loader.get_config(argv)
 
     def get_argv(self) -> list[str] | None:
@@ -358,19 +360,28 @@ class ApplicationBase(Section, LoggingConfigurable):
         return argv
 
     @classmethod
-    def add_extra_parameter(cls, *args, **kwargs):
-        """Add an extra parameter to the CLI argument parser.
+    def add_extra_parameters(
+        cls, traits: Mapping[str, TraitType] | None = None, **kwargs: TraitType
+    ):
+        """Add extra parameters to a section named 'extra'.
 
-        Extra parameters will be available after CLI parsing in
-        :attr:`extra_parameters`.
+        The section will be created if it does not exist already.
 
         Parameters
         ----------
-        args, kwargs
-            Passed to :meth:`argparse.ArgumentParser.add_argument`.
-
+        traits, kwargs
+            Parameters to add as traits.
         """
-        cls._extra_parameters_args.append((args, kwargs))
+        if traits is None:
+            traits = {}
+        traits = dict(traits)
+        traits.update(**kwargs)
+
+        parent = cls._subsections.get("extra", Section)
+        section: type[Section] = type("ExtraSection", (parent,), traits)
+        cls._subsections["extra"] = section
+        section._parent = cls
+        section._name = "extra"
 
     def load_config_files(self) -> dict[str, ConfigValue]:
         """Return configuration loaded from files."""
