@@ -100,14 +100,13 @@ class ConfigValue:
         if a correct value is extracted the trait tries to validate it and may fail and
         raise).
 
-        This method tries to handles containers and union more gracefully. If all
-        options have been tried and no parsing was successful the function will
-        raise.
+        This method tries to handle containers and union more gracefully. If all options
+        have been tried and no parsing was successful the function will raise.
         """
 
-        def _try(attr: str, trait: TraitType, src: str | abc.Sequence[str]) -> bool:
+        def _try(func: str, trait: TraitType, src: str | abc.Sequence[str]) -> bool:
             try:
-                self.value = getattr(trait, attr)(src)
+                self.value = getattr(trait, func)(src)
                 return True
             except (AttributeError, TraitError, ValueError):
                 return False

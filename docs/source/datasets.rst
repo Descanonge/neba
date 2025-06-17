@@ -124,11 +124,6 @@ Dataset parameters
 ==================
 
 A dataset instance is supposed to represent a specific set of parameters.
-Changing parameters might affect modules, and thus it is recommended to change
-parameters using :meth:`.Dataset.set_params` or :meth:`.Dataset.reset_params`.
-After the parameters have been modified, this function will launch all "reset
-callbacks" that have been registered by modules. For instance, some modules may
-use a cache and need to void it after a parameters change.
 
 It might be useful to quickly change parameters, eventually multiple times,
 before returning to the initial set of parameters. To this end, the method
@@ -152,11 +147,14 @@ save the initial parameters and restore them when exiting::
     consequences.
 
 As noted above, how parameters are stored and managed can be customized. The
-default is a simple dictionary storing the parameters: :class:`.ParamsManager`.
+default is a simple dictionary storing the parameters. Any
+:class:`~collections.abc.MutableMapping` can be used. To be sure that a
+function or module be compatible, prefer accessing parameters as a mapping.
+
 The package also provides :class:`.ParamsManagerSection` where parameters are
 stored in a :class:`data_assistant.config.section.Section` object. By specifying
-the exact expected type of the parameters, this can ensure the existence of
-parameters::
+the exact expected type of the parameters, this can ensure the existence
+of parameters::
 
     class MyParameters(Section):
         threshold = Float(0.5)
@@ -169,11 +167,33 @@ Now we are sure that ``Dataset().params`` will contain a ``threshold``
 attribute. This comes at the cost of flexibility since sections are not as
 malleable as other mutable mapping types.
 
-.. note::
+Changing parameters might affect modules. In particular, modules using a cache
+will need to be reset when parameters are changed. They can be changed with
+:meth:`.Dataset.set_params` or :meth:`.Dataset.reset_params` which will trigger
+all "reset callbacks" that have been registered by modules.
+For :class:`section<.ParamsManagerSection>` and :class:`dict<ParamsManagerDict>`
+modules, the parameters can be changed directly and a callback will reset
+the dataset correctly.
 
-   The abstract parameters module is expecting that the parameters are stored
-   in a :class:`~collections.abc.MutableMapping`. The Section class implements
-   *most* of what is needed to be mutable, but cannot delete keys.
+.. important::
+
+   This does not include in-place operations on mutable parameters::
+
+     dm.params["my_list"].append(1)
+
+   will **not** trigger a callback.
+
+.. important::
+
+   Dictionaries are actually a special subclass with a patched ``__set__``
+   method. The dictionary is considered to be **flat**. Nested dicts are not
+   transformed into this special class::
+
+     dm.params["my_sub_params"]["key"] = 1
+
+   will **not** trigger a callback.
+
+
 
 .. _cache-module:
 

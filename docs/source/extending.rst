@@ -156,16 +156,6 @@ do not use it are not required to install it or import it. For the same reasons,
 for XArray all module were put in their own submodule that is not imported by
 default.
 
-Strict parameters module
-------------------------
-
-An idea of parameter management module is of one that would check that all
-required parameters (specified as a class attribute) are present. It could also
-only keep required parameters and discard others. It would make the most sense
-for the :class:`.ParamsManager` plugin but could be easily made to work
-with any kind of parameters storage that implement. However the existing
-:class:`.ParamsManagerSection` somewhat fills this requirement.
-
 Completely different DataManager
 --------------------------------
 

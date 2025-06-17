@@ -85,7 +85,7 @@ class CallbackDict(dict, t.Generic[_K, _V]):
             self._callback(Bunch(name=k, old=old, new=v, type="change"))
 
 
-class ParamsManager(ParamsManagerAbstract[CallbackDict[str, t.Any]]):
+class ParamsManagerDict(ParamsManagerAbstract[CallbackDict[str, t.Any]]):
     """Parameters stored in a dictionnary."""
 
     def _init_module(self) -> None:

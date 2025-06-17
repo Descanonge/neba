@@ -229,7 +229,7 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data], HasModules, Section):
         # maybe separate section into FrozenSection and Section(FrozenSection)?
         return self.params_manager._params
 
-    def update_params(
+    def set_params(
         self, params: t.Any | None = None, reset: bool | list[str] = True, **kwargs
     ):
         """Update one or more parameters values.

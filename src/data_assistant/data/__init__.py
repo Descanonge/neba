@@ -4,9 +4,9 @@ from .dataset import Dataset
 from .loader import LoaderAbstract
 from .module import CachedModule, Module, autocached
 from .params import (
-    ParamsManager,
     ParamsManagerAbstract,
     ParamsManagerApp,
+    ParamsManagerDict,
     ParamsManagerSection,
 )
 from .register import DatasetStore
@@ -31,7 +31,7 @@ __all__ = [
     "LoaderAbstract",
     "Module",
     "MultiFileSource",
-    "ParamsManager",
+    "ParamsManagerDict",
     "ParamsManagerAbstract",
     "ParamsManagerApp",
     "ParamsManagerSection",
