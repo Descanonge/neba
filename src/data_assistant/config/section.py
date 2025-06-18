@@ -453,7 +453,7 @@ class Section(HasTraits):
         If *other* is not a Section, will return False. Both section must have the same
         keys and same values.
         """
-        if not isinstance(other, type(self)):
+        if not isinstance(other, Section):
             return False
         # Check that we have the same keys
         if set(self.keys()) != set(other.keys()):
