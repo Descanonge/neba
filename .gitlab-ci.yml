@@ -40,6 +40,7 @@ tests:
 
       pytest --junitxml='$JUNIT_PATH'
       --cov=data_assistant --cov=tests
+      --forked
       -m 'not todo' tests || exit_code=$?
 
       coverage xml -o coverage/coverage.xml

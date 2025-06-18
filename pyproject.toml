@@ -39,6 +39,7 @@ dev = [
     'pytest>=7.4',
     'coverage',
     'pytest-cov',
+    'pytest-forked',
     'hypothesis',
     'sphinx',
     'sphinx-book-theme',
@@ -52,6 +53,7 @@ tests = [
     'pytest>=7.4',
     'coverage',
     'pytest-cov',
+    'pytest-forked',
     'hypothesis',
 ]
 docs = [
