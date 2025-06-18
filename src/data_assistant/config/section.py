@@ -238,7 +238,8 @@ class Section(HasTraits):
 
         with self.hold_trait_notifications():
             self._init_direct_traits(config)
-        self._init_subsections(config)
+        if init_subsections:
+            self._init_subsections(config)
 
         if config:
             raise KeyError(f"Extra parameters for {clsname} {list(config.keys())}")
