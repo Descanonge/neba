@@ -1,13 +1,10 @@
-"""Generic section to test.
+"""Generic configuration to test.
 
-Here we should define a typical section, with nested subsections defined via function
-subsection or dynamically, with various traits (simple and composed).
-It should be used for basic stuff that would not translate super well in hypothesis.
-We can manipulate very clearly the trait, their values, if they are default or None.
-We can have multiple instances that have different values.
+Here we define a typical configuration with nested subsections, and with various traits
+(simple and composed).
 
-We can keep track of some information as well such as the number of traits, subsections,
-etc to have easy access to it.
+An accompanying class is defined and stores information statically about our generic
+config.
 """
 
 import typing as t
@@ -30,9 +27,9 @@ from traitlets import (
 )
 
 from data_assistant.config.section import Section, Subsection
+from tests.util import Drawer
 
 from .trait_generation import DummyClass, trait_to_strat
-from .util import Drawer
 
 S = t.TypeVar("S", bound=Section)
 
@@ -40,9 +37,11 @@ S = t.TypeVar("S", bound=Section)
 class SectionInfo(t.Generic[S]):
     """Class containing information about a given Section class.
 
-    It retains the traits defined on this section level, and in all subsections. For any
-    trait, it can give its default value or generate a possible value. It can list
-    the names of traits.
+    It retains the traits defined on this section level. For any trait, it can give its
+    default value or generate a possible value.
+
+    It is recursive for subsections. The list of keys is cached for efficiency (we use
+    hypothesis so I fear that computing it dynamically might be costly).
     """
 
     section: type[S]
@@ -227,7 +226,7 @@ class GenericSection(Section):
     union_num_str = Union([Int(), Float(), Unicode()], default_value="0")
     union_list = Union([Int(), List(Int())], default_value=[0])
 
-    # For alias testing, it won't superseed any other trait
+    # For alias testing, it must be dealt separately, it is not included in generic_args
     alias_only = Int(0)
 
 
@@ -302,8 +301,8 @@ class GenericSectionInfo(SectionInfo[GenericSection]):
             dict_str_int=(["a=1"], dict(a=1)),
             # type (instance not parsable)
             type=(
-                ["tests.trait_generation.DummySubclass"],
-                "tests.trait_generation.DummySubclass",
+                ["tests.config.trait_generation.DummySubclass"],
+                "tests.config.trait_generation.DummySubclass",
             ),
             # Union
             union_num=(["1"], 1),

@@ -5,10 +5,9 @@ from typing import Any
 
 import pytest
 from hypothesis import HealthCheck, given, settings
-from traitlets import Instance, Int, List, TraitType, Type, Unicode, Union
+from traitlets import Instance, Int, List, TraitType, Unicode, Union
 
 from data_assistant.config.application import ApplicationBase
-from data_assistant.config.loaders.cli import CLILoader
 from data_assistant.config.loaders.core import (
     ConfigLoader,
     ConfigValue,
@@ -20,11 +19,8 @@ from data_assistant.config.loaders.python import PyConfigContainer, PyLoader
 from data_assistant.config.loaders.toml import TomlkitLoader
 from data_assistant.config.loaders.yaml import YamlLoader
 from data_assistant.config.util import ConfigParsingError, MultipleConfigKeyError
-
-from ..conftest import todo
-
-# from data_assistant.config.loaders.python import PyLoader
-from ..generic_sections import GenericConfig, GenericConfigInfo
+from tests.config.generic_config import GenericConfig, GenericConfigInfo
+from tests.conftest import todo
 
 LOADERS: list[type[ConfigLoader]]
 FILE_LOADERS: list[type[FileLoader]]
@@ -190,7 +186,7 @@ class FileLoaderTest:
 
     def test_reading(self, App: type[ApplicationBase]):
         app = App(start=False)
-        app.config_files = f"./tests/unit/config{self.ext}"
+        app.config_files = f"./tests/config/config{self.ext}"
         conf: dict[str, Any] = app.load_config_files()
         conf = {k: v.get_value() for k, v in conf.items()}
 

@@ -6,9 +6,8 @@ from data_assistant.config.application import ApplicationBase
 from data_assistant.config.loaders import ConfigValue
 from data_assistant.config.loaders.python import PyLoader
 from data_assistant.config.loaders.toml import TomlkitLoader
-
-from ..conftest import todo
-from ..generic_sections import GenericConfig, GenericConfigInfo
+from tests.config.generic_config import GenericConfig, GenericConfigInfo
+from tests.conftest import todo
 
 
 class App(ApplicationBase, GenericConfig):

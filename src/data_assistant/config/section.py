@@ -857,16 +857,21 @@ class Section(HasTraits):
         flat: dict[str, t.Any] = {}
 
         def recurse(d: abc.Mapping, fullpath: list[str], section: type[Section]):
+            if not isinstance(d, abc.Mapping):
+                raise KeyError(
+                    f"{'.'.join(fullpath)} corresponds to a subsection, "
+                    f"it should be a Mapping (received {type(d)})."
+                )
             for key, val in d.items():
                 newpath = fullpath + [key]
                 fullkey = ".".join(newpath)
                 if key in section._subsections:
-                    if not isinstance(val, abc.Mapping):
-                        raise KeyError(
-                            f"{fullkey} corresponds to a subsection, "
-                            "it should be a Mapping."
-                        )
                     recurse(val, newpath, section._subsections[key])
+                    continue
+                if key in section.aliases:
+                    for subalias in section.aliases[key].split("."):
+                        section = section._subsections[subalias]
+                    recurse(val, newpath, section)
                     continue
                 if key not in section.class_trait_names():
                     raise KeyError(f"{fullkey} is not a trait.")

@@ -1,6 +1,7 @@
+"""Test Section class."""
+
 import logging
 from collections import abc
-from typing import Any
 
 import hypothesis.strategies as st
 import pytest
@@ -9,21 +10,20 @@ from traitlets import Bool, Int
 
 from data_assistant.config import Section, Subsection
 from data_assistant.config.util import UnknownConfigKeyError
-
-from ..conftest import todo
-from ..generic_sections import (
+from tests.config.generic_config import (
     GenericConfig,
     GenericConfigInfo,
     GenericSection,
     SectionInfo,
     TwinSubsection,
 )
-from ..section_generation import (
+from tests.config.section_generation import (
     section_st_to_cls,
     section_st_to_instance,
     section_st_to_instances,
     st_section_gen_single_trait,
 )
+from tests.conftest import todo
 
 log = logging.getLogger(__name__)
 
@@ -734,12 +734,14 @@ class TestNestFlatten(SectionTest):
         "sub_generic.enum_int": 13,
         "twin_a.int": 20,
         "twin_a.list_int": 21,
+        "deep_short.int": 30,
     }
     two_levels_nested = dict(
         int=0,
         bool=1,
         sub_generic=dict(int=10, bool=11, str=12, enum_int=13),
         twin_a=dict(int=20, list_int=21),
+        deep_short=dict(int=30),
     )
 
     deep_flat = {
@@ -793,10 +795,15 @@ class TestNestFlatten(SectionTest):
         with pytest.raises(KeyError):
             section.flatten_dict(nested)
 
-        # bad subsection in subsection
+        # bad subsection
         nested = dict(
             int=0, sub_generic=dict(float=0.0), bad_subsection=dict(bad_trait=0)
         )
+        with pytest.raises(KeyError):
+            section.flatten_dict(nested)
+
+        # subsection is not a mapping
+        nested = dict(int=0, sub_generic=5.0)
         with pytest.raises(KeyError):
             section.flatten_dict(nested)
 

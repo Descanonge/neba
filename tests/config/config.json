@@ -22,7 +22,7 @@
     "dict_any": {"a": "1", "b": "2", "c": "3"},
     "dict_str_int": {"a": 1},
 
-    "type": "tests.trait_generation.DummySubclass",
+    "type": "tests.config.trait_generation.DummySubclass",
 
     "union_num": 1,
     "union_num_str": "a",
@@ -48,7 +48,7 @@
         "tuple_float": [2.0, 3.0],
         "tuple_mix": ["b", 2, 3],
 
-        "type": "tests.trait_generation.DummySubclass",
+        "type": "tests.config.trait_generation.DummySubclass",
 
         "union_num": 1,
         "union_num_str": "a",
@@ -82,7 +82,7 @@
             "dict_any": {"a": "1", "b": "2", "c": "3"},
             "dict_str_int": {"a": 1},
 
-            "type": "tests.trait_generation.DummySubclass",
+            "type": "tests.config.trait_generation.DummySubclass",
 
             "union_num": 1,
             "union_num_str": "a",

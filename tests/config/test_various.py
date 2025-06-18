@@ -21,12 +21,12 @@ class TestTypehint:
         class Test:
             pass
 
-        self.valid(Test(), "~tests.unit.test_various.Test")
-        self.valid(Test(), "tests.unit.test_various.Test", mode="full")
+        self.valid(Test(), "~tests.config.test_various.Test")
+        self.valid(Test(), "tests.config.test_various.Test", mode="full")
         self.valid(Test(), "Test", mode="minimal")
 
-        self.valid(Test, "~tests.unit.test_various.Test")
-        self.valid(Test, "tests.unit.test_various.Test", mode="full")
+        self.valid(Test, "~tests.config.test_various.Test")
+        self.valid(Test, "tests.config.test_various.Test", mode="full")
         self.valid(Test, "Test", mode="minimal")
 
     def test_basic_trait(self):
@@ -131,13 +131,13 @@ class TestTypehint:
 
         trait = Instance(Test)
         self.valid(
-            trait, "~traitlets.traitlets.Instance[~tests.unit.test_various.Test]"
+            trait, "~traitlets.traitlets.Instance[~tests.config.test_various.Test]"
         )
         self.valid(trait, "Instance[Test]", mode="minimal")
 
         self.valid(Type(), "~traitlets.traitlets.Type")
         trait = Type(klass=Test)
-        self.valid(trait, "~traitlets.traitlets.Type[~tests.unit.test_various.Test]")
+        self.valid(trait, "~traitlets.traitlets.Type[~tests.config.test_various.Test]")
         self.valid(trait, "Type[Test]", mode="minimal")
 
         # Str klass

@@ -28,7 +28,7 @@ dict_str_int = {a=1}
 
 # instance and type TODO
 # c.inst =
-type = "tests.trait_generation.DummySubclass"
+type = "tests.config.trait_generation.DummySubclass"
 
 # union
 union_num = 1
@@ -61,7 +61,7 @@ tuple_mix = ["b", 2, 3]
 
 # instance and type TODO
 # c.inst =
-type = "tests.trait_generation.DummySubclass"
+type = "tests.config.trait_generation.DummySubclass"
 
 # union
 union_num = 1
@@ -105,7 +105,7 @@ dict_str_int = {a=1}
 
 # instance and type TODO
 # c.inst =
-type = "tests.trait_generation.DummySubclass"
+type = "tests.config.trait_generation.DummySubclass"
 
 # union
 union_num = 1

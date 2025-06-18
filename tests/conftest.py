@@ -28,11 +28,11 @@ todo = pytest.mark.todo
 
 def pytest_collection_modifyitems(items):
     module_order = [
-        "tests.unit.test_various",
-        "tests.unit.test_section",
-        "tests.unit.test_traits",
-        "tests.unit.test_loaders",
-        "tests.unit.test_application",
+        "tests.config.test_various",
+        "tests.config.test_section",
+        "tests.config.test_traits",
+        "tests.config.test_loaders",
+        "tests.config.test_application",
     ]
     module_mapping = {item: item.module.__name__ for item in items}
     sorted_items = []

@@ -6,9 +6,9 @@ import hypothesis.strategies as st
 from traitlets import TraitType
 
 from data_assistant.config.section import Section
+from tests.util import Drawer, st_varname
 
 from .trait_generation import TraitGenerator, st_trait_gen
-from .util import Drawer, st_varname
 
 
 class EmptySection(Section):
