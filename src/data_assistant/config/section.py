@@ -834,14 +834,21 @@ class Section(HasTraits):
         for key, val in flat.items():
             subconf = nested
             section = cls
-            subkeys = key.split(".")
-            for i, subkey in enumerate(subkeys):
+            *subkeys, trait = key.split(".")
+            for subkey in subkeys:
+                subconf = subconf.setdefault(subkey, {})
                 if subkey in section._subsections:
                     section = section._subsections[subkey]
-                    subconf = subconf.setdefault(subkey, {})
+                elif subkey in section.aliases:
+                    for subalias in section.aliases[subkey].split("."):
+                        section = section._subsections[subalias]
                 else:
-                    subconf[".".join(subkeys[i:])] = val
-                    break
+                    raise KeyError(
+                        f"Invalid key '{key}', '{subkey}' is not a subsection or alias."
+                    )
+            if trait not in section.class_trait_names():
+                raise KeyError(f"Invalid key '{key}', '{trait}' is not a trait.")
+            subconf[trait] = val
         return nested
 
     @classmethod
@@ -861,6 +868,8 @@ class Section(HasTraits):
                         )
                     recurse(val, newpath, section._subsections[key])
                     continue
+                if key not in section.class_trait_names():
+                    raise KeyError(f"{fullkey} is not a trait.")
                 flat[fullkey] = val
 
         recurse(nested, [], cls)
