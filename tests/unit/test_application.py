@@ -1,6 +1,9 @@
 """Test more integrated features of the Application."""
 
+from hypothesis import given
+
 from data_assistant.config.application import ApplicationBase
+from data_assistant.config.loaders import ConfigValue
 from data_assistant.config.loaders.python import PyLoader
 from data_assistant.config.loaders.toml import TomlkitLoader
 
@@ -24,6 +27,21 @@ def test_logger():
 @todo
 def test_strict_parsing_off():
     assert 0
+
+
+@given(values=GenericConfigInfo.values_strat())
+def test_orphan(values: dict):
+    class AppWithOrphan(ApplicationBase):
+        pass
+
+    section_cls = AppWithOrphan.register_orphan()(GenericConfig)
+
+    app = AppWithOrphan.shared(start=False)
+    app.conf = {"GenericConfig." + k: ConfigValue(v, k) for k, v in values.items()}
+
+    section = section_cls()
+    for k, v in values.items():
+        assert section[k] == v
 
 
 class TestStartup:

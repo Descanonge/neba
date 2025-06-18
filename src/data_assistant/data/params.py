@@ -92,7 +92,6 @@ class ParamsManagerDict(ParamsManagerAbstract[CallbackDict[str, t.Any]]):
         self._params = CallbackDict()
 
         def handler(change: Bunch):
-            print("change in", change.name)
             self.dm.reset()
 
         self._params._callback = handler
