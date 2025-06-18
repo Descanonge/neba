@@ -817,41 +817,15 @@ class Section(HasTraits):
     @classmethod
     def _class_subsections_recursive(cls) -> abc.Iterator[type[Section]]:
         """Iterate recursively over all subsections."""
+        yield cls
         for subsection in cls._subsections.values():
             yield from subsection._class_subsections_recursive()
-        yield cls
 
     def _subsections_recursive(self) -> abc.Iterator[Section]:
         """Iterate recursively over all subsections."""
+        yield self
         for name in self._subsections:
             yield from getattr(self, name)._subsections_recursive()
-        yield self
-
-    # Lifted from traitlets.config.application.Application
-    @classmethod
-    def _classes_inc_parents(
-        cls, classes: abc.Iterable[type[Section]] | None = None
-    ) -> abc.Generator[type[Section], None, None]:
-        """Iterate through configurable classes, including configurable parents.
-
-        Children should always be after parents, and each class should only be
-        yielded once.
-
-        Parameters
-        ----------
-        classes
-            The list of classes to start from; if not set, uses all nested subsections.
-        """
-        if classes is None:
-            classes = cls._class_subsections_recursive()
-
-        seen = set()
-        for c in classes:
-            # We want to sort parents before children, so we reverse the MRO
-            for parent in reversed(c.mro()):
-                if issubclass(parent, Section) and (parent not in seen):
-                    seen.add(parent)
-                    yield parent
 
     @classmethod
     def nest_dict(cls, flat: abc.Mapping[str, t.Any]) -> dict[str, t.Any]:
