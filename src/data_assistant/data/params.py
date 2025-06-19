@@ -88,7 +88,7 @@ class CallbackDict(dict, t.Generic[_K, _V]):
 class ParamsManagerDict(ParamsManagerAbstract[CallbackDict[str, t.Any]]):
     """Parameters stored in a dictionnary."""
 
-    def _init_module(self) -> None:
+    def setup(self) -> None:
         self._params = CallbackDict()
 
         def handler(change: Bunch):
@@ -216,7 +216,7 @@ class ParamsManagerSection(ParamsManagerSectionAbstract[T_Section]):
 
     _params: T_Section
 
-    def _init_module(self) -> None:
+    def setup(self) -> None:
         self._params = self.SECTION_CLS()
         self._setup_cache_callback()
 
@@ -224,7 +224,7 @@ class ParamsManagerSection(ParamsManagerSectionAbstract[T_Section]):
 class ParamsManagerApp(ParamsManagerSectionAbstract[T_Section]):
     """Parameters are retrieved from a shared application instance."""
 
-    def _init_module(self) -> None:
+    def setup(self) -> None:
         app_cls = self.dm._application_cls
         if app_cls is None:
             raise TypeError(

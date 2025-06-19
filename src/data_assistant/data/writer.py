@@ -296,8 +296,8 @@ class SplitWriterMixin(WriterAbstract[T_Source, T_Data]):
 
     source: Splitable[T_Source]
 
-    def _init_module(self):
-        super()._init_module()
+    def setup(self):
+        super().setup()
 
         if not isinstance(self.dm.source, Splitable):
             raise TypeError(f"Source module is not Splitable ({type(self.dm)})")

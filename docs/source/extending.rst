@@ -156,17 +156,3 @@ do not use it are not required to install it or import it. For the same reasons,
 for XArray all module were put in their own submodule that is not imported by
 default.
 
-Completely different DataManager
---------------------------------
-
-The process of defining module quickly inside a data-manager class definition
-could be re-used for other purposes. Or maybe the chosen default modules
-(parameters, source, loader, writer) is not appropriate. Modules can be easily
-replaced or even added, but someone could want something completely different.
-They could then create their own data-manage base class from
-:class:`.HasModules` which is the parent class that implements the module
-discovery and initialization.
-
-The :class:`.Module` class is still very much expecting to be in a
-:class:`.DataManagerBase` to ease the development. A solution could be found to
-make Module and HasModules more easily re-usable.

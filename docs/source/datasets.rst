@@ -29,41 +29,47 @@ opened by different libraries).
 Definition in the data manager
 ------------------------------
 
-The default :class:`.Dataset` has four modules:
+The default :class:`.Dataset` has four modules. Each module has an attribute
+where the module instance can be accessed, and an attribute where its type can
+changed:
 
-* ``params_manager`` defined at :class:`_Params<.ParamsManager>` to manage the
-  data-manager parameters
-* ``source`` defined at :class:`_Source<.SourceAbstract>` to manage the data
-  source
-* ``loader`` defined at :class:`_Loader<.LoaderAbstract>` to load data
-* ``writer`` defined at :class:`_Writer<.WriterAbstract>` to write data
++---------------+------------+----------------------------------+-------------+
+| Instance      | Definition | Class                            |  Function   |
+| attribute     | attribute  |                                  |             |
++===============+============+==================================+=============+
+| params_manager| Params     | :class:`.ParamsManagerAbstract`  | manage      |
+|               |            |                                  | parameters  |
++---------------+------------+----------------------------------+-------------+
+| source        | Source     | :class:`.SourceAbstract`         | manage      |
+|               |            |                                  | data source |
++---------------+------------+----------------------------------+-------------+
+| loader        | Loader     | :class:`.LoaderAbstract`         |  load data  |
++---------------+------------+----------------------------------+-------------+
+| writer        | Writer     | :class:`.WriterAbstract`         | write data  |
++---------------+------------+----------------------------------+-------------+
 
-.. note::
 
-    The parameter manager is the only one to not be abstract, being essential to
-    the working of the data-manager. Like for the other modules, it can be
-    changed to a subclass.
-
-To change a module, we only need to change the module type contained in an
-attribute. It is expected to be done in a Dataset subclass. It can be a simple
-attribute change, or a class definition with the appropriate name, like so::
+To change a module, we only need to change the module type contained in the
+corresponding attribute. It is expected to be done in a Dataset subclass. It can
+be a simple attribute change, or a class definition with the appropriate name,
+like so::
 
     # simple attribute changes
     class DataManagerProjet(Dataset):
         """Define a data-manager base for the project."""
 
-        _Source = SimpleSource
-        _Loader = XarrayLoader
+        Source = SimpleSource
+        Loader = XarrayLoader
 
     # more complex definitions
     class SST(DataManagerProject):
 
-        class _Source(DataManagerProject._Source):
+        class Source(DataManagerProject.Source):
 
             def get_source(self):
                 ...
 
-        class _Loader(DataManagerProject._Loader):
+        class Loader(DataManagerProject.Loader):
             def postprocess_data(self, data):
                 ...
 
@@ -74,39 +80,42 @@ Users will typically only need to use existing modules, possibly with
 redefining some of its methods. In the case more dramatic changes are necessary,
 here are more details on the module system.
 
-The :class:`.Dataset` class inherits from :class:`.HasModules` that deals with
-most of the module system. Modules must be registered in the
-:attr:`.HasModules._registered_modules` attribute, which is a list of named
-tuples each containing three key informations:
+The correspondence between the attribute containing the module instance and the
+one containing the module type must be indicated in
+:attr:`~.Dataset._modules_attributes`.
 
-* the attribute name that will hold the module **instance**
-* the attribute name that will hold the module **type** or definition
-* the class of the module.
+.. note::
+
+   The module will be instanciated in the order of the mapping. They will also
+   be setup in this order, with the difference that the parameters module will
+   always be first.
 
 Dataset managers are initialized with an optional argument giving the
 parameters, and additional keyword arguments. All modules are instantiated with
 the same arguments. Immediately after, their :attr:`~.Module.dm` attribute is
 set to the containing data manager. Once they are all instantiated, they are
-initialized using the :meth:`.Module._init_module` method. This allow to be
-(mostly) sure that all other module exist if there is need for interplay.
+setup using the :meth:`.Module.setup` method. This allow to be (mostly) sure
+that all other module exist if there is need for interplay.
 
 .. note::
 
-   'Mostly' because if a module fails to instantiate it will only log a warning,
-   and will not be accessible.
+   'Mostly' because if a module fails to instantiate and its attribute
+   :attr:`.Module._allow_instantiation_failure` is True, there will only log a
+   warning and the module will not be accessible.
 
-The :meth:`~.Module._init_module()` method is planned for inheritance
-cooperation. Each new subclass should make a ``super()._init_module()`` call
-whenever appropriate. The dataset initialization
-(:meth:`.HasModules._init_modules`) will make sure every class in the MRO is
-initialized. So for instance in ``class NewModule(SubModuleA, SubModuleB)`` both
-``SubModuleA._init_module`` and ``SubModuleB._init_module`` will be called, even
-though they don't necessarily know about each other.
+The :meth:`~.Module.setup()` method is planned for inheritance cooperation. Each
+new subclass should make a ``super().setup()`` call whenever appropriate. The
+parent function launched by the Dataset (:meth:`.Module.__setup`) will make sure
+it will be called for every base class. So for instance in ``class
+NewModule(SubModuleA, SubModuleB)`` both ``SubModuleA.setup`` and
+``SubModuleB.setup`` will be called, even though they don't necessarily know
+about each other.
 
 .. important::
 
-   All modules have easy access to the dateset parameters by using
-   :meth:`~.Module.params`.
+   It is still necessary to add a ``super().setup()`` to propagate the call
+   further; for instance, if SubModuleB is a child of SubModuleC and we want
+   ``SubModuleC.setup`` to run.
 
 For the most part, modules are made to be independant of each others, but it can
 be useful to have interplay. The dataset provides some basic API that modules

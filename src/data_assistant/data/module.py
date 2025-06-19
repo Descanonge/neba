@@ -16,6 +16,11 @@ log = logging.getLogger(__name__)
 class Module:
     """Module to which the data-manager delegates some functionality."""
 
+    _allow_instanciation_failure: bool = True
+    """Wether exception will be raised or not during instantiation."""
+    _is_setup: bool = False
+    """Keep track if the module has been set up."""
+
     dm: Dataset
     """Parent dataset."""
 
@@ -30,12 +35,42 @@ class Module:
     def __repr__(self) -> str:
         return "\n".join(self._lines())
 
-    def _init_module(self) -> None:
-        pass
-
     def _lines(self) -> list[str]:
         """Lines to show in DataManager repr (human readable)."""
         return []
+
+    def setup(self) -> None:
+        """Initialize module, allow for cooperation in inheritance.
+
+        It will be called on ancestors from every parent class. It is still necessary to
+        include a ``super.setup()`` where necessary.
+        """
+        pass
+
+    def __setup(self) -> None:
+        """Initialize module, allow for cooperation in inheritance.
+
+        Will only run if :attr:`_is_setup` is False.
+        """
+        if self._is_setup:
+            return
+
+        initialized: list[type[Module]] = list()
+        for ancestor in self.__class__.mro():
+            if issubclass(ancestor, Module) and not any(
+                isinstance(ancestor, x) for x in initialized
+            ):
+                try:
+                    ancestor.setup(self)
+                except Exception as e:
+                    log.warning(
+                        "Error when initializing module %s (%s)",
+                        self,
+                        ancestor,
+                        exc_info=e,
+                    )
+                initialized += ancestor.mro()
+                self._is_setup = True
 
 
 class CachedModule(Module):
@@ -47,7 +82,7 @@ class CachedModule(Module):
 
     _add_void_callback = True
 
-    def _init_module(self) -> None:
+    def setup(self) -> None:
         self.cache: dict[str, t.Any] = {}
 
         def callback(dm, **kwargs) -> None:
@@ -129,7 +164,7 @@ class ModuleMix(t.Generic[T_Mod], Module):
     def _init_module(self) -> None:
         for mod in self.base_modules.values():
             mod.dm = self.dm
-            mod._init_module()
+            mod.setup()
 
     @classmethod
     def create(

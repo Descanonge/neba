@@ -20,119 +20,7 @@ from .writer import WriterAbstract
 log = logging.getLogger(__name__)
 
 
-class ModuleSpec(t.NamedTuple):
-    """Specification of a module in a HasModule object."""
-
-    type_attr: str
-    """Name of attribute that will hold the type of the module.
-
-    And where the user can define a new subclass of module to use.
-    """
-    instance_attr: str
-    """Name of attribute that will hold the instance of the module."""
-    type: type[Module]
-    """Type of the module.
-
-    Will be checked, but only a warning will be sent if the current module defined at
-    :attr:`type_attr` is not a subclass.
-    """
-
-
-class HasModules:
-    """Finds and register modules in class definitions.
-
-    Will initialize any module following the specification of
-    :attr:`_registered_modules`.
-    """
-
-    _registered_modules: list[ModuleSpec] = []
-    """List of modules registered for this class.
-
-    Will be checked at class initialization to make sure there is no overlap between
-    attribute names.
-    """
-
-    _modules: dict[str, Module]
-    """Mapping from attribute names to module instances. Filled during initialization."""
-
-    def __init_subclass__(cls, /, **kwargs) -> None:
-        super().__init_subclass__(**kwargs)
-        cls._check_registered()
-
-    @classmethod
-    def _check_registered(cls) -> None:
-        # Check the registered modules
-        type_attrs = []
-        inst_attrs = []
-        for spec in cls._registered_modules:
-            if (attr := spec.type_attr) in inst_attrs:
-                raise ValueError(
-                    f"Multiple modules registered with type attribute {attr}"
-                )
-            if (attr := spec.instance_attr) in inst_attrs:
-                raise ValueError(
-                    f"Multiple modules registered with instance attribute {attr}"
-                )
-            # TODO: check type_attr class
-            type_attrs.append(spec.type_attr)
-            inst_attrs.append(spec.instance_attr)
-
-    def _instantiate_modules(self, *args, **kwargs) -> None:
-        self._modules = {}
-
-        for spec in self._registered_modules:
-            # None means the user has deleted module without unregistering it, fine.
-            mod_type = getattr(self, spec.type_attr, None)
-            if mod_type is None:
-                log.info(
-                    "Module %s:%s registered but definition not present.",
-                    spec.type_attr,
-                    spec.type,
-                )
-                continue
-
-            # Small sanity check, permissive.
-            if not issubclass(mod_type, spec.type):
-                log.warning(
-                    "Module %s:%s is not a subclass of registered %s",
-                    spec.type_attr,
-                    mod_type,
-                    spec.type,
-                )
-
-            # Instantiate module, still permissive.
-            try:
-                mod = mod_type(*args, **kwargs)
-            except Exception as e:
-                log.warning("Error when instantiating module %s", mod_type, exc_info=e)
-
-            # link to data manager instance
-            mod.dm = self  # type: ignore
-
-            self._modules[spec.instance_attr] = mod
-            setattr(self, spec.instance_attr, mod)
-
-    def _init_module(self, module: Module) -> None:
-        """Initialize all module, allow for cooperation in inheritance.
-
-        _init_module will be called on all ancestors.
-        """
-        initialized: list[type[Module]] = list()
-        for ancestor in module.__class__.mro():
-            if issubclass(ancestor, Module) and ancestor not in initialized:
-                try:
-                    ancestor._init_module(module)
-                except Exception as e:
-                    log.warning(
-                        "Error when initializing module %s (%s)",
-                        module,
-                        ancestor,
-                        exc_info=e,
-                    )
-                initialized += ancestor.mro()
-
-
-class Dataset(t.Generic[T_Params, T_Source, T_Data], HasModules, Section):
+class Dataset(t.Generic[T_Params, T_Source, T_Data], Section):
     """DataManager base object.
 
     Registers modules for parameters management, source management, data loading,
@@ -147,24 +35,40 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data], HasModules, Section):
     block.
     """
 
+    # -- Dataset Identification --
+
     SHORTNAME: str | None = None
     """Short name to refer to this data-manager class."""
     ID: str | None = None
     """Long name to identify uniquely this data-manager class."""
 
-    _registered_modules = [
-        ModuleSpec("_Params", "params_manager", ParamsManagerAbstract),
-        ModuleSpec("_Source", "source", SourceAbstract),
-        ModuleSpec("_Loader", "loader", LoaderAbstract),
-        ModuleSpec("_Writer", "writer", WriterAbstract),
-    ]
+    # -- Module related --
 
-    _Params: type[ParamsManagerAbstract] = ParamsManagerAbstract[T_Params]
-    _Source: type[SourceAbstract] = SourceAbstract[T_Source]
-    _Loader: type[LoaderAbstract] = LoaderAbstract[T_Source, T_Data]
-    _Writer: type[WriterAbstract] = WriterAbstract[T_Source, T_Data]
+    _modules_attributes: dict[str, str] = dict(
+        params_manager="Params", source="Source", loader="Loader", writer="Writer"
+    )
+    """Mapping from the instance attribute to type attribute.
 
-    # Instantiated at init
+    Modules will instanciate and setup in this order. Parameters should be first.
+    """
+
+    _modules: dict[str, Module]
+    """Mapping from attribute names to module instances. Filled during initialization."""
+
+    # Default module types
+    Params: type[ParamsManagerAbstract] = ParamsManagerAbstract[T_Params]
+    Source: type[SourceAbstract] = SourceAbstract[T_Source]
+    Loader: type[LoaderAbstract] = LoaderAbstract[T_Source, T_Data]
+    Writer: type[WriterAbstract] = WriterAbstract[T_Source, T_Data]
+
+    # static type checking --
+    params_manager: ParamsManagerAbstract[T_Params]
+    source: SourceAbstract[T_Source]
+    loader: LoaderAbstract[T_Source, T_Data]
+    writer: WriterAbstract[T_Source, T_Data]
+
+    # -- Instance attributes --
+
     _reset_callbacks: dict[str, abc.Callable[..., None]]
     """Dictionary of callbacks to run when parameters are changed/reset.
 
@@ -172,12 +76,8 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data], HasModules, Section):
     any number of keyword arguments.
     """
 
-    params_manager: ParamsManagerAbstract[T_Params]
-    source: SourceAbstract[T_Source]
-    loader: LoaderAbstract[T_Source, T_Data]
-    writer: WriterAbstract[T_Source, T_Data]
-
     def __init__(self, params: t.Any | None = None, **kwargs) -> None:
+        self._modules = {}
         self._reset_callbacks = {}
 
         # extract trait from kwargs
@@ -185,16 +85,42 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data], HasModules, Section):
         for name in itertools.chain(self.trait_names(config=True), self._subsections):
             if name in kwargs:
                 config[name] = kwargs.pop(name)
-
         Section.__init__(self, config)
 
         self._instantiate_modules(params=params, **kwargs)
-        self._init_module(self.params_manager)
+
+        # backref
+        for mod in self._modules.values():
+            mod.dm = self
+
+        # Setup modules
+        # Start with parameters
+        # update them if necessary (the module must be initialize for this)
+        self.params_manager.__setup()
         if params is not None or kwargs:
             self.update(params, **kwargs)
-        self._init_module(self.source)
-        self._init_module(self.loader)
-        self._init_module(self.writer)
+
+        # Parameters won't initialize again
+        for mod in self._modules.values():
+            mod.__setup()
+
+    def _instantiate_modules(self, *args, **kwargs):
+        for instance_attr, type_attr in self._modules_attributes.items():
+            # None means the user has deleted module without unregistering it, fine.
+            mod_type = getattr(self, type_attr, None)
+            if mod_type is None:
+                log.info("Module %%s registered but definition not present.", type_attr)
+                return
+
+            try:
+                mod = mod_type(*args, **kwargs)
+            except Exception as e:
+                log.warning("Error when instantiating module %s", mod_type, exc_info=e)
+                if not mod_type._allow_instantiation_failure:
+                    raise e
+
+            self._modules[instance_attr] = mod
+            setattr(self, instance_attr, mod)
 
     def __str__(self) -> str:
         """Return a string representation."""
@@ -224,9 +150,6 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data], HasModules, Section):
     @property
     def params(self) -> T_Params:
         """Parameters values for this instance."""
-        # TODO: should return frozen object
-        # frozen dict, a version of section that is frozen?
-        # maybe separate section into FrozenSection and Section(FrozenSection)?
         return self.params_manager._params
 
     def set_params(
