@@ -424,8 +424,6 @@ def trait_to_gen(
     For Instance and Trrait, if the klass is missing, `object` will be used.
 
     Kwargs is unused.
-
-    # TODO: use hypothesis.from_type and .register_type_strategy
     """
     if allow_none is None:
         allow_none = trait.allow_none
