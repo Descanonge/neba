@@ -118,9 +118,9 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data], Section):
                 log.warning("Error when instantiating module %s", mod_type, exc_info=e)
                 if not mod_type._allow_instantiation_failure:
                     raise e
-
-            self._modules[instance_attr] = mod
-            setattr(self, instance_attr, mod)
+            else:
+                self._modules[instance_attr] = mod
+                setattr(self, instance_attr, mod)
 
     def __str__(self) -> str:
         """Return a string representation."""

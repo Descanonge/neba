@@ -16,7 +16,7 @@ log = logging.getLogger(__name__)
 class Module:
     """Module to which the data-manager delegates some functionality."""
 
-    _allow_instanciation_failure: bool = True
+    _allow_instantiation_failure: bool = True
     """Wether exception will be raised or not during instantiation."""
     _is_setup: bool = False
     """Keep track if the module has been set up."""

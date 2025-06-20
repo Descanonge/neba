@@ -19,6 +19,8 @@ log = logging.getLogger(__name__)
 class ParamsManagerAbstract(t.Generic[T_Params], Module):
     """Abstract Module for parameters management."""
 
+    _allow_instantiation_failure = False
+
     PARAMS_DEFAULTS: abc.Mapping[str, t.Any] = {}
     """Default values of parameters."""
 
