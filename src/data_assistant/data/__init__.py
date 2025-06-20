@@ -15,6 +15,7 @@ from .source import (
     GlobSource,
     MultiFileSource,
     SimpleSource,
+    SourceAbstract,
     SourceIntersection,
     SourceUnion,
 )
@@ -37,6 +38,7 @@ __all__ = [
     "ParamsManagerSection",
     "ParamsMap",
     "SimpleSource",
+    "SourceAbstract",
     "SourceIntersection",
     "SourceUnion",
     "SplitWriterMixin",
