@@ -33,6 +33,7 @@ def pytest_collection_modifyitems(items):
         "tests.config.test_traits",
         "tests.config.test_loaders",
         "tests.config.test_application",
+        "tests.datasets.test_dataset",
     ]
     module_mapping = {item: item.module.__name__ for item in items}
     sorted_items = []
@@ -41,4 +42,6 @@ def pytest_collection_modifyitems(items):
         for it in sorted_items_mod:
             module_mapping.pop(it)
         sorted_items += sorted_items_mod
+    # add items that were not found
+    sorted_items += [it for it in items if it not in sorted_items]
     items[:] = sorted_items

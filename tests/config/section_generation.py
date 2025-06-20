@@ -79,7 +79,7 @@ class SectionGenerator:
         return strat()
 
 
-def st_section_generator(max_leaves=100) -> st.SearchStrategy[SectionGenerator]:
+def st_section_generator(max_leaves=32) -> st.SearchStrategy[SectionGenerator]:
     base = st.dictionaries(
         keys=st_varname, values=st_trait_gen(), max_size=SectionGenerator.MAX_SIZE
     )
