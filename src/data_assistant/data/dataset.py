@@ -96,15 +96,15 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data], Section):
         # Setup modules
         # Start with parameters
         # update them if necessary (the module must be initialize for this)
-        self.params_manager.__setup()
+        self.params_manager._setup_ancestors()
         if params is not None or kwargs:
             self.update(params, **kwargs)
 
         # Parameters won't initialize again
         for mod in self._modules.values():
-            mod.__setup()
+            mod._setup_ancestors()
 
-    def _instantiate_modules(self, *args, **kwargs):
+    def _instantiate_modules(self, *args, **kwargs) -> None:
         for instance_attr, type_attr in self._modules_attributes.items():
             # None means the user has deleted module without unregistering it, fine.
             mod_type = getattr(self, type_attr, None)

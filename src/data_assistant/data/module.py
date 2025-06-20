@@ -47,7 +47,7 @@ class Module:
         """
         pass
 
-    def __setup(self) -> None:
+    def _setup_ancestors(self) -> None:
         """Initialize module, allow for cooperation in inheritance.
 
         Will only run if :attr:`_is_setup` is False.
