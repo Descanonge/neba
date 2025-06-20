@@ -56,10 +56,10 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data], Section):
     """Mapping from attribute names to module instances. Filled during initialization."""
 
     # Default module types
-    Params: type[ParamsManagerAbstract] = ParamsManagerAbstract[T_Params]
-    Source: type[SourceAbstract] = SourceAbstract[T_Source]
-    Loader: type[LoaderAbstract] = LoaderAbstract[T_Source, T_Data]
-    Writer: type[WriterAbstract] = WriterAbstract[T_Source, T_Data]
+    Params: type[ParamsManagerAbstract] = ParamsManagerAbstract
+    Source: type[SourceAbstract] = SourceAbstract
+    Loader: type[LoaderAbstract] = LoaderAbstract
+    Writer: type[WriterAbstract] = WriterAbstract
 
     # static type checking --
     params_manager: ParamsManagerAbstract[T_Params]
