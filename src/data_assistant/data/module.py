@@ -57,9 +57,7 @@ class Module:
 
         initialized: list[type[Module]] = list()
         for ancestor in self.__class__.mro():
-            if issubclass(ancestor, Module) and not any(
-                isinstance(ancestor, x) for x in initialized
-            ):
+            if issubclass(ancestor, Module):
                 try:
                     ancestor.setup(self)
                 except Exception as e:
@@ -70,7 +68,7 @@ class Module:
                         exc_info=e,
                     )
                 initialized += ancestor.mro()
-                self._is_setup = True
+        self._is_setup = True
 
 
 class CachedModule(Module):
