@@ -152,5 +152,3 @@ def test_module_setup_ancestors():
 
 # test cache
 # test basic dataset reset parameters
-
-# test callback from parameters (section and dict)

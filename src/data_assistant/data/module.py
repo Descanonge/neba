@@ -57,7 +57,7 @@ class Module:
 
         initialized: list[type[Module]] = list()
         for ancestor in self.__class__.mro():
-            if issubclass(ancestor, Module):
+            if issubclass(ancestor, Module) and ancestor not in initialized:
                 try:
                     ancestor.setup(self)
                 except Exception as e:
