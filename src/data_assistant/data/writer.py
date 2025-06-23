@@ -43,10 +43,6 @@ class WriterAbstract(t.Generic[T_Source, T_Data], Module):
 
         Parameters
         ----------
-        params
-            A dictionnary of the parameters used, that will automatically be serialized
-            as a string. Can also be a custom string.
-            Presentely we first try a serialization using json, if that fails, `str()`.
         add_dataset_params
             If True (default), add the parent dataset parameters values to metadata.
             Parameters "as dict" are serialized using json, and if that fails `str()`.
@@ -69,11 +65,10 @@ class WriterAbstract(t.Generic[T_Source, T_Data], Module):
 
         # Get parameters as string
         if add_dataset_params:
-            params = self.dm.params
             try:
-                params_str = json.dumps(params)
+                params_str = json.dumps(dict(self.dm.params))
             except TypeError:
-                params_str = str(params)
+                params_str = str(self.dm.params)
 
             meta["created_with_params"] = params_str
 
