@@ -34,6 +34,7 @@ def pytest_collection_modifyitems(items):
         "tests.config.test_loaders",
         "tests.config.test_application",
         "tests.datasets.test_dataset",
+        "tests.datasets.test_params",
     ]
     module_mapping = {item: item.module.__name__ for item in items}
     sorted_items = []

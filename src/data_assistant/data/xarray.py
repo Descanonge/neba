@@ -188,10 +188,9 @@ class XarrayWriterAbstract(WriterAbstract[T_Source, xr.Dataset]):
 
         t.assert_never(format)
 
-    def set_metadata(
+    def add_metadata(
         self,
         ds: xr.Dataset,
-        params: dict | str | None = None,
         add_dataset_parameters: bool = True,
         add_commit: bool = True,
     ) -> xr.Dataset:
@@ -204,10 +203,6 @@ class XarrayWriterAbstract(WriterAbstract[T_Source, xr.Dataset]):
         ----------
         ds
             Dataset to add global attributes to. This is **not** done in-place.
-        params
-            A dictionnary of the parameters used, that will automatically be serialized
-            as a string. Can also be a custom string.
-            Presentely we first try a serialization using json, if that fails, `str()`.
         add_dataset_params
             Add the parent dataset parameters values to serialization if True (default)
             and if ``parameters`` is not a string. The parent parameters won't overwrite
@@ -220,10 +215,15 @@ class XarrayWriterAbstract(WriterAbstract[T_Source, xr.Dataset]):
             add_dataset_params=add_dataset_parameters,
             add_commit=add_commit,
         )
+        return self._add_metadata(ds, meta)
+
+    def _add_metadata(self, ds: xr.Dataset, metadata: abc.Mapping) -> xr.Dataset:
+        # copy
+        metadata = dict(metadata)
         # Do not overwrite attributes.
-        for k in set(ds.attrs.keys()) & set(meta.keys()):
-            meta.pop(k)
-        return ds.assign_attrs(**meta)
+        for k in set(ds.attrs.keys()) & set(metadata.keys()):
+            metadata.pop(k)
+        return ds.assign_attrs(**metadata)
 
 
 class XarrayWriter(XarrayWriterAbstract[str]):
@@ -254,7 +254,7 @@ class XarrayWriter(XarrayWriterAbstract[str]):
         if target is None:
             target = self.dm.get_source()
 
-        data = self.set_metadata(data)
+        data = self.add_metadata(data)
         call = target, data
         self.check_directory(call)
         return self.send_single_call(call, **kwargs)
@@ -356,7 +356,7 @@ class XarrayMultiFileWriter(XarrayWriterAbstract[list[str]]):
         if target is None:
             target = self.dm.get_source()
 
-        data = [self.set_metadata(d) for d in data]
+        data = [self.add_metadata(d) for d in data]
 
         if len(target) != len(data):
             raise IndexError(
@@ -483,6 +483,9 @@ class XarraySplitWriter(SplitWriterMixin, XarrayMultiFileWriter):
             datasets_by_all += self.split_by_time(dataset, time_freq=time_freq)
 
         calls = self.to_calls(datasets_by_all, squeeze=squeeze)
+
+        metadata = self.get_metadata()
+        calls = [(f, self._add_metadata(ds, metadata)) for f, ds in calls]
 
         if client is not None:
             return self.send_calls_together(calls, client, chop=chop, **kwargs)
