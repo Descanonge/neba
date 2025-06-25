@@ -105,8 +105,6 @@ class Section(HasTraits):
     _parent: type[Section] | None = None
     _name: str = ""
 
-    _application_cls: type[ApplicationBase] | None = None
-
     _subsections: dict[str, type[Section]] = {}
     """Mapping of nested Section classes."""
 
@@ -219,21 +217,10 @@ class Section(HasTraits):
             Flat dictionary containing values for the traits of this section, and
             its subsections. If a value is missing, the trait default value is used.
         """
-        clsname = self.__class__.__name__
-
         if config is None:
             config = {}
 
         config = dict(config)  # copy
-
-        if (app_cls := self._application_cls) is not None and app_cls.shared_exists():
-            app = app_cls.shared()
-            if clsname not in app._orphaned_sections:
-                raise KeyError(f"'{clsname}' is not among registered sections.")
-
-            app_conf: dict[str, t.Any] = app.get_orphan_conf(clsname)
-            config = app_conf | config
-
         config |= kwargs
 
         with self.hold_trait_notifications():
@@ -242,7 +229,9 @@ class Section(HasTraits):
             self._init_subsections(config)
 
         if config:
-            raise KeyError(f"Extra parameters for {clsname} {list(config.keys())}")
+            raise KeyError(
+                f"Extra parameters for {self.__class__.__name__} {list(config.keys())}"
+            )
 
         self.postinit()
 
@@ -266,6 +255,12 @@ class Section(HasTraits):
             subconfig = {k.removeprefix(prefix): v for k, v in subconfig.items()}
             sub_inst = subcls(subconfig)
             setattr(self, name, sub_inst)
+
+    @classmethod
+    def from_app(cls, app: ApplicationBase, **kwargs) -> t.Self:
+        """Use parameters found in orphan sections."""
+        config = app.get_orphan_conf(cls)
+        return cls(config, **kwargs)
 
     def postinit(self):
         """Run any instructions after instantiation.
@@ -307,9 +302,11 @@ class Section(HasTraits):
 
     @classmethod
     def _get_line_trait(
-        cls, key: str, trait: TraitType, elbow: bool, value: t.Any
+        cls, key: str, trait: TraitType | None, elbow: bool, value: t.Any
     ) -> str:
         symb = _elbow if elbow else _branch
+        if trait is None:
+            return f"{symb}{key}: {value}"
 
         trait_cls = get_trait_typehint(trait, mode="minimal")
         default = trait.default()

@@ -33,12 +33,12 @@ def test_orphan(values: dict):
     class AppWithOrphan(ApplicationBase):
         pass
 
-    section_cls = AppWithOrphan.register_orphan()(GenericConfig)
+    section_cls = AppWithOrphan.register_orphan(GenericConfig)
 
-    app = AppWithOrphan.shared(start=False)
+    app = AppWithOrphan(start=False)
     app.conf = {"GenericConfig." + k: ConfigValue(v, k) for k, v in values.items()}
 
-    section = section_cls()
+    section = section_cls.from_app(app)
     for k, v in values.items():
         assert section[k] == v
 
