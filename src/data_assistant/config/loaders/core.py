@@ -350,7 +350,7 @@ class DictLikeLoaderMixin(ConfigLoader):
                         and (
                             subsec := {
                                 fullname.rsplit(".", 1)[-1]: subsec
-                                for fullname, subsec in section._imported_orphans
+                                for fullname, subsec in section._imported_orphans.items()
                             }.get(subkey, None)
                         )
                         is not None
