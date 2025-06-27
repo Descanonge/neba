@@ -238,13 +238,27 @@ class ApplicationBase(Section, LoggingConfigurable):
 
         return out
 
-    def _import_orphan(self, fullname: str) -> type[Section]:
-        """Import an orphan section."""
-        if fullname not in self.orphans:
-            raise KeyError(f"{type(self).__name__} has no orphan section {fullname}")
+    @t.overload
+    def _get_orphan(
+        self, fullname: str, import_: t.Literal[True] = ...
+    ) -> type[Section]: ...
 
-        if fullname in self._imported_orphans:
-            return self._imported_orphans[fullname]
+    @t.overload
+    def _get_orphan(
+        self, fullname: str, import_: bool = ...
+    ) -> type[Section] | None: ...
+
+    def _get_orphan(self, fullname: str, import_: bool = False) -> type[Section] | None:
+        """Import an orphan section.
+
+        :param import_: If True, import the orphan. If False, check in already imported
+            modules.
+        """
+        if fullname not in self.orphans:
+            raise KeyError(f"{fullname} is not a registered orphan.")
+
+        if (orphan := self._imported_orphans.get(fullname, None)) is not None:
+            return orphan
 
         parts = fullname.rsplit(".", 1)
         if len(parts) == 0:
@@ -252,16 +266,24 @@ class ApplicationBase(Section, LoggingConfigurable):
                 f"Orphan section was not given a full import string ({fullname})"
             )
         module_name, obj = parts
-        module = importlib.import_module(module_name)
-        section = getattr(module, obj)
-        if not isinstance(section, type) and issubclass(section, Section):
-            raise TypeError(f"Imported orphan {fullname} is not a Section subclass.")
-        return section
 
-    def import_orphans(self) -> None:
+        if module_name in sys.modules:
+            orphan = getattr(sys.modules[module_name], obj)
+            self._imported_orphans[fullname] = orphan
+            return orphan
+
+        if not import_:
+            return None
+
+        module = importlib.import_module(module_name)
+        orphan = getattr(module, obj)
+        self._imported_orphans[fullname] = orphan
+        return orphan
+
+    def import_orphans(self, import_: bool = True) -> None:
         """Import all orphans."""
         for fullname in self.orphans:
-            self._import_orphan(fullname)
+            self._get_orphan(fullname, import_=import_)
 
     def _get_lines(self, header: str = "") -> list[str]:
         lines = super()._get_lines(header)
@@ -273,17 +295,16 @@ class ApplicationBase(Section, LoggingConfigurable):
                 continue
 
             lines += [header, name]
-            if (section := self._imported_orphans.get(name, None)) is not None:
-                traits = section.traits_recursive(config=True)
-                for i, (key, value) in enumerate(subconf.items()):
-                    is_last = i == len(subconf) - 1
-                    lines.append(
-                        section._get_line_trait(key, traits[key], is_last, value)
+            section = self._imported_orphans.get(fullname, Section)
+            # if section = Section, it still works, just empty dict
+            traits = section.traits_recursive(config=True)
+            for i, (key, value) in enumerate(subconf.items()):
+                is_last = i == len(subconf) - 1
+                lines.append(
+                    section._get_line_trait(
+                        key, traits.get(key, None), is_last, value.get_value()
                     )
-            else:
-                for i, (key, value) in enumerate(subconf.items()):
-                    is_last = i == len(subconf) - 1
-                    lines.append(Section._get_line_trait(key, None, is_last, value))
+                )
         return lines
 
     def start(
@@ -316,8 +337,7 @@ class ApplicationBase(Section, LoggingConfigurable):
             If True, instantiate all sections. If not None, this argument overrides
             :attr:`auto_instantiate`.
         """
-        if self.orphans_import_policy == "at-startup":
-            self.import_orphans()
+        self.import_orphans(import_=self.orphans_import_policy == "at-startup")
 
         # TODO: Catch errors and silence them if setting is not strict
         # Parse CLI first
@@ -479,7 +499,7 @@ class ApplicationBase(Section, LoggingConfigurable):
                 and self.orphans_import_policy == "no"
             ):
                 return out
-            section = self._import_orphan(fullname)
+            section = self._get_orphan(fullname)
 
         # remove section classname to do the resolving
         if is_orphan:
