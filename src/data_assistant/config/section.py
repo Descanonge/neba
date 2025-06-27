@@ -312,10 +312,10 @@ class Section(HasTraits):
         default = trait.default()
 
         to_add = []
+        if isinstance(trait, Enum) and trait.values is not None:
+            to_add += [repr(v) for v in trait.values]
         if value != default:
             to_add += [f"default: {default}"]
-        if isinstance(trait, Enum) and trait.values is not None:
-            to_add += [str(trait.values)]
 
         trait_str = f"{trait_cls}"
         if to_add:
