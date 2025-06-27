@@ -8,6 +8,7 @@ from collections import abc
 
 from traitlets import Bunch
 
+from data_assistant.config.application import ApplicationBase
 from data_assistant.config.section import Section
 
 from .module import Module
@@ -223,15 +224,16 @@ class ParamsManagerSection(ParamsManagerSectionAbstract[T_Section]):
         self._setup_cache_callback()
 
 
-class ParamsManagerApp(ParamsManagerSectionAbstract[T_Section]):
-    """Parameters are retrieved from a shared application instance."""
+T_App = t.TypeVar("T_App", bound=ApplicationBase)
+
+
+class ParamsManagerApp(ParamsManagerSectionAbstract[T_App]):
+    """Parameters are retrieved from an application instance."""
+
+    def __init__(self, params: T_App, **kwargs):
+        if params is None:
+            raise TypeError("An application must be passed as parameter.")
+        self._params = params.copy()
 
     def setup(self) -> None:
-        app_cls = self.dm._application_cls
-        if app_cls is None:
-            raise TypeError(
-                "ParamsManagerApp requires the application type to be set "
-                "on the data manager. Use @Application.register_section."
-            )
-        self._params = app_cls.shared().copy()
         self._setup_cache_callback()
