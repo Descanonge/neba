@@ -41,7 +41,7 @@ class ParamsManagerAbstract(t.Generic[T_Params], Module):
         """
         raise NotImplementedError("Implement in a subclass of this module.")
 
-    def reset_params(self, params=None, **kwargs):
+    def reset_params(self, params: t.Any | None = None, **kwargs):
         """Reset parameters values.
 
         :Not Implemented: Implement in a subclass of this module.
@@ -148,7 +148,7 @@ class ParamsManagerSectionAbstract(ParamsManagerAbstract[T_Section]):
 
     _params: T_Section
 
-    def _setup_cache_callback(self):
+    def _setup_cache_callback(self) -> None:
         # add callbacks to void the cache
 
         def handler(change: Bunch):

@@ -80,6 +80,13 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data], Section):
         self._modules = {}
         self._reset_callbacks = {}
 
+        # Reset on trait change
+        def handler(change):
+            self.reset()
+
+        for subsection in self._subsections_recursive():
+            subsection.observe(handler)
+
         # extract trait from kwargs
         config = {}
         for name in itertools.chain(self.trait_names(config=True), self._subsections):
