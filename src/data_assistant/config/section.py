@@ -331,10 +331,10 @@ class Section(HasTraits):
         subsections = set(self._subsections.keys())
         return configurables | subsections
 
-    def copy(self) -> t.Self:
+    def copy(self, **kwargs) -> t.Self:
         """Return a copy."""
         config = self.as_dict()
-        return self.__class__(config)
+        return self.__class__(config, **kwargs)
 
     # - Mapping methods
 

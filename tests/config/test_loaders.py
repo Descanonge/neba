@@ -114,7 +114,6 @@ class TestDictLoader:
         values_nest, values_flat = values
 
         app: ApplicationBase = App(argv=[], start=False)
-        # app._init_subsections({})
 
         loader = DictLoader(app)
         conf_cv = loader.get_config(values_nest)

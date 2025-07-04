@@ -519,6 +519,16 @@ class ApplicationBase(Section, LoggingConfigurable):
         out.key = fullkey
         return out
 
+    def copy(self, **kwargs) -> t.Self:
+        """Return a copy."""
+        out = self.__class__(start=False, **kwargs)
+        out.conf = self.conf.copy()
+        out.cli_conf = self.cli_conf.copy()
+        out.file_conf = self.file_conf.copy()
+        config = self.as_dict()
+        Section.__init__(out, config, **kwargs)
+        return out
+
     def write_config(
         self,
         filename: str | None = None,
