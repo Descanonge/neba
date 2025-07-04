@@ -87,7 +87,7 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data], Section):
                 config[name] = kwargs.pop(name)
         Section.__init__(self, config)
 
-        self._instantiate_modules(params=params, **kwargs)
+        self._instantiate_modules(params, **kwargs)
 
         # backref
         for mod in self._modules.values():
@@ -95,10 +95,7 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data], Section):
 
         # Setup modules
         # Start with parameters
-        # update them if necessary (the module must be initialize for this)
         self.params_manager._setup_ancestors()
-        if params is not None or kwargs:
-            self.update(params, **kwargs)
 
         # Parameters won't initialize again
         for mod in self._modules.values():

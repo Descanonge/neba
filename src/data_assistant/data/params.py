@@ -91,8 +91,9 @@ class CallbackDict(dict, t.Generic[_K, _V]):
 class ParamsManagerDict(ParamsManagerAbstract[CallbackDict[str, t.Any]]):
     """Parameters stored in a dictionnary."""
 
-    def setup(self) -> None:
+    def __init__(self, params: abc.Mapping[str, t.Any] | None = None, **kwargs):
         self._params = CallbackDict()
+        self._params.update(**kwargs)
 
         def handler(change: Bunch):
             self.dm.reset()
@@ -219,8 +220,9 @@ class ParamsManagerSection(ParamsManagerSectionAbstract[T_Section]):
 
     _params: T_Section
 
-    def setup(self) -> None:
+    def __init__(self, params: T_Section | None = None, **kwargs):
         self._params = self.SECTION_CLS()
+        self._params.update(params, **kwargs)
         self._setup_cache_callback()
 
 
@@ -234,6 +236,5 @@ class ParamsManagerApp(ParamsManagerSectionAbstract[T_App]):
         if params is None:
             raise TypeError("An application must be passed as parameter.")
         self._params = params.copy()
-
-    def setup(self) -> None:
+        self._params.update(**kwargs)
         self._setup_cache_callback()
