@@ -13,6 +13,8 @@ from collections import abc
 from datetime import datetime
 from os import PathLike, path
 
+from data_assistant.config.loaders.json import JsonEncoderTypes
+
 from .loader import LoaderAbstract
 from .module import Module
 from .util import T_Data, T_Source
@@ -25,6 +27,9 @@ class WriterAbstract(t.Generic[T_Source, T_Data], Module):
 
     Manages metadata to (eventually) add to data before writing.
     """
+
+    metadata_params_exclude: abc.Sequence[str] = ["dask.", "log_"]
+    """Prefixes of parameters to exclude from metadata attribute."""
 
     def get_metadata(
         self,
@@ -65,10 +70,14 @@ class WriterAbstract(t.Generic[T_Source, T_Data], Module):
 
         # Get parameters as string
         if add_dataset_params:
+            # copy / convert to dict
+            params = dict(self.dm.params)
+            for prefix in self.metadata_params_exclude:
+                params = {k: v for k, v in params.items() if not k.startswith(prefix)}
             try:
-                params_str = json.dumps(dict(self.dm.params))
+                params_str = json.dumps(params, cls=JsonEncoderTypes)
             except TypeError:
-                params_str = str(self.dm.params)
+                params_str = str(params)
 
             meta["created_with_params"] = params_str
 
