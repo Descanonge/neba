@@ -31,6 +31,65 @@ class WriterAbstract(t.Generic[T_Source, T_Data], Module):
     metadata_params_exclude: abc.Sequence[str] = ["dask.", "log_"]
     """Prefixes of parameters to exclude from metadata attribute."""
 
+    metadata_git_ignore: abc.Sequence[str] = []
+    """Files and folders to ignore when creating git diff."""
+
+    metadata_max_diff_lines = 30
+    """Maximum number of lines to include in diff."""
+
+    def add_git_metadata(self, script: str, meta: dict[str, t.Any]):
+        """Add git information to meta dictionary."""
+        # use the directory of the calling script
+        gitdir = path.dirname(script)
+
+        # find commit
+        cmd = ["git", "-C", gitdir, "rev-parse", "HEAD"]
+        ret = subprocess.run(cmd, capture_output=True, text=True)
+        if ret.returncode != 0:
+            log.debug("'%s' not a valid git directory", gitdir)
+            return
+        commit = ret.stdout.strip()
+        meta["created_at_commit"] = commit
+
+        # check if there is diff
+        diffcmd = [
+            "git",
+            "-C",
+            gitdir,
+            "--no-pager",
+            "diff",
+            "-w",
+            "--diff-filter=M",
+            "--minimal",
+        ]
+        exclude_cmd = [f":!{x}" for x in self.metadata_git_ignore]
+        ret = subprocess.run(
+            diffcmd + ["--numstat"] + exclude_cmd, capture_output=True, text=True
+        )
+        if ret.returncode != 0:
+            log.warning("Error in creating diff, (%s)", ret.stderr.strip())
+            return
+        stat = ret.stdout.strip()
+        if stat:
+            stat_lines = []
+            for line in stat.splitlines():
+                plus, minus, filename = line.split("\t")
+                stat_lines.append(f"{filename}:+{plus}:-{minus}")
+            meta["git-diff-short"] = stat_lines
+
+            # add full diff
+            ret = subprocess.run(
+                diffcmd + ["--unified=0"] + exclude_cmd, capture_output=True, text=True
+            )
+            if ret.returncode != 0:
+                log.warning("Error in creating diff, (%s)", ret.stderr.strip())
+                return
+            diff = ret.stdout.strip().splitlines()
+            if (n := len(diff)) > (m := self.metadata_max_diff_lines):
+                diff = diff[:m]
+                diff.append(f"... {n - m} additional lines")
+            meta["git-diff-long"] = diff
+
     def get_metadata(
         self,
         add_dataset_params: bool = True,
@@ -45,6 +104,9 @@ class WriterAbstract(t.Generic[T_Source, T_Data], Module):
         * ``created_with_params``: a string representing the parameters,
         * ``created_on``: date of creation
         * ``created_at_commit``: if found, the current/HEAD commit hash.
+        * ``git-diff-short``: if workdir is dirty. a list of modified files
+        * ``git-diff-long``: if workdir is dirty, the full diff (truncated) at
+          :attr:`metadata_max_diff_lines`.
 
         Parameters
         ----------
@@ -86,15 +148,7 @@ class WriterAbstract(t.Generic[T_Source, T_Data], Module):
 
         # Get commit hash
         if add_commit:
-            # Use the directory of the calling script
-            gitdir = path.dirname(script)
-            cmd = ["git", "-C", gitdir, "rev-parse", "HEAD"]
-            ret = subprocess.run(cmd, capture_output=True, text=True)
-            if ret.returncode == 0:
-                commit = ret.stdout.strip()
-                meta["created_at_commit"] = commit
-            else:
-                log.debug("'%s' not a valid git directory", gitdir)
+            self.add_git_metadata(script, meta)
 
         return meta
 
