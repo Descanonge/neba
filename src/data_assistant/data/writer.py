@@ -51,6 +51,11 @@ class WriterAbstract(t.Generic[T_Source, T_Data], Module):
         commit = ret.stdout.strip()
         meta["created_at_commit"] = commit
 
+        # get top level (necessary for exclude arguments)
+        gitdir = subprocess.run(
+            ["git", "-C", gitdir, "--show-toplevel"], capture_output=True, text=True
+        ).stdout.strip()
+
         # check if there is diff
         diffcmd = [
             "git",
@@ -127,7 +132,11 @@ class WriterAbstract(t.Generic[T_Source, T_Data], Module):
 
         # Get hostname and script name
         hostname = socket.gethostname()
-        script = inspect.stack()[1].filename
+        for stack in inspect.stack():
+            if "data_assistant" not in stack.filename:
+                script = stack.filename
+                break
+
         meta["created_by"] = f"{hostname}:{script}"
 
         # Get parameters as string
