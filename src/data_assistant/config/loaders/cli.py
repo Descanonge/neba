@@ -117,11 +117,6 @@ class CLILoader(ConfigLoader):
         # ArgumentParser does its job
         # We are expecting (action="append", type=str, nargs="*") ie list[list[str]]
         args, extra = self.parser.parse_known_args(argv)
-        if extra:
-            raise UnknownConfigKeyError(
-                f"Unrecognized argument(s): {', '.join(extra)}, "
-                "use -h/--help or --list_parameters to see available3"
-            )
 
         dargs = vars(args)
         if "help" in dargs:
@@ -137,6 +132,12 @@ class CLILoader(ConfigLoader):
             ]
             print("\n".join(lines), file=sys.stderr)
             self.app.exit()
+
+        if extra:
+            raise UnknownConfigKeyError(
+                f"Unrecognized argument(s): {', '.join(extra)}, "
+                "use -h/--help or --list-parameters to see available parameters"
+            )
 
         # convert to ConfigKey/Value objects
         for name, value in dargs.items():
