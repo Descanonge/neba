@@ -75,7 +75,7 @@ class WriterAbstract(t.Generic[T_Source, T_Data], Module):
             for line in stat.splitlines():
                 plus, minus, filename = line.split("\t")
                 stat_lines.append(f"{filename}:+{plus}:-{minus}")
-            meta["git-diff-short"] = stat_lines
+            meta["git_diff_short"] = stat_lines
 
             # add full diff
             ret = subprocess.run(
@@ -88,7 +88,7 @@ class WriterAbstract(t.Generic[T_Source, T_Data], Module):
             if (n := len(diff)) > (m := self.metadata_max_diff_lines):
                 diff = diff[:m]
                 diff.append(f"... {n - m} additional lines")
-            meta["git-diff-long"] = diff
+            meta["git_diff_long"] = diff
 
     def get_metadata(
         self,
@@ -104,8 +104,8 @@ class WriterAbstract(t.Generic[T_Source, T_Data], Module):
         * ``created_with_params``: a string representing the parameters,
         * ``created_on``: date of creation
         * ``created_at_commit``: if found, the current/HEAD commit hash.
-        * ``git-diff-short``: if workdir is dirty. a list of modified files
-        * ``git-diff-long``: if workdir is dirty, the full diff (truncated) at
+        * ``git_diff_short``: if workdir is dirty, a list of modified files
+        * ``git_diff_long``: if workdir is dirty, the full diff (truncated) at
           :attr:`metadata_max_diff_lines`.
 
         Parameters
