@@ -8,6 +8,7 @@ import logging
 import typing as t
 from collections import abc
 
+from data_assistant.config.application import ApplicationBase
 from data_assistant.config.section import Section
 
 from .loader import LoaderAbstract
@@ -87,11 +88,15 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data], Section):
         for subsection in self._subsections_recursive():
             subsection.observe(handler)
 
-        # extract trait from kwargs
+        # extract trait from App and kwargs
         config = {}
-        for name in itertools.chain(self.trait_names(config=True), self._subsections):
+        for name in self.keys():
+            if isinstance(params, ApplicationBase):
+                key = f"{self.__class__.__name__}.{name}"
+                if key in params.conf:
+                    config[name] = params.conf[key]
             if name in kwargs:
-                config[name] = kwargs.pop(name)
+                config[name] = kwargs[name]
         Section.__init__(self, config)
 
         self._instantiate_modules(params, **kwargs)
