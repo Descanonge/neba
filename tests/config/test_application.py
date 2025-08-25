@@ -1,9 +1,12 @@
 """Test more integrated features of the Application."""
 
+import pytest
 from hypothesis import given
+from traitlets import Float, Int
 
 from data_assistant.config.application import ApplicationBase
-from data_assistant.config.loaders import ConfigValue
+from data_assistant.config.loaders import ConfigValue, FileLoader
+from data_assistant.config.loaders.json import JsonLoader
 from data_assistant.config.loaders.python import PyLoader
 from data_assistant.config.loaders.toml import TomlkitLoader
 from tests.config.generic_config import GenericConfig, GenericConfigInfo
@@ -11,7 +14,7 @@ from tests.conftest import todo
 
 
 class App(ApplicationBase, GenericConfig):
-    file_loaders = [PyLoader, TomlkitLoader]
+    file_loaders = [PyLoader, TomlkitLoader, JsonLoader]
 
 
 App.config_files.default_value = ["config.py", "config.toml"]
@@ -61,23 +64,99 @@ class TestStartup:
 
 
 class TestCLIParsing:
-    @todo
     def test_add_extra_parameter(self):
-        # check it adds stuff in the right places
-        assert 0
+        class AppExtra(App):
+            pass
 
-    @todo
-    def test_extra_parameters_values(self):
-        # check we parsed some good values out of it
-        assert 0
+        AppExtra.add_extra_parameters(int=Int(0))
+        AppExtra.add_extra_parameters(float=Float(0.0))
+
+        app = AppExtra(argv=["--int=0", "--extra.int=1", "--extra.float=1"])
+        assert app.int == 0
+        assert app.extra.int == 1
+        assert app.extra.float == 1.0
 
 
-@todo
+@pytest.mark.parametrize(
+    ["filename", "loader"],
+    [
+        ("config.py", PyLoader),
+        ("config.toml", TomlkitLoader),
+        ("config.json", JsonLoader),
+    ],
+)
+def test_select_file_loader(filename: str, loader: type[FileLoader]):
+    app = App(start=False)
+    assert issubclass(app._select_file_loader(filename), loader)
+
+
 def test_resolve_config():
+    app = App(start=False)
+    app._init_subsections({})
+
     # normal keys
-    # orphan keys
+    cv = ConfigValue(2, "int")
+    out = app.resolve_config_value(cv)
+    assert out.input == 2
+    assert out.key == "int"
+    assert out.trait is app.traits()["int"]
+    assert isinstance(app, out.container_cls)
+
+    cv = ConfigValue(3, "deep_sub.sub_generic_deep.int")
+    out = app.resolve_config_value(cv)
+    assert out.input == 3
+    assert out.key == "deep_sub.sub_generic_deep.int"
+    assert out.trait is app.deep_sub.sub_generic_deep.traits()["int"]
+    assert isinstance(app.deep_sub.sub_generic_deep, out.container_cls)
+
     # aliases
-    assert 0
+    cv = ConfigValue(4, "deep_short.int")
+    out = app.resolve_config_value(cv)
+    assert out.input == 4
+    assert out.key == "deep_sub.sub_generic_deep.int"
+    assert out.trait is app.deep_sub.sub_generic_deep.traits()["int"]
+    assert isinstance(app.deep_sub.sub_generic_deep, out.container_cls)
+
+
+def test_resolve_orphan_config():
+    class AppWithOrphan(ApplicationBase):
+        pass
+
+    section_cls = AppWithOrphan.register_orphan(GenericConfig)
+
+    app = AppWithOrphan(start=False)
+    app._init_subsections({})
+
+    cv = ConfigValue(2, "GenericConfig.int")
+    out = app.resolve_config_value(cv)
+    assert out.input == 2
+    assert out.key == "GenericConfig.int"
+    assert out.trait is section_cls.int
+    assert out.container_cls is section_cls
+
+    cv = ConfigValue(3, "GenericConfig.deep_sub.sub_generic_deep.int")
+    out = app.resolve_config_value(cv)
+    assert out.input == 3
+    assert out.key == "GenericConfig.deep_sub.sub_generic_deep.int"
+    assert out.trait is section_cls.int
+    assert (
+        out.container_cls
+        is section_cls._subsections["deep_sub"]._subsections["sub_generic_deep"]
+    )
+
+    # aliases
+    cv = ConfigValue(4, "GenericConfig.deep_short.int")
+    out = app.resolve_config_value(cv)
+    assert out.input == 4
+    assert out.key == "GenericConfig.deep_sub.sub_generic_deep.int"
+    assert (
+        out.trait
+        is section_cls._subsections["deep_sub"]._subsections["sub_generic_deep"].int
+    )
+    assert (
+        out.container_cls
+        is section_cls._subsections["deep_sub"]._subsections["sub_generic_deep"]
+    )
 
 
 class TestWriteConfig:

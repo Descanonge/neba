@@ -2,7 +2,7 @@
 
 from traitlets import Dict, Enum, Instance, Int, List, Tuple, Type, Unicode, Union
 
-from data_assistant.config.util import get_trait_typehint
+from data_assistant.config.util import get_trait_typehint, stringify
 from tests.conftest import todo
 
 
@@ -174,10 +174,11 @@ class TestTypehint:
         self.valid(Union([Int(allow_none=True), Unicode(allow_none=True)]), **kw)
         self.valid(Union([Int(allow_none=True), Unicode()], allow_none=True), **kw)
 
-    @todo
     def test_deep_nest(self):
-        assert 0
-
-    @todo
-    def test_stringify_too_long(self):
-        assert 0
+        trait = Dict(
+            value_trait=List(Union([Int(), Tuple(Int(), Unicode())])),
+            key_trait=Unicode(),
+        )
+        self.valid(
+            trait, "Dict[Unicode, List[Int | Tuple[Int, Unicode]]]", mode="minimal"
+        )

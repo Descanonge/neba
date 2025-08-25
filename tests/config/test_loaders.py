@@ -172,12 +172,6 @@ class TestCLILoader:
         assert app["extra.test"] == 5
 
 
-@todo
-def test_file_choose_loader():
-    # maybe in application ?
-    assert 0
-
-
 class FileLoaderTest:
     ext: str
 
