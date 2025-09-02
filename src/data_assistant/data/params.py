@@ -71,7 +71,7 @@ class CallbackDict(dict, t.Generic[_K, _V]):
     _callback: abc.Callable[[Bunch], None] | None = None
 
     def __setitem__(self, k: _K, v: _V):
-        old = self[k]
+        old = self.get(k, None)
         super().__setitem__(k, v)
         if self._callback is None:
             return
@@ -93,6 +93,8 @@ class ParamsManagerDict(ParamsManagerAbstract[CallbackDict[str, t.Any]]):
 
     def __init__(self, params: abc.Mapping[str, t.Any] | None = None, **kwargs):
         self._params = CallbackDict()
+        if params is not None:
+            self._params.update(**params)
         self._params.update(**kwargs)
 
         def handler(change: Bunch):
