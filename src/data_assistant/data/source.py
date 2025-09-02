@@ -404,14 +404,6 @@ class _SourceMix(SourceAbstract, ModuleMix[T_ModSource]):
             source.append(grp)
         return source
 
-    def check_valid(self, source: abc.Sequence[t.Any]) -> bool:  # noqa: D102
-        """Check if source is valid.
-
-        Assume a mix of source results in multiple items. We check there is at least
-        one.
-        """
-        return len(source) > 0
-
 
 class SourceUnion(_SourceMix[T_ModSource]):
     """Sources are the union of that obtained by multiple modules.
