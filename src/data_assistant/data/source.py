@@ -453,7 +453,14 @@ class SourceIntersection(_SourceMix[T_ModSource]):
 
     def get_source(self, _warn: bool = True) -> list[t.Any]:
         groups = self._get_grouped_source()
-        inter: set[t.Any] = set().intersection(*[set(g) for g in groups])
+        inter = []
+        for group in groups:
+            for f in group:
+                if f in inter:
+                    continue
+                if all(f in g for g in groups):
+                    inter.append(f)
+
         if _warn:
             if len(inter) == 0:
                 log.warning("No files found for %s", repr(self))
