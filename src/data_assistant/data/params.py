@@ -64,8 +64,6 @@ class CallbackDict(dict, t.Generic[_K, _V]):
     """Dictionary that sends a callback on change.
 
     Dictionary is considered flat (setting a nested key will not trigger a callback).
-
-    :Untested:
     """
 
     _callback: abc.Callable[[Bunch], None] | None = None
