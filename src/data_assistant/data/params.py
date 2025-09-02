@@ -222,6 +222,11 @@ class ParamsManagerSection(ParamsManagerSectionAbstract[T_Section]):
 
     _params: T_Section
 
+    @classmethod
+    def new(cls, section: type[T_Section]) -> type[ParamsManagerSection[T_Section]]:
+        """Return a subclass with the SECTION_CLS attribute set."""
+        return type("ParamsManagerSectionDynamic", (cls,), {"SECTION_CLS": section})
+
     def __init__(self, params: T_Section | None = None, **kwargs):
         self._params = self.SECTION_CLS()
         self._params.update(params, **kwargs)
@@ -235,8 +240,10 @@ class ParamsManagerApp(ParamsManagerSectionAbstract[T_App]):
     """Parameters are retrieved from an application instance."""
 
     def __init__(self, params: T_App, **kwargs):
-        if params is None:
-            raise TypeError("An application must be passed as parameter.")
+        if not isinstance(params, ApplicationBase):
+            raise TypeError(
+                f"An application must be passed as parameter, received {type(params)}."
+            )
         self._params = params.copy()
         self._params.update(**kwargs)
         self._setup_cache_callback()
