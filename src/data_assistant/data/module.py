@@ -157,9 +157,12 @@ class ModuleMix(t.Generic[T_Mod], Module):
         # initialize every base module
         self.base_modules = {}
         for cls in self.base_types:
-            self.base_modules[cls.__name__] = cls(*args, **kwargs)
+            name = cls.__name__
+            if name in self.base_modules:
+                raise KeyError(f"There are multiple modules with the class name {name}")
+            self.base_modules[name] = cls(*args, **kwargs)
 
-    def _init_module(self) -> None:
+    def setup(self) -> None:
         for mod in self.base_modules.values():
             mod.dm = self.dm
             mod.setup()
@@ -216,7 +219,7 @@ class ModuleMix(t.Generic[T_Mod], Module):
         """
         if self.select_func is None:
             raise ValueError(f"No selection function registered for {self.__class__}.")
-        selected = self.select_func(self, **kwargs)
+        selected = self.select_func(**kwargs)
         return self.base_modules[selected]
 
     def apply_all(self, method: str, *args, **kwargs) -> list[t.Any]:
