@@ -40,7 +40,8 @@ class WriterAbstract(t.Generic[T_Source, T_Data], Module):
     def add_git_metadata(self, script: str, meta: dict[str, t.Any]):
         """Add git information to meta dictionary."""
         # use the directory of the calling script
-        gitdir = path.dirname(script)
+        if script:
+            gitdir = path.dirname(script) if script else "."
 
         # find commit
         cmd = ["git", "-C", gitdir, "rev-parse", "HEAD"]
@@ -132,6 +133,7 @@ class WriterAbstract(t.Generic[T_Source, T_Data], Module):
 
         # Get hostname and script name
         hostname = socket.gethostname()
+        script = ""
         for stack in inspect.stack():
             if "data_assistant" not in stack.filename:
                 script = stack.filename
