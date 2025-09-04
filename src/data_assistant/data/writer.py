@@ -54,7 +54,9 @@ class WriterAbstract(t.Generic[T_Source, T_Data], Module):
 
         # get top level (necessary for exclude arguments)
         gitdir = subprocess.run(
-            ["git", "-C", gitdir, "--show-toplevel"], capture_output=True, text=True
+            ["git", "-C", gitdir, "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True,
         ).stdout.strip()
 
         # check if there is diff
@@ -69,11 +71,13 @@ class WriterAbstract(t.Generic[T_Source, T_Data], Module):
             "--minimal",
         ]
         exclude_cmd = [f":!{x}" for x in self.metadata_git_ignore]
-        ret = subprocess.run(
-            diffcmd + ["--numstat"] + exclude_cmd, capture_output=True, text=True
-        )
+        cmd = diffcmd + ["--numstat"] + exclude_cmd
+        ret = subprocess.run(cmd, capture_output=True, text=True)
         if ret.returncode != 0:
-            log.warning("Error in creating diff, (%s)", ret.stderr.strip())
+            err = ret.stderr.strip()
+            if (stop := err.find("usage:")) > 0:
+                err = err[:stop]
+            log.warning("Error in creating diff, [%s]\n (%s)", ret.stderr.strip())
             return
         stat = ret.stdout.strip()
         if stat:
@@ -84,11 +88,13 @@ class WriterAbstract(t.Generic[T_Source, T_Data], Module):
             meta["git_diff_short"] = stat_lines
 
             # add full diff
-            ret = subprocess.run(
-                diffcmd + ["--unified=0"] + exclude_cmd, capture_output=True, text=True
-            )
+            cmd = diffcmd + ["--unified=0"] + exclude_cmd
+            ret = subprocess.run(cmd, capture_output=True, text=True)
             if ret.returncode != 0:
-                log.warning("Error in creating diff, (%s)", ret.stderr.strip())
+                err = ret.stderr.strip()
+                if (stop := err.find("usage:")) > 0:
+                    err = err[:stop]
+                log.warning("Error in creating diff, [%s]\n (%s)", ret.stderr.strip())
                 return
             diff = ret.stdout.strip().splitlines()
             if (n := len(diff)) > (m := self.metadata_max_diff_lines):
