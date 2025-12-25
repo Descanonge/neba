@@ -584,12 +584,10 @@ class TestMutableMappingInterface(SectionTest):
     def test_update_section(self, values: dict):
         sectionA = GenericConfig()
         sectionB = GenericConfig(values)
-        sectionB.update(sectionA)
-        for k in sectionB:
-            if k in values:
-                assert sectionB[k] == values[k]
-            else:
-                assert sectionB[k] == sectionA[k]
+        sectionA.update(sectionB)
+        assert sectionB == sectionA
+        for k, v in values.items():
+            assert sectionA[k] == v
 
     @given(sections=st_section_inst(n_set=2))
     def test_update_random(self, sections: tuple[Section, Section]):
