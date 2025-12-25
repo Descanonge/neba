@@ -970,7 +970,7 @@ class Section(HasTraits):
         if fullpath is None:
             fullpath = []
 
-        title = cls.__class__.__name__
+        title = cls.__name__
         if fullpath:  # we are not at root
             title = f"{'.'.join(fullpath)} ({title})"
         lines = [title]
