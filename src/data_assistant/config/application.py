@@ -49,18 +49,18 @@ class ApplicationBase(Section, LoggingConfigurable):
     look at the extension.
     """
 
+    auto_instantiate = True
+    """Instantiate all sections in the configuration tree at application start.
+
+    Instantiation is necessary to fully validate the values of the configuration
+    parameters, but in case systematic instantiation is unwanted this can be disabled
+    (for example in case of costly instantiations).
+    """
+
+    ignore_cli = False
+    """If True, do not parse command line arguments."""
+
     # -- Config --
-
-    strict_parsing = Bool(
-        True,
-        help="""\
-        If true, raise errors when encountering unknown configuration keys. Otherwise
-        only log a warning and keep the illegal key.
-
-        Are concerned only subclasses of :class:`~.util.ConfigError`, and parts of the
-        code enclosed in a :class:`~.util.ConfigErrorHandler` context manager.
-        """,
-    )
 
     config_files = Union(
         [Unicode(), List(Unicode())],
@@ -70,20 +70,6 @@ class ApplicationBase(Section, LoggingConfigurable):
             "working directory or absolute."
         ),
     )
-
-    auto_instantiate = Bool(
-        True,
-        help=(
-            """
-            Instantiate all sections in the configuration tree at application start.
-
-            Instantiation is necessary to fully validate the values of the configuration
-            parameters, but in case systematic instantiation is unwanted this can be
-            disabled (for example in case of costly instantiations)."""
-        ),
-    )
-
-    ignore_cli = Bool(False, help="If True, do not parse command line arguments.")
 
     # -- Log config --
 
