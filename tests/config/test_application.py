@@ -26,26 +26,6 @@ def test_logger():
     assert 0
 
 
-@todo
-def test_strict_parsing_off():
-    assert 0
-
-
-@given(values=GenericConfigInfo.values_strat())
-def test_orphan(values: dict):
-    class AppWithOrphan(ApplicationBase):
-        pass
-
-    section_cls = AppWithOrphan.register_orphan(GenericConfig)
-
-    app = AppWithOrphan(start=False)
-    app.conf = {"GenericConfig." + k: ConfigValue(v, k) for k, v in values.items()}
-
-    section = section_cls.from_app(app)
-    for k, v in values.items():
-        assert section[k] == v
-
-
 class TestStartup:
     def test_ignore_cli(self):
         # value different than what is defined in config.py and config.toml
@@ -116,47 +96,6 @@ def test_resolve_config():
     assert out.key == "deep_sub.sub_generic_deep.int"
     assert out.trait is app.deep_sub.sub_generic_deep.traits()["int"]
     assert isinstance(app.deep_sub.sub_generic_deep, out.container_cls)
-
-
-def test_resolve_orphan_config():
-    class AppWithOrphan(ApplicationBase):
-        pass
-
-    section_cls = AppWithOrphan.register_orphan(GenericConfig)
-
-    app = AppWithOrphan(start=False)
-    app._init_subsections({})
-
-    cv = ConfigValue(2, "GenericConfig.int")
-    out = app.resolve_config_value(cv)
-    assert out.input == 2
-    assert out.key == "GenericConfig.int"
-    assert out.trait is section_cls.int
-    assert out.container_cls is section_cls
-
-    cv = ConfigValue(3, "GenericConfig.deep_sub.sub_generic_deep.int")
-    out = app.resolve_config_value(cv)
-    assert out.input == 3
-    assert out.key == "GenericConfig.deep_sub.sub_generic_deep.int"
-    assert out.trait is section_cls.int
-    assert (
-        out.container_cls
-        is section_cls._subsections["deep_sub"]._subsections["sub_generic_deep"]
-    )
-
-    # aliases
-    cv = ConfigValue(4, "GenericConfig.deep_short.int")
-    out = app.resolve_config_value(cv)
-    assert out.input == 4
-    assert out.key == "GenericConfig.deep_sub.sub_generic_deep.int"
-    assert (
-        out.trait
-        is section_cls._subsections["deep_sub"]._subsections["sub_generic_deep"].int
-    )
-    assert (
-        out.container_cls
-        is section_cls._subsections["deep_sub"]._subsections["sub_generic_deep"]
-    )
 
 
 class TestWriteConfig:

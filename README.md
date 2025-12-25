@@ -13,7 +13,7 @@ The configuration framework is:
 - **structured:** parameters can be organized in (nested) sections
 - **documented:** docstrings of parameters can be transferred to configuration files, command line help, and static documentation via a plugin for Sphinx
 
-The parameters values can be retrieved from configuration files (TOML, YAML, Python files), or from the command line.
+The parameters values can be retrieved from configuration files (TOML, YAML, Python files), and from the command line.
 
 The framework is based on the existing [traitlets](https://traitlets.readthedocs.io/) library. It allows type-checking, arbitrary value validation and "on-change" callbacks.
 This package extends it to allow nesting and shifts to a more centralized configuration. The objects containing parameters are significantly extended to ease manipulation, and mimic dictionaries.
@@ -21,25 +21,44 @@ This package extends it to allow nesting and shifts to a more centralized config
 Here is a simple example project:
 ``` python
 from data_assistant.config import ApplicationBase, Section
+from data
 from traitlets import Float, List, Int, Unicode
 
-class App(Application):
+class App(ApplicationBase):
     # which files to read parameters from
     config_files = ["config.toml"]
     
     # our parameters
-    result_dir = Unicode("/data/results", help="some help line or paragraph") 
+    result_dir = Unicode("/data/results", help="Directory containing results") 
 
     # a nested section called "model"
     class model(Section):
         year = Int(2000)
         coefficients = List(Float(), [0.5, 1.5, 10.0])
 
-# Start a global instance and retrieve parameters
-app = App.shared()
+app = App()
 print(app.model.year)
 ```
 
+Parameters from the example above could be retrieved from the command line with `--result_dir "./some_dir" --model.coefficients 0 2.5 10`. The application can generate a configuration file, for instance in TOML:
+``` toml
+...
+
+# result_dir = "/data/results"
+# ----------
+# result_dir (Unicode) default: "/data/results"
+# Directory containing results
+
+[model]
+
+# coefficients = [0.5, 1.5, 10.0]
+# ------------
+# model.coefficients (List[Float]) default: [0.5, 1.5, 10.0]
+
+# year = 2000
+# ----
+# model.year (Int) default: 2000
+```
 
 ## Dataset management
 
@@ -76,39 +95,6 @@ sst = ds.get_data()
 ```
 We used the parameters and loader module as is, but we configured the source module for our needs.
 Most modules will use methods like this to take advantage of the parameters contained in the dataset.
-
-The parameters were simply stored in a dictionary filled at instantiation, but we can also use the configuration framework by registering this class as an "orphan":
-``` python
-class App(ApplicationBase):
-    data_dir = Unicode("/data/")
-    year = Int(2000)
-    ...
-
-@App.register_orphan()
-class SST(Dataset):
-    # the parameters are held in a configuration object which
-    # is automatically filled from the shared app instance
-    _Params = ParamsManagerApp
-
-    # An orphan parameter, configurable as 'SST.directory'
-    directory = Unicode("SST")
-    
-    class _Source(GlobSource)
-        def get_root_directory(self):
-            return [self.params.data_dir, self.dm.directory]
-    ...
-```
-This causes two things:
-- the application will know about our SST class. Configuration is now aware of traits defined therein
-- the SST class knows about the application: upon instantiation it will find the global app instance (create it if necessary) and recover its own parameters automatically.
-If we pass the arguments `--year=2020 --SST.directory=SST_alt` we can simply use:
-``` python
->>> ds = SST()
->>> ds.params.year
-2020
->>> ds.directory
-"SST_alt"
-```
 
 ## Documentation
 

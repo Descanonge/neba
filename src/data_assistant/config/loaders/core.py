@@ -328,44 +328,13 @@ class DictLikeLoaderMixin(ConfigLoader):
     ) -> abc.Iterator[ConfigValue]:
         """Flatten an input nested mapping."""
 
-        def recurse_simple(d: abc.Mapping, key: list[str]) -> abc.Iterator[ConfigValue]:
-            """Do not check section structure. Made for orphans that we don't check."""
-            for k, v in d.items():
-                if isinstance(v, abc.Mapping):
-                    yield from recurse_simple(v, key + [k])
-                else:
-                    fullkey = ".".join(key + [k])
-                    value = ConfigValue(v, fullkey, origin=origin)
-                    value.value = value.input
-                    yield value
-
         def recurse(
             d: abc.Mapping, section: type[Section], key: list[str]
         ) -> abc.Iterator[ConfigValue]:
             for k, v in d.items():
                 # key might be dot-separated
                 for subkey in k.split("."):
-                    if (
-                        hasattr(section, "_imported_orphans")
-                        and (
-                            subsec := {
-                                fullname.rsplit(".", 1)[-1]: subsec
-                                for fullname, subsec in section._imported_orphans.items()
-                            }.get(subkey, None)
-                        )
-                        is not None
-                    ):
-                        assert isinstance(v, abc.Mapping)
-                        yield from recurse(v, subsec, [subkey])
-
-                    elif hasattr(section, "orphans") and subkey in [
-                        fullname.rsplit(".", 1)[-1] for fullname in section.orphans
-                    ]:
-                        # FIXME: passing subkey is wrong, we should pass the rest of the
-                        # key
-                        yield from recurse_simple(v, key + [subkey])
-
-                    elif subkey in section._subsections:
+                    if subkey in section._subsections:
                         assert isinstance(v, abc.Mapping)
                         yield from recurse(
                             v, section._subsections[subkey], key + [subkey]

@@ -47,13 +47,6 @@ class TomlkitLoader(FileLoader, DictLikeLoaderMixin):
 
         self.serialize_section(doc, self.app.__class__, [], comment=comment)
 
-        for fullname, section in self.app._imported_orphans.items():
-            section = self.app._imported_orphans[fullname]
-            name = fullname.rsplit(".", 1)[1]
-            table = tomlkit.table()
-            self.serialize_section(table, section, [name], comment=comment)
-            doc.add(name, table)
-
         tomlkit.dump(doc, fp)
 
     def serialize_section(

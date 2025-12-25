@@ -61,9 +61,6 @@ class CLILoader(ConfigLoader):
         self.parser.add_argument("--list-parameters", action="store_true")
 
         self.traits = self.app.traits_recursive(aliases=True)
-        for orphan in self.app._imported_orphans.values():
-            for key, trait in orphan.traits_recursive(aliases=True).items():
-                self.traits[f"{orphan.__name__}.{key}"] = trait
 
         for key, trait in self.traits.items():
             self.add_argument(key, trait)

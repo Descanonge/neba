@@ -188,36 +188,6 @@ and ``instantiate``.
     the parameters), instantiating them is necessary to fully validate the
     parameters.
 
-.. _orphans:
-
-Orphan sections
----------------
-
-By default, when starting the application, the section objects are instantiated.
-However it might be desirable to have complex section objects that should not be
-instantiated directly, or not at every execution.
-
-To that end, the application provide the class decorator
-:meth:`~.ApplicationBase.register_orphan()`. It will do two things:
-
-- Register the section in the application. It will not be instantiated but its
-  parameters will be known and retrieved.
-- Register the application class in the section. It will then be used
-  automatically to recover parameters from the shared instance when
-  instantiating the section (if it exists). This can be deactivated by passing
-  ``auto_retrieve=False`` to the register decorator.
-
-For example::
-
-    @App.register_orphan()
-    class MyOrphan(Section):
-        year = Int(2000)
-
-    m = MyOrphan()
-
-This will automatically start a global application instance, recover parameters
-and apply it to the orphan section.
-
 Logging
 -------
 
@@ -379,11 +349,6 @@ instance: ``physical.years``.
 
     Aliases are expanded when the configuration is resolved.
 
-A parameter can also be input for an "orphan section", similarly to how it is
-done in vanilla traitlets. It consists of the name of a section class and a
-trait name: ``SomeSectionClassName.trait_name``. The section must be registered
-beforehand (see :ref:`orphans`).
-
 
 From configuration files
 ------------------------
@@ -443,7 +408,6 @@ will be bound to the ``c`` variable in the script/configuration file. It allows
 arbitrarily nested attribute setting so that the following syntax is valid::
 
     c.section.subesection.parameter = 5
-    c.OrphanSection.parameter = True
 
 .. important::
 
@@ -481,10 +445,8 @@ will take priority over parameters from configuration files.
 
 The keys are indicated following **one or two** hyphen. Any subsequent hyphen is
 replaced by an underscore. So ``-computation.n_cores`` and
-``--computation.n-cores`` are equivalent. As already noted, parameters keys can
-be dot-separated paths leading to a trait. Aliases can be used for brevity.
-Orphan sections parameters are input with the same syntax
-(``--OrphanSection.trait_name``).
+``--computation.n-cores`` are equivalent. As already noted, parameters keys are
+dot-separated paths leading to a trait. Aliases can be used for brevity.
 
 .. note ::
 

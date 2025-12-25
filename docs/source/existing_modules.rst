@@ -44,39 +44,12 @@ be specified as a class attribute::
             SECTION_CLS = Parameters
 
 Similarly, :class:`.ParamsManagerApp` will store parameters in a section object,
-whose parameters are obtained from a global, shared :class:`.ApplicationBase`
-instance. The dataset must be registered befored using
-:meth:`.ApplicationBase.register_orphan`. At the dataset instantiation, the
-dataset traits (if any have been defined) will be obtained from the application
-orphan sections, and the parameters module will copy the application.
-
-::
-
-    class MyApp(ApplicationBase):
-        ...
-
-    @MyApp.register_orphan()
-    class MyDataset(Dataset):
-
-        # eventually, dataset specific traits
-        data_dir = Unicode("/data")
-
-        _Params = ParamsManagerApp
-
-    # simply need to create a new instance
-    ds = MyDataset()
-
-In the example above, instanciating will retrieve a global instance of MyApp
-(creating one if necessary). The '*data_dir*' trait is configurable (in
-configuration file or command line) with the key '*MyDataset.data_dir*' and its
-value will be retrieved automatically. All traits defined in MyApp and whose
-value is obtained from configuration files and command line will be copied to
-the parameters module, and available in a MyApp copy.
+whose parameters are obtained from :class:`.ApplicationBase` instance.
 
 .. note::
 
-   The parameters are copied, changing the shared MyApp instance will not affect
-   the dataset after creation.
+   The parameters are copied, changing the MyApp instance will not affect the
+   dataset after creation.
 
 
 Source

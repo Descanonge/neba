@@ -27,9 +27,6 @@ from .util import (
     wrap_text,
 )
 
-if t.TYPE_CHECKING:
-    from .application import ApplicationBase
-
 log = logging.getLogger(__name__)
 
 
@@ -256,12 +253,6 @@ class Section(HasTraits):
             subconfig = {k.removeprefix(prefix): v for k, v in subconfig.items()}
             sub_inst = subcls(subconfig)
             setattr(self, name, sub_inst)
-
-    @classmethod
-    def from_app(cls, app: ApplicationBase, **kwargs) -> t.Self:
-        """Use parameters found in orphan sections."""
-        config = app.get_orphan_conf(cls)
-        return cls(config, **kwargs)
 
     def postinit(self):
         """Run any instructions after instantiation.

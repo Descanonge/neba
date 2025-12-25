@@ -129,14 +129,6 @@ class PyLoader(FileLoader):
         """Return lines of configuration file corresponding to the app config tree."""
         lines = self.serialize_section(self.app.__class__, [], comment=comment)
 
-        for fullname, section in self.app._imported_orphans.items():
-            section = self.app._imported_orphans[fullname]
-            name = fullname.rsplit(".", 1)[1]
-            lines.append("")
-            lines.append(f"## {section.__name__} ##")
-            underline(lines, "#")
-            lines += self.serialize_section(section, [name], comment=comment)
-
         # newline at the end of file
         lines.append("")
 

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import copy
-import itertools
 import logging
 import typing as t
 from collections import abc

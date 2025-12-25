@@ -57,26 +57,20 @@ application, but maybe that could somehow be changed?
 Orphan keys
 -----------
 
-A limitation of the framework is that all the sections classes *must* be imported
-at runtime. If not, any key referencing a section that is not imported will raise
-an error (as intended). However, it could be desirable to have part of the
-configuration lazily loaded while avoiding errors.
-
-.. note::
-
-    Currently this can be done by disabling strict parsing all-together.
+A limitation of the framework is that all the sections classes *must* be
+imported at runtime. If not, any key referencing a section that is not imported
+will raise an error (as intended). However, it could be desirable to have part
+of the configuration lazily loaded while avoiding errors.
 
 A simple way to solve this problem is the use of what I would call "orphan
 keys". Instead of being part of the configuration tree, these keys would be
 class-keys referencing a previously registered Section (or Configurable even).
 Because it relies only on class-keys, we only need to indicate the name of those
-expected class to not raise any errors. It would part the configuration in two
-though: the configuration tree, and the orphan classes.
+classes to not raise any errors.
 
-A slightly more ambitious project could be to provide similar functionality not
-for isolated classes, but for entire parts of the configuration tree. But the
-importance of the use cases where it would prove useful or needed still has to
-be proven.
+It could be implemented in the future. It brings some difficulties though: it
+would part the configuration in two though: the configuration tree, and the
+orphan classes. The whole application object is impacted.
 
 Generic config type
 -------------------

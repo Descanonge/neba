@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import importlib
 import logging
 import sys
 import typing as t
@@ -10,7 +9,6 @@ from collections.abc import Mapping
 from os import path
 
 from traitlets import (
-    Bool,
     Bunch,
     Enum,
     Int,
@@ -25,7 +23,7 @@ from traitlets.config.configurable import LoggingConfigurable
 
 from .loaders import CLILoader, ConfigValue
 from .section import Section
-from .util import ConfigErrorHandler
+from .util import ConfigError
 
 if t.TYPE_CHECKING:
     from .loaders import ConfigValue, FileLoader
@@ -43,25 +41,6 @@ class ApplicationBase(Section, LoggingConfigurable):
     Pass the combined configuration keys to the appropriate sections in the configuration
     tree structure. This validate the values and instantiate the configuration objects.
     """
-
-    orphans: set[str] = set()
-    """List of class names or import strings for orphan sections."""
-    _imported_orphans: dict[str, type[Section]] = {}
-    """Mapping of orphan import string to the corresponding class."""
-
-    orphans_import_policy = Enum(
-        values=["no", "on-parameter", "at-startup"],
-        default_value="no",
-        help="""\
-        When to import orphan sections.
-        If 'no', do not import sections. The received parameters cannot be checked
-        against the orphan section traits.
-        If 'on-parameter', import sections if and when a parameter belonging to that
-        section is received.
-        If 'at-startup', all registered orphan sections are imported during application
-        startup.
-        """,
-    )
 
     file_loaders: list[type[FileLoader]] = []
     """List of possible configuration loaders from file, for different formats.
@@ -193,119 +172,12 @@ class ApplicationBase(Section, LoggingConfigurable):
     def __init__(self, /, start: bool = True, **kwargs) -> None:
         # No super.__init__, it would instantiate recursively subsections
 
-        # Check orphans for name clashes
-        orphan_names: dict[str, list[str]] = {}
-        for fullname in self.orphans:
-            name = fullname.rsplit(".", 1)[-1]
-            orphan_names.setdefault(name, [])
-            orphan_names[name].append(fullname)
-        for fullnames in orphan_names.values():
-            if len(fullnames) > 1:
-                raise ValueError(
-                    f"Multiple orphan classes have the same name ({fullnames})"
-                )
-
         self.conf = {}
         self.cli_conf = {}
         self.file_conf = {}
 
         if start:
             self.start(**kwargs)
-
-    @classmethod
-    def register_orphan(cls, orphan: type[S]) -> type[S]:
-        """Register a section as orphaned."""
-        fullname = f"{orphan.__module__}.{orphan.__name__}"
-        cls.orphans.add(fullname)
-        cls._imported_orphans[fullname] = orphan
-        return orphan
-
-    def get_orphan_conf(self, section: type[Section] | str) -> dict[str, t.Any]:
-        """Return flat dictionnary of parameters for an orphan section."""
-        if isinstance(section, type):
-            section = f"{section.__module__}.{section.__name__}"
-
-        if section not in self.orphans:
-            raise KeyError(f"{type(self).__name__} has no orphan section {section}")
-
-        section_name = section.rsplit(".", 1)[-1]
-
-        out = {}
-        for fullkey, v in self.conf.items():
-            first, key = fullkey.split(".", 1)
-            if first == section_name:
-                out[key] = v
-
-        return out
-
-    @t.overload
-    def _get_orphan(
-        self, fullname: str, import_: t.Literal[True] = ...
-    ) -> type[Section]: ...
-
-    @t.overload
-    def _get_orphan(
-        self, fullname: str, import_: bool = ...
-    ) -> type[Section] | None: ...
-
-    def _get_orphan(self, fullname: str, import_: bool = False) -> type[Section] | None:
-        """Import an orphan section.
-
-        :param import_: If True, import the orphan. If False, check in already imported
-            modules.
-        """
-        if fullname not in self.orphans:
-            raise KeyError(f"{fullname} is not a registered orphan.")
-
-        if (orphan := self._imported_orphans.get(fullname, None)) is not None:
-            return orphan
-
-        parts = fullname.rsplit(".", 1)
-        if len(parts) == 0:
-            raise ValueError(
-                f"Orphan section was not given a full import string ({fullname})"
-            )
-        module_name, obj = parts
-
-        if module_name in sys.modules:
-            orphan = getattr(sys.modules[module_name], obj)
-            self._imported_orphans[fullname] = orphan
-            return orphan
-
-        if not import_:
-            return None
-
-        module = importlib.import_module(module_name)
-        orphan = getattr(module, obj)
-        self._imported_orphans[fullname] = orphan
-        return orphan
-
-    def import_orphans(self, import_: bool = True) -> None:
-        """Import all orphans."""
-        for fullname in self.orphans:
-            self._get_orphan(fullname, import_=import_)
-
-    def _get_lines(self, header: str = "") -> list[str]:
-        lines = super()._get_lines(header)
-
-        for fullname in self.orphans:
-            name = fullname.rsplit(".", 1)[-1]
-            subconf = self.get_orphan_conf(fullname)
-            if not subconf:
-                continue
-
-            lines += [header, name]
-            section = self._imported_orphans.get(fullname, Section)
-            # if section = Section, it still works, just empty dict
-            traits = section.traits_recursive(config=True)
-            for i, (key, value) in enumerate(subconf.items()):
-                is_last = i == len(subconf) - 1
-                lines.append(
-                    section._get_line_trait(
-                        key, traits.get(key, None), is_last, value.get_value()
-                    )
-                )
-        return lines
 
     def start(
         self,
@@ -337,9 +209,6 @@ class ApplicationBase(Section, LoggingConfigurable):
             If True, instantiate all sections. If not None, this argument overrides
             :attr:`auto_instantiate`.
         """
-        self.import_orphans(import_=self.orphans_import_policy == "at-startup")
-
-        # TODO: Catch errors and silence them if setting is not strict
         # Parse CLI first
         #  -> needed for help, or setting config filenames
         if ignore_cli is None:
@@ -482,41 +351,19 @@ class ApplicationBase(Section, LoggingConfigurable):
             Flat mapping of normalized keys to their ConfigValue
 
         """
-        first = cv.path[0]
-
-        orphan_to_fullnames = {
-            fullname.rsplit(".", 1)[-1]: fullname for fullname in self.orphans
-        }
-        is_orphan = first in orphan_to_fullnames
-
         section: type[Section] = type(self)
         out = cv.copy()
 
-        if is_orphan:
-            fullname = orphan_to_fullnames[first]
-            if (
-                fullname not in self._imported_orphans
-                and self.orphans_import_policy == "no"
-            ):
-                return out
-            section = self._get_orphan(fullname)
-
-        # remove section classname to do the resolving
-        if is_orphan:
-            out.key = ".".join(out.path[1:])
-
-        # If an error happens in resolve_key, we have a fallback
-        fullkey = out.key
-        with ConfigErrorHandler(self, cv.key):
+        try:
             fullkey, container_cls, trait = section.resolve_key(out.key)
             out.container_cls = container_cls
             out.trait = trait
+            out.key = fullkey
+        except ConfigError as e:
+            raise ConfigError(
+                f"Exception encountered for configuration key '{cv.key}"
+            ) from e
 
-        # add back the section classname
-        if is_orphan:
-            fullkey = f"{first}.{fullkey}"
-
-        out.key = fullkey
         return out
 
     def copy(self, **kwargs) -> t.Self:

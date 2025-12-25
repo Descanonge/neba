@@ -159,10 +159,6 @@ class TestCLILoader:
         with pytest.raises(MultipleConfigKeyError):
             App(argv="--sub-generic.int 1 --sub-generic.int 2".split())
 
-    @todo
-    def test_orphans(self):
-        pass
-
     def test_extra_parameters(self, App: type[ApplicationBase]):
         App.add_extra_parameters(test=Int(0))
 
