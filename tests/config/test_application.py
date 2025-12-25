@@ -1,7 +1,6 @@
 """Test more integrated features of the Application."""
 
 import pytest
-from hypothesis import given
 from traitlets import Float, Int
 
 from data_assistant.config.application import ApplicationBase
@@ -14,7 +13,7 @@ from tests.conftest import todo
 
 
 class App(ApplicationBase, GenericConfig):
-    file_loaders = [PyLoader, TomlkitLoader, JsonLoader]
+    file_loaders = ["py", "toml", "json"]
 
 
 App.config_files.default_value = ["config.py", "config.toml"]

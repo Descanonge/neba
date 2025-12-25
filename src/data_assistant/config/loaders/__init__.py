@@ -27,6 +27,8 @@ types of keys:
   than specifying the full path.
 """
 
+from data_assistant.util import import_item
+
 from .cli import CLILoader
 from .core import ConfigLoader, ConfigValue, DictLoader, FileLoader, Undefined
 
@@ -38,3 +40,30 @@ __all__ = [
     "FileLoader",
     "Undefined",
 ]
+
+loaders_import_string: dict[str, str] = {
+    "toml": "toml.TomlkitLoader",
+    "json": "json.JsonLoader",
+    "py": "python.PyLoader",
+    "yaml": "yaml.YamlLoader",
+}
+"""Mapping from name to location of loader for import.
+
+Location appended to `data_assistant.config.loaders.`
+"""
+
+
+def get_loader(fmt: str) -> type[FileLoader]:
+    """Get loader corresponding to format.
+
+    According to :data:`.loader_import_strings`.
+    """
+    if fmt not in loaders_import_string:
+        raise KeyError(
+            f"Unknown loader format '{fmt}'. Supported loaders are defined in "
+            "data_assistant.config.loaders.loaders_import_string.\n"
+            f"{loaders_import_string}"
+        )
+
+    fullname = "data_assistant.config.loaders." + loaders_import_string[fmt]
+    return import_item(fullname)

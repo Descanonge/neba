@@ -21,7 +21,7 @@ from traitlets import (
 )
 from traitlets.config.configurable import LoggingConfigurable
 
-from .loaders import CLILoader, ConfigValue
+from .loaders import CLILoader, ConfigValue, get_loader
 from .section import Section
 from .util import ConfigError
 
@@ -42,11 +42,14 @@ class ApplicationBase(Section, LoggingConfigurable):
     tree structure. This validate the values and instantiate the configuration objects.
     """
 
-    file_loaders: list[type[FileLoader]] = []
-    """List of possible configuration loaders from file, for different formats.
+    file_loaders: t.Sequence[str] = ["toml"]
+    """List of possible loaders to use for configuration files.
 
-    Each will be tried until an appropriate loader is found. Currently, loaders only
-    look at the extension.
+    The corresponding loaders will be imported and tested until an appropriate loader is
+    found. Currently, loaders only look at the extension.
+
+    The names in this sequence must correspond to
+    :data:`.loaders.loaders_import_string`.
     """
 
     auto_instantiate = True
@@ -309,14 +312,15 @@ class ApplicationBase(Section, LoggingConfigurable):
     def _select_file_loader(self, filename: str) -> type[FileLoader]:
         """Return the first appropriate FileLoader for this file."""
         select: type[FileLoader] | None = None
-        for loader_cls in self.file_loaders:
+        for fmt in self.file_loaders:
+            loader_cls = get_loader(fmt)
             if loader_cls.can_load(filename):
                 select = loader_cls
                 break
         if select is None:
             raise KeyError(
                 f"Did not find appropriate loader for config file {filename}. "
-                f" Supported loaders are {self.file_loaders}"
+                f" Supported formats are {self.file_loaders}"
             )
         return select
 

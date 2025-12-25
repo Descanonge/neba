@@ -14,10 +14,7 @@ from data_assistant.config.loaders.core import (
     DictLoader,
     FileLoader,
 )
-from data_assistant.config.loaders.json import JsonLoader
-from data_assistant.config.loaders.python import PyConfigContainer, PyLoader
-from data_assistant.config.loaders.toml import TomlkitLoader
-from data_assistant.config.loaders.yaml import YamlLoader
+from data_assistant.config.loaders.python import PyConfigContainer
 from data_assistant.config.util import ConfigParsingError, MultipleConfigKeyError
 from tests.config.generic_config import GenericConfig, GenericConfigInfo
 from tests.conftest import todo
@@ -32,7 +29,7 @@ allow_fixture = settings(suppress_health_check=[HealthCheck.function_scoped_fixt
 @pytest.fixture
 def App() -> type[ApplicationBase]:
     class App(ApplicationBase, GenericConfig):
-        file_loaders = [PyLoader, TomlkitLoader, YamlLoader, JsonLoader]
+        file_loaders = ["py", "toml", "yaml", "json"]
 
     App.config_files.default_value = []
     return App

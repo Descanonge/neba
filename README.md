@@ -25,9 +25,6 @@ from data
 from traitlets import Float, List, Int, Unicode
 
 class App(ApplicationBase):
-    # which files to read parameters from
-    config_files = ["config.toml"]
-    
     # our parameters
     result_dir = Unicode("/data/results", help="Directory containing results") 
 

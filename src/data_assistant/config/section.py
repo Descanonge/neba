@@ -6,7 +6,6 @@ Defines a :class:`Section` class meant to be used in place of
 
 from __future__ import annotations
 
-import importlib
 import logging
 import typing as t
 from collections import abc
@@ -15,6 +14,8 @@ from textwrap import dedent
 
 from traitlets import Enum, Sentinel, TraitType, Type, Undefined, Unicode, Union
 from traitlets.config import HasTraits
+
+from data_assistant.util import import_item
 
 from .loaders import ConfigValue
 from .util import (
@@ -1118,27 +1119,13 @@ class Section(HasTraits):
                     and any(isinstance(t, Unicode) for t in trait.trait_types)
                 )
                 try:
-                    cls = _import_item(value)
+                    cls = import_item(value)
                 except ImportError as e:
                     log.warning("Could not import '%s' for trait '%s'", value, key)
                     if not allow_error:
                         raise e
                 else:
                     self[key] = cls
-
-
-def _import_item(name: str) -> t.Any:
-    """Import item. Expected to import an item inside a module."""
-    parts = name.rsplit(".", 1)
-    if len(parts) != 2:
-        raise ImportError("Can only import objects inside module")
-    module_name, obj_name = parts
-    module = importlib.import_module(module_name)
-    try:
-        obj = getattr(module, obj_name)
-    except AttributeError as e:
-        raise ImportError(f"No object named {obj_name} in module {module_name}") from e
-    return obj
 
 
 def _subsection_clsname(section: type[Section] | Section, module: bool = True) -> str:

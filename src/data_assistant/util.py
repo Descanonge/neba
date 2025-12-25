@@ -1,43 +1,18 @@
-import logging
-import os
-from os import path
+"""Various utilities."""
 
-logger = logging.getLogger(__name__)
+import importlib
+import typing as t
 
 
-def check_output_path(
-    outpath: str, directory: bool = False, log: bool | str | int = True
-):
-    """Check if directory exists, if not create it.
-
-    Parameters
-    ----------
-    outpath:
-        Output file or directory.
-    directory:
-        If True, `outpath` is a directory, if False (the default) `outpath` is a
-        file and we will check the existence of its containing directory.
-    log:
-        If True, will log output file. If string or integer, specify the
-        level of message (default is DEBUG).
-    """
-    # Find directory to check existence of
-    if directory:
-        outdir = outpath
-    else:
-        outdir = path.dirname(outpath)
-
-    # Set log level
-    if log is True:
-        log = logging.DEBUG
-    if isinstance(log, str):
-        log = logging.getLevelNamesMapping()[log.upper()]
-
-    if log:
-        logger.log(log, "output to %s", outdir if directory else outpath)
-
-    # Check if directory exists
-    if not path.isdir(outdir):
-        if log:
-            logger.log(log, "creating %s", outdir)
-        os.makedirs(outdir)
+def import_item(name: str) -> t.Any:
+    """Import item. Expected to import an item inside a module."""
+    parts = name.rsplit(".", 1)
+    if len(parts) != 2:
+        raise ImportError("Can only import objects inside module")
+    module_name, obj_name = parts
+    module = importlib.import_module(module_name)
+    try:
+        obj = getattr(module, obj_name)
+    except AttributeError as e:
+        raise ImportError(f"No object named {obj_name} in module {module_name}") from e
+    return obj
