@@ -58,68 +58,6 @@ class MultipleConfigKeyError(ConfigError):
         self.values = values
 
 
-class ConfigErrorHandler:
-    """Context for handling configuration errors.
-
-    This context uses the :attr:`~.application.ApplicationBase.strict_parsing` attribute
-    to determine if any :class:`ConfigError` exception raised in the context should be
-    silenced or not. If silenced, the error is still logged at the :attr:`log_level`
-    (warning by default).
-
-    Parameters
-    ----------
-    app
-        The application object.
-    key
-        Eventually, the configuration key that is concerned. Used to make a more
-        informative log message.
-
-    """
-
-    log_level: int = logging.WARNING
-    """Level at which to log a silenced exception."""
-
-    def __init__(self, app: ApplicationBase, key: str | None = None) -> None:
-        self.app = app
-        self.key = key
-
-    def __enter__(self) -> t.Self:
-        return self
-
-    def __exit__(self, exc_type, exc_value, exc_tb):
-        # No error
-        if exc_type is None:
-            return True
-
-        # if not a ConfigError raise it
-        if not issubclass(exc_type, ConfigError):
-            return False
-
-        # if strict parsing raise it
-        if self.is_raise(exc_value):
-            return False
-
-        # else log error and resume
-        self.log_exc(exc_value)
-        return True
-
-    def is_raise(self, exc: Exception) -> bool:
-        """Return whether to raise or not.
-
-        By default only use :attr:`~.application.ApplicationBase.strict_parsing`.
-        """
-        return self.app.strict_parsing
-
-    def log_exc(self, exc: Exception) -> None:
-        """Log message of the encountered exception."""
-        log = getattr(self.app, "log", logging.getLogger(__name__))
-        if self.key is None:
-            args = ["Exception encountered in configuration"]
-        else:
-            args = ["Exception encountered for configuration key '%s'", self.key]
-        log.log(self.log_level, *args, exc_info=exc)
-
-
 T = t.TypeVar("T")
 
 
