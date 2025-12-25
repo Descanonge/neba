@@ -13,10 +13,10 @@ Configuration
 =============
 
 The module of this package first allows to manage the
-:doc:`configuration<configuration>` of a project, providing the means to specify
-a structured, nested configuration in python code using the existing `traitlets
-<https://traitlets.readthedocs.io>`__ library. This allows type-checking, value
-validation and "on-change" callbacks.
+:doc:`configuration<configuration/index>` of a project, providing the means to
+specify a structured, nested configuration in python code using the existing
+`traitlets <https://traitlets.readthedocs.io>`__ library. This allows
+type-checking, value validation and "on-change" callbacks.
 
 The parameters values can be retrieved from configuration files (TOML, YAML,
 or Python files), or from the command line.
@@ -39,8 +39,8 @@ Dataset management
 ==================
 
 The second module aims to ease the creation and :doc:`management of
-datasets<datasets>` with different file format, structure, etc. that can all
-depend on various parameters.
+datasets<datasets/index>` with different file format, structure, etc. that can
+all depend on various parameters.
 
 Each new dataset is specified by creating a subclass of a data manager object.
 Relevant attributes or methods are overridden to provide information on this
@@ -58,27 +58,13 @@ have a remote data-store as input loaded into xarray.
    :maxdepth: 1
    :caption: Contents:
 
-   configuration
+   configuration/index
 
-   datasets
+   datasets/index
 
-.. toctree::
-   :maxdepth: 2
-
-   existing_modules
-
-.. toctree::
-   :maxdepth: 3
+   about/index
 
    api
-
-.. toctree::
-   :maxdepth: 1
-
-   extending
-
-   motivations
-
 
 Links
 =====

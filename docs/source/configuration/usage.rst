@@ -1,31 +1,10 @@
 
-.. currentmodule:: data_assistant
-
-************************
-Configuration management
-************************
-
-This package provides a submodule :mod:`.config` to help managing the parameters
-of a project. It requires to specify the parameters in python code: their type,
-default value, help string, etc. It relies on the `traitlets
-<https://traitlets.readthedocs.io>`__ package to do this
-
-.. note::
-
-   The main difference with the "vanilla" traitlets package is that we allow
-   nested configurations. We replace :class:`traitlets.config.Configurable` by
-   our subclass :class:`~config.section.Section` and use our own
-   :class:`~config.application.ApplicationBase` class.
-
-Once defined, the parameters values can be recovered from configuration files
-(python files as for traitlets, but also TOML or YAML files), and
-from the command line as well.
-
-The help string of each trait is used to generate command line help (completion
-on the way), fully documented configuration files, and the :mod:`.autodoc_trait`
-plugin integrates it in sphinx documentations.
-
 .. currentmodule:: data_assistant.config
+
+
+*****
+Usage
+*****
 
 Specifying parameters
 =====================
@@ -159,14 +138,6 @@ Here is a rather simple example::
 
      >>> app = App()
      >>> app.physical.years = [2023, 2024]
-
-Shared instance
----------------
-
-The application class can provide a shared, global instance. It can be
-accessed with :meth:`App.shared()<.ApplicationBase.shared>`, which will return
-the shared instance, or create it and register it if it does not exist yet.
-The standard ``App()`` will not register a shared instance.
 
 Starting the application
 ------------------------
@@ -358,16 +329,35 @@ The application can retrieve parameters from configuration files by invoking
 specified in :attr:`.ApplicationBase.config_files`. If multiple files are
 specified, the parameter from one file will replace those from the previous
 files in the list. The resulting configuration will be stored in the
-:attr:`~.ApplicationBase.file_conf` attribute. Different file formats require
-specific subclasses of :class:`~.FileLoader`. For each file, the first
-FileLoader subclass in :attr:`.ApplicationBase.file_loaders` to be adequate will
-be used.
+:attr:`~.ApplicationBase.file_conf` attribute.
+
+Different file formats require specific subclasses of :class:`~.FileLoader` that
+may depend on external packages. To avoid having to import them, specify the
+loaders you need in :attr:`.ApplicationBase.file_loaders`. They must be
+registered in :data:`.loaders.loaders_import_string`:
+
++------+------------------------------+----------+
+| Name | Class                        | Library  |
++======+==============================+==========+
+| toml | :class:`.toml.TomlkitLoader` | tomlkit_ |
++------+------------------------------+----------+
+| py   | :class:`.python.PyLoader`    |          |
++------+------------------------------+----------+
+| yaml | :class:`.yaml.YamlLoader`    | pyyaml_  |
++------+------------------------------+----------+
+| json | :class:`.json.JsonLoader`    | json_    |
++------+------------------------------+----------+
+
+.. _tomlkit: https://pypi.org/project/tomlkit/
+.. _pyyaml: https://pyyaml.org/
+.. _json: https://docs.python.org/3/library/json.html
+
 
 .. note::
 
-   The class method :meth:`.FileLoader.can_load` returns whether it is capable
-   of handling a file. Currently, it only looks at the file extension, but more
-   advanced logic could be implemented if necessary.
+   Each loader uses the method :meth:`.FileLoader.can_load` to check if it can
+   handle a configuration file. Currently, it only looks at the file extension,
+   but more advanced logic could be implemented if necessary.
 
 File loaders can implement :meth:`.FileLoader.write` to generate a valid
 configuration file of the corresponding format, following the values of present

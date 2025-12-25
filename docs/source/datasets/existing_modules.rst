@@ -30,10 +30,10 @@ simple dictionnary for storing parameters).
 
 A :class:`.Section` can be used to store parameters using
 :class:`.ParamsManagerSection`. It allows to use the parameters retrieval from
-:doc:`configuration<configuration>`, and restrict parameters to those statically
-defined. Parameters can be added to the section at runtime though with
-:meth:`.Section.add_trait` or :meth:`.Section.update`. The section to use must
-be specified as a class attribute::
+:doc:`configuration</configuration/index>`, and restrict parameters to those
+statically defined. Parameters can be added to the section at runtime though
+with :meth:`.Section.add_trait` or :meth:`.Section.update`. The section to use
+must be specified as a class attribute::
 
     class Parameters(Section):
         ...

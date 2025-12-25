@@ -92,19 +92,14 @@ intersphinx_mapping = {
 
 ## Options for HTML output
 
-html_theme = "sphinx_book_theme"
-# html_static_path = ["_static"]
+html_theme = "pydata_sphinx_theme"
+html_static_path = ["_static"]
 html_title = project
 html_theme_options = dict(
-    collapse_navigation=False,
-    use_download_button=True,
-    use_fullscreen_button=False,
-    show_toc_level=2,
     # Repo links
-    repository_url="https://gitlab.in2p3.fr/biofronts/data-assistant",
-    use_source_button=True,
-    repository_branch="main",
-    path_to_docs="docs",
+    github_url="https://gitlab.in2p3.fr/biofronts/data-assistant",
+    collapse_navigation=False,
+    show_toc_level=2,
     # Social icons
     icon_links=[
         dict(
@@ -113,13 +108,14 @@ html_theme_options = dict(
             icon="fa-brands fa-square-gitlab",
         ),
     ],
+    # Navigation bar
+    navbar_start=["navbar-logo"],
+    navbar_center=["navbar-nav"],
     # Footer
-    article_footer_items=["prev-next"],
+    article_footer_items=[],
     content_footer_items=[],
-    footer_start=["footer-left"],
-    footer_end=["footer-right"],
+    footer_start=["copyright", "last-updated"],
+    footer_end=["sphinx-version", "theme-version"],
 )
 
 html_last_updated_fmt = "%Y-%m-%d"
-
-html_sidebars = {"**": ["navbar-logo.html", "sbt-sidebar-nav.html", "icon-links.html"]}

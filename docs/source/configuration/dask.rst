@@ -1,4 +1,9 @@
 
+******************
+Dask configuration
+******************
+
+
 Things to remember:
 howto chunk ?
 

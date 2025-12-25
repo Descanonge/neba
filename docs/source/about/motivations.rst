@@ -15,8 +15,8 @@ A good configuration framework
 Requirements
 ------------
 
-Let's starts with the :doc:`configuration` side of things. This library had some
-requirements from the start:
+Let's starts with the :doc:`/configuration/index` side of things. This
+library had some requirements from the start:
 
 * a strict specification of the parameters (name, type, etc.)
 * that can easily be documented (even "self-documented")
