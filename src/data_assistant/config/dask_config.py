@@ -6,8 +6,10 @@ import logging
 import sys
 import typing as t
 from collections.abc import Sequence
+from contextlib import AbstractContextManager, nullcontext
 
 import distributed
+from distributed.client import Client
 from distributed.deploy.cluster import Cluster
 from distributed.scheduler import Scheduler
 from distributed.security import Security
@@ -492,6 +494,7 @@ class DaskConfig(Section):
         help="Cluster type to use.",
     )
 
+    client: Client
     cluster: Cluster
 
     @classmethod
@@ -538,6 +541,16 @@ class DaskConfig(Section):
         """Configuration section for current cluster type."""
         return getattr(self, self.cluster_type)
 
+    @property
+    def context(self) -> tuple[Cluster, Client] | AbstractContextManager:
+        """Context manager containing cluster and client if started.
+
+        Otherwise return a null/placeholder context.
+        """
+        if hasattr(self, "cluster") and hasattr(self, "client"):
+            return self.cluster, self.client
+        return nullcontext()
+
     def start(self, **kwargs: t.Any):
         """Start Dask distributed client.
 
@@ -561,12 +574,14 @@ class DaskConfig(Section):
         self.cluster = self.cluster_section.get_cluster(**kwargs)
         """Dask cluster object, local or distributed via jobqueue."""
 
-        self.client = distributed.Client(self.cluster)
+        self.client = Client(self.cluster)
         """Dask client object."""
 
     def wait_for_workers(self, wait: int):
         """Wait for workers (if cluster is not local)."""
-        if not isinstance(self.cluster_section, DaskClusterJobQueue):
+        if not hasattr(self, "cluster") or not isinstance(
+            self.cluster_section, DaskClusterJobQueue
+        ):
             return
 
         log.info("Waiting for %d worker(s)", wait)
@@ -588,7 +603,9 @@ class DaskConfig(Section):
             Arguments passed to ``cluster.scale()``. See the documentation for your
             specific cluster type to see the parameters available.
         """
-        if not isinstance(self.cluster_section, DaskClusterJobQueue):
+        if not hasattr(self, "cluster") or not isinstance(
+            self.cluster_section, DaskClusterJobQueue
+        ):
             return
 
         log.info("Scale cluster to: %s", repr(kwargs))
@@ -609,7 +626,9 @@ class DaskConfig(Section):
             Arguments passed to ``cluster.adapt()``. See the documentation for your
             specific cluster type to see the parameters available.
         """
-        if not isinstance(self.cluster_section, DaskClusterJobQueue):
+        if not hasattr(self, "cluster") or not isinstance(
+            self.cluster_section, DaskClusterJobQueue
+        ):
             return
 
         log.info("Set cluster to adapt (%s)", repr(kwargs))
