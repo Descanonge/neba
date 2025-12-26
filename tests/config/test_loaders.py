@@ -5,6 +5,8 @@ from typing import Any
 
 import pytest
 from hypothesis import HealthCheck, given, settings
+from ruamel.yaml.constructor import DuplicateKeyError
+from tomlkit.exceptions import ParseError
 from traitlets import Instance, Int, List, TraitType, Unicode, Union
 
 from data_assistant.config.application import ApplicationBase
@@ -234,9 +236,17 @@ class FileLoaderTest:
 class TestTomlLoader(FileLoaderTest):
     ext = ".toml"
 
-    @todo
-    def test_duplicate_keys(self):
-        assert 0
+    def test_duplicate_keys(self, App: type[ApplicationBase]):
+        with NamedTemporaryFile(suffix=self.ext) as conf_file:
+            filename = conf_file.name
+            with open(filename, "w") as fp:
+                print("bool = false", file=fp)
+                print("bool = true", file=fp)
+
+            App.config_files = [filename]
+
+            with pytest.raises(ParseError):
+                App(ignore_cli=True)
 
 
 class TestPythonLoader(FileLoaderTest):
@@ -262,22 +272,60 @@ class TestPythonLoader(FileLoaderTest):
 
         assert c.as_flat_dict() == ref
 
-    @todo
-    def test_exception(self):
+    def test_exception(self, App: type[ApplicationBase]):
         """Test when file throw exception."""
-        assert 0
+        with NamedTemporaryFile(suffix=self.ext) as conf_file:
+            filename = conf_file.name
+            with open(filename, "w") as fp:
+                print("c.bool = undefined_var", file=fp)
 
-    @todo
-    def test_duplicate_keys(self):
-        assert 0
+            App.config_files = [filename]
+
+            with pytest.raises(ConfigParsingError):
+                App(ignore_cli=True)
+
+    def test_duplicate_keys(self, App: type[ApplicationBase]):
+        with NamedTemporaryFile(suffix=self.ext) as conf_file:
+            filename = conf_file.name
+            with open(filename, "w") as fp:
+                print("c.bool = False", file=fp)
+                print("c.bool = True", file=fp)
+
+            App.config_files = [filename]
+
+            with pytest.raises(MultipleConfigKeyError):
+                App(ignore_cli=True)
 
 
 class TestYamlLoader(FileLoaderTest):
     ext = ".yaml"
 
+    def test_duplicate_keys(self, App: type[ApplicationBase]):
+        with NamedTemporaryFile(suffix=self.ext) as conf_file:
+            filename = conf_file.name
+            with open(filename, "w") as fp:
+                print("bool: False", file=fp)
+                print("bool: True", file=fp)
+
+            App.config_files = [filename]
+
+            with pytest.raises(DuplicateKeyError):
+                App(ignore_cli=True)
+
 
 class TestJsonLoader(FileLoaderTest):
     ext = ".json"
+
+    def test_duplicate_keys(self, App: type[ApplicationBase]):
+        with NamedTemporaryFile(suffix=self.ext) as conf_file:
+            filename = conf_file.name
+            with open(filename, "w") as fp:
+                print('{"bool": false, "bool": true}', file=fp)
+
+            App.config_files = [filename]
+
+            with pytest.raises(MultipleConfigKeyError):
+                App(ignore_cli=True)
 
 
 # Parametrize for all loaders

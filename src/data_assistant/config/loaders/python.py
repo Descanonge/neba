@@ -9,7 +9,13 @@ from textwrap import dedent
 from traitlets import Enum, Instance, TraitType, Type
 
 from data_assistant.config.section import Section
-from data_assistant.config.util import get_trait_typehint, underline, wrap_text
+from data_assistant.config.util import (
+    ConfigParsingError,
+    MultipleConfigKeyError,
+    get_trait_typehint,
+    underline,
+    wrap_text,
+)
 
 from .core import ConfigValue, FileLoader, SerializerDefault
 
@@ -37,6 +43,11 @@ class PyConfigContainer:
             obj = PyConfigContainer()
             self.__setattr__(key, obj)
             return obj
+
+    def __setattr__(self, name: str, value: t.Any):
+        if name in self.__dict__:
+            raise MultipleConfigKeyError(name, [value, getattr(self, name)])
+        super().__setattr__(name, value)
 
     def as_flat_dict(self) -> dict:
         """Return flat dict of attributes.
@@ -113,11 +124,16 @@ class PyLoader(FileLoader):
         # from traitlets.config.loader.PyFileConfigLoader
         namespace = dict(c=read_config, __file__=self.full_filename)
         with open(self.full_filename, "rb") as fp:
-            exec(
-                compile(source=fp.read(), filename=self.full_filename, mode="exec"),
-                namespace,  # globals and locals
-                namespace,
-            )
+            try:
+                exec(
+                    compile(source=fp.read(), filename=self.full_filename, mode="exec"),
+                    namespace,  # globals and locals
+                    namespace,
+                )
+            except Exception as e:
+                raise ConfigParsingError(
+                    f"Exception while executing '{self.full_filename}'."
+                ) from e
 
         for key, value in read_config.as_flat_dict().items():
             cv = ConfigValue(value, key, origin=self.filename)

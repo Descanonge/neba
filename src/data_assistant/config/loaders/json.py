@@ -4,6 +4,8 @@ import json
 import typing as t
 from collections import abc
 
+from data_assistant.config.util import MultipleConfigKeyError
+
 from .core import ConfigValue, DictLikeLoaderMixin, FileLoader
 
 
@@ -18,6 +20,16 @@ class JsonEncoderTypes(json.JSONEncoder):
         if isinstance(o, set):
             return list(o)
         return super().default(o)
+
+
+def dict_raise_on_duplicate(ordered_pairs) -> dict:
+    """Raise if there are duplicate keys."""
+    d: dict = {}
+    for k, v in ordered_pairs:
+        if k in d:
+            raise MultipleConfigKeyError(k, [v, d[k]])
+        d[k] = v
+    return d
 
 
 class JsonLoader(FileLoader, DictLikeLoaderMixin):
@@ -37,7 +49,9 @@ class JsonLoader(FileLoader, DictLikeLoaderMixin):
         specified by :attr:`JSON_DECODER`.
         """
         with open(self.full_filename) as fp:
-            input = json.load(fp, cls=self.JSON_DECODER)
+            input = json.load(
+                fp, cls=self.JSON_DECODER, object_pairs_hook=dict_raise_on_duplicate
+            )
 
         return self.resolve_mapping(input, origin=self.filename)
 
