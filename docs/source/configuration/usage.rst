@@ -343,13 +343,13 @@ registered in :data:`.loaders.loaders_import_string`:
 +------+------------------------------+----------+
 | py   | :class:`.python.PyLoader`    |          |
 +------+------------------------------+----------+
-| yaml | :class:`.yaml.YamlLoader`    | pyyaml_  |
+| yaml | :class:`.yaml.YamlLoader`    | ruamel_  |
 +------+------------------------------+----------+
 | json | :class:`.json.JsonLoader`    | json_    |
 +------+------------------------------+----------+
 
 .. _tomlkit: https://pypi.org/project/tomlkit/
-.. _pyyaml: https://pyyaml.org/
+.. _ruamel: https://yaml.dev/doc/ruamel.yaml/
 .. _json: https://docs.python.org/3/library/json.html
 
 

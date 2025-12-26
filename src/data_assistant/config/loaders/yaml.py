@@ -1,6 +1,6 @@
 """Yaml configuration file loader.
 
-This uses :mod:`pyyaml`.
+This uses :mod:`ruamel.yaml`.
 """
 
 from __future__ import annotations
@@ -9,13 +9,7 @@ import logging
 from collections import abc
 from typing import IO
 
-import yaml
-
-try:
-    from yaml import CDumper as Dumper
-    from yaml import CLoader as Loader
-except ImportError:
-    from yaml import Dumper, Loader  # type: ignore[assignment]
+from ruamel.yaml import YAML
 
 from .core import ConfigValue, DictLikeLoaderMixin, FileLoader
 
@@ -29,8 +23,9 @@ class YamlLoader(DictLikeLoaderMixin, FileLoader):
 
     def load_config(self) -> abc.Iterator[ConfigValue]:
         """Populate the config attribute from YAML file."""
+        yaml = YAML(typ="safe")
         with open(self.full_filename) as fp:
-            data = yaml.load(fp, Loader=Loader)
+            data = yaml.load(fp.read())
 
         return self.resolve_mapping(data, origin=self.filename)
 
@@ -41,4 +36,5 @@ class YamlLoader(DictLikeLoaderMixin, FileLoader):
 
         data = {k: cv.get_value() for k, cv in self.config.items()}
         data = self.app.nest_dict(data)
-        yaml.dump(data, fp, Dumper=Dumper)
+        yaml = YAML()
+        yaml.dump(data, fp)
