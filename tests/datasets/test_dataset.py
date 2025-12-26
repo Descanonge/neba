@@ -9,6 +9,7 @@ from data_assistant.data import (
     WriterAbstract,
 )
 from data_assistant.data.dataset import Dataset
+from data_assistant.data.module import ModuleMix
 
 
 def test_abstract_dataset():
@@ -140,15 +141,32 @@ def test_module_setup_ancestors():
 
     class TestDataset(Dataset):
         class Source(SourceA, SourceB):
-            pass
+            def setup(self):
+                pass
 
     TestDataset()
     assert is_setup == {"A", "B", "C"}
 
 
-# module mix
-# check specific function raised
-# check all base are called
+class TestModuleMix:
+    def test_setup(self):
+        is_setup = set()
 
-# test cache
-# test basic dataset reset parameters
+        class SourceA(SourceAbstract):
+            def setup(self):
+                is_setup.add("A")
+
+        class SourceC(SourceAbstract):
+            def setup(self):
+                is_setup.add("C")
+
+        class SourceB(SourceC):
+            def setup(self):
+                is_setup.add("B")
+                super().setup()
+
+        class TestDataset(Dataset):
+            Source = ModuleMix.create([SourceA, SourceB])
+
+        TestDataset()
+        assert is_setup == {"A", "B", "C"}

@@ -17,7 +17,7 @@ class Module:
     """Module to which the data-manager delegates some functionality."""
 
     _allow_instantiation_failure: bool = True
-    """Wether exception will be raised or not during instantiation."""
+    """Whether exception will be raised or not during instantiation."""
     _is_setup: bool = False
     """Keep track if the module has been set up."""
 
@@ -55,8 +55,12 @@ class Module:
         if self._is_setup:
             return
 
-        initialized: list[type[Module]] = list()
-        for ancestor in self.__class__.mro():
+        # First do self
+        self.setup()
+
+        initialized: list[type[Module]] = []
+        # Avoid first ancestor (is self)
+        for ancestor in self.__class__.mro()[1:]:
             if issubclass(ancestor, Module) and ancestor not in initialized:
                 try:
                     ancestor.setup(self)
@@ -74,8 +78,8 @@ class Module:
 class CachedModule(Module):
     """Plugin containing a cache.
 
-    The cached-module cache is voided on a call of :meth:`.DataManagerBase.reset`.
-    This is typically done everytime the parameters change.
+    The cache is voided on a call of :meth:`.DataManagerBase.reset`. This is typically
+    done everytime the parameters change.
     """
 
     _add_void_callback = True
@@ -100,8 +104,6 @@ R = t.TypeVar("R")
 T_CachedMod = t.TypeVar("T_CachedMod", bound=CachedModule)
 
 
-# The `func` argument is typed as Any because technically Callable is contravariant
-# and typing it as Module would not allow subclasses.
 def autocached(
     func: abc.Callable[[T_CachedMod], R],
 ) -> abc.Callable[[T_CachedMod], R]:

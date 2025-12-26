@@ -74,9 +74,8 @@ one containing the module type must be indicated in
 
 .. note::
 
-   The module will be instanciated in the order of the mapping. They will also
-   be setup in this order, with the difference that the parameters module will
-   always be first.
+   The module will be instanciated and setup in the order of the mapping, except
+   that the parameters module will always be first.
 
 Dataset managers are initialized with an optional argument giving the
 parameters, and additional keyword arguments. All modules are instantiated with
