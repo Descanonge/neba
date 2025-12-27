@@ -111,8 +111,6 @@ class PyLoader(FileLoader):
 
     serializer = SerializerPython()
 
-    extensions = ["py", "ipy"]
-
     def load_config(self) -> abc.Iterator[ConfigValue]:
         """Populate the config attribute from python file.
 

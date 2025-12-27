@@ -21,7 +21,9 @@ from traitlets import (
 )
 from traitlets.config.configurable import LoggingConfigurable
 
-from .loaders import CLILoader, ConfigValue, get_loader
+from data_assistant.util import import_item
+
+from .loaders import CLILoader, ConfigValue
 from .section import Section
 from .util import ConfigError
 
@@ -42,14 +44,15 @@ class ApplicationBase(Section, LoggingConfigurable):
     tree structure. This validate the values and instantiate the configuration objects.
     """
 
-    file_loaders: t.Sequence[str] = ["toml"]
-    """List of possible loaders to use for configuration files.
+    file_loaders: dict[tuple[str, ...], str] = {
+        ("toml",): "toml.TomlkitLoader",
+        ("py", "ipy"): "python.PyLoader",
+        ("yaml", "yml"): "yaml.YamlLoader",
+        ("json",): "json.JsonLoader",
+    }
+    """Mapping from file extension to location of loader to import.
 
-    The corresponding loaders will be imported and tested until an appropriate loader is
-    found. Currently, loaders only look at the extension.
-
-    The names in this sequence must correspond to
-    :data:`.loaders.loaders_import_string`.
+    The location is appended to `data_assistant.config.loaders.`
     """
 
     auto_instantiate = True
@@ -312,9 +315,11 @@ class ApplicationBase(Section, LoggingConfigurable):
     def _select_file_loader(self, filename: str) -> type[FileLoader]:
         """Return the first appropriate FileLoader for this file."""
         select: type[FileLoader] | None = None
-        for fmt in self.file_loaders:
-            loader_cls = get_loader(fmt)
-            if loader_cls.can_load(filename):
+        ext = path.splitext(filename)[1]
+        for loader_exts, loader_name in self.file_loaders.items():
+            if ext.lstrip(".") in loader_exts:
+                log.debug("Importing loader %s", loader_name)
+                loader_cls = import_item("data_assistant.config.loaders." + loader_name)
                 select = loader_cls
                 break
         if select is None:
@@ -399,8 +404,7 @@ class ApplicationBase(Section, LoggingConfigurable):
             * overwrite: the file is completely overwritten with the current
               configuration
             * update: the configuration keys specified in the existing file are kept.
-              They take precedence over the current application config. Class-keys are
-              not resolved to full-keys.
+              They take precedence over the current application config.
             * None: ask what to do interactively in the console
         """
         options = dict(u="update", o="overwrite", a="abort")

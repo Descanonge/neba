@@ -32,8 +32,6 @@ class TomlkitLoader(FileLoader, DictLikeLoaderMixin):
     documented config files.
     """
 
-    extensions = ["toml"]
-
     def load_config(self) -> abc.Iterator[ConfigValue]:
         """Populate the config attribute from TOML file."""
         with open(self.full_filename) as fp:

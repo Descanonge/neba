@@ -35,8 +35,6 @@ def dict_raise_on_duplicate(ordered_pairs) -> dict:
 class JsonLoader(FileLoader, DictLikeLoaderMixin):
     """Loader for JSON files."""
 
-    extensions = ["json"]
-
     JSON_DECODER: type[json.JSONDecoder] | None = None
     """Custom json decoder to use."""
     JSON_ENCODER: type[json.JSONEncoder] | None = JsonEncoderTypes

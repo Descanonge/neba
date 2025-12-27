@@ -287,10 +287,10 @@ the rest of the process.
 
 The parameters found are then normalized: each resulting parameter key is unique
 and unambiguous. This provides a first layer of checking the input: keys that do
-not lead to a known parameter will raise errors. This allows to merge the
-parameters obtained from different files and from CLI. Parameters are stored
-in :attr:`~.ApplicationBase.file_conf`, :attr:`~.ApplicationBase.cli_conf`
-and :attr:`~.ApplicationBase.conf`.
+not lead to a known parameter will raise errors. Parameters obtained from
+different files and from CLI can then easily be merged. Parameters are stored in
+:attr:`~.ApplicationBase.file_conf`, :attr:`~.ApplicationBase.cli_conf` and
+:attr:`~.ApplicationBase.conf`.
 
 Finally, the application will recursively instantiate all sections while passing
 the configuration values. Unspecified values will take the trait default value.
@@ -303,8 +303,8 @@ keys* to a :class:`.ConfigValue`.
 .. note::
 
    The :class:`.ConfigValue` class allows to store more information about the
-   value: its provenance, the original string and parsed value if applicable,
-   and a priority value used when merging configs. To obtain a value, simply use
+   value: its origin, the original string and parsed value if applicable, and a
+   priority value used when merging configs. To obtain a value, simply use
    :meth:`.ConfigValue.get_value`.
 
 A "resolved" key is a succession of attribute names pointing to a trait,
@@ -331,33 +331,43 @@ specified, the parameter from one file will replace those from the previous
 files in the list. The resulting configuration will be stored in the
 :attr:`~.ApplicationBase.file_conf` attribute.
 
-Different file formats require specific subclasses of :class:`~.FileLoader` that
-may depend on external packages. To avoid having to import them, specify the
-loaders you need in :attr:`.ApplicationBase.file_loaders`. They must be
-registered in :data:`.loaders.loaders_import_string`:
+.. note::
 
-+------+------------------------------+----------+
-| Name | Class                        | Library  |
-+======+==============================+==========+
-| toml | :class:`.toml.TomlkitLoader` | tomlkit_ |
-+------+------------------------------+----------+
-| py   | :class:`.python.PyLoader`    |          |
-+------+------------------------------+----------+
-| yaml | :class:`.yaml.YamlLoader`    | ruamel_  |
-+------+------------------------------+----------+
-| json | :class:`.json.JsonLoader`    | json_    |
-+------+------------------------------+----------+
+   The :attr:`~.ApplicationBase.config_files` attribute is a trait, which allows
+   to select configuration files from the command line. To specify it from your
+   script use::
+
+       class App(ApplicationBase):
+           pass
+
+       App.config_files.default_value = ...
+
+   or if you do not need to change the value using command line arguments::
+
+       class App(ApplicationBase):
+           config_files = ...
+
+
+Different file formats require specific subclasses of :class:`~.FileLoader`. A
+loader is selected by looking at the config file extension. As some loaders have
+external dependencies, loaders are only imported when needed, according to the
+import string in :attr:`.ApplicationBase.file_loaders`.
+
++-----------------+------------------------------+----------+
+| File extensions | Class                        | Library  |
++=================+==============================+==========+
+| toml            | :class:`.toml.TomlkitLoader` | tomlkit_ |
++-----------------+------------------------------+----------+
+| py, ipy         | :class:`.python.PyLoader`    |          |
++-----------------+------------------------------+----------+
+| yaml, yml       | :class:`.yaml.YamlLoader`    | ruamel_  |
++-----------------+------------------------------+----------+
+| json            | :class:`.json.JsonLoader`    | json_    |
++-----------------+------------------------------+----------+
 
 .. _tomlkit: https://pypi.org/project/tomlkit/
 .. _ruamel: https://yaml.dev/doc/ruamel.yaml/
 .. _json: https://docs.python.org/3/library/json.html
-
-
-.. note::
-
-   Each loader uses the method :meth:`.FileLoader.can_load` to check if it can
-   handle a configuration file. Currently, it only looks at the file extension,
-   but more advanced logic could be implemented if necessary.
 
 File loaders can implement :meth:`.FileLoader.write` to generate a valid
 configuration file of the corresponding format, following the values of present
@@ -367,23 +377,7 @@ comments. The end user can simply use :meth:`.ApplicationBase.write_config`
 which automatically deals with an existing configuration file that may need to
 be updated, while keeping its current values (or not).
 
-.. note::
-
-    To avoid importing too much automatically, especially since some loaders
-    rely on third-party libraries that may be missing, and to avoid having to
-    resort to some kind of lazy-loading (slightly more cumbersome to write),
-    file loaders are placed in their own sub-module. So to allow TOML and Python
-    configuration files, we would need to do::
-
-        from data_assistant.config.loaders.python import PyFileLoader
-        from data_assistant.config.loaders.toml import TomlkitLoader
-
-        class Application(ApplicationBase):
-            file_loaders = [PyFileLoader, TomlkitLoader]
-
-            ...
-
-The package supports and recommends `TOML <https://toml.io>`__ configuration
+This package supports and recommends `TOML <https://toml.io>`__ configuration
 files. It is both easily readable and unambiguous. Despite allowing nested
 configuration, it can be written without indentation, allowing to add long
 comments for each parameters. The :external+python:mod:`tomllib` builtin module
@@ -416,9 +410,9 @@ remembering that each configuration file replaces the values of the previous one
 in the list.
 
 `Yaml <https://yaml.org/>`__ is supported via :class:`.YamlLoader` and the
-third-party module `pyyaml <https://pyyaml.org/wiki/PyYAMLDocumentation>`. It
-does not allow generating input with comments (and the alternative ``ruamel``
-does not seem as reliable).
+third-party module `ruamel.ymal <ruamel_>`. It currently does not support
+generating comments when writing files (the library supports it so it could be
+implemented).
 
 Despite not being easily readable, the JSON format is also supported via
 :class:`.JsonLoader` and the builtin module :external+python:mod:`json`. The

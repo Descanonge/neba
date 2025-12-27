@@ -19,8 +19,6 @@ log = logging.getLogger(__name__)
 class YamlLoader(DictLikeLoaderMixin, FileLoader):
     """Loader for Yaml files."""
 
-    extensions = ["yaml", "yml"]
-
     def load_config(self) -> abc.Iterator[ConfigValue]:
         """Populate the config attribute from YAML file."""
         yaml = YAML(typ="safe")

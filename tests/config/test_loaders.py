@@ -31,7 +31,7 @@ allow_fixture = settings(suppress_health_check=[HealthCheck.function_scoped_fixt
 @pytest.fixture
 def App() -> type[ApplicationBase]:
     class App(ApplicationBase, GenericConfig):
-        file_loaders = ["py", "toml", "yaml", "json"]
+        pass
 
     App.config_files.default_value = []
     return App
@@ -293,7 +293,7 @@ class TestPythonLoader(FileLoaderTest):
 
             App.config_files = [filename]
 
-            with pytest.raises(MultipleConfigKeyError):
+            with pytest.raises(ConfigParsingError):
                 App(ignore_cli=True)
 
 

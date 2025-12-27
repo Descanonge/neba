@@ -8,15 +8,13 @@ from data_assistant.config.loaders import ConfigValue, FileLoader
 from data_assistant.config.loaders.json import JsonLoader
 from data_assistant.config.loaders.python import PyLoader
 from data_assistant.config.loaders.toml import TomlkitLoader
+from data_assistant.config.loaders.yaml import YamlLoader
 from tests.config.generic_config import GenericConfig, GenericConfigInfo
 from tests.conftest import todo
 
 
 class App(ApplicationBase, GenericConfig):
-    file_loaders = ["py", "toml", "json"]
-
-
-App.config_files.default_value = ["config.py", "config.toml"]
+    pass
 
 
 @todo
@@ -62,6 +60,7 @@ class TestCLIParsing:
         ("config.py", PyLoader),
         ("config.toml", TomlkitLoader),
         ("config.json", JsonLoader),
+        ("config.yaml", YamlLoader),
     ],
 )
 def test_select_file_loader(filename: str, loader: type[FileLoader]):
@@ -95,28 +94,3 @@ def test_resolve_config():
     assert out.key == "deep_sub.sub_generic_deep.int"
     assert out.trait is app.deep_sub.sub_generic_deep.traits()["int"]
     assert isinstance(app.deep_sub.sub_generic_deep, out.container_cls)
-
-
-class TestWriteConfig:
-    # parmetrize for multiple loaders
-    @todo
-    def test_write_no_comment(self):
-        # check no comments in output
-        assert 0
-
-    @todo
-    def test_clobber_abort(self):
-        assert 0
-
-    @todo
-    def test_clobber_overwriter(self):
-        assert 0
-
-    @todo
-    def test_clobber_update(self):
-        assert 0
-
-    @todo
-    def test_clobber_ask(self):
-        # How do you test this ?
-        assert 0

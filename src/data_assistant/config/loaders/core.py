@@ -273,25 +273,10 @@ class FileLoader(ConfigLoader):
 
     serializer = SerializerDefault()
 
-    extensions: list[str] = []
-    """File extensions that are supported by this loader."""
-
     def __init__(self, app: ApplicationBase, filename: str, *args, **kwargs) -> None:
         super().__init__(app, *args, **kwargs)
         self.filename = filename
         self.full_filename = path.abspath(filename)
-
-    @classmethod
-    def can_load(cls, filename: str) -> bool:
-        """Return if this loader class is appropriate for this config file.
-
-        This is a classmethod to avoid unnecessary/unwanted library import that might
-        happen at initialization.
-
-        By default, only check supported file extensions.
-        """
-        _, ext = path.splitext(filename)
-        return ext.lstrip(".") in cls.extensions
 
     def write(self, fp: t.IO, comment: t.Any = None):
         """Write a configuration file corresponding to the loader config.
