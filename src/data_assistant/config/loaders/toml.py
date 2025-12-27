@@ -96,7 +96,6 @@ class TomlkitLoader(FileLoader, DictLikeLoaderMixin):
                 lines.append("-" * len(name))
 
             if comment != "none":
-                fullkey = ".".join(fullpath + [name])
                 typehint = get_trait_typehint(trait, "minimal")
                 if trait.default() is None:
                     default = "None"

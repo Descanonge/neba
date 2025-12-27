@@ -410,9 +410,7 @@ remembering that each configuration file replaces the values of the previous one
 in the list.
 
 `Yaml <https://yaml.org/>`__ is supported via :class:`.YamlLoader` and the
-third-party module `ruamel.ymal <ruamel_>`. It currently does not support
-generating comments when writing files (the library supports it so it could be
-implemented).
+third-party module `ruamel.ymal <ruamel_>`.
 
 Despite not being easily readable, the JSON format is also supported via
 :class:`.JsonLoader` and the builtin module :external+python:mod:`json`. The

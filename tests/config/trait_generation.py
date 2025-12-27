@@ -142,14 +142,17 @@ class FloatGen(TraitGenerator[Float]):
 
 
 class UnicodeGen(TraitGenerator[Unicode]):
-    """Unicode Generator."""
+    """Unicode Generator.
+
+    Avoid symbols, they can throw parsers off.
+    """
 
     traittype = Unicode
 
     def _st_value(self) -> st.SearchStrategy[str]:
         return st.text(
             max_size=32,
-            alphabet=st.characters(categories=["L", "M", "N", "P", "S", "Zs"]),
+            alphabet=st.characters(categories=["L", "M", "N", "S", "Zs"]),
         )
 
 

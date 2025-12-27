@@ -194,14 +194,14 @@ class FileLoaderTest:
 
         assert conf == ref
 
-    @given(values=GenericConfigInfo.values_half_strat())
-    @allow_fixture
-    def test_write_and_read_half(self, values: dict, App: type[ApplicationBase]):
-        self.assert_write_read(values, App)
-
     @given(values=GenericConfigInfo.values_all_strat())
     @allow_fixture
     def test_write_and_read_all(self, values: dict, App: type[ApplicationBase]):
+        self.assert_write_read(values, App)
+
+    @given(values=GenericConfigInfo.values_half_strat())
+    @allow_fixture
+    def test_write_and_read_half(self, values: dict, App: type[ApplicationBase]):
         self.assert_write_read(values, App)
 
     def assert_write_read(self, values: dict, App: type[ApplicationBase]):
