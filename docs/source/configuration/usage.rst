@@ -370,8 +370,8 @@ import string in :attr:`.ApplicationBase.file_loaders`.
 .. _json: https://docs.python.org/3/library/json.html
 
 File loaders can implement :meth:`.FileLoader.write` to generate a valid
-configuration file of the corresponding format, following the values of present
-in its :attr:`~.ConfigLoader.config` attribute. This allows to generate lengthy
+configuration file of the corresponding format, following the values present in
+its :attr:`~.ConfigLoader.config` attribute. This allows to generate lengthy
 configuration files, with different amounts of additional information in
 comments. The end user can simply use :meth:`.ApplicationBase.write_config`
 which automatically deals with an existing configuration file that may need to

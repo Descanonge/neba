@@ -44,16 +44,13 @@ class ApplicationBase(Section, LoggingConfigurable):
     tree structure. This validate the values and instantiate the configuration objects.
     """
 
-    file_loaders: dict[tuple[str, ...], str] = {
-        ("toml",): "toml.TomlkitLoader",
-        ("py", "ipy"): "python.PyLoader",
-        ("yaml", "yml"): "yaml.YamlLoader",
-        ("json",): "json.JsonLoader",
+    file_loaders: dict[tuple[str, ...], str | type] = {
+        ("toml",): "data_assistant.config.loaders.toml.TomlkitLoader",
+        ("py", "ipy"): "data_assistant.config.loaders.python.PyLoader",
+        ("yaml", "yml"): "data_assistant.config.loaders.yaml.YamlLoader",
+        ("json",): "data_assistant.config.loaders.json.JsonLoader",
     }
-    """Mapping from file extension to location of loader to import.
-
-    The location is appended to `data_assistant.config.loaders.`
-    """
+    """Mapping from file extension to loader class or location of loader to import."""
 
     auto_instantiate = True
     """Instantiate all sections in the configuration tree at application start.
@@ -316,10 +313,13 @@ class ApplicationBase(Section, LoggingConfigurable):
         """Return the first appropriate FileLoader for this file."""
         select: type[FileLoader] | None = None
         ext = path.splitext(filename)[1]
-        for loader_exts, loader_name in self.file_loaders.items():
+        for loader_exts, loader in self.file_loaders.items():
             if ext.lstrip(".") in loader_exts:
-                log.debug("Importing loader %s", loader_name)
-                loader_cls = import_item("data_assistant.config.loaders." + loader_name)
+                if isinstance(loader, str):
+                    log.debug("Importing loader %s", loader)
+                    loader_cls = import_item(loader)
+                else:
+                    loader_cls = loader
                 select = loader_cls
                 break
         if select is None:
