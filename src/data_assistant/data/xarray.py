@@ -551,14 +551,15 @@ class XarraySplitWriter(SplitWriterMixin, XarrayMultiFileWriter):
 
         log.debug("Split with frequency %s", freq)
 
-        # FIXME: problem if ds.time.size < 3
-        infreq = xr.infer_freq(ds.time)
-        if infreq is not None and infreq == freq:
-            log.debug(
-                "Resampling frequency is equal to that of dataset. "
-                "Will not resample."
-            )
-            return [ds_unit for _, ds_unit in ds.groupby("time", squeeze=False)]
+        # Check if dataset frequency is equal to split frequency (no need to resample)
+        if ds.time.size >= 3:
+            infreq = xr.infer_freq(ds.time)
+            if infreq is not None and infreq == freq:
+                log.debug(
+                    "Resampling frequency is equal to that of dataset. "
+                    "Will not resample."
+                )
+                return [ds_unit for _, ds_unit in ds.groupby("time", squeeze=False)]
 
         resample = ds.resample(time=freq)
         return [ds_unit for _, ds_unit in resample]
