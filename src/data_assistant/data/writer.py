@@ -40,10 +40,9 @@ class WriterAbstract(t.Generic[T_Source, T_Data], Module):
     def add_git_metadata(self, script: str, meta: dict[str, t.Any]):
         """Add git information to meta dictionary."""
         # use the directory of the calling script
-        if script:
-            gitdir = path.dirname(script) if script else "."
+        gitdir = path.dirname(script) if script else "."
 
-        # find commit
+        # check if script is in a git directory and get current commit
         cmd = ["git", "-C", gitdir, "rev-parse", "HEAD"]
         ret = subprocess.run(cmd, capture_output=True, text=True)
         if ret.returncode != 0:
