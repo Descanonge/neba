@@ -114,12 +114,13 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data], Section):
             mod.dm = self
 
         # Setup modules
-        # Start with parameters
-        self.params_manager._setup_ancestors()
+        # Start with parameters. Don't use setup_safe, we want errors raised.
+        self.params_manager.setup()
+        self.params_manager._is_setup = True
 
         # Parameters won't initialize again
         for mod in self._modules.values():
-            mod._setup_ancestors()
+            mod.setup_safe()
 
     def _instantiate_modules(self, *args, **kwargs) -> None:
         for instance_attr, type_attr in self._modules_attributes.items():

@@ -87,29 +87,15 @@ that all other module exist if there is need for interplay.
 .. note::
 
    'Mostly' because if a module fails to instantiate and its attribute
-   :attr:`.Module._allow_instantiation_failure` is True, there will only log a
+   :attr:`.Module._allow_instantiation_failure` is True, it will only log a
    warning and the module will not be accessible.
-
-The :meth:`~.Module.setup()` method is planned for inheritance cooperation. Each
-new subclass should make a ``super().setup()`` call whenever appropriate. The
-parent function launched by the Dataset (:meth:`.Module.__setup`) will make sure
-it will be called for every base class. So for instance in ``class
-NewModule(SubModuleA, SubModuleB)`` both ``SubModuleA.setup`` and
-``SubModuleB.setup`` will be called, even though they don't necessarily know
-about each other.
-
-.. important::
-
-   It is still necessary to add a ``super().setup()`` to propagate the call
-   further; for instance, if SubModuleB is a child of SubModuleC and we want
-   ``SubModuleC.setup`` to run.
 
 For the most part, modules are made to be independant of each others, but it can
 be useful to have interplay. The dataset provides some basic API that modules
 can leverage like :meth:`.Dataset.get_source` or :meth:`.Dataset.get_data`. For
 more specific features the package contains some abstract base classes that
 define the methods to be expected: for for instance
-:class:`loader.LoaderAbstract` and :class:`writer.WriterAbstract`. See
+:class:`~.loader.LoaderAbstract` and :class:`~.writer.WriterAbstract`. See
 :doc:`existing_modules` for a list of available plugins. See
 :class:`.SplitWriterMixin` for an example of interplay facilitator and the
 implementation of :class:`.XarraySplitWriter` that has multiple submodules

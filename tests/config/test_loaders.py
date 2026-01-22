@@ -326,11 +326,3 @@ class TestJsonLoader(FileLoaderTest):
 
             with pytest.raises(MultipleConfigKeyError):
                 App(ignore_cli=True)
-
-
-# Parametrize for all loaders
-class TestConfigLoader:
-    @todo
-    def test_application_traits(self):
-        """Check application traits are applied."""
-        assert 0

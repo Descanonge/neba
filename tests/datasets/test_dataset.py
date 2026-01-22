@@ -129,10 +129,12 @@ def test_module_setup_ancestors():
     class SourceA(SourceAbstract):
         def setup(self):
             is_setup.add("A")
+            super().setup()
 
     class SourceC(SourceAbstract):
         def setup(self):
             is_setup.add("C")
+            super().setup()
 
     class SourceB(SourceC):
         def setup(self):
@@ -142,7 +144,7 @@ def test_module_setup_ancestors():
     class TestDataset(Dataset):
         class Source(SourceA, SourceB):
             def setup(self):
-                pass
+                super().setup()
 
     TestDataset()
     assert is_setup == {"A", "B", "C"}
@@ -155,10 +157,12 @@ class TestModuleMix:
         class SourceA(SourceAbstract):
             def setup(self):
                 is_setup.add("A")
+                super().setup()
 
         class SourceC(SourceAbstract):
             def setup(self):
                 is_setup.add("C")
+                super().setup()
 
         class SourceB(SourceC):
             def setup(self):

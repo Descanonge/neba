@@ -40,39 +40,26 @@ class Module:
         return []
 
     def setup(self) -> None:
-        """Initialize module, allow for cooperation in inheritance.
-
-        It will be called on ancestors from every parent class. It is still necessary to
-        include a ``super.setup()`` where necessary.
-        """
+        """Initialize module."""
         pass
 
-    def _setup_ancestors(self) -> None:
-        """Initialize module, allow for cooperation in inheritance.
+    def setup_safe(self) -> None:
+        """Initialize module safely.
 
-        Will only run if :attr:`_is_setup` is False.
+        Will only run if :attr:`_is_setup` is False. Errors are logged and ignored.
         """
         if self._is_setup:
             return
 
-        # First do self
-        self.setup()
-
-        initialized: list[type[Module]] = []
-        # Avoid first ancestor (is self)
-        for ancestor in self.__class__.mro()[1:]:
-            if issubclass(ancestor, Module) and ancestor not in initialized:
-                try:
-                    ancestor.setup(self)
-                except Exception as e:
-                    log.warning(
-                        "Error when initializing module %s (%s)",
-                        self,
-                        ancestor,
-                        exc_info=e,
-                    )
-                initialized += ancestor.mro()
-        self._is_setup = True
+        try:
+            self.setup()
+            self._is_setup = True
+        except Exception as e:
+            log.warning(
+                "Error when initializing module %s",
+                self,
+                exc_info=e,
+            )
 
 
 class CachedModule(Module):
@@ -85,13 +72,19 @@ class CachedModule(Module):
     _add_void_callback = True
 
     def setup(self) -> None:
+        """Set up cache.
+
+        Add a callback to the parent dataset that will void the cache when called.
+        """
+        cls_name = f"{self.__class__.__module__}.{self.__class__.__qualname__}"
+        log.debug("Setting up cache for %s", cls_name)
         self.cache: dict[str, t.Any] = {}
 
         def callback(dm, **kwargs) -> None:
             self.void_cache()
 
         if self._add_void_callback:
-            key = f"void_cache[{self.__class__.__name__}]"
+            key = f"void_cache[{cls_name}]"
             self.dm._register_callback(key, callback)
 
     def void_cache(self) -> None:
