@@ -1,7 +1,7 @@
 from importlib.metadata import version
 
 try:
-    __version__ = version("data_assistant")
+    __version__ = version("data-assistant")
 except Exception:
     # Local copy or not installed with setuptools.
     # Disable minimum version checks on downstream libraries.
