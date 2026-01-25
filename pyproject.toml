@@ -73,6 +73,8 @@ docs = [
 [project.urls]
 'Homepage' = 'https://gitlab.in2p3.fr/biofronts/data-assistant'
 
+[tool.setuptools_scm]
+
 [tool.mypy]
 plugins = ['numpy.typing.mypy_plugin', 'data_assistant.config.mypy_plugin']
 ignore_missing_imports = true
