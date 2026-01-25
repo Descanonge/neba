@@ -49,7 +49,7 @@ class Subsection(t.Generic[S]):
     section class can be re-used in different places in a configuration without clashes.
 
     I do not use traitlets.Instance because it initializes eagerly, I would prefer to
-    wait before initializing recursivey all subsections.
+    wait before initializing recursively all subsections.
     """
 
     klass: type[S]

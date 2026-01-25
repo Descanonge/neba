@@ -12,27 +12,23 @@ Data-Asistant documentation
 Configuration
 =============
 
-The module of this package first allows to manage the
+The `config` module of this package allows to manage the
 :doc:`configuration<configuration/index>` of a project, providing the means to
 specify a structured, nested configuration in python code using the existing
 `traitlets <https://traitlets.readthedocs.io>`__ library. This allows
 type-checking, value validation and "on-change" callbacks.
 
 The parameters values can be retrieved from configuration files (TOML, YAML,
-or Python files), or from the command line.
+JSON or Python files), or from the command line.
 
 The whole configuration can easily be documented directly inside the
 specification code, and this is re-used for the command-line help, automatically
-generated configuration files, and sphinx documentation with a custom autodoc
-extension.
+generated configuration files, and sphinx documentation.
 
-The submodule :mod:`.config.dask_config` is a show-case of using this for the
-different parameters necessary when deploying Dask on a local cluster or on
-distributed machines using `dask-jobqueue
-<https://jobqueue.dask.org/en/latest/>`__. It also provides some convenience
-start-up functions to get setup quickly and easily scale or adapt distributed
-cluster. It also allows to use the same script for local or distributed
-clusters.
+The package includes a configuration section to deploy Dask seamlessly on a
+local cluster or on distributed machines using `dask-jobqueue
+<https://jobqueue.dask.org/en/latest/>`__. It provides some convenience start-up
+functions to get setup quickly and easily scale or adapt distributed cluster.
 
 
 Dataset management

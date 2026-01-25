@@ -35,6 +35,8 @@ log = logging.getLogger(__name__)
 
 
 class DaskClusterAbstract(Section):
+    """Configuration for a cluster."""
+
     cluster_class: type[Cluster] | str
 
     @classmethod
@@ -67,6 +69,8 @@ class DaskClusterAbstract(Section):
 
 @tag_all_traits(cluster_args=True)
 class DaskLocalCluster(DaskClusterAbstract):
+    """Configuration for a local cluster."""
+
     cluster_class = distributed.LocalCluster
 
     n_workers = Int(None, allow_none=True, help="Number of workers to start.")
@@ -227,6 +231,8 @@ class DaskLocalCluster(DaskClusterAbstract):
 
 @tag_all_traits(cluster_args=True)
 class DaskClusterJobQueue(DaskClusterAbstract):
+    """Common configuration for a job queue cluster."""
+
     # Job specific parameters
     cores = Int(help="Total number of cores per job.")
     memory = Unicode(help="Total amount of memory per job.")
@@ -382,6 +388,8 @@ class DaskClusterJobQueue(DaskClusterAbstract):
 
 @tag_all_traits(cluster_args=True)
 class DaskClusterPBS(DaskClusterJobQueue):
+    """Configuration for a PBS clusters."""
+
     cluster_class = "dask_jobqueue.PBSCluster"
 
     queue = Unicode(
@@ -412,7 +420,7 @@ class DaskClusterPBS(DaskClusterJobQueue):
 
 @tag_all_traits(cluster_args=True)
 class DaskClusterSLURM(DaskClusterJobQueue):
-    """Config for SLURM Cluster.
+    """Configuration for a SLURM Cluster.
 
     I deviate from documented parameters of :class:`dask_jobqueue.slurm.SLURMJob` that
     do not seem to be correct (`job_cpu` is not used it seems to me?).
@@ -487,6 +495,10 @@ class DaskConfig(Section):
     _cluster_sections: dict[str, type[DaskClusterAbstract]] = DEFAULT_CLUSTER_SECTIONS
 
     configurable_clusters: list[str] = list(DEFAULT_CLUSTER_SECTIONS.keys())
+    """List of cluster names whose parameters will be made available.
+
+    Refer to :data:`DEFAULT_CLUSTER_SECTIONS` for available names.
+    """
 
     cluster_type = Enum(
         list(DEFAULT_CLUSTER_SECTIONS.keys()),
