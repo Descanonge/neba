@@ -1,3 +1,8 @@
-# from .dataset import DataLoaderAbstract
+from importlib.metadata import version
 
-__version__ = "0.0.1"
+try:
+    __version__ = version("data_assistant")
+except Exception:
+    # Local copy or not installed with setuptools.
+    # Disable minimum version checks on downstream libraries.
+    __version__ = "9999"
