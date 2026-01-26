@@ -4,13 +4,10 @@
 from traitlets import Enum, Float, Int, Unicode
 
 from data_assistant.config.application import ApplicationBase
-from data_assistant.config.dask_config import DaskConfig
 from data_assistant.config.loaders.json import JsonLoader
 from data_assistant.config.loaders.toml import TomlkitLoader
 from data_assistant.config.section import Section
 from data_assistant.config.util import FixableTrait
-
-# DaskConfig.set_selected_clusters(['local', 'slurm'])
 
 
 class Parameters(Section):

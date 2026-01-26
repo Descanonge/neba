@@ -25,12 +25,6 @@ The whole configuration can easily be documented directly inside the
 specification code, and this is re-used for the command-line help, automatically
 generated configuration files, and sphinx documentation.
 
-The package includes a configuration section to deploy Dask seamlessly on a
-local cluster or on distributed machines using `dask-jobqueue
-<https://jobqueue.dask.org/en/latest/>`__. It provides some convenience start-up
-functions to get setup quickly and easily scale or adapt distributed cluster.
-
-
 Dataset management
 ==================
 

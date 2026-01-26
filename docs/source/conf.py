@@ -79,7 +79,6 @@ napoleon_preprocess_type = False
 intersphinx_mapping = {
     "dask": ("https://docs.dask.org/en/stable", None),
     "distributed": ("https://distributed.dask.org/en/stable", None),
-    "dask-jobqueue": ("https://jobqueue.dask.org/en/latest/", None),
     "filefinder": ("https://filefinder.readthedocs.io/en/latest", None),
     "numpy": ("https://numpy.org/doc/stable", None),
     "omegaconf": ("https://omegaconf.readthedocs.io/en/latest", None),

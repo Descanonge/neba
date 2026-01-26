@@ -29,5 +29,3 @@ plugin integrates it in sphinx documentations.
    :hidden:
 
    usage
-
-   dask

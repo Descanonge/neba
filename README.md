@@ -4,8 +4,6 @@
 
 This package provides a configuration framework to retrieve parameters from configuration files and command line arguments, and a dataset definition framework to help bridge the gap between on-disk files and in-memory objects.
 
-The package provides an optional configuration section for Dask to quickly set things up, and work seamlessly both on a local or distributed cluster.
-
 ## Configuration
 
 The configuration framework is:

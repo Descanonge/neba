@@ -13,8 +13,6 @@ dependencies:
     - sphinx
     - sphinx-book-theme
 
-    - dask-jobqueue
-
     - ipython
     - ipykernel
 
