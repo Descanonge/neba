@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import math
 import sys
 import typing as t
 from collections.abc import Sequence
@@ -10,7 +11,7 @@ from contextlib import AbstractContextManager, nullcontext
 
 import distributed
 from distributed.client import Client
-from distributed.deploy.cluster import Cluster
+from distributed.deploy.spec import SpecCluster
 from distributed.scheduler import Scheduler
 from distributed.security import Security
 from distributed.worker import Worker
@@ -37,15 +38,15 @@ log = logging.getLogger(__name__)
 class DaskClusterAbstract(Section):
     """Configuration for a cluster."""
 
-    cluster_class: type[Cluster] | str
+    cluster_class: type[SpecCluster] | str
 
     @classmethod
-    def get_cluster_class(cls) -> type[Cluster]:
+    def get_cluster_class(cls) -> type[SpecCluster]:
         if isinstance(cls.cluster_class, str):
             return import_item(cls.cluster_class)
         return cls.cluster_class
 
-    def get_cluster(self, **kwargs) -> Cluster:
+    def get_cluster(self, **kwargs) -> SpecCluster:
         """Start new cluster.
 
         Parameters
@@ -507,7 +508,96 @@ class DaskConfig(Section):
     )
 
     client: Client
-    cluster: Cluster
+    cluster: SpecCluster
+
+    class deploy(Section):
+        """Scale or adapt according to given parameters.
+
+        Call to deploy (scale or adapt).
+        """
+
+        def __call__(
+            self,
+            mode: str = "scale",
+            n_workers: int | None = None,
+            minimum_workers: int | None = None,
+            maximum_workers: int | None = None,
+            wait: int | None = None,
+        ):
+            """Adapt or scale cluster.
+
+            .. important::
+                Arguments given to the call are the default and will be overwritten if
+                parameters in the section are set.
+                Relevant parameters are defined in the :class:`deploy<.deploy>` section.
+
+            Parameters
+            ----------
+            mode: str | None
+                Either "scale" or "adapt".
+            n_workers: int | None
+                Number of jobs to scale to.
+            minimum_workers: int | None
+                Minimum number of jobs when adapting.
+            maximum_workers: int | None
+                Maximum number of jobs when adapting.
+            wait: int | None
+                If an int, wait for that many jobs.
+            """
+
+            def get_param(name: str, arg: t.Any, raise_: bool = True) -> t.Any:
+                param = getattr(self, name)
+                if param is None:
+                    if arg is None and raise_:
+                        raise ValueError(
+                            f"Deploy parameter '{name}' was not specified and has no "
+                            "default value set in the deploy call."
+                        )
+                    param = arg
+                return param
+
+            mode = get_param("mode", mode)
+            wait = get_param("wait", wait, raise_=False)
+            assert isinstance(self._parent, DaskConfig)
+
+            if mode == "scale":
+                n_workers = get_param("n_workers", n_workers)
+                self._parent.scale(n_workers=n_workers, wait=wait)
+
+            elif mode == "adapt":
+                minimum_workers = get_param("minimum_workers", minimum_workers)
+                maximum_workers = get_param("maximum_workers", maximum_workers)
+                self._parent.adapt(
+                    minimum_workers=minimum_workers,
+                    maximum_workers=maximum_workers,
+                    wait=wait,
+                )
+
+            else:
+                raise KeyError(
+                    f"'{mode}' mode is not recognized."
+                    f"Must be one of {self.traits()['mode'].values}"
+                )
+
+        mode = Enum(
+            ["scale", "adapt"],
+            default_value=None,
+            allow_none=True,
+            help="Either scale or adapt when deploying.",
+        )
+
+        n_workers = Int(None, allow_none=True, help="Number of jobs to scale to.")
+        minimum_workers = Int(
+            None, allow_none=True, help="Minimum number of workers when adapting."
+        )
+        maximum_workers = Int(
+            None, allow_none=True, help="Maximum number of workers when adapting."
+        )
+        wait = Int(
+            None,
+            allow_none=True,
+            help="If not None, number of workers to wait for after deploying.",
+        )
 
     @classmethod
     def _setup_section(cls):
@@ -554,7 +644,7 @@ class DaskConfig(Section):
         return getattr(self, self.cluster_type)
 
     @property
-    def context(self) -> tuple[Cluster, Client] | AbstractContextManager:
+    def context(self) -> tuple[SpecCluster, Client] | AbstractContextManager:
         """Context manager containing cluster and client if started.
 
         Otherwise return a null/placeholder context.
@@ -601,24 +691,35 @@ class DaskConfig(Section):
             n_workers=wait, timeout=self.cluster_section.wait_worker_timeout
         )
 
-    def scale(self, wait: int | None = None, **kwargs):
+    def scale(
+        self,
+        n_workers: int | None = None,
+        n_jobs: int | None = None,
+        memory: str | None = None,
+        cores: int | None = None,
+        wait: int | None = None,
+    ):
         """Scale cluster workers.
 
         If the cluster is local, do nothing.
 
         Parameters
         ----------
+        n_workers
+            Target number of workers.
+        n_jobs
+            Target number of jobs. Only for JobQueue clusters.
+        memory
+            Target amount of memory. Expressed as a string like "100 GiB".
+        cores
+            Target number of cores.
         wait
             If is an int, wait for that many workers. Timeout is given by the trait
             :attr:`.DaskClusterJobQueue.wait_worker_timeout`.
-        kwargs
-            Arguments passed to ``cluster.scale()``. See the documentation for your
-            specific cluster type to see the parameters available.
         """
-        if not hasattr(self, "cluster") or not isinstance(
-            self.cluster_section, DaskClusterJobQueue
-        ):
-            return
+        kwargs = dict(n=n_workers, memory=memory, cores=cores)
+        if isinstance(self.cluster_section, DaskClusterJobQueue):
+            kwargs["n_jobs"] = n_jobs
 
         log.info("Scale cluster to: %s", repr(kwargs))
         self.cluster.scale(**kwargs)
@@ -626,22 +727,59 @@ class DaskConfig(Section):
         if wait is not None:
             self.wait_for_workers(wait)
 
-    def adapt(self, wait: int | None = None, **kwargs):
+    def adapt(
+        self,
+        minimum_workers: float = 0,
+        maximum_workers: float = math.inf,
+        minimum_cores: int | None = None,
+        maximum_cores: int | None = None,
+        minimum_memory: str | None = None,
+        maximum_memory: str | None = None,
+        minimum_jobs: int | None = None,
+        maximum_jobs: int | None = None,
+        wait: int | None = None,
+        **kwargs,
+    ):
         """Adapt cluster workers.
 
         Parameters
         ----------
+        minimum
+            Minimum number of workers
+        maximum
+            Maximum number of workers
+        minimum_cores
+            Minimum number of cores/threads to keep around in the cluster
+        maximum_cores
+            Maximum number of cores/threads to keep around in the cluster
+        minimum_memory
+            Minimum amount of memory to keep around in the cluster
+            Expressed as a string like "100 GiB"
+        maximum_memory
+            Maximum amount of memory to keep around in the cluster
+            Expressed as a string like "100 GiB"
         wait
             If is an int, wait for that many workers. Timeout is given by the trait
             :attr:`.DaskClusterJobQueue.wait_worker_timeout`.
         kwargs
-            Arguments passed to ``cluster.adapt()``. See the documentation for your
-            specific cluster type to see the parameters available.
+            Arguments passed to ``cluster.adapt()``.
+
+        See Also
+        --------
+        dask.distributed.Adaptive: for more keyword arguments
         """
-        if not hasattr(self, "cluster") or not isinstance(
-            self.cluster_section, DaskClusterJobQueue
-        ):
-            return
+        kwargs = dict(
+            minimum=minimum_workers,
+            maximum=maximum_workers,
+            minimum_cores=minimum_cores,
+            maximum_cores=maximum_cores,
+            minimum_memory=minimum_memory,
+            maximum_memory=maximum_memory,
+        )
+
+        if isinstance(self.cluster_section, DaskClusterJobQueue):
+            kwargs["minimum_jobs"] = minimum_jobs
+            kwargs["maximum_jobs"] = maximum_jobs
 
         log.info("Set cluster to adapt (%s)", repr(kwargs))
         self.cluster.adapt(**kwargs)

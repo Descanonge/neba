@@ -6,3 +6,4 @@
    :members:
    :no-inherited-members:
    :private-members:
+   :special-members:

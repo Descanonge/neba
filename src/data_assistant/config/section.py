@@ -99,8 +99,6 @@ class Section(HasTraits):
     specific trait in the configuration tree (see :meth:`resolve_key`).
     """
 
-    # Essentially for add_trait. We need to update the class stored in the parent
-    # _subsections to section.__class__ (changed by add_traits)
     _parent: type[Section] | None = None
     _name: str = ""
 
@@ -131,6 +129,7 @@ class Section(HasTraits):
     """
 
     def __init_subclass__(cls, /, **kwargs):
+        """Call :meth:`_setup_section`."""
         super().__init_subclass__(**kwargs)
         cls._setup_section()
 
@@ -402,7 +401,7 @@ class Section(HasTraits):
             return default
 
     def __getitem__(self, key: str) -> t.Any:
-        """Obtain value it `key`."""
+        """Obtain value at `key`."""
         fullpath = key.split(".")
         subsection = self
         for i, name in enumerate(fullpath):
