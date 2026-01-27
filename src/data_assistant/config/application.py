@@ -283,9 +283,9 @@ class ApplicationBase(Section, LoggingConfigurable):
         traits = dict(traits)
         traits.update(**kwargs)
 
-        parent = cls._subsections.get("extra", Section)
-        section: type[Section] = type("ExtraSection", (parent,), traits)
-        cls._subsections["extra"] = section
+        current_extra_cls = cls._subsections.get("extra", Section)
+        extra_cls: type[Section] = type("ExtraSection", (current_extra_cls,), traits)
+        cls._subsections["extra"] = extra_cls
 
     def load_config_files(self) -> dict[str, ConfigValue]:
         """Return configuration loaded from files."""

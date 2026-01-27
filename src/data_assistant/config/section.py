@@ -238,16 +238,16 @@ class Section(HasTraits):
                 setattr(self, name, value)
 
     def _init_subsections(self, config: dict[str, t.Any]):
-        for name, subcls in self._subsections.items():
+        for name, subsection_cls in self._subsections.items():
             prefix = f"{name}."
             subconfig = {k: v for k, v in config.items() if k.startswith(prefix)}
             for k in subconfig:
                 config.pop(k)
             subconfig = {k.removeprefix(prefix): v for k, v in subconfig.items()}
-            sub_inst = subcls(subconfig)
-            sub_inst._parent = self
-            sub_inst._name = name
-            setattr(self, name, sub_inst)
+            subsection = subsection_cls(subconfig)
+            subsection._parent = self
+            subsection._name = name
+            setattr(self, name, subsection)
 
     def postinit(self):
         """Run any instructions after instantiation.
