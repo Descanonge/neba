@@ -388,11 +388,6 @@ T_ModSource = t.TypeVar("T_ModSource", bound=SourceAbstract)
 
 
 class _SourceMix(SourceAbstract, ModuleMix[T_ModSource]):
-    def get_filename(
-        self, all: bool = False, select: dict[str, t.Any] | None = None, **fixes
-    ) -> T_ModSource | list[T_ModSource]:
-        return self.apply("get_filename", all, select=select, **fixes)
-
     def _get_grouped_source(self) -> list[list[t.Any]]:
         grouped = self.apply_all("get_source", _warn=False)
         # I expect grouped to be list[list[Any] | Any]

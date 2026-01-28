@@ -69,13 +69,21 @@ class TestModuleMix:
             Source = SourceUnion.create([SourceA, SourceB], select_func=select)
 
         dm = DatasetMix(param=0, selected="SourceA")
-        assert dm.source.get_filename() == "file_a_0"
+
+        assert dm.source.apply_select("get_filename") == "file_a_0"
+
         dm.params["param"] = 1
         dm.params["selected"] = "SourceB"
-        assert dm.source.get_filename() == "file_b_1"
-        assert dm.source.get_filename(param=2) == "file_b_2"
+        assert dm.source.apply_select("get_filename") == "file_b_1"
+        assert dm.source.apply_select("get_filename", param=2) == "file_b_2"
 
+        # take precedence over dataset param
         assert (
-            dm.source.get_filename(select={"selected": "SourceA"}, param=2)
+            dm.source.apply_select(
+                "get_filename", select={"selected": "SourceA"}, param=2
+            )
             == "file_a_2"
         )
+
+        # automatic dispatch
+        assert dm.source.get_filename() == "file_b_1"
