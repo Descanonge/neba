@@ -20,11 +20,10 @@ from .source import (
     SourceUnion,
 )
 from .util import import_all
-from .writer import CachedWriter, Splitable, SplitWriterMixin, WriterAbstract
+from .writer import Splitable, SplitWriterMixin, WriterAbstract
 
 __all__ = [
     "CachedModule",
-    "CachedWriter",
     "Dataset",
     "DatasetStore",
     "FileFinderSource",
