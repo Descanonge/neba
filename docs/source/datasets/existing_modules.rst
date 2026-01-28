@@ -20,37 +20,80 @@ instantiated. These classes are more guidelines than strict protocols.
     relying on keyword arguments if necessary. This helps ensure
     inter-operability between module and easy substitution of modules types.
 
+.. _existing_params:
+
 Parameters
 ==========
 
-The first module manages the parameters of the Dataset instance. There is an
-abstract class :class:`.ParamsManagerAbstract`, but the base Dataset class
-sets its parameters module to :class:`.ParamsManager` by default (which use a
-simple dictionnary for storing parameters).
+Dict
+----
 
-A :class:`.Section` can be used to store parameters using
-:class:`.ParamsManagerSection`. It allows to use the parameters retrieval from
-:doc:`configuration</configuration/index>`, and restrict parameters to those
-statically defined. Parameters can be added to the section at runtime though
-with :meth:`.Section.add_trait` or :meth:`.Section.update`. The section to use
-must be specified as a class attribute::
+:class:`.ParamsManagerDict` stores the parameters in a dictionary.
+Technically it is a subclass of dict that has a callback setup to void the
+modules cache when a parameters is changed.
 
-    class Parameters(Section):
-        ...
+The callback is called only when setting a value that is new or different from
+the old value. Any change to a mutable (list or dict) will not register::
+
+    # Will void cache
+    dm.params["a"] = 0
+    dm.params["nested"] = {"b": 1}
+
+    # Will *not* void cache
+    dm.params["a"] = 0  # no change
+    dm.params["nested"]["b"] = 2
+
+
+Section
+-------
+
+:class:`.ParamsManagerSection` stores the parameters in a :class:`.Section`
+object. The Section class is specified in the attribute
+:attr:`~.ParamsManagerSection.SECTION_CLS` and defaults to an empty Section.
+When initialized, the modules creates a new ``SECTION_CLS`` and updates it
+with the argument passed to it.
+
+It can be defined with::
 
     class MyDataset(Dataset):
 
-        class _Params(ParamsManagerSection):
-            SECTION_CLS = Parameters
+        Params = ParamsManagerSection.new(MySection)
 
-Similarly, :class:`.ParamsManagerApp` will store parameters in a section object,
-whose parameters are obtained from :class:`.ApplicationBase` instance.
+The section has a callback setup to it so that any modification will trigger a
+cache void (except mutable modification)::
 
-.. note::
+    # Will void cache
+    dm.params["a"] = 0
+    dm.params.a = 1
+    dm.params.nested.b = 1
+    dm.param["my_list"] = [0]
 
-   The parameters are copied, changing the MyApp instance will not affect the
-   dataset after creation.
+    # Will *not* void cache
+    dm.params["a"] = 1  # no change
+    dm.params["my_list"].append(1)
 
+
+App
+---
+
+:class:`.ParamsManagerApp` stores its parameters in an :class:`.ApplicationBase`
+object. An application *must* be supplied as argument. It will be **copied**
+(any modification of the dataset parameters will not affect the original
+application instance).
+
+.. tip:: Typechecking
+
+    The specific application class does not need to be specified, but can be
+    type-hinted with::
+
+        class MyApp(ApplicationBase):
+            ...
+
+        class MyDataset(Dataset):
+            ParamsManager = ParamsManagerApp
+            params_manager: ParamsManagerApp[MyApp]
+
+.. _existing_source:
 
 Source
 ======
@@ -58,14 +101,23 @@ Source
 The data is found from a source: one or more files on disk, or a remote
 data-store for instance.
 
-For simple case which do not need a full method, :class:`.SimpleSource` will
-simply return its attribute :attr:`~.SimpleSource.source_loc`. It could also be
-sufficient to simply rewrite :meth:`~.SourceAbstract.get_source`.
+Simple
+------
+
+For simple case where you do not need a full method, :class:`.SimpleSource` will
+just return its attribute :attr:`~.SimpleSource.source_loc`.
+
+MultiFile
+---------
 
 For datasets consisting of multiple files the package provide two modules that
-follow :class:`.MultiFileSource`. For both of them the user should implement
-:meth:`~.MultiFileSource.get_root_directory` which returns the directory
-containing the files (as a path, or a list of sub-folders that will be joined).
+follow the abstract class :class:`.MultiFileSource`. For both of them the user
+should implement :meth:`~.MultiFileSource.get_root_directory` which returns the
+directory containing the files (as a path, or a list of sub-folders that will be
+joined).
+
+Glob
+++++
 
 The module :class:`.GlobSource` can find files on disk that follow a given
 pattern, defined by :meth:`~.GlobSource.get_glob_pattern`. Files on disk
@@ -83,9 +135,12 @@ For instance::
 
     files = MyDataManager().get_source()
 
-For a similar scenario of a dataset across many files (for different dates,
-variables or parameters values) an even more precise solution is provided with
-:class:`.FileFinderSource`. This module relies on the `filefinder
+FileFinder
+++++++++++
+
+For a similar scenario of a dataset split across many files (for different
+dates, variables or parameters values) an even more precise solution is provided
+by :class:`.FileFinderSource`. This module relies on the `filefinder
 <https://filefinder.readthedocs.io/en/latest/>`__ package to find files
 according to a specific filename pattern. For instance::
 
@@ -115,56 +170,6 @@ parameters::
 See the `filefinder <https://filefinder.readthedocs.io/en/latest/>`__
 documentation for more details on its features.
 
-Loading and writing data
-========================
-
-Modules loading data inherit from :class:`.LoaderAbstract`.
-This abstract module implement ``get_data`` to include postprocessing.
-If a method :meth:`~.LoaderAbstract.postprocess_data` is defined in the
-module (and it does not raise a ``NotImplementedError``), it will
-automatically be run on loaded data. This can be bypassed by passing
-``ignore_postprocess=True`` to ``get_data()``.
-The abstract module relies on :meth:`~.LoaderAbstract.load_data_concrete`
-to actually load the data. This method can be implemented in different modules
-dealing with different libraries, formats, etc.
-
-On the other end, modules to write data to a store (to disk or on a remote data
-store) inherict from :class:`.WriterAbstract`. This abstract module define
-the :meth:`~.WriterAbstract.write` method. Subclasses are expected to
-implement it. It implements a method to retrieve metadata that can be added to
-the data stored if possible.
-
-.. note::
-
-    By default, this metadata includes the parameters of the data manager, the
-    current running script, the date, and if the script is part of a git project
-    the last commit hash of that project.
-
-    Additional metadata could be included. Planned future additions are more
-    details on the current state of the git project (diff to HEAD for instance).
-
-The writing of data is formalized as the execution of "writing calls". Each call
-consist of data (array, dataset,...) to write to a target (file,
-data-store,...). The ``write`` function a module can call to more specialized
-functions that act on calls. The simplest would be
-:meth:`.WriterAbstract.send_single_call`, but more complex one can be used like
-:meth:`.WriterAbstract.send_calls` that send multiple calls serially or
-:meth:`.XarrayMultiFileWriter.send_calls_together` that can send multiple calls
-in parallel using Dask.
-
-The library actually writing the data may fail if the containing directories do
-not already exist. To this end, the methods
-:meth:`~.WriterAbstract.check_directory` and
-:meth:`~.WriterAbstract.check_directories` will check that the directory or
-directories containing the call(s) target(s) exist, and if not create them. The
-``write()`` method may automatically call them, depending on the module
-implementation.
-
-Some data may be generated quickly but could still benefit from being
-saved/cached on disk. The module :class:`.CachedWriter` will call its
-method :meth:`~.CachedWriter.generate_data` if the source file does not
-exists.
-
 
 Xarray
 ======
@@ -172,11 +177,25 @@ Xarray
 A compilation of module for interfacing with `Xarray
 <https://xarray.pydata.org/>`__ is available in
 :mod:`data_assistant.data.xarray`. This submodule is not imported in the top
-level package to avoid importing Xarray unless needed.
+evel package to avoid importing Xarray unless needed.
 
-To load data,:class:`.XarrayLoader` will load from a single file or store with
+Loaders
+-------
+
+:class:`.XarrayLoader` will load from a single file or store with
 :external+xarray:func:`~xarray.open_dataset` and :class:`.XarrayMultiFileLoader`
 from multiple files using :external+xarray:func:`~xarray.open_mfdataset`.
+
+Options for these functions can be changed in the attributes
+:attr:`~.XarrayLoader.OPEN_DATASET_KWARGS` and
+:attr:`~.XarrayMultiFileLoader.OPEN_MFDATASET_KWARGS` respectively::
+
+    class MyDataset(Dataset):
+        class Loader(XarrayMultiFileLoader):
+            OPEN_MFDATASET_KWARGS = dict(...)
+
+Writers
+-------
 
 To write data to a single file or store, use :class:`.XarrayWriter`. It
 will guess to function to use from the file extension. It currently supports
@@ -185,8 +204,8 @@ Zarr and Netcdf.
 .. note::
 
    The ``write()`` method will automatically add metadata to the dataset
-   attributes via ``.XarrayWriter.set_metadata``. This is true for the other
-   writer modules below.
+   attributes via :meth:`~.XarrayWriterAbstract.add_metadata`. This is true for
+   the other writer modules below.
 
 For data that is to be written across multiple files or stores, the module
 :class:`.XarrayMultiFileWriter` will execute several writing calls either one
@@ -226,25 +245,29 @@ dimension and automatically group by month, using a dataset along the lines of::
 
 and a data manager defined as::
 
-    class DataManager(XarraySplitWriterModule, FileFinderModule, DataManagerBase):
+    class MyDataset(Dataset):
 
-        def get_root_directory(self):
-            return "/data/directory/"
+        Writer = XarraySplitWriter
 
-        def get_filename_pattern(self):
-            """Yearly folders, date as YYYYMM and depth as integer."""
-            return "%(Y)/temp_%(Y)%(m)_depth_%(depth:fmt=d).nc"
+        class Source(FileFinderSource):
+            def get_root_directory(self):
+                return "/data/directory/"
 
-by calling ``DataManager().write(ds)``. Note this will detect that the smallest
-time parameter in the pattern is the month and split the dataset appropriately
-using :external+xarray:meth:`xarray.Dataset.resample`. This can be specified
-manually or avoided alltogether. See :meth:`.XarraySplitWriter.write`
-documentation for details.
+            def get_filename_pattern(self):
+                """Yearly folders, date as YYYYMM and depth as integer."""
+                return "%(Y)/temp_%(Y)%(m)_depth_%(depth:fmt=d).nc"
+
+we can then simply call ``MyDataset().write(ds)``. Note this will detect that
+the smallest time parameter in the filename pattern is the month and split the
+dataset appropriately using :external+xarray:meth:`xarray.Dataset.resample`.
+This can be specified manually or avoided alltogether. See
+:meth:`.XarraySplitWriter.write` documentation for details.
 
 .. note::
 
     If the overall :meth:`~.XarraySplitWriter.write` implementation is not
     appropriate, it is possible to control more finely the splitting process by
     using :meth:`~.XarraySplitWriter.split_by_unfixed` and
-    :meth:`~.XarraySplitWriter.split_by_time`. The "time" dimension and its
-    related parameters are split
+    :meth:`~.XarraySplitWriter.split_by_time`. The "time" dimension is split
+    separately to account for the fact that a filename pattern will define separate
+    datetime elements (the year, the month, the day, ...).

@@ -15,7 +15,6 @@ from os import PathLike, path
 
 from data_assistant.config.loaders.json import JsonEncoderTypes
 
-from .loader import LoaderAbstract
 from .module import Module
 from .util import T_Data, T_Source
 
@@ -114,7 +113,7 @@ class WriterAbstract(t.Generic[T_Source, T_Data], Module):
         * ``created_by``: hostname and filename of the python script used
         * ``created_with_params``: a string representing the parameters,
         * ``created_on``: date of creation
-        * ``created_at_commit``: if found, the current/HEAD commit hash.
+        * ``created_at_commit``: if found, the HEAD commit hash.
         * ``git_diff_short``: if workdir is dirty, a list of modified files
         * ``git_diff_long``: if workdir is dirty, the full diff (truncated) at
           :attr:`metadata_max_diff_lines`.
@@ -258,13 +257,12 @@ T = t.TypeVar("T", covariant=True)
 class Splitable(t.Protocol[T]):
     """Protocol for a source plugin that can split data into multiple sources.
 
-    The plugin manages input/output sources. Initially made for multifile datasets.
-    A number of parameters can be left :meth:`unfixed` which allows to have many files
+    A number of parameters can be left :meth:`unfixed` which results in multiple files
     (for instance, if we do not "fix" the parameter *year*, we can have files for any
     year we want).
 
     It must also implement a :meth:`get_filename` method that returns a filename when
-    given a specific set of values (those that were left unfixed).
+    given a specific set of values.
 
     The idea is that a plugin can split data according to the parameters that are left
     unfixed (example by year), once the data is split we find the associated filename

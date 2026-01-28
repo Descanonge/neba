@@ -9,6 +9,9 @@ Usage
 Specifying parameters
 =====================
 
+Traits
+------
+
 The configuration is specified through :class:`~.section.Section` classes. Each
 section contains parameters in the form of class attribute of type
 :class:`traitlets.TraitType` (for instance :class:`~traitlets.Float`,
@@ -45,36 +48,77 @@ sections.
    to validate the new value, or do some more advanced things. But the value
    is tied to the container instance ``c``.
 
+Here are some of the basic traits types:
+
++------------------------------+------------------------------------------------+
+| :class:`~traitlets.Int`,     |                                                |
+| :class:`~traitlets.Float`,   |                                                |
+| :class:`~traitlets.Bool`     |                                                |
++------------------------------+------------------------------------------------+
+| :class:`~traitlets.Unicode`  | For strings. Traitlets                         |
+|                              | differentiates unicode and bytes               |
+|                              | strings.                                       |
++------------------------------+------------------------------------------------+
+| :class:`~traitlets.List`,    | Containers *can* check the                     |
+| :class:`~traitlets.Set`,     | element type: ``List(Float())``                |
++------------------------------+------------------------------------------------+
+| :class:`~traitlets.Tuple`    | To check type, Tuple *must*                    |
+|                              | specify every element:                         |
+|                              | ``Tuple(Int(), Unicode())``                    |
++------------------------------+------------------------------------------------+
+| :class:`~traitlets.Dict`     | Dict can specify both key and                  |
+|                              | values:                                        |
+|                              | ``Dict(key_trait=Unicode(),value_trait=Int())``|
++------------------------------+------------------------------------------------+
+| :class:`~traitlets.Enum`     | Must be one of the specified values:           |
+|                              | ``Enum(["a", "b"], default_value="a")``        |
++------------------------------+------------------------------------------------+
+| :class:`~traitlets.Union`    | Multiple types are permitted. Will try to      |
+|                              | convert in the order they are specified. For   |
+|                              | instance, always use this order:               |
+|                              | ``Union([Float(), Int()]``, otherwise floats   |
+|                              | will be truncated.                             |
++------------------------------+------------------------------------------------+
+| :class:`~traitlets.Type`     | ``Type(klass=MyClass)`` will allow subclasses  |
+|                              | of MyClass. In your configuration files you can|
+|                              | use an import string ("my_module.MyClass").    |
++------------------------------+------------------------------------------------+
+| :class:`~traitlets.Instance` | This is currently unsupported.                 |
++------------------------------+------------------------------------------------+
+
+The packages provides two new of traits. :class:`.RangeTrait` is a list of
+integers or floats that can be parsed from a slice specification in the form
+``start:stop[:step]``. 'stop' is **inclusive**. It can still take in lists of
+values normally (``--year 2002 2005 2006``).
+
+* With ``year = RangeTrait(Int())``, ``--year=2002:2004`` will be parsed as
+  ``[2002, 2003, 2004]``
+* With ``coef = RangeTrait(Float())``, ``--coef=0:1:0.5`` will be parsed as
+  ``[0.0, 0.5, 1.0]``.
+
+:class:`.FixableTrait` is meant to work with `filefinder
+<https://filefinder.readthedocs.io/>`__, for parameters defined in filename
+patterns. It can take
+
+* a single value
+* a string that will be interpreted as a range of values if the trait type
+  allows it (Int or Float)
+* a string that will be interpreted as a regular expression (this is disabled by
+  default as it can be dangerous: any value from command line that cannot be
+  parsed would still be allowed).
+* a list of values
+
+
+Subsections
+-----------
+
 A section can contain other sub-sections, allowing a tree-like, nested
-configuration. It can be done by using the :class:`~section.Subsection` class
-and setting it as an attribute in the parent section::
+configuration. It can be done by in two ways:
 
-    from data_assistant.config import subsection
-
-    class ChildSection(Section):
-        param_b = Int(1)
-
-    class ParentSection(Section):
-        param_a = Int(1)
-
-        child = Subsection(ChildSection)
-
-In the example above we have two parameters available at ``param_a`` and
-``child.param_b``.
-
-.. important::
-
-   Like traits, Subsections are also descriptors: accessing
-   ``ParentSection().child`` returns a ``ChildSection`` instance.
-
-   To be more precise, Subsection creates a dummy subclass so that the same
-   child section class can be used in multiple places in your configuration
-   without clashes.
-
-For ease of use and readability, subsections can also be defined directly inside
-another section class definition. The name of such a nested class will be used
-for the corresponding subsection attribute. The class definition will be renamed
-and moved moved under the attribute ``_{name}SectionDef``. For example::
+* Subsections can be defined directly inside another section class definition.
+  The name of such a nested class will be used for the corresponding subsection
+  attribute. The class definition will be renamed and moved under the attribute
+  ``_{name}SectionDef``. For example::
 
     class MyConfig(Section):
 
@@ -93,16 +137,46 @@ and moved moved under the attribute ``_{name}SectionDef``. For example::
 
     MyConfig().sst.a.location = "/fantastic"
 
-As it could be seen as a bit unorthodox, the automatic promotion of sections can
-be disabled by directly setting the class attribute
-:attr:`Section._dynamic_subsections` to False.
-
-A mypy plugin is provided to support these dynamic definitions. Add it to the
-list of plugins in your mypy configuration file, for instance in
-'*pyproject.toml*'::
+  A mypy plugin is provided to support these dynamic definitions. Add it to the
+  list of plugins in your mypy configuration file, for instance in
+  '*pyproject.toml*'::
 
     [mypy]
     plugins = ['data_assistant.config.mypy_plugin']
+
+* A more standard way is by using the :class:`~section.Subsection` class
+  and setting it as an attribute in the parent section::
+
+    from data_assistant.config import Subsection
+
+    class ChildSection(Section):
+        param_b = Int(1)
+
+    class ParentSection(Section):
+        param_a = Int(1)
+
+        child = Subsection(ChildSection)
+
+  In the example above we have two parameters available at ``param_a`` and
+  ``child.param_b``.
+
+.. important::
+
+   Like traits, Subsections are also descriptors: accessing
+   ``ParentSection().child`` returns a ``ChildSection`` instance.
+
+   To be more precise, Subsection creates a dummy subclass so that the same
+   child section class can be used in multiple places in your configuration
+   without clashes.
+
+
+Aliases
+-------
+
+It is possible to define aliases with the :attr:`.Section.aliases` attribute.
+It is a mapping of shortcut names to a deeper subsection::
+
+    {"short": "some.deeply.nested.subsection"}
 
 
 Application
@@ -110,11 +184,11 @@ Application
 
 The principal section, at the root of the configuration tree, is the
 :class:`Application<.application.ApplicationBase>`. As a subclass of
-:class:`~.Section`, it can hold directly all your parameters, or nested
+:class:`~.Section`, it can hold directly all your parameters and nested
 subsections. It will also be responsible for gathering the parameters from
 configuration files and the command line, and more.
 
-Here is a rather simple example::
+Here is a simple example::
 
      from data_assistant.config import ApplicationBase, Section
      from traitlets import Bool, Float, Int, List, Unicode
@@ -163,7 +237,7 @@ Logging
 -------
 
 The base application contains some parameters to easily log information. A
-logger instance is available at :attr:`~.ApplicationBase.log` that will log to
+logger instance is available at :attr:`.ApplicationBase.log` that will log to
 the console (stderr), and can be configured via the (trait) parameters
 :attr:`~.ApplicationBase.log_level`, :attr:`~.ApplicationBase.log_format`, and
 :attr:`~.ApplicationBase.log_datefmt`.
@@ -180,30 +254,36 @@ Accessing parameters
 ====================
 
 As explained :ref:`above<traits-explain>`, the **value** of parameters can be
-accessed (or changed) like attributes of the section that contains them.
-This has the advantages to allow for deeply nested access::
+accessed (or changed) just like attributes of the section that contains them.
+This allows for deeply nested access::
 
   app.some.deeply.nested.trait = 2
 
 .. note::
 
-    It also benefits from the features of traitlets: type checking, value
+    This benefits from the features of traitlets: type checking, value
     validation, "on-change" callbacks, dynamic default value generation. This
     can ensure that a configuration stays valid. Refer to the
     :external+traitlets:doc:`traitlets documentation<using_traitlets>` for more
     details on how to use these features.
 
+.. tip::
+
+   It is possible to only show subsections and configurable traits in
+   autocompletion. Set the class attribute
+   :attr:`.Section._attr_completion_only_traits` to True.
+
 Sections also implements the interface of a
 :class:`~collections.abc.MutableMapping` and most of the interface of a
 :class:`dict`. Parameters can be accessed with a single key of dot-separated
-attributes::
+attributes. This still benefits from all features of traitlets. ::
 
   app["some.deeply.nested.trait"] = 2
   # or
   app["some"]["deeply.nested.trait"] = 2
 
-By default :meth:`~.Section.keys`, :meth:`~.Section.values` and
-:meth:`~.Section.items` do not list subsections objects or aliases, but this
+By default :meth:`.Section.keys`, :meth:`.Section.values` and
+:meth:`.Section.items` do not list subsections objects or aliases, but this
 can be altered. They also return flat output; to obtain a nested dictionnary
 pass ``nest=True``.
 
@@ -220,19 +300,13 @@ pass ``nest=True``.
         True
         >>> section["subsection"]  # No KeyError
 
-Sections have an :meth:`~.Section.update` method allowing to modify a it with a
+Sections have an :meth:`~.Section.update` method allowing to modify it with a
 mapping of several parameters (or another section instance)::
 
     app.update({"computation.n_cores": 10, "physical.threshold": 5.})
 
-Similarly to :meth:`~.Section.setdefault`, it can add new traits to the section
+Similarly to :meth:`.Section.setdefault`, it can add new traits to the section
 with some specific input, see the docstring for details.
-
-.. tip::
-
-   It is possible to only show configurable traits in autocompletion. Simply set
-   :attr:`~.Section._attr_completion_only_traits` to True.
-
 
 .. warning::
 
@@ -266,7 +340,7 @@ definition like so::
   some_parameter = Bool(True).tag(for_this_function=True)
 
 These traits can then automatically be retrieved using the `metadata` argument
-of many methods such as :meth:`~Section.keys` or :meth:`~Section.select`.
+of many methods such as :meth:`~.Section.keys` or :meth:`~.Section.select`.
 
 :meth:`.Section.trait_values_from_func_signature` will find the parameters that
 share the same name as arguments from a function signature.
@@ -280,46 +354,29 @@ Procedure
 The :class:`.ApplicationBase` class allows to retrieve the values of parameters
 from configuration files or from command line arguments (CLI), when
 :meth:`.ApplicationBase.start` is launched. It first parses command line
-arguments (unless deactivated) and then load values from specified configuration
-files. Each time parameters are loaded from any kind of source, the parameters
-for the application object are immediately applied to it, since they can alter
-the rest of the process.
-
-The parameters found are then normalized: each resulting parameter key is unique
-and unambiguous. This provides a first layer of checking the input: keys that do
-not lead to a known parameter will raise errors. Parameters obtained from
-different files and from CLI can then easily be merged. Parameters are stored in
-:attr:`~.ApplicationBase.file_conf`, :attr:`~.ApplicationBase.cli_conf` and
-:attr:`~.ApplicationBase.conf`.
-
-Finally, the application will recursively instantiate all sections while passing
-the configuration values. Unspecified values will take the trait default value.
-All values will undergo validation from traitlets.
+arguments (unless deactivated) and then reads values from specified
+configuration files. Each time parameters are loaded from any kind of source,
+the parameters for the application object are immediately applied to it, since
+they can alter the rest of the process.
 
 The configuration values are retrieved by :class:`.ConfigLoader` objects adapted
-for each source. Its output will be a **flat** dictionary mapping *resolved
-keys* to a :class:`.ConfigValue`.
+for each source. Its output will be a **flat** dictionary mapping keys to a
+:class:`.ConfigValue`. Aliases are expanded so that each key is unique.
 
 .. note::
 
    The :class:`.ConfigValue` class allows to store more information about the
    value: its origin, the original string and parsed value if applicable, and a
-   priority value used when merging configs. To obtain a value, simply use
+   priority value used when merging configs. To obtain the value, use
    :meth:`.ConfigValue.get_value`.
 
-A "resolved" key is a succession of attribute names pointing to a trait,
-starting from the application. It is unique. With the same example as above for
-instance: ``physical.years``.
+Parameters obtained from configuration files and from CLI are merged.
+Parameters are stored in :attr:`~.ApplicationBase.file_conf`,
+:attr:`~.ApplicationBase.cli_conf` and :attr:`~.ApplicationBase.conf`.
 
-.. important::
-
-    It is possible to define aliases with the :attr:`.Section.aliases` attribute.
-    It is a mapping of shortcut names to a deeper subsection::
-
-        {"short": "some.deeply.nested.subsection"}
-
-    Aliases are expanded when the configuration is resolved.
-
+Finally, the application will recursively instantiate all sections while passing
+the configuration values. Unspecified values will take the trait default value.
+All values will undergo validation from traitlets.
 
 From configuration files
 ------------------------
@@ -382,8 +439,7 @@ files. It is both easily readable and unambiguous. Despite allowing nested
 configuration, it can be written without indentation, allowing to add long
 comments for each parameters. The :external+python:mod:`tomllib` builtin module
 does not support writing, so we use (for both reading and writing) one of the
-recommended replacement: `tomlkit <https://pypi.org/project/tomlkit>`__ in
-:class:`.TomlkitLoader`.
+recommended replacement: `tomlkit <https://pypi.org/project/tomlkit>`__.
 
 The package also support python scripts as configuration files, similarly to how
 traitlets is doing it. To load a configuration file, the file loader
@@ -391,7 +447,7 @@ traitlets is doing it. To load a configuration file, the file loader
 will be bound to the ``c`` variable in the script/configuration file. It allows
 arbitrarily nested attribute setting so that the following syntax is valid::
 
-    c.section.subesection.parameter = 5
+    c.section.subsection.parameter = 5
 
 .. important::
 
@@ -410,7 +466,7 @@ remembering that each configuration file replaces the values of the previous one
 in the list.
 
 `Yaml <https://yaml.org/>`__ is supported via :class:`.YamlLoader` and the
-third-party module `ruamel.ymal <ruamel_>`.
+third-party module `ruamel.ymal <ruamel_>`_.
 
 Despite not being easily readable, the JSON format is also supported via
 :class:`.JsonLoader` and the builtin module :external+python:mod:`json`. The
@@ -420,22 +476,22 @@ From the command line
 ---------------------
 
 Parameters can be set from parsing command line arguments, although it can be
-skipped by either setting the :attr:`.ApplicationBase.ignore_cli` trait or
+skipped by either setting the :attr:`.ApplicationBase.ignore_cli` attribute or
 the ``ignore_cli`` argument to :meth:`.ApplicationBase.start`. The configuration
 obtained will be stored in the :attr:`~.ApplicationBase.cli_conf` attribute and
 will take priority over parameters from configuration files.
 
 The keys are indicated following **one or two** hyphen. Any subsequent hyphen is
 replaced by an underscore. So ``-computation.n_cores`` and
-``--computation.n-cores`` are equivalent. As already noted, parameters keys are
-dot-separated paths leading to a trait. Aliases can be used for brevity.
+``--computation.n-cores`` are equivalent. Parameters keys are dot-separated
+paths leading to a trait. Aliases can be used for brevity.
 
 .. note ::
 
     This can be changed with attributes of the corresponding loader class:
     :attr:`.CLILoader.allow_kebab` and :attr:`.CLILoader.prefix`.
 
-All command line arguments need to be parsed. The corresponding trait object
+Command line arguments need to be parsed. The corresponding trait object
 will deal with the parsing, using its ``from_string`` or ``from_string_list``
 (for containers) methods.
 
@@ -447,8 +503,8 @@ will deal with the parsing, using its ``from_string`` or ``from_string_list``
 
     The list of command line arguments is obtained by
     :meth:`.ApplicationBase.get_argv`. It tries to detect if python was launched
-    from IPython or Jupyter, in which case it strips the arguments before
-    the first '--'.
+    from IPython or Jupyter, in which case it ignores the arguments before
+    the first ``--``.
 
 List arguments
 ++++++++++++++
@@ -465,27 +521,21 @@ to be used::
 
     --physical.years 2015 --physical.years 2016 ...
 
-This will raise an error, to avoid possible mistakes in user input.
+This will raise an error since duplicate are forbidden to avoid possible
+mistakes in user input.
 
 Extra parameters
 ++++++++++++++++
 
-Extra parameters to the argument parser can be added with
+Extra parameters to the argument parser can be added with the class method
 :meth:`.ApplicationBase.add_extra_parameters`. This will add traits to a section
-named "extra", created if needed. This is useful when needing a parameter for a
+named "extra", created if needed. This is useful when needing parameters for a
 single script for instance. If in our script we write::
 
     App.add_extra_parameters(threshold=Float(5.0))
 
-we can then pass a parameter by command line at ``--extra.threshold``.
-
-Range Trait
-+++++++++++
-
-The packages provides a new type of trait: :class:`.RangeTrait`, which is a list
-of integers, but can be parsed from a slice specification in the form
-``start:stop[:step]``. So that ``--year=2002:2005`` will be parsed as ``[2002,
-2003, 2004, 2005]``. Note that 'stop' is **inclusive**.
+we can then pass a parameter by command line at ``--extra.threshold`` and
+retrieve it with ``app.extra.threshold``.
 
 Autocompletion
 ++++++++++++++
@@ -505,11 +555,7 @@ From a dictionary
 -----------------
 
 The loader :class:`.DictLoader` can transform any nested mapping into a proper
-configuration. It deals in a quite straightforward manner with the issue of
-differentiating between a nested mapping corresponding to an eventual trait and
-one corresponding to further nesting in a subsection. It simply checks if the
-key is a known subsection or alias, otherwise it assumes the key corresponds to
-a parameter value.
+configuration.
 
 .. note::
 

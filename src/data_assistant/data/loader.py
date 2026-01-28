@@ -44,7 +44,6 @@ class LoaderAbstract(t.Generic[T_Source, T_Data], Module):
             Arguments passed to function loading data.
         kwargs:
             Arguments passed to the postprocessing function.
-
         """
         if source is None:
             source = self.dm.get_source()

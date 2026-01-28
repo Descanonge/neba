@@ -330,21 +330,14 @@ class ApplicationBase(Section, LoggingConfigurable):
         return select
 
     def resolve_config_value(self, cv: ConfigValue) -> ConfigValue:
-        """Resolve all keys in the config and validate it.
+        """Validate a ConfigValue.
 
-        Keys can use aliases/shortcuts, and also be under the form of "class keys"
-        ``SectionClassName.trait_name = ...``. We normalize all keys as dot separated
-        attributes names, without shortcuts, that point a trait.
-        Keys that do not resolve to any known trait will raise error.
+        Keys can use aliases/shortcuts. We normalize all keys as dot separated
+        attributes names, without shortcuts, that point a trait. Keys that do not
+        resolve to any known trait will raise error.
 
-        The trait and containing section class will be added to each
+        The trait and containing section class will be added to the
         :class:`ConfigValue`.
-
-        Returns
-        -------
-        resolved_config
-            Flat mapping of normalized keys to their ConfigValue
-
         """
         section: type[Section] = type(self)
         out = cv.copy()

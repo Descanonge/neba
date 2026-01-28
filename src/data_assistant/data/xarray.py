@@ -40,11 +40,13 @@ class XarrayLoader(LoaderAbstract[str, xr.Dataset]):
     """
 
     OPEN_DATASET_KWARGS: dict[str, t.Any] = {}
+    """Options passed to :func:`xarray.open_dataset`. :meth:`.Dataset.get_data` kwargs
+    take precedence."""
 
     def load_data_concrete(self, source: str, **kwargs) -> xr.Dataset:
         """Return a dataset object.
 
-        The dataset is obtained from :func:`xarray.open_mfdataset`.
+        The dataset is obtained from :func:`xarray.open_dataset`.
 
         Parameters
         ----------
@@ -68,6 +70,8 @@ class XarrayMultiFileLoader(LoaderAbstract[list[str], xr.Dataset]):
     """
 
     OPEN_MFDATASET_KWARGS: dict[str, t.Any] = {}
+    """Options passed to :func:`xarray.open_mfdataset`. :meth:`.Dataset.get_data` kwargs
+    take precedence."""
 
     def preprocess(self) -> abc.Callable[[xr.Dataset], xr.Dataset]:
         raise NotImplementedError

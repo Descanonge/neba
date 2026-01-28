@@ -9,57 +9,44 @@ Data-Asistant documentation
 
    Help manage multiple datasets and a full configuration.
 
-Configuration
-=============
+This package provides:
 
-The `config` module of this package allows to manage the
-:doc:`configuration<configuration/index>` of a project, providing the means to
-specify a structured, nested configuration in python code using the existing
-`traitlets <https://traitlets.readthedocs.io>`__ library. This allows
-type-checking, value validation and "on-change" callbacks.
+- a configuration framework to retrieve parameters from configuration files and
+  command line arguments that is **strict**, **structured**, and **easily
+  documented**,
+- a dataset definition framework to help bridge the gap between on-disk files
+  and in-memory objects.
 
-The parameters values can be retrieved from configuration files (TOML, YAML,
-JSON or Python files), or from the command line.
+.. grid:: 1 1 3 3
 
-The whole configuration can easily be documented directly inside the
-specification code, and this is re-used for the command-line help, automatically
-generated configuration files, and sphinx documentation.
+   .. grid-item-card:: Configuration framework
+      :link: configuration
+      :link-alt: configuration
 
-Dataset management
-==================
+   .. grid-item-card:: Dataset management
+      :link: datasets
+      :link-alt: dataset management
 
-The second module aims to ease the creation and :doc:`management of
-datasets<datasets/index>` with different file format, structure, etc. that can
-all depend on various parameters.
+   .. grid-item-card:: API Reference
+      :link: api
+      :link-alt: API Reference
 
-Each new dataset is specified by creating a subclass of a data manager object.
-Relevant attributes or methods are overridden to provide information on this
-dataset. Each *instance* of this new subclass corresponds to a set of parameters
-that can be used to change aspects of the dataset on the fly: choose only files
-for a specific year, change the method to open data, etc.
-
-Classes of data managers are made as universal as possible via a system of
-modules that each cover specific features, and whose implementation can be
-changed between datasets. One data manager can deal with multiple source files
-selected via glob patterns, loaded into pandas, while another could
-have a remote data-store as input loaded into xarray.
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Contents:
-
-   configuration/index
-
-   datasets/index
-
-   about/index
-
-   api
 
 Links
 =====
 
 Project home: https://gitlab.in2p3.fr/biofronts/data-assistant
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Contents:
+   :hidden:
+
+   configuration/index
+
+   datasets/index
+
+   api
 
 Indices and tables
 ==================

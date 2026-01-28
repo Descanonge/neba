@@ -2,16 +2,19 @@
 
 > Manages parameters and datasets
 
-This package provides a configuration framework to retrieve parameters from configuration files and command line arguments, and a dataset definition framework to help bridge the gap between on-disk files and in-memory objects.
+This package provides:
+
+- configuration framework to retrieve parameters from configuration files and command line arguments,
+- a dataset definition framework to help bridge the gap between on-disk files and in-memory objects.
 
 ## Configuration
 
 The configuration framework is:
-- **strict:** parameters are defined beforehand. Any unknown or invalid parameter will raise
+- **strict:** parameters are defined beforehand. Any unknown or invalid parameter will raise errors
 - **structured:** parameters can be organized in (nested) sections
-- **documented:** docstrings of parameters can be transferred to configuration files, command line help, and static documentation via a plugin for Sphinx
+- **documented:** docstrings of parameters are re-used in configuration files, command line help, and static documentation via a plugin for Sphinx
 
-The parameters values can be retrieved from configuration files (TOML, YAML, Python files), and from the command line.
+The parameters values can be retrieved from configuration files (TOML, YAML, Python files, JSON), and from the command line.
 
 The framework is based on the existing [traitlets](https://traitlets.readthedocs.io/) library. It allows type-checking, arbitrary value validation and "on-change" callbacks.
 This package extends it to allow nesting and shifts to a more centralized configuration. The objects containing parameters are significantly extended to ease manipulation, and mimic dictionaries.
@@ -19,7 +22,6 @@ This package extends it to allow nesting and shifts to a more centralized config
 Here is a simple example project:
 ``` python
 from data_assistant.config import ApplicationBase, Section
-from data
 from traitlets import Float, List, Int, Unicode
 
 class App(ApplicationBase):
@@ -37,8 +39,6 @@ print(app.model.year)
 
 Parameters from the example above could be retrieved from the command line with `--result_dir "./some_dir" --model.coefficients 0 2.5 10`. The application can generate a configuration file, for instance in TOML:
 ``` toml
-...
-
 # result_dir = "/data/results"
 # ----------
 # result_dir (Unicode) default: "/data/results"
@@ -70,12 +70,12 @@ from data_assistant.data.xarray import XarrayMultiFileLoader
 
 class SST(Dataset):
     # parameters will be held in a simple dict
-    _Params = ParamsManagerDict
+    Params = ParamsManagerDict
     # loader module uses xarray.open_mfdataset
-    _Loader = XarrayMultiFileLoader
+    Loader = XarrayMultiFileLoader
     
     # Source module is configured further
-    class _Source(GlobSource):
+    class Source(GlobSource):
         def get_root_directory(self):
             # we use the parameters of the Dataset instance
             root = self.params["data_dir"]

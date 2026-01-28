@@ -47,8 +47,7 @@ class CLILoader(ConfigLoader):
     """
 
     allow_kebab: bool = True
-    """Whether to propose parameters under both snake case `my_parameter`
-    and kebab case `my-parameter`."""
+    """If True (default), allows to replace underscore by hyphens in parameters keys."""
 
     prefix: str = "both"
     """How much hyphens to use as prefix, either 'one', 'two', or 'both'."""

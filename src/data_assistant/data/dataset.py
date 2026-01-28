@@ -29,10 +29,6 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data], Section):
     The parameters (stored in :attr:`params`) are treated as global across the instance,
     and those are the value that will be used when calling various methods. Few
     methods may allow to complete them, fewer to overwrite them temporarily.
-    Parameters should be changed using :meth:`set_params`, which may will the cache
-    that some plugin use.
-    :meth:`save_excursion` can be used to change parameters temporarily inside a `with`
-    block.
     """
 
     # -- Dataset Identification --

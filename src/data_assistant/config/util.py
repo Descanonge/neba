@@ -64,11 +64,14 @@ T = t.TypeVar("T")
 class RangeTrait(List[T]):
     """Allow to specify a list of items using ranges.
 
-    The string must match is ``start:stop[:step]``. This will generate values between
-    'start' and 'stop' spaced by 'step'. The 'stop' value will be included (``values <=
-    stop``). The step is optional and will by default be one. It also does not need to
-    be signed, only its absolute value will be used. The trait type must be one of
-    :attr:`allowed_traits` (by default float or int). Here are some examples:
+    The string must match ``start:stop[:step]``. This will generate values between
+    *start* and *stop*, spaced by *step*. The *stop* value will be included (if *step*
+    allows it). *step* is optional and will default to one. The order of *start* and
+    *stop* will dictate if values are ascending or descending.
+
+    The trait type must be one of :attr:`allowed_traits` (by default float or int).
+
+    ::
 
         "2000:2005": [2000, 2001, 2002, 2003, 2004, 2005]
         "2000:2005:2": [2000, 2002, 2004]
@@ -80,6 +83,7 @@ class RangeTrait(List[T]):
     range_max_len: int = 500
     range_rgx = re.compile("([-+.0-9eE]+?):([-+.0-9eE]+?)(?::([-+.0-9eE]*?))?")
     allowed_traits: list[type[TraitType]] = [Float, Int]
+    """Allowed trait types."""
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -178,28 +182,28 @@ class RangeTrait(List[T]):
 class FixableTrait(Union):
     """Fixable parameter, specified in a filename pattern.
 
-    A fixable parameter (ie specified in a filename pattern) can take:
+    A fixable parameter meant to work with :mod:`filefinder`. It can take:
 
-    1. a value of the appropriate type (int, float, bool, or str depending on the format),
-    2. a string that will be interpreted as a regular expression to match a filename
-       part or a string specifying a range of values (see below).
-    3. a list of values (see 1), any of which will be accepted as a valid filename part.
-
-    Values for a fixable can be specified using a string expression of the following
-    format ``start:stop[:step]``. This will generate values between 'start' and 'stop'
-    spaced by 'step'. The 'stop' value will be included (``values <= stop``). The step
-    is optional and will by default be one. It also does not need to be signed, only its
-    absolute value will be used.
-
-        "2000:2005": [2000, 2001, 2002, 2003, 2004, 2005]
-        "2000:2005:2": [2000, 2002, 2004]
-        "2005:2000:2": [2005, 2003, 2001]
-        "0.:2.:0.5": [0.0, 0.5, 1.0, 1.5, 2.0]
+    1. a value of the appropriate type,
+    2. a string specifying a range of values, see :class:`.RangeTrait`,
+    3. a string that will be interpreted as a regular expression to match a filename
+       part,
+    4. a list of values (see 1), any of which will be accepted as a valid filename part.
 
     Parameters
     ----------
     trait
         Trait instance.
+    default_value
+        The default value.
+    unicode
+        Allow string values. Default is False as this can be dangerous, any value from
+        command line that cannot be parsed would still be allowed.
+    range
+        If trait is Int or Float, allow to transform a string into a range of value
+        using :class:`.RangeTrait`.
+    allow_none
+        Allow None as a valid value. Default is True.
     kwargs
         Arguments passed to the Union trait created.
     """

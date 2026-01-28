@@ -42,6 +42,8 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
     "sphinx.ext.napoleon",
+    "sphinx_design",
+    "sphinx_copybutton",
 ]
 
 add_module_names = False

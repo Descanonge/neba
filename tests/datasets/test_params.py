@@ -50,7 +50,7 @@ class TestCacheCallback:
             called = False
 
         dm = DatasetSection()
-        dm._register_callback("test_calback", self.callback)
+        dm._register_callback("test_callback", self.callback)
 
         # with setitem
         dm.called = False
