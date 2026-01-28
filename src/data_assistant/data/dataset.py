@@ -45,7 +45,10 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data], Section):
     # -- Module related --
 
     _modules_attributes: dict[str, str] = dict(
-        params_manager="Params", source="Source", loader="Loader", writer="Writer"
+        params_manager="ParamsManager",
+        source="Source",
+        loader="Loader",
+        writer="Writer",
     )
     """Mapping from the instance attribute to type attribute.
 
@@ -56,12 +59,12 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data], Section):
     """Mapping from attribute names to module instances. Filled during initialization."""
 
     # Default module types
-    Params: type[ParamsManagerAbstract] = ParamsManagerAbstract
+    ParamsManager: type[ParamsManagerAbstract] = ParamsManagerAbstract
     Source: type[SourceAbstract] = SourceAbstract
     Loader: type[LoaderAbstract] = LoaderAbstract
     Writer: type[WriterAbstract] = WriterAbstract
 
-    # static type checking --
+    # -- Static type checking --
     params_manager: ParamsManagerAbstract[T_Params]
     source: SourceAbstract[T_Source]
     loader: LoaderAbstract[T_Source, T_Data]
