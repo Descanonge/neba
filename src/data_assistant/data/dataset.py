@@ -87,23 +87,20 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data], Section):
         for subsection in self._subsections_recursive():
             subsection.observe(handler)
 
-        # extract trait from App and kwargs
+        # extract traits from kwargs
         config = {}
         for name in self.keys():
-            if isinstance(params, ApplicationBase):
-                if name in kwargs and name in params.keys(
-                    subsections=False, recursive=False, aliases=True
+            if name in kwargs:
+                # `name` could correspond to a parameter for the application or section,
+                # rather than for the dataset itself. Check things are unambiguous
+                if isinstance(params, Section) and name in params.keys(
+                    subsections=False, aliases=True
                 ):
                     raise KeyError(
-                        f"""Keyword argument '{name}' was passed but is both a trait of
-                        Application {params.__class__.__name__} and Dataset
-                        {self.__class__.__name__}, I cannot choose between the two."""
+                        f"""Keyword argument '{name}' is both a trait in the parameters
+                        ({params.__class__.__name__}) and the Dataset
+                        ({self.__class__.__name__}), I cannot choose between the two."""
                     )
-
-                key = f"{self.__class__.__name__}.{name}"
-                if key in params.conf:
-                    config[name] = params.conf[key]
-            if name in kwargs:
                 config[name] = kwargs.pop(name)
         Section.__init__(self, config)
 
