@@ -157,6 +157,19 @@ class ModuleMix(t.Generic[T_Mod], Module):
                 raise KeyError(f"There are multiple modules with the class name {name}")
             self.base_modules[name] = cls(*args, **kwargs)
 
+    def __getattr__(self, name: str) -> t.Any:
+        """Dispatch to base module if they have the attribute defined.
+
+        This gets called if __getattribute__ fails, ie the attribute is not defined
+        on this instance.
+        """
+        selected = self.select()
+        if not hasattr(selected, name):
+            raise AttributeError(
+                f"Selected base module '{selected}' has no attribute '{name}' defined."
+            )
+        return getattr(selected, name)
+
     def setup(self) -> None:
         for mod in self.base_modules.values():
             mod.dm = self.dm
