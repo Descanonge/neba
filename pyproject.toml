@@ -63,7 +63,9 @@ docs = [
     'ruamel.yaml>=0.18',
     'filefinder>=1.2',
     'sphinx',
-    'sphinx-book-theme',
+    'pydata-sphinx-theme',
+    'sphinx-design',
+    'sphinx-copybutton',
 ]
 
 
