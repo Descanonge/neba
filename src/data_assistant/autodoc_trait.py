@@ -54,6 +54,8 @@ from __future__ import annotations
 
 import sys
 import typing as t
+from collections import abc
+from textwrap import dedent
 
 from docutils import nodes
 from sphinx.addnodes import desc_sig_space, desc_signature
@@ -62,11 +64,13 @@ from sphinx.ext.autodoc._legacy_class_based._directive_options import bool_optio
 from sphinx.ext.autodoc._legacy_class_based._documenters import ObjectMember
 from sphinx.util.docstrings import prepare_docstring
 from sphinx.util.inspect import getdoc
+from traitlets import EventHandler, ObserveHandler, ValidateHandler
 
 from data_assistant.config.section import Section
 from data_assistant.config.util import (
     FixableTrait,
     get_trait_typehint,
+    indent,
     stringify,
     wrap_text,
 )
@@ -139,6 +143,8 @@ class TraitDocumenter(AttributeDocumenter):
         "configurable",
         "read_only",
         "fixable",
+        "observed",
+        "validated",
     ]
     """Metadata properties in the order they should appear in doc.
 
@@ -146,6 +152,17 @@ class TraitDocumenter(AttributeDocumenter):
     lines that document this property. It can return None if the property should be
     skipped. Formatting will be done elsewhere.
     """
+
+    def __init__(
+        self,
+        *args,
+        observers: abc.Sequence[ObjectMember] | None = None,
+        validators: abc.Sequence[ObjectMember] | None = None,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self.observers = observers
+        self.validators = validators
 
     @property
     def default_value(self) -> tuple[str, list[str]] | None:
@@ -212,6 +229,46 @@ class TraitDocumenter(AttributeDocumenter):
             return ("Filename pattern parameter ('fixable')", [])
         return None
 
+    @property
+    def observed(self) -> tuple[str, list[str]] | None:
+        """If a trait is observed."""
+        if self.observers is None:
+            return None
+
+        lines = []
+        for obs in self.observers:
+            lines += [""]
+            lines += [f"- at ``{obs.__name__}``"]
+            docstring = getdoc(obs.object.func)
+            if docstring:
+                summary, *doclines = docstring.splitlines()
+                lines[-1] += f": {summary}"
+                if doclines:
+                    doclines = dedent("\n".join(doclines)).splitlines()
+                    lines += indent(doclines, 2)
+        lines = indent(lines, 4)
+        return ("Observers", lines)
+
+    @property
+    def validated(self) -> tuple[str, list[str]] | None:
+        """If a trait is custom validated."""
+        if self.validators is None:
+            return None
+
+        lines = []
+        for val in self.validators:
+            lines += [""]
+            lines += [f"- at ``{val.__name__}``"]
+            docstring = getdoc(val.object.func)
+            if docstring:
+                summary, *doclines = docstring.splitlines()
+                lines[-1] += f": {summary}"
+                if doclines:
+                    doclines = dedent("\n".join(doclines)).splitlines()
+                    lines += indent(doclines, 2)
+        lines = indent(lines, 4)
+        return ("Validators", lines)
+
     @classmethod
     def can_document_member(
         cls, member: t.Any, membername: str, isattr: bool, parent: t.Any
@@ -232,7 +289,6 @@ class TraitDocumenter(AttributeDocumenter):
         The metadata is dictated by the properties listed in
         :attr:`metadata_properties`.
         """
-        indent = 4 * " "
         lines = []
 
         # we need at least one not empty line to have a block quote
@@ -247,13 +303,14 @@ class TraitDocumenter(AttributeDocumenter):
             name, proplines = res
             name = f"* **{name}**"
             if proplines:
+                proplines[1:] = indent(proplines[1:], 2)
                 proplines[0] = f"{name}: {proplines[0]}"
                 metalines += proplines
             else:
                 metalines += [name]
 
         # indent metadata
-        metalines = [indent + line for line in metalines]
+        metalines = indent(metalines, 4)
         lines += metalines
         # end of blocked quote
         lines += [""]
@@ -315,10 +372,6 @@ class SubsectionDocumenter(AttributeDocumenter):
 class SectionDocumenter(ClassDocumenter):
     """Documenter for Section objects.
 
-    Used to filter ``_subsections`` attributes away, as well as some undocumented members
-    that pop up from HasTraits. The skip event does not give information on the parent
-    object to do that so we use a custom documenter.
-
     Currently, custom class documenters are not working that well together with
     autosummary. Autosummary only works with hardcoded object types (the ``objtype``)
     attribute: 'class', 'function', etc. Anything else will be listed as 'data'.
@@ -348,6 +401,8 @@ class SectionDocumenter(ClassDocumenter):
         of the source file.
         """
         members = {}
+        self.observers: dict[str, list[ObjectMember]] = {}
+        self.validators: dict[str, list[ObjectMember]] = {}
 
         def get_members(section: type[Section], fullpath: list[str]):
             # start by inherited members
@@ -381,6 +436,21 @@ class SectionDocumenter(ClassDocumenter):
                         # Subsections are automatically subclassed
                         members[("section", fullname)] = ObjectMember(fullname, obj)
                         get_members(obj, fullpath + [name])
+
+                    elif isinstance(obj, ObserveHandler):
+                        for trait_name in obj.trait_names:
+                            full_trait_name = ".".join([*fullpath, str(trait_name)])
+                            self.observers.setdefault(full_trait_name, [])
+                            self.observers[full_trait_name].append(
+                                ObjectMember(fullname, obj)
+                            )
+                    elif isinstance(obj, ValidateHandler):
+                        for trait_name in obj.trait_names:
+                            full_trait_name = ".".join([*fullpath, str(trait_name)])
+                            self.validators.setdefault(full_trait_name, [])
+                            self.validators[full_trait_name].append(
+                                ObjectMember(fullname, obj)
+                            )
 
         get_members(self.object, [])
         return True, self._sort_members(members, self.options.member_order)
@@ -426,7 +496,13 @@ class SectionDocumenter(ClassDocumenter):
         for mname, member, _ in self.filter_members(members, want_all):
             documenter: Documenter
             if isinstance(member, TraitType):
-                documenter = TraitDocumenter(self.directive, mname, self.indent)
+                documenter = TraitDocumenter(
+                    self.directive,
+                    mname,
+                    self.indent,
+                    observers=self.observers.get(mname, None),
+                    validators=self.validators.get(mname, None),
+                )
             else:
                 documenter = SubsectionDocumenter(self.directive, mname, self.indent)
                 # Subsections are subclasses, see Subsection.__init__
