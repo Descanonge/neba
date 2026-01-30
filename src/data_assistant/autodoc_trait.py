@@ -505,8 +505,6 @@ class SectionDocumenter(ClassDocumenter):
                 )
             else:
                 documenter = SubsectionDocumenter(self.directive, mname, self.indent)
-                # Subsections are subclasses, see Subsection.__init__
-                member = member.__bases__[0]
 
             # Do things manually instead of calling parse_name and import_object
             documenter.object = member

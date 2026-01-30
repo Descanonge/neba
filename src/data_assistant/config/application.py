@@ -159,7 +159,7 @@ class ApplicationBase(Section, LoggingConfigurable):
     """Configuration values obtained from configuration files."""
 
     def __init__(self, /, start: bool = True, **kwargs) -> None:
-        # No super.__init__, it would instantiate recursively subsections
+        super().__init__(init_subsections=False)
 
         self.conf = {}
         self.cli_conf = {}
@@ -279,8 +279,6 @@ class ApplicationBase(Section, LoggingConfigurable):
         parent = cls._subsections.get("extra", Section)
         section: type[Section] = type("ExtraSection", (parent,), traits)
         cls._subsections["extra"] = section
-        section._parent = cls
-        section._name = "extra"
 
     def load_config_files(self) -> dict[str, ConfigValue]:
         """Return configuration loaded from files."""

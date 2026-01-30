@@ -165,10 +165,6 @@ configuration. It can be done by in two ways:
    Like traits, Subsections are also descriptors: accessing
    ``ParentSection().child`` returns a ``ChildSection`` instance.
 
-   To be more precise, Subsection creates a dummy subclass so that the same
-   child section class can be used in multiple places in your configuration
-   without clashes.
-
 
 Aliases
 -------
