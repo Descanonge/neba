@@ -17,6 +17,7 @@ except ImportError:
 from data_assistant.config.util import (
     MultipleConfigKeyError,
     UnknownConfigKeyError,
+    did_you_mean,
     get_trait_typehint,
 )
 
@@ -59,7 +60,7 @@ class CLILoader(ConfigLoader):
         self.parser.add_argument("-h", "--help", action="store_true")
         self.parser.add_argument("--list-parameters", action="store_true")
 
-        self.traits = self.app.traits_recursive(aliases=True)
+        self.traits = self.app.traits_recursive(aliases=True, config=True)
 
         for key, trait in self.traits.items():
             self.add_argument(key, trait)
@@ -81,7 +82,7 @@ class CLILoader(ConfigLoader):
     def add_argument(self, key: str, trait: TraitType):
         """Add argument to the parser."""
         keys = [key]
-        if self.allow_kebab:
+        if self.allow_kebab and "_" in key:
             keys.append(key.replace("_", "-"))
 
         flags = []
@@ -130,8 +131,17 @@ class CLILoader(ConfigLoader):
             self.app.exit()
 
         if extra:
+            known_args = set()
+            for action in self.parser._actions:
+                known_args |= set(s.lstrip("-") for s in action.option_strings)
+            extra_messages = []
+            for extra_arg in extra:
+                extra_msg = extra_arg
+                if (suggestion := did_you_mean(known_args, extra_arg)) is not None:
+                    extra_msg += f" (did you mean '{suggestion}'?)"
+                extra_messages.append(extra_msg)
             raise UnknownConfigKeyError(
-                f"Unrecognized argument(s): {', '.join(extra)}, "
+                f"Unrecognized argument(s): {', '.join(extra_messages)}, "
                 "use -h/--help or --list-parameters to see available parameters"
             )
 

@@ -25,7 +25,7 @@ from data_assistant.util import import_item
 
 from .loaders import CLILoader, ConfigValue
 from .section import Section
-from .util import ConfigError
+from .util import ConfigError, UnknownConfigKeyError, did_you_mean
 
 if t.TYPE_CHECKING:
     from .loaders import ConfigValue, FileLoader
@@ -348,9 +348,12 @@ class ApplicationBase(Section, LoggingConfigurable):
             out.trait = trait
             out.key = fullkey
         except ConfigError as e:
-            raise ConfigError(
-                f"Exception encountered for configuration key '{cv.key}"
-            ) from e
+            if isinstance(e, UnknownConfigKeyError):
+                suggestion = did_you_mean(self.keys(aliases=True), cv.key)
+                if suggestion is not None:
+                    e.add_note(f"Did you mean '{suggestion}'?")
+            e.add_note(f"Error in configuration key '{cv.key}' from {cv.origin}.")
+            raise e
 
         return out
 

@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import logging
 import re
 import typing as t
 from collections import abc
 
+import Levenshtein
 from traitlets.config import Configurable
 from traitlets.traitlets import (
     Container,
@@ -22,9 +22,6 @@ from traitlets.traitlets import (
     Union,
 )
 from traitlets.utils.text import wrap_paragraphs
-
-if t.TYPE_CHECKING:
-    from .application import ApplicationBase
 
 
 class ConfigError(Exception):
@@ -254,6 +251,18 @@ def tag_all_traits(**metadata) -> abc.Callable:
         return cls
 
     return decorator
+
+
+def did_you_mean(suggestions: abc.Iterable[str], wrong_key: str) -> str | None:
+    min_distance = 9999
+    closest_key = None
+    for suggestion in suggestions:
+        distance = Levenshtein.distance(suggestion, wrong_key)
+        if distance < min_distance:
+            min_distance = distance
+            closest_key = suggestion
+
+    return closest_key
 
 
 def add_spacer(lines: list[str]) -> list[str]:

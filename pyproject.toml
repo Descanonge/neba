@@ -24,7 +24,8 @@ classifiers = [
 ]
 
 dependencies = [
-    "traitlets>=5.13"
+    "traitlets>=5.13",
+    "levenshtein>=0.27",
 ]
 
 [project.optional-dependencies]

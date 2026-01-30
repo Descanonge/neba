@@ -21,6 +21,7 @@ from .loaders import ConfigValue
 from .util import (
     UnknownConfigKeyError,
     add_spacer,
+    did_you_mean,
     get_trait_typehint,
     indent,
     stringify,
@@ -323,6 +324,19 @@ class Section(HasTraits):
         subsections = set(self._subsections.keys())
         return configurables | subsections
 
+    def __getattr__(self, name: str):
+        """Patch for "did you mean" feature."""
+        clsname = type(self).__qualname__
+        msg = (
+            f"Section '{self._name}' ({clsname})"
+            if self._name
+            else f"'{clsname}' object"
+        )
+        msg += f" has no attribute '{name}'"
+        if (suggestion := did_you_mean(super().__dir__(), name)) is not None:
+            msg += f" (did you mean '{suggestion}'?)"
+        raise AttributeError(msg)
+
     def copy(self, **kwargs) -> t.Self:
         """Return a copy."""
         config = self.as_dict()
@@ -414,10 +428,14 @@ class Section(HasTraits):
             if i == len(fullpath) - 1 and name in subsection.trait_names(config=True):
                 return getattr(subsection, name)
                 continue
-            raise KeyError(
-                f"Could not resolve key {key} "
-                f"('{name}' not in {subsection.__class__.__name__})"
-            )
+
+            msg = f"Could not resolve key '{key}'"
+            suggestions = subsection.keys(subsections=True, aliases=True)
+            if (suggestion := did_you_mean(suggestions, name)) is not None:
+                suggestion_fullkey = ".".join([*fullpath[:i], suggestion])
+                msg += f" (did you mean '{suggestion_fullkey}'?)"
+
+            raise KeyError(msg)
 
         return subsection
 
@@ -470,8 +488,12 @@ class Section(HasTraits):
             subsection = self[".".join(prefix)]
 
         if trait_name not in subsection.trait_names():
-            clsname = subsection.__class__.__name__
-            raise KeyError(f"No trait '{trait_name}' in section {clsname}.")
+            msg = f"Could not resolve key '{key}'"
+            suggestions = subsection.keys(recursive=False)
+            if (suggestion := did_you_mean(suggestions, trait_name)) is not None:
+                suggestion_fullkey = ".".join([*prefix, suggestion])
+                msg += f" (did you mean '{suggestion_fullkey}'?)"
+            raise KeyError(msg)
 
         setattr(subsection, trait_name, value)
 
@@ -501,8 +523,8 @@ class Section(HasTraits):
             return self[key]
         if default is None:
             raise TypeError(
-                f"Key '{key}' does not exist. A trait argument must be "
-                " supplied to be added to the section."
+                f"Key '{key}' does not exist. To add a trait there, a TraitType has to "
+                "be passed to `default`."
             )
         self.add_trait(key, default)
         if value is not Undefined:
