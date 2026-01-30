@@ -19,5 +19,7 @@ Modules
    :recursive:
 
    config
+
    data
+
    autodoc_trait

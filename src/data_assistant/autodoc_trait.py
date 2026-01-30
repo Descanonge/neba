@@ -1,11 +1,53 @@
 """Autodoc extension for automatic documentation of Traits.
 
-Add a specific Documenter for TraitType and member filter for traits.
+Add the extension to your sphinx config (in conf.py):
 
-It will also replace the default class documenter to handle Sections. This is only for a
-minor thing (filter out unwanted *private* attributes from the documentation), so it
-would be recommended to put this extension first, in case other extensions also replace
-the default documenter for more useful things...
+.. code-block:: py
+
+    extensions = [
+        ...,
+        "data_assistant.autodoc_trait",
+    ]
+
+This adds a new autodoc directive for sections (and applications):
+
+.. code-block:: rst
+
+    .. autosection:: my_module.MySection
+
+It will list traits from all subsections. It will not document any other attribute or
+methods.
+
+.. note::
+
+    This uses the legacy autodoc implementation but it does not require you to activate
+    it in your configuration.
+
+
+Options
+-------
+
+Other autodoc options apply, but not all may work.
+
+.. rst:directive:option:: inherited-members
+    :type: comma separated list
+
+    Works the same as for autodoc. If present, document traits the section inherits from
+    parent classes. If a comma separated list, do not document traits inherited from
+    those classes.
+
+.. rst:directive:option:: member-order
+    :type: alphabetical, bysource or traits-first
+
+    * ``alphabetical``: Sort every trait and section in alphabetical order.
+    * ``bysource``: Keep the order from the source files.
+    * ``traits-first``: Keep the order from the source files, but put the traits of a
+      section before its subsections.
+
+.. rst:directive:option:: only-configurable
+    :type:
+
+    Only document configurable traits.
 """
 
 from __future__ import annotations
@@ -14,10 +56,12 @@ import sys
 import typing as t
 
 from docutils import nodes
-from docutils.parsers.rst import directives
-from sphinx.addnodes import desc_sig_space
+from sphinx.addnodes import desc_sig_space, desc_signature
 from sphinx.domains.python import PyAttribute
-from sphinx.util.typing import OptionSpec
+from sphinx.ext.autodoc._legacy_class_based._directive_options import bool_option
+from sphinx.ext.autodoc._legacy_class_based._documenters import ObjectMember
+from sphinx.util.docstrings import prepare_docstring
+from sphinx.util.inspect import getdoc
 
 from data_assistant.config.section import Section
 from data_assistant.config.util import (
@@ -31,6 +75,8 @@ if t.TYPE_CHECKING:
     from sphinx.application import Sphinx
     from sphinx.ext.autodoc import ObjectMember
 
+import logging
+
 from sphinx.ext.autodoc import (
     SUPPRESS,
     AttributeDocumenter,
@@ -39,12 +85,49 @@ from sphinx.ext.autodoc import (
 )
 from traitlets import Dict, Enum, List, Set, TraitType
 
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger("autodoc_trait")
+log.setLevel(logging.INFO)
+
+
+def member_order_option(arg: t.Any) -> str:
+    if arg in {None, True}:
+        return "alphabetical"
+    elif arg in {"bysource", "traits-first", "alphabetical"}:
+        return arg
+    else:
+        raise ValueError(f"Invalid value for member-order option: {arg}")
+
+
+class PyAttributeFullkeyTOC(PyAttribute):
+    """Attribute that displays the full key in TOC."""
+
+    def _toc_entry_name(self, sig_node: desc_signature) -> str:
+        """Display sections leading to trait in TOC."""
+        classname, *sections, name = sig_node["_toc_parts"]
+        return ".".join([*sections, name])
+
+
+class PyAttributeSubsection(PyAttributeFullkeyTOC):
+    """Attribute that adds 'subsection' before signature."""
+
+    def _toc_entry_name(self, sig_node: desc_signature) -> str:
+        """Display sections leading to trait in TOC."""
+        classname, *sections, name = sig_node["_toc_parts"]
+        return ".".join([*sections, name])
+
+    def get_signature_prefix(self, sig: str) -> list[nodes.Node]:
+        prefix = list(super().get_signature_prefix(sig))
+        prefix.append(nodes.Text("Section"))
+        prefix.append(desc_sig_space())
+        return prefix
+
 
 class TraitDocumenter(AttributeDocumenter):
     """Documenter for Trait objects."""
 
     objtype = "trait"
-    directivetype = "attribute"
+    directivetype = "trait"
     priority = AttributeDocumenter.priority + 10
 
     metadata_properties = [
@@ -196,9 +279,6 @@ class TraitDocumenter(AttributeDocumenter):
         ):
             return
 
-        # add prefix
-        self.add_line("   :trait:", sourcename)
-
         if self.options.annotation:
             self.add_line(f"   :annotation: {self.options.annotation}", sourcename)
             return
@@ -217,22 +297,149 @@ class TraitDocumenter(AttributeDocumenter):
         self.add_line("   :type: " + objrepr, sourcename)
 
 
-class PyAttributeWithTrait(PyAttribute):
-    """Attribute with option to add 'trait' before signature."""
+class SubsectionDocumenter(AttributeDocumenter):
+    """Document for subsections."""
 
-    option_spec: t.ClassVar[OptionSpec] = PyAttribute.option_spec.copy()
+    objtype = "subsection"
+    directivetype = "subsection"
+
+    def get_doc(self) -> list[list[str]]:
+        docstrings = []
+        attrdocstring = getdoc(self.object, self.get_attr)
+        if attrdocstring:
+            docstrings.append(attrdocstring)
+        tab_width = self.directive.state.document.settings.tab_width
+        return [prepare_docstring(docstring, tab_width) for docstring in docstrings]
+
+
+class SectionDocumenter(ClassDocumenter):
+    """Documenter for Section objects.
+
+    Used to filter ``_subsections`` attributes away, as well as some undocumented members
+    that pop up from HasTraits. The skip event does not give information on the parent
+    object to do that so we use a custom documenter.
+
+    Currently, custom class documenters are not working that well together with
+    autosummary. Autosummary only works with hardcoded object types (the ``objtype``)
+    attribute: 'class', 'function', etc. Anything else will be listed as 'data'.
+    And we cannot use another directive than autoclass, since this is what autosummary
+    will generate. For the moment, we override the class documenter.
+    See `<https://github.com/sphinx-doc/sphinx/issues/12021>`.
+    """
+
+    objtype = "section"
+    directivetype = "class"
+    priority = ClassDocumenter.priority + 50
+    option_spec = ClassDocumenter.option_spec
     option_spec.update(
         {
-            "trait": directives.flag,
+            "only-configurables": bool_option,
+            "member-order": member_order_option,
         }
     )
 
-    def get_signature_prefix(self, sig: str) -> list[nodes.Node]:
-        prefix = super().get_signature_prefix(sig)
-        if "trait" in self.options:
-            prefix.append(nodes.Text("trait"))
-            prefix.append(desc_sig_space())
-        return prefix
+    object: type[Section]
+
+    def get_object_members(self, want_all: bool) -> tuple[bool, list[ObjectMember]]:
+        """Get object members.
+
+        I use my own thing here to get traits from all subsections.
+        I explore the base class to get inherited members and keep the order of members
+        of the source file.
+        """
+        members = {}
+
+        def get_members(section: type[Section], fullpath: list[str]):
+            # start by inherited members
+            inherited_members = self.options.inherited_members
+            if inherited_members is None:
+                inherited_members = set(b.__name__ for b in section.__mro__[1:])
+
+            for base in reversed(section.__mro__[:-1]):
+                # only exclude inherited members for the root section
+                if len(fullpath) == 0 and base.__name__ in inherited_members:
+                    continue
+                for name in base.__dict__:
+                    # avoid loops in recursion
+                    if name == "_parent":
+                        continue
+                    # avoid dynamic definitions (already accounted for)
+                    if name.startswith("_") and name.endswith("SectionDef"):
+                        continue
+                    # subsections attributes are not initialized
+                    if hasattr(base, "_subsections") and name in base._subsections:
+                        obj = base._subsections[name]
+                    else:
+                        obj = getattr(base, name)
+
+                    fullname = ".".join([*fullpath, name])
+
+                    if isinstance(obj, TraitType):
+                        members[("trait", fullname)] = ObjectMember(fullname, obj)
+
+                    elif isinstance(obj, type) and issubclass(obj, Section):
+                        # Subsections are automatically subclassed
+                        members[("section", fullname)] = ObjectMember(fullname, obj)
+                        get_members(obj, fullpath + [name])
+
+        get_members(self.object, [])
+        return True, self._sort_members(members, self.options.member_order)
+
+    def _sort_members(
+        self, members: dict[tuple[str, str], ObjectMember], order: str
+    ) -> list[ObjectMember]:
+        """Sort members.
+
+        The argument is a dict of tuple: (<trait or section>, <fullname>).
+        """
+        if order == "alphabetical":
+            members_sorted = [members[k] for k in sorted(members, key=lambda k: k[1])]
+        elif order == "traits-first":
+            sections = sorted([name for kind, name in members if kind == "section"])
+            sections.insert(0, "")
+
+            traits_by_section = {}
+            # start by longest sections names
+            for section in reversed(sections):
+                to_add = sorted(
+                    [
+                        (kind, name)
+                        for kind, name in members
+                        if kind == "trait" and name.startswith(section)
+                    ]
+                )
+                traits_by_section[section] = [members.pop(k) for k in to_add]
+
+            members_sorted = []
+            for section in sections:
+                if section:
+                    members_sorted.append(members[("section", section)])
+                members_sorted += traits_by_section[section]
+
+        else:
+            members_sorted = list(members.values())
+
+        return members_sorted
+
+    def document_members(self, want_all: bool = False):
+        _, members = self.get_object_members(want_all)
+        for mname, member, _ in self.filter_members(members, want_all):
+            documenter: Documenter
+            if isinstance(member, TraitType):
+                documenter = TraitDocumenter(self.directive, mname, self.indent)
+            else:
+                documenter = SubsectionDocumenter(self.directive, mname, self.indent)
+                # Subsections are subclasses, see Subsection.__init__
+                member = member.__bases__[0]
+
+            # Do things manually instead of calling parse_name and import_object
+            documenter.object = member
+            documenter.modname = ""
+            documenter.objpath = [mname]
+            documenter.fullname = mname
+            documenter.args = ""
+
+            documenter._generate()
 
 
 def skip_trait_member(app, what, name, obj, skip, options) -> bool | None:
@@ -257,56 +464,15 @@ def skip_trait_member(app, what, name, obj, skip, options) -> bool | None:
     return skip
 
 
-class SectionDocumenter(ClassDocumenter):
-    """Documenter for Section objects.
-
-    Used to filter ``_subsections`` attributes away, as well as some undocumented members
-    that pop up from HasTraits. The skip event does not give information on the parent
-    object to do that so we use a custom documenter.
-
-    Currently, custom class documenters are not working that well together with
-    autosummary. Autosummary only works with hardcoded object types (the ``objtype``)
-    attribute: 'class', 'function', etc. Anything else will be listed as 'data'.
-    And we cannot use another directive than autoclass, since this is what autosummary
-    will generate. For the moment, we override the class documenter.
-    See `<https://github.com/sphinx-doc/sphinx/issues/12021>`.
-    """
-
-    def filter_members(
-        self, members: list[ObjectMember], want_all: bool
-    ) -> list[tuple[str, t.Any, bool]]:
-        """Filter the given member list.
-
-        If self is a subclass of :class:`~.config.section.Section`, but not Section itself
-        (for our own package documentation), filter out the ``_subsections`` attribute.
-        """
-        filtered = super().filter_members(members, want_all)
-
-        to_remove = [
-            "_all_trait_default_generators",
-            "_descriptors",
-            "_instance_inits",
-            "_static_immutable_initial_values",
-            "_trait_default_generators",
-            "_traits",
-        ]
-
-        if issubclass(self.object, Section):
-            if self.object is not Section:
-                to_remove.append("_subsections")
-            filtered = [
-                (name, member, isattr)
-                for name, member, isattr in filtered
-                if name not in to_remove
-            ]
-        return filtered
-
-
 def setup(app: Sphinx):  # noqa: D103
     app.setup_extension("sphinx.ext.autodoc")
 
-    # Replace attribute directive to deal with new :trait: option
-    app.add_directive_to_domain("py", "attribute", PyAttributeWithTrait)
+    app.add_config_value(
+        "autodoc_trait_only_configurable", True, "env", types=frozenset({bool})
+    )
+
+    app.add_directive_to_domain("py", "trait", PyAttributeFullkeyTOC)
+    app.add_directive_to_domain("py", "subsection", PyAttributeSubsection)
 
     app.add_autodocumenter(SectionDocumenter)
     app.add_autodocumenter(TraitDocumenter)
