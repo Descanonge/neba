@@ -648,6 +648,21 @@ class TestTraitListing(SectionTest):
         out = section.select(*keys)
         assert keys == list(out.keys())
 
+    def test_own_traits(self):
+        class ChildSection(GenericSection):
+            a = Int(0)
+
+            class sub(Section):
+                b = Int(0)
+
+        names = [
+            k
+            for k, _ in ChildSection._iter_traits(
+                subsections=True, own_traits=True, config=True
+            )
+        ]
+        assert names == ["a", "sub", "sub.b"]
+
     def test_metadata_select(self):
         class MetaSection(Section):
             no_config = Int(0).tag(config=False)

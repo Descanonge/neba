@@ -795,7 +795,12 @@ class Section(HasTraits):
             if subsections:
                 yield name, subsection
             if recursive:
-                subtraits = subsection._iter_traits(
+                # Subsections are subclass of their definitions (see
+                # Subsection.__init__), so we take the first base class to deal
+                # correctly with own_traits
+                parent = subsection.__bases__[0]
+                assert issubclass(subsection, Section)
+                subtraits = parent._iter_traits(
                     subsections=subsections,
                     recursive=True,
                     aliases=aliases,
