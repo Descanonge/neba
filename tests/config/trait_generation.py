@@ -33,6 +33,9 @@ from traitlets import (
 
 from tests.util import Drawer, T_Trait
 
+MAX_CONTAINER_SIZE = 5
+"""Max size for generating lists, sets, dicts."""
+
 
 class DummyClass:
     """Used for Instance and Type traits."""
@@ -204,10 +207,10 @@ class ListGen(ContainerGen[List]):
     traittype: type[List] = List
 
     def st_default(self) -> st.SearchStrategy[list]:
-        return st.lists(self.inner_gen.st_value())
+        return st.lists(self.inner_gen.st_value(), max_size=MAX_CONTAINER_SIZE)
 
     def _st_value(self) -> st.SearchStrategy[list]:
-        return st.lists(self.inner_gen.st_value())
+        return st.lists(self.inner_gen.st_value(), max_size=MAX_CONTAINER_SIZE)
 
 
 class SetGen(ContainerGen[Set]):
@@ -216,10 +219,10 @@ class SetGen(ContainerGen[Set]):
     traittype = Set
 
     def st_default(self) -> st.SearchStrategy[set]:
-        return st.sets(self.inner_gen.st_value())
+        return st.sets(self.inner_gen.st_value(), max_size=MAX_CONTAINER_SIZE)
 
     def _st_value(self) -> st.SearchStrategy[set]:
-        return st.sets(self.inner_gen.st_value())
+        return st.sets(self.inner_gen.st_value(), max_size=MAX_CONTAINER_SIZE)
 
 
 class ClassGen(ComposedGenerator[T_Trait]):
@@ -375,7 +378,11 @@ class DictGen(ComposedGenerator[Dict]):
         self.value_gen = value_gen
 
     def _st_value(self) -> st.SearchStrategy[dict]:
-        return st.dictionaries(self.key_gen.st_value(), self.value_gen.st_value())
+        return st.dictionaries(
+            self.key_gen.st_value(),
+            self.value_gen.st_value(),
+            max_size=MAX_CONTAINER_SIZE,
+        )
 
 
 registered_gens: list[type[TraitGenerator]] = [BoolGen, IntGen, FloatGen, UnicodeGen]
