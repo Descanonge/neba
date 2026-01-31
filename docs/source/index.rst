@@ -37,9 +37,9 @@ Links
 
 Project home: https://gitlab.in2p3.fr/biofronts/data-assistant
 
+
 .. toctree::
-   :maxdepth: 1
-   :caption: Contents:
+   :maxdepth: 2
    :hidden:
 
    configuration/index

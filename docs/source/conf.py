@@ -4,6 +4,8 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
 
+import sphinx_book_theme
+
 import data_assistant
 
 ## Project information
@@ -94,14 +96,15 @@ intersphinx_mapping = {
 
 ## Options for HTML output
 
-html_theme = "pydata_sphinx_theme"
+html_theme = "sphinx_book_theme"
 html_static_path = ["_static"]
 html_title = project
 html_theme_options = dict(
-    # Repo links
-    github_url="https://gitlab.in2p3.fr/biofronts/data-assistant",
-    collapse_navigation=False,
-    show_toc_level=2,
+    # TOCs
+    show_navbar_depth=2,
+    show_toc_level=3,
+    toc_title="On this page",
+    collapse_navbar=False,
     # Social icons
     icon_links=[
         dict(
@@ -110,14 +113,19 @@ html_theme_options = dict(
             icon="fa-brands fa-square-gitlab",
         ),
     ],
-    # Navigation bar
-    navbar_start=["navbar-logo"],
-    navbar_center=["navbar-nav"],
     # Footer
-    article_footer_items=[],
-    content_footer_items=[],
-    footer_start=["copyright", "last-updated"],
-    footer_end=["sphinx-version", "theme-version"],
+    footer_content_items=[],
+    footer_start=["version", "last-updated", "copyright"],
+    footer_end=["sphinx-theme-version"],
+    # For showing source
+    repository_url="https://gitlab.in2p3.fr/biofronts/data-assistant",
+    use_source_button=True,
+    repository_branch="main",
+    path_to_docs="docs/source",
 )
 
 html_last_updated_fmt = "%Y-%m-%d"
+
+html_context = {
+    "book_theme_version": sphinx_book_theme.__version__,
+}

@@ -30,20 +30,8 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    'xarray',
-    'dask',
-    'tomlkit',
-    'ruamel.yaml>=0.18',
-    'filefinder>=1.2',
     'ruff',
     'mypy>=1.5',
-    'pytest>=7.4',
-    'coverage',
-    'pytest-cov',
-    'pytest-forked',
-    'hypothesis',
-    'sphinx',
-    'sphinx-book-theme',
 ]
 tests = [
     'xarray',
@@ -64,7 +52,7 @@ docs = [
     'ruamel.yaml>=0.18',
     'filefinder>=1.2',
     'sphinx',
-    'pydata-sphinx-theme',
+    'sphinx-book-theme',
     'sphinx-design',
     'sphinx-copybutton',
 ]

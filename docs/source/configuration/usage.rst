@@ -86,7 +86,7 @@ Here are some of the basic traits types:
 | :class:`~traitlets.Instance` | This is currently unsupported.                 |
 +------------------------------+------------------------------------------------+
 
-The packages provides two new of traits. :class:`.RangeTrait` is a list of
+The packages provides two new of types traits. :class:`.RangeTrait` is a list of
 integers or floats that can be parsed from a slice specification in the form
 ``start:stop[:step]``. 'stop' is **inclusive**. It can still take in lists of
 values normally (``--year 2002 2005 2006``).
@@ -343,9 +343,6 @@ share the same name as arguments from a function signature.
 
 Input parameters
 ================
-
-Procedure
----------
 
 The :class:`.ApplicationBase` class allows to retrieve the values of parameters
 from configuration files or from command line arguments (CLI), when
