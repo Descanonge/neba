@@ -18,7 +18,7 @@ def test_abstract_dataset():
     class TestDataset(Dataset):
         pass
 
-    assert issubclass(TestDataset.Params, ParamsManagerAbstract)
+    assert issubclass(TestDataset.ParamsManager, ParamsManagerAbstract)
     assert issubclass(TestDataset.Source, SourceAbstract)
     assert issubclass(TestDataset.Loader, LoaderAbstract)
     assert issubclass(TestDataset.Writer, WriterAbstract)
@@ -41,7 +41,7 @@ def test_dataset_custom():
         pass
 
     class TestDataset(Dataset):
-        Params = P
+        ParamsManager = P
         Source = S
 
         # internal definition
@@ -66,7 +66,7 @@ def test_instantiate_order():
         order.append(self.__class__.__name__)
 
     class TestDataset(Dataset):
-        Params = type("P", (ParamsManagerAbstract,), {"__init__": init})
+        ParamsManager = type("P", (ParamsManagerAbstract,), {"__init__": init})
         Source = type("S", (SourceAbstract,), {"__init__": init})
         Loader = type("L", (LoaderAbstract,), {"__init__": init})
         Writer = type("W", (WriterAbstract,), {"__init__": init})
@@ -111,7 +111,7 @@ def test_module_setup():
         order.append(self.__class__.__name__)
 
     class TestDataset(Dataset):
-        Params = type("P", (ParamsManagerAbstract,), {"setup": setup})
+        ParamsManager = type("P", (ParamsManagerAbstract,), {"setup": setup})
         Source = type("S", (SourceAbstract,), {"setup": setup})
         Loader = type("L", (LoaderAbstract,), {"setup": setup})
         Writer = type("W", (WriterAbstract,), {"setup": setup})

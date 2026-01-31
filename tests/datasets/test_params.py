@@ -20,7 +20,7 @@ class TestCacheCallback:
 
     def test_dict(self):
         class DatasetDict(Dataset):
-            Params = ParamsManagerDict
+            ParamsManager = ParamsManagerDict
             called = False
 
         dm = DatasetDict()
@@ -46,7 +46,7 @@ class TestCacheCallback:
             a = Int(0)
 
         class DatasetSection(Dataset):
-            Params = ParamsManagerSection.new(Config)
+            ParamsManager = ParamsManagerSection.new(Config)
             called = False
 
         dm = DatasetSection()
@@ -72,7 +72,7 @@ class TestCacheCallback:
             a = Int(0)
 
         class DatasetApp(Dataset):
-            Params = ParamsManagerApp
+            ParamsManager = ParamsManagerApp
             called = False
 
         app = App(start=False)
@@ -100,7 +100,7 @@ class TestPassingParams:
 
     def test_dict(self):
         class DatasetDict(Dataset):
-            Params = ParamsManagerDict
+            ParamsManager = ParamsManagerDict
 
         dm = DatasetDict({"a": 0, "b": "test"}, a=1, c=0.0)
         assert dm.params == {"a": 1, "b": "test", "c": 0.0}
@@ -112,7 +112,7 @@ class TestPassingParams:
             c = Float(0.0)
 
         class DatasetSection(Dataset):
-            Params = ParamsManagerSection.new(Config)
+            ParamsManager = ParamsManagerSection.new(Config)
 
         # only default values
         dm = DatasetSection()
@@ -135,7 +135,7 @@ class TestPassingParams:
             c = Float(0.0)
 
         class DatasetApp(Dataset):
-            Params = ParamsManagerApp
+            ParamsManager = ParamsManagerApp
 
         app = App(start=False)
         app.a = 1

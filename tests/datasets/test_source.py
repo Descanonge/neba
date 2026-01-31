@@ -65,7 +65,7 @@ class TestModuleMix:
             return kwargs.get("selected", module.params["selected"])
 
         class DatasetMix(Dataset):
-            Params = ParamsManagerDict
+            ParamsManager = ParamsManagerDict
             Source = SourceUnion.create([SourceA, SourceB], select_func=select)
 
         dm = DatasetMix(param=0, selected="SourceA")
