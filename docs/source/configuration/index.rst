@@ -19,7 +19,7 @@ Python files, or JSON), and from the command line as well.
 
 It requires to specify the parameters in python code: their type,
 default value, help string, etc. It relies on the `traitlets
-<https://traitlets.readthedocs.io>`__ package to do this
+<https://traitlets.readthedocs.io>`__ package to do this.
 
 .. note::
 

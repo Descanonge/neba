@@ -84,7 +84,7 @@ class ApplicationBase(Section, LoggingConfigurable):
 
     log_datefmt = Unicode(
         "%Y-%m-%d %H:%M:%S",
-        help="The date format used by logging formatters for %(asctime)s",
+        help="The date format used by logging formatters for 'asctime'",
     )
 
     log_format = Unicode(
