@@ -146,6 +146,8 @@ class ModuleMix(t.Generic[T_Mod], Module):
 
     select_func: abc.Callable[..., str] | None = None
 
+    _auto_dispatch_getattr: bool = True
+
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
@@ -163,6 +165,11 @@ class ModuleMix(t.Generic[T_Mod], Module):
         This gets called if __getattribute__ fails, ie the attribute is not defined
         on this instance.
         """
+        if not self._auto_dispatch_getattr:
+            raise AttributeError(
+                f"'{type(self).__name__}' object has no attribute '{name}'"
+            )
+
         selected = self.select()
         if not hasattr(selected, name):
             raise AttributeError(
@@ -227,7 +234,12 @@ class ModuleMix(t.Generic[T_Mod], Module):
         """
         if self.select_func is None:
             raise ValueError(f"No selection function registered for {self.__class__}.")
+        # temporarily desactivate auto dispatch to avoid endless recursion if
+        # select_func has AttributeErrors (error message will be easire to understand)
+        old = self._auto_dispatch_getattr
+        self._auto_dispatch_getattr = False
         selected = self.select_func(**kwargs)
+        self._auto_dispatch_getattr = old
         return self.base_modules[selected]
 
     def apply_all(self, method: str, *args, **kwargs) -> list[t.Any]:

@@ -3,6 +3,7 @@
 *.egg
 build
 htmlcov
+.coverage.*
 
 docs/build
 docs/source/_generated
