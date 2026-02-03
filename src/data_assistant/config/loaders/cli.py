@@ -136,8 +136,12 @@ class CLILoader(ConfigLoader):
                 known_args |= set(s.lstrip("-") for s in action.option_strings)
             extra_messages = []
             for extra_arg in extra:
+                if not extra_arg.startswith("-"):
+                    continue
                 extra_msg = extra_arg
-                if (suggestion := did_you_mean(known_args, extra_arg)) is not None:
+                if (
+                    suggestion := did_you_mean(known_args, extra_arg.lstrip("-"))
+                ) is not None:
                     extra_msg += f" (did you mean '{suggestion}'?)"
                 extra_messages.append(extra_msg)
             raise UnknownConfigKeyError(
