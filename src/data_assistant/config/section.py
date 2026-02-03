@@ -229,9 +229,7 @@ class Section(HasTraits):
 
         self.postinit()
 
-    def _init_direct_traits(self, config: dict[str, t.Any], **kwargs):
-        config |= kwargs
-
+    def _init_direct_traits(self, config: dict[str, t.Any]):
         for name in self.trait_names(config=True):
             if name in config:
                 value = config.pop(name)
@@ -239,8 +237,7 @@ class Section(HasTraits):
                     value = value.get_value()
                 setattr(self, name, value)
 
-    def _init_subsections(self, config: dict[str, t.Any], **kwargs):
-        config |= kwargs
+    def _init_subsections(self, config: dict[str, t.Any]):
         for name, subcls in self._subsections.items():
             prefix = f"{name}."
             subconfig = {k: v for k, v in config.items() if k.startswith(prefix)}

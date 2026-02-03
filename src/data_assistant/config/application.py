@@ -212,13 +212,20 @@ class ApplicationBase(Section, LoggingConfigurable):
 
         self.conf = self.merge_configs(self.file_conf, self.cli_conf)
 
+        # make a copy
+        conf = dict(self.conf)
+
         # Apply config relevant to this instance (only self, not recursive)
-        self._init_direct_traits(self.conf)
+        self._init_direct_traits(conf)
 
         if instantiate is None:
             instantiate = self.auto_instantiate
         if instantiate:
-            self._init_subsections(self.conf)
+            self._init_subsections(conf)
+            if conf:
+                raise KeyError(
+                    f"Extra parameters for {self.__class__.__name__} {list(conf.keys())}"
+                )
 
     def _create_cli_loader(
         self, argv: list[str] | None, log: logging.Logger | None = None, **kwargs
