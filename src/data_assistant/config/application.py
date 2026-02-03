@@ -119,8 +119,10 @@ class ApplicationBase(Section, LoggingConfigurable):
                 },
             },
             "loggers": {
-                    "level": logging.getLevelName(self.log_level),
                 get_classname(self): {
+                    "level": logging.getLevelName(self.log_level)
+                    if isinstance(self.log_level, str)
+                    else self.log_level,
                     "handlers": ["console"],
                 }
             },
