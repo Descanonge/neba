@@ -5,6 +5,7 @@ import typing as t
 from collections import abc
 
 from data_assistant.config.util import MultipleConfigKeyError
+from data_assistant.util import get_classname
 
 from .core import ConfigValue, DictLikeLoaderMixin, FileLoader
 
@@ -14,9 +15,7 @@ class JsonEncoderTypes(json.JSONEncoder):
 
     def default(self, o: t.Any) -> t.Any:
         if isinstance(o, type):
-            mod = o.__module__
-            name = o.__name__
-            return f"{mod}.{name}"
+            return get_classname(o)
         if isinstance(o, set):
             return list(o)
         return super().default(o)

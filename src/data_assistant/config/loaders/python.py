@@ -16,6 +16,7 @@ from data_assistant.config.util import (
     underline,
     wrap_text,
 )
+from data_assistant.util import get_classname
 
 from .core import ConfigValue, FileLoader, SerializerDefault
 
@@ -83,10 +84,7 @@ class SerializerPython(SerializerDefault):
 
     def value(self, trait: TraitType, value: t.Any, key: str | None = None) -> str:
         if type(trait) is Type:
-            try:
-                return f"{value.__module__}.{value.__qualname__}"
-            except AttributeError:
-                pass
+            return get_classname(value)
         return repr(value)
 
 

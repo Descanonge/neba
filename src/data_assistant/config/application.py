@@ -21,7 +21,7 @@ from traitlets import (
 )
 from traitlets.config.configurable import LoggingConfigurable
 
-from data_assistant.util import import_item
+from data_assistant.util import get_classname, import_item
 
 from .loaders import CLILoader, ConfigValue
 from .section import Section
@@ -119,8 +119,8 @@ class ApplicationBase(Section, LoggingConfigurable):
                 },
             },
             "loggers": {
-                f"{self.__class__.__module__}.{self.__class__.__name__}": {
                     "level": logging.getLevelName(self.log_level),
+                get_classname(self): {
                     "handlers": ["console"],
                 }
             },
@@ -144,9 +144,7 @@ class ApplicationBase(Section, LoggingConfigurable):
 
     @default("log")
     def _log_default(self) -> logging.Logger:
-        return logging.getLogger(
-            f"{self.__class__.__module__}.{self.__class__.__name__}"
-        )
+        return logging.getLogger(get_classname(self))
 
     # -- Instance attributes --
 

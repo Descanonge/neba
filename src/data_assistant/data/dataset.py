@@ -7,8 +7,8 @@ import logging
 import typing as t
 from collections import abc
 
-from data_assistant.config.application import ApplicationBase
 from data_assistant.config.section import Section
+from data_assistant.util import get_classname
 
 from .loader import LoaderAbstract
 from .module import CachedModule, Module
@@ -144,15 +144,11 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data], Section):
         if self.ID is not None:
             name.append(self.ID)
 
-        try:
-            cls = self.__class__
-            clsname = f"{cls.__module__}.{cls.__name__}"
-            if name:
-                clsname = f" ({clsname})"
-        except AttributeError:
-            clsname = ""
+        cls_name = get_classname(self)
+        if name:
+            cls_name = f" ({cls_name})"
 
-        return ":".join(name) + clsname
+        return ":".join(name) + cls_name
 
     def __repr__(self) -> str:
         """Return a human readable representation."""

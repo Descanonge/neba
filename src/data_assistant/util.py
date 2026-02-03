@@ -16,3 +16,20 @@ def import_item(name: str) -> t.Any:
     except AttributeError as e:
         raise ImportError(f"No object named {obj_name} in module {module_name}") from e
     return obj
+
+
+T = t.TypeVar("T")
+
+
+def get_classname(cls: type[T] | T, module: bool = True) -> str:
+    """Return fullname of a class."""
+    if not isinstance(cls, type):
+        cls = type(cls)
+
+    elements = []
+    if module:
+        elements.append(cls.__module__)
+
+    elements.append(getattr(cls, "__qualname__", cls.__name__))
+
+    return ".".join(elements)

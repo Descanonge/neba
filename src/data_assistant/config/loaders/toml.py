@@ -15,6 +15,7 @@ from tomlkit.items import InlineTable, Item, String, Table, Trivia
 from traitlets import Enum
 
 from data_assistant.config.util import get_trait_typehint, wrap_text
+from data_assistant.util import get_classname
 
 from .core import ConfigValue, DictLikeLoaderMixin, FileLoader
 
@@ -143,7 +144,7 @@ class TomlkitLoader(FileLoader, DictLikeLoaderMixin):
 
         # convert types to string
         if isinstance(value, type):
-            return String.from_raw(f"{value.__module__}.{value.__name__}")
+            return String.from_raw(get_classname(value))
 
         return tomlkit.item(value)
 

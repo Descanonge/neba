@@ -15,6 +15,7 @@ from ruamel.yaml.comments import CommentedMap, CommentedSeq, CommentedSet
 from traitlets import Instance, List, Set, TraitType, Tuple
 
 from data_assistant.config.util import get_trait_typehint, wrap_text
+from data_assistant.util import get_classname
 
 from .core import ConfigValue, DictLikeLoaderMixin, FileLoader
 
@@ -56,9 +57,7 @@ class YamlLoader(DictLikeLoaderMixin, FileLoader):
 
         for cv in self.resolve_mapping(data, origin=self.filename):
             if isinstance(cv.value, CommentedSet):
-                breakpoint()
                 cv.value = set(cv.value.odict.keys())
-                print(cv.key, cv.value)
             yield cv
 
     def serialize_section(
@@ -109,7 +108,7 @@ class YamlLoader(DictLikeLoaderMixin, FileLoader):
 
     def _sanitize_item(self, value: t.Any, trait: TraitType) -> t.Any:
         if isinstance(value, type):
-            return f"{value.__module__}.{value.__name__}"
+            return get_classname(value)
 
         if isinstance(trait, Instance):
             # check if there is a representer registered

@@ -15,7 +15,7 @@ from textwrap import dedent
 from traitlets import Enum, Sentinel, TraitType, Type, Undefined, Unicode, Union
 from traitlets.config import HasTraits
 
-from data_assistant.util import import_item
+from data_assistant.util import get_classname, import_item
 
 from .loaders import ConfigValue
 from .util import (
@@ -928,14 +928,14 @@ class Section(HasTraits):
                     subsection = subsection._subsections[alias_subkey]
             else:
                 secname = ".".join(fullkey) + " " if fullkey else ""
-                secname += f"({_subsection_clsname(subsection)})"
+                secname += f"({get_classname(subsection)})"
                 raise UnknownConfigKeyError(
                     f"Section {secname} has no subsection or alias '{subkey}'."
                 )
 
         if trait_name not in subsection.class_trait_names(config=True, subsection=None):
             secname = ".".join(fullkey) + " " if fullkey else ""
-            secname += f"({_subsection_clsname(subsection)})"
+            secname += f"({get_classname(subsection)})"
             raise UnknownConfigKeyError(
                 f"Section {secname} has no trait '{trait_name}'."
             )
@@ -1145,25 +1145,6 @@ class Section(HasTraits):
                         raise e
                 else:
                     self[key] = cls
-
-
-def _subsection_clsname(section: type[Section] | Section, module: bool = True) -> str:
-    if not isinstance(section, type):
-        section = section.__class__
-
-    mod = ""
-    if module:
-        try:
-            mod = section.__module__
-        except AttributeError:
-            pass
-
-    try:
-        name = section.__qualname__
-    except AttributeError:
-        return str(section)
-
-    return ".".join([mod, name])
 
 
 abc.MutableMapping[str, t.Any].register(Section)

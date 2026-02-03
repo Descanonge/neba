@@ -23,6 +23,8 @@ from traitlets.traitlets import (
 )
 from traitlets.utils.text import wrap_paragraphs
 
+from data_assistant.util import get_classname
+
 
 class ConfigError(Exception):
     """General exception for config loading."""
@@ -325,7 +327,7 @@ def stringify(obj, rst=True) -> str:
     # Try to have a nice link for types/classes
     if isinstance(obj, type):
         try:
-            fullname = f"{obj.__module__}.{obj.__name__}"
+            fullname = get_classname(obj)
         except AttributeError:
             fullname = str(obj)
         if rst:
@@ -370,17 +372,6 @@ def get_trait_typehint(
 
         return fullname
 
-    def serialize(obj: t.Any) -> str:
-        """Return the full import name of any object or type."""
-        if isinstance(obj, type):
-            cls = obj
-        else:
-            cls = obj.__class__
-        name = cls.__name__
-        module = cls.__module__
-
-        return link(f"{module}.{name}")
-
     def recurse(obj):
         """Recurse this function, keeping optional arguments."""
         return get_trait_typehint(obj, mode, aliases)
@@ -394,7 +385,7 @@ def get_trait_typehint(
         return typehint
 
     # Get the typehint of the trait itself
-    typehint = serialize(trait)
+    typehint = link(get_classname(trait))
 
     # If simply an object, nothing specific to do:
     if not isinstance(trait, TraitType):
@@ -421,7 +412,7 @@ def get_trait_typehint(
         if has_val:
             key_val.append(recurse(trait._value_trait))
             if not has_key:
-                key_val[0] = serialize(t.Any)
+                key_val[0] = link(get_classname(t.Any))
 
         if any(key_val):
             interior = f"[{', '.join(key_val)}]"

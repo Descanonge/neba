@@ -7,6 +7,8 @@ import logging
 import typing as t
 from collections import abc
 
+from data_assistant.util import get_classname
+
 if t.TYPE_CHECKING:
     from .data_manager import Dataset
 
@@ -76,7 +78,7 @@ class CachedModule(Module):
 
         Add a callback to the parent dataset that will void the cache when called.
         """
-        cls_name = f"{self.__class__.__module__}.{self.__class__.__qualname__}"
+        cls_name = get_classname(self)
         log.debug("Setting up cache for %s", cls_name)
         self.cache: dict[str, t.Any] = {}
 
