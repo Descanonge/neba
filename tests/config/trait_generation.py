@@ -281,7 +281,6 @@ class TypeGen(ClassGen[Type]):
     def _st_value(self) -> st.SearchStrategy[type]:
         if isinstance(str, self.klass):
             return st.just(self.klass)
-        # clsname = f"{self.klass.__module__}.{self.klass.__qualname__}"
         return st.sampled_from([self.klass, self.get_subclass()])
 
 

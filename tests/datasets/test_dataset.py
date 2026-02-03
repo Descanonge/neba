@@ -1,7 +1,9 @@
 """Test main dataset and modules features."""
 
 import pytest
+from traitlets import Int
 
+from data_assistant.config import Section
 from data_assistant.data import (
     LoaderAbstract,
     ParamsManagerAbstract,
@@ -101,6 +103,21 @@ def test_parent_dataset_access():
     dm = TestDataset()
     for mod in dm._modules.values():
         assert mod.dm is dm
+
+
+def test_parameter_extraction():
+    class TestSection(Section):
+        a = Int(0)
+
+    class TestDataset(Dataset):
+        a = Int(0)
+
+    dm = TestDataset(a=1)
+    assert dm.a == 1
+
+    section = TestSection()
+    with pytest.raises(KeyError):
+        TestDataset(section, a=1)
 
 
 def test_module_setup():

@@ -147,3 +147,25 @@ class TestPassingParams:
 
         dm = DatasetApp(app, a=2)
         assert dm.params.a == 2
+
+
+def test_params_excursion():
+    class TestDataset(Dataset):
+        ParamsManager = ParamsManagerDict
+
+    dm = TestDataset(dict(a=0, b=1))
+
+    with dm.save_excursion():
+        dm.set_params(a=5)
+        assert dm.params["a"] == 5
+        assert dm.params["b"] == 1
+
+    assert dm.params["a"] == 0
+    assert dm.params["b"] == 1
+
+    with dm.save_excursion():
+        dm.reset_params(a=5)
+        assert dm.params == dict(a=5)
+
+    assert dm.params["a"] == 0
+    assert dm.params["b"] == 1

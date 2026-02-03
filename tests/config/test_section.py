@@ -230,6 +230,14 @@ class TestInstantiation(SectionTest):
             else:
                 assert s[key] == info.default(key)
 
+    def test_init_kwargs(self, info: type[GenericConfigInfo]):
+        conf = dict(int=10, str="a")
+        s = info.section(conf, int=20)
+        assert s.int == 20
+        assert s.str == "a"
+        # conf dict has not been modified
+        assert conf == dict(int=10, str="a")
+
     def test_wrong_extra_parameters(self, section: GenericConfig):
         bad_keys = [
             "bad_trait",
@@ -631,11 +639,72 @@ class TestMutableMappingInterface(SectionTest):
             section.update({"new_trait": 10}, allow_new=True)
 
 
+class TestDidYouMean(SectionTest):
+    def test_getattr(self, section: GenericConfig):
+        with pytest.raises(AttributeError) as excinfo:
+            _ = section.int_
+        assert str(excinfo.value) == (
+            "'GenericConfig' object has no attribute 'int_' (did you mean 'int'?)"
+        )
+
+        with pytest.raises(AttributeError) as excinfo:
+            _ = section.sub_generic_
+        assert str(excinfo.value) == (
+            "'GenericConfig' object has no attribute 'sub_generic_'"
+            " (did you mean 'sub_generic'?)"
+        )
+
+        with pytest.raises(AttributeError) as excinfo:
+            _ = section.sub_generic.int_
+        assert str(excinfo.value) == (
+            "Section 'sub_generic' (GenericSection) has no attribute 'int_'"
+            " (did you mean 'int'?)"
+        )
+
+    def test_getitem(self, section: GenericConfig):
+        with pytest.raises(KeyError) as excinfo:
+            _ = section["int_"]
+        assert str(excinfo.value).strip('"') == (
+            "Could not resolve key 'int_' (did you mean 'int'?)"
+        )
+
+        with pytest.raises(KeyError) as excinfo:
+            _ = section["sub_generic_"]
+        assert str(excinfo.value).strip('"') == (
+            "Could not resolve key 'sub_generic_' (did you mean 'sub_generic'?)"
+        )
+
+        with pytest.raises(KeyError) as excinfo:
+            _ = section["sub_generic.int_"]
+        assert str(excinfo.value).strip('"') == (
+            "Could not resolve key 'sub_generic.int_' "
+            "(did you mean 'sub_generic.int'?)"
+        )
+
+    def test_setitem(self, section: GenericConfig):
+        with pytest.raises(KeyError) as excinfo:
+            section["int_"] = 0
+        assert str(excinfo.value).strip('"') == (
+            "Could not resolve key 'int_' (did you mean 'int'?)"
+        )
+
+        with pytest.raises(KeyError) as excinfo:
+            section["sub_generic.int_"] = 0
+        assert str(excinfo.value).strip('"') == (
+            "Could not resolve key 'sub_generic.int_' "
+            "(did you mean 'sub_generic.int'?)"
+        )
+
+
 class TestTraitListing(SectionTest):
     """Test the trait listing abilities that use remap.
 
     To filter out some traits, select some, list all recursively, etc.
     """
+
+    def test_dir(self, info: type[GenericConfigInfo], section: GenericConfig):
+        section._attr_completion_only_traits = True
+        assert dir(section) == sorted(info.keys(subsections=True, recursive=False))
 
     @given(
         keys=st.lists(

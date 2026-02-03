@@ -17,9 +17,12 @@ from data_assistant.config.loaders.core import (
     FileLoader,
 )
 from data_assistant.config.loaders.python import PyConfigContainer
-from data_assistant.config.util import ConfigParsingError, MultipleConfigKeyError
+from data_assistant.config.util import (
+    ConfigParsingError,
+    MultipleConfigKeyError,
+    UnknownConfigKeyError,
+)
 from tests.config.generic_config import GenericConfig, GenericConfigInfo
-from tests.conftest import todo
 
 LOADERS: list[type[ConfigLoader]]
 FILE_LOADERS: list[type[FileLoader]]
@@ -166,11 +169,23 @@ class TestCLILoader:
         assert "extra.test" in app
         assert app["extra.test"] == 5
 
+    def test_didyoumean(self, App: type[ApplicationBase]):
+        with pytest.raises(UnknownConfigKeyError) as excinfo:
+            App(argv="--int_ 0 --sub_generic_.int 0 --sub_generic.int_ 0".split())
+        assert str(excinfo.value) == (
+            "Unrecognized argument(s): "
+            "--int_ (did you mean 'int'?), "
+            "--sub_generic_.int (did you mean 'sub_generic.int'?), "
+            "--sub_generic.int_ (did you mean 'sub_generic.int'?), "
+            "use -h/--help or --list-parameters to see available parameters"
+        )
+
 
 class FileLoaderTest:
     ext: str
 
     convert_set_tuple = True
+    comments = False
 
     def test_reading(self, App: type[ApplicationBase]):
         app = App(start=False)
@@ -224,7 +239,7 @@ class FileLoaderTest:
 
         with NamedTemporaryFile(suffix=self.ext) as conf_file:
             filename = conf_file.name
-            app.write_config(filename, clobber="overwrite", comment="none")
+            app.write_config(filename, clobber="overwrite", comment=self.comments)
 
             App.config_files = [filename]
             app = App(argv=[])
@@ -235,6 +250,7 @@ class FileLoaderTest:
 
 class TestTomlLoader(FileLoaderTest):
     ext = ".toml"
+    comments = True
 
     def test_duplicate_keys(self, App: type[ApplicationBase]):
         with NamedTemporaryFile(suffix=self.ext) as conf_file:
@@ -248,10 +264,23 @@ class TestTomlLoader(FileLoaderTest):
             with pytest.raises(ParseError):
                 App(ignore_cli=True)
 
+    def test_didyoumean(self, App: type[ApplicationBase]):
+        with NamedTemporaryFile(suffix=self.ext) as conf_file:
+            filename = conf_file.name
+            with open(filename, "w") as fp:
+                print("int_ = 0", file=fp)
+
+            App.config_files = [filename]
+
+            with pytest.raises(UnknownConfigKeyError) as excinfo:
+                App(ignore_cli=True)
+                assert "Did you mean 'int'?" in str(excinfo.value)
+
 
 class TestPythonLoader(FileLoaderTest):
     ext = ".py"
     convert_set_tuple = False
+    comments = True
 
     def test_pyconfig_container(self):
         """Test behavior of the `c` container object."""
@@ -299,6 +328,7 @@ class TestPythonLoader(FileLoaderTest):
 
 class TestYamlLoader(FileLoaderTest):
     ext = ".yaml"
+    comments = True
 
     def test_duplicate_keys(self, App: type[ApplicationBase]):
         with NamedTemporaryFile(suffix=self.ext) as conf_file:
@@ -326,3 +356,81 @@ class TestJsonLoader(FileLoaderTest):
 
             with pytest.raises(MultipleConfigKeyError):
                 App(ignore_cli=True)
+
+
+def test_config_merge(App):
+    """Test config from different sources get merged properly.
+
+    Ordered (in increasing priority) as Py, Toml, CLI.
+
+    - int: Defined in Py => value from Py
+    - bool: Defined in Toml => value from Toml
+    - float: Defined in CLI => value from CLI
+    - str: Defined in Py, CLI => value from CLI
+    - enum_int: Defined in Toml, CLI => value from CLI
+    - enum_str: Defined in Py, Toml => value from Toml
+    - enum_mix: Defined in Py, Toml, CLI => value from CLI
+
+    Same thing in a subsection
+    """
+    with (
+        NamedTemporaryFile(suffix=".toml") as conf_file_toml,
+        NamedTemporaryFile(suffix=".py") as conf_file_py,
+    ):
+        toml_filename = conf_file_toml.name
+        py_filename = conf_file_py.name
+        with open(toml_filename, "w") as fp:
+            print("bool = true", file=fp)
+            print("enum_int = 1", file=fp)
+            print("enum_str = 'b'", file=fp)
+            print("enum_mix = 2", file=fp)
+
+            print("[sub_generic]", file=fp)
+            print("bool = true", file=fp)
+            print("enum_int = 1", file=fp)
+            print("enum_str = 'b'", file=fp)
+            print("enum_mix = 2", file=fp)
+
+        with open(py_filename, "w") as fp:
+            print("c.int = 1", file=fp)
+            print("c.str = 'a'", file=fp)
+            print("c.enum_str = 'a'", file=fp)
+            print("c.enum_mix = 1", file=fp)
+
+            print("c.sub_generic.int = 1", file=fp)
+            print("c.sub_generic.str = 'a'", file=fp)
+            print("c.sub_generic.enum_str = 'a'", file=fp)
+            print("c.sub_generic.enum_mix = 1", file=fp)
+
+        argv = [
+            "--float=1.0",
+            "--str=b",
+            "--enum_int=2",
+            "--enum_mix=3",
+            "--sub_generic.float=1.0",
+            "--sub_generic.str=b",
+            "--sub_generic.enum_int=2",
+            "--sub_generic.enum_mix=3",
+        ]
+
+        App.config_files = [py_filename, toml_filename]
+        app = App(argv=argv)
+
+        def check_cv(key: str, value: Any, origin: str):
+            cv = app.conf[key]
+            assert cv.get_value() == value
+            assert cv.origin == origin
+
+        check_cv("int", 1, py_filename)
+        check_cv("bool", True, toml_filename)
+        check_cv("float", 1.0, "CLI")
+        check_cv("str", "b", "CLI")
+        check_cv("enum_int", 2, "CLI")
+        check_cv("enum_str", "b", toml_filename)
+
+        check_cv("sub_generic.int", 1, py_filename)
+        check_cv("sub_generic.bool", True, toml_filename)
+        check_cv("sub_generic.float", 1.0, "CLI")
+        check_cv("sub_generic.str", "b", "CLI")
+        check_cv("sub_generic.enum_int", 2, "CLI")
+        check_cv("sub_generic.enum_str", "b", toml_filename)

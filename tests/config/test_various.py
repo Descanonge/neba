@@ -21,12 +21,14 @@ class TestTypehint:
         class Test:
             pass
 
-        self.valid(Test(), "~tests.config.test_various.Test")
-        self.valid(Test(), "tests.config.test_various.Test", mode="full")
+        qual_path = "tests.config.test_various.TestTypehint.test_basic_object.<locals>"
+
+        self.valid(Test(), f"~{qual_path}.Test")
+        self.valid(Test(), f"{qual_path}.Test", mode="full")
         self.valid(Test(), "Test", mode="minimal")
 
-        self.valid(Test, "~tests.config.test_various.Test")
-        self.valid(Test, "tests.config.test_various.Test", mode="full")
+        self.valid(Test, f"~{qual_path}.Test")
+        self.valid(Test, f"{qual_path}.Test", mode="full")
         self.valid(Test, "Test", mode="minimal")
 
     def test_basic_trait(self):
@@ -129,15 +131,17 @@ class TestTypehint:
         class Test:
             pass
 
-        trait = Instance(Test)
-        self.valid(
-            trait, "~traitlets.traitlets.Instance[~tests.config.test_various.Test]"
+        qual_path = (
+            "tests.config.test_various.TestTypehint.test_instance_and_type.<locals>"
         )
+
+        trait = Instance(Test)
+        self.valid(trait, f"~traitlets.traitlets.Instance[~{qual_path}.Test]")
         self.valid(trait, "Instance[Test]", mode="minimal")
 
         self.valid(Type(), "~traitlets.traitlets.Type")
         trait = Type(klass=Test)
-        self.valid(trait, "~traitlets.traitlets.Type[~tests.config.test_various.Test]")
+        self.valid(trait, f"~traitlets.traitlets.Type[~{qual_path}.Test]")
         self.valid(trait, "Type[Test]", mode="minimal")
 
         # Str klass

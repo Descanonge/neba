@@ -1,5 +1,7 @@
 """Test more integrated features of the Application."""
 
+import logging
+
 import pytest
 from traitlets import Float, Int
 
@@ -9,18 +11,12 @@ from data_assistant.config.loaders.json import JsonLoader
 from data_assistant.config.loaders.python import PyLoader
 from data_assistant.config.loaders.toml import TomlkitLoader
 from data_assistant.config.loaders.yaml import YamlLoader
+from data_assistant.config.util import ConfigError
 from tests.config.generic_config import GenericConfig, GenericConfigInfo
-from tests.conftest import todo
 
 
 class App(ApplicationBase, GenericConfig):
     pass
-
-
-@todo
-def test_logger():
-    # test it goes to the correct logger ? idk
-    assert 0
 
 
 class TestStartup:
@@ -70,7 +66,7 @@ def test_select_file_loader(filename: str, loader: type[FileLoader]):
 
 def test_resolve_config():
     app = App(start=False)
-    app._init_subsections({})
+    app._init_subsections({})  # make it easier to access subsections in test
 
     # normal keys
     cv = ConfigValue(2, "int")
@@ -94,3 +90,47 @@ def test_resolve_config():
     assert out.key == "deep_sub.sub_generic_deep.int"
     assert out.trait is app.deep_sub.sub_generic_deep.traits()["int"]
     assert isinstance(app.deep_sub.sub_generic_deep, out.container_cls)
+
+    # unknown key error
+    cv = ConfigValue(0, "int_", origin="test")
+    with pytest.raises(ConfigError) as excinfo:
+        out = app.resolve_config_value(cv)
+    notes = excinfo.value.__notes__
+    assert notes == [
+        "Did you mean 'int'?",
+        "Error in configuration key 'int_' from test.",
+    ]
+
+
+class TestLogger:
+    def test_config(self, capsys):
+        app = App(ignore_cli=True)
+        fmt = "For test:: %(message)s"
+        app.log_format = fmt
+        app.log_level = "WARN"
+
+        logger = logging.getLogger("tests.config.test_application.App")
+        assert app.log is logger
+        assert logger.level == logging.WARN
+
+        formatter = logger.handlers[0].formatter
+        assert formatter._fmt == fmt
+
+    def test_level(self, capsys):
+        app = App(ignore_cli=True)
+
+        app.log_level = 42
+        assert app.log.level == 42
+
+        app.log_level = "WARN"
+        assert app.log.level == logging.WARN
+        app.log.info("Test a")
+        captured = capsys.readouterr()
+        assert not captured.err
+        assert not captured.out
+
+        app.log_level = "INFO"
+        assert app.log.level == logging.INFO
+        app.log.info("Test b")
+        captured = capsys.readouterr()
+        assert captured.err == "[INFO]tests.config.test_application.App:: Test b\n"
