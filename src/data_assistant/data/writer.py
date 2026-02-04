@@ -130,7 +130,7 @@ class WriterAbstract(t.Generic[T_Source, T_Data], Module):
         meta = {}
 
         # Name of class
-        cls_name = self.__class__.__name__
+        cls_name = self.dm.__class__.__name__
         if self.dm.ID:
             cls_name += f":{self.dm.ID}"
         meta["written_as_dataset"] = cls_name
