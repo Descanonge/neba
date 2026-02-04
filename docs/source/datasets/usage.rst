@@ -212,12 +212,12 @@ may use different libraries or functions. The source can always be overwritten
 using ``dm.get_data(source="my_file")``. It allows to post-process your data:
 *ie* run a function every time it is loaded. For instance say we need to change
 units on a variable, we only need to implement the
-:meth:`~.LoaderAbstract.postprocess_data` method::
+:meth:`~.LoaderAbstract.postprocess` method::
 
     class MyDataset(Dataset):
 
         class Loader(XarrayLoader):
-            def postprocess_data(self, data: xr.Dataset):
+            def postprocess(self, data: xr.Dataset):
                 # go from Kelvin to Celsius
                 data["sst"] += 273.15
                 return data

@@ -30,7 +30,7 @@ class LoaderAbstract(t.Generic[T_Source, T_Data], Module):
         The actual loading is done by :meth:`load_data_concrete` that can be overwritten
         by subclasses.
 
-        Tries to run the method ``postprocess_data`` of the parent dataset. If it raises
+        Tries to run the method ``postprocess`` of the parent dataset. If it raises
         NotImplementedError, postprocess will be ignored.
 
         Parameters
@@ -56,12 +56,12 @@ class LoaderAbstract(t.Generic[T_Source, T_Data], Module):
             return data
 
         try:
-            data = self.postprocess_data(data, **kwargs)
+            data = self.postprocess(data, **kwargs)
         except NotImplementedError:
             pass
         return data
 
-    def postprocess_data(self, data: T_Data) -> T_Data:
+    def postprocess(self, data: T_Data) -> T_Data:
         """Run operation after loading data.
 
         :Not implemented: implement (if necessary) on your DataManager subclass.
