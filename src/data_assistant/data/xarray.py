@@ -10,7 +10,7 @@ from collections import abc
 import xarray as xr
 
 from .loader import LoaderAbstract
-from .util import T_Source, cut_slices
+from .util import PathLike, cut_slices
 from .writer import SplitWriterMixin, WriterAbstract
 
 if t.TYPE_CHECKING:
@@ -30,23 +30,34 @@ if t.TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-## Loading
 
-
-class XarrayLoader(LoaderAbstract[str, xr.Dataset]):
+class XarrayLoader(LoaderAbstract[PathLike, xr.Dataset]):
     """Load from single source with Xarray.
 
-    Uses :func:`xarray.open_dataset` to open data.
+    Uses :func:`xarray.open_dataset` or :func:`xarray.open_mfdataset` to open data.
     """
 
     OPEN_DATASET_KWARGS: dict[str, t.Any] = {}
     """Options passed to :func:`xarray.open_dataset`. :meth:`.Dataset.get_data` kwargs
     take precedence."""
 
-    def load_data_concrete(self, source: str, **kwargs) -> xr.Dataset:
-        """Return a dataset object.
+    OPEN_MFDATASET_KWARGS: dict[str, t.Any] = {}
+    """Options passed to :func:`xarray.open_mfdataset`. :meth:`.Dataset.get_data` kwargs
+    take precedence."""
 
-        The dataset is obtained from :func:`xarray.open_dataset`.
+    def preprocess(self) -> abc.Callable[[xr.Dataset], xr.Dataset]:
+        """Return a function to preprocess data.
+
+        If ``preprocess`` in :attr:`OPEN_MFDATASET_KWARGS` is True, the function will be
+        used for `open_mfdataset` corresponding argument. The function should take in
+        and return a dataset.
+        """
+        raise NotImplementedError
+
+    def load_data_concrete(
+        self, source: PathLike | abc.Sequence[PathLike], **kwargs
+    ) -> xr.Dataset:
+        """Read a dataset object.
 
         Parameters
         ----------
@@ -54,61 +65,25 @@ class XarrayLoader(LoaderAbstract[str, xr.Dataset]):
             Sequence of files containing data.
         kwargs:
             Arguments passed to :func:`xarray.open_dataset`. They will take precedence
-            over the default values of the class attribute :attr:`OPEN_DATASET_KWARGS`.
+            over the default values of the class attribute :attr:`OPEN_DATASET_KWARGS`
+            and :attr:`OPEN_MFDATASET_KWARGS`.
         """
-        import xarray as xr
+        func: abc.Callable[..., xr.Dataset]
+        if isinstance(source, str):
+            func = xr.open_dataset
+            kwargs = self.OPEN_DATASET_KWARGS | kwargs
+        else:
+            func = xr.open_mfdataset
+            kwargs = self.OPEN_MFDATASET_KWARGS | kwargs
+            if kwargs.get("preprocess", False) is True:
+                kwargs["preprocess"] = self.preprocess()
 
-        kwargs = self.OPEN_DATASET_KWARGS | kwargs
-        ds = xr.open_dataset(source, **kwargs)
+        ds = func(source, **kwargs)
         return ds
 
 
-class XarrayMultiFileLoader(LoaderAbstract[list[str], xr.Dataset]):
-    """Load from multiple files to Xarray.
-
-    Uses :func:`xarray.open_mfdataset` to open data.
-    """
-
-    OPEN_MFDATASET_KWARGS: dict[str, t.Any] = {}
-    """Options passed to :func:`xarray.open_mfdataset`. :meth:`.Dataset.get_data` kwargs
-    take precedence."""
-
-    def preprocess(self) -> abc.Callable[[xr.Dataset], xr.Dataset]:
-        raise NotImplementedError
-
-    def load_data_concrete(self, source: abc.Sequence[str], **kwargs) -> xr.Dataset:
-        """Return a dataset object.
-
-        The dataset is obtained from :func:`xarray.open_mfdataset`.
-
-        Parameters
-        ----------
-        source:
-            Sequence of files containing data.
-        kwargs:
-            Arguments passed to :func:`xarray.open_mfdataset`. They will
-            take precedence over the default values of the class attribute
-            :attr:`OPEN_MFDATASET_KWARGS`.
-        """
-        import xarray as xr
-
-        kwargs = self.OPEN_MFDATASET_KWARGS | kwargs
-
-        if kwargs.get("preprocess", False) is True:
-            kwargs["preprocess"] = self.preprocess()
-
-        ds = xr.open_mfdataset(source, **kwargs)
-        return ds
-
-
-## Writing
-
-
-class XarrayWriterAbstract(WriterAbstract[T_Source, xr.Dataset]):
-    """Write Xarray dataset to single target.
-
-    Implement the single call method, and common features for other
-    """
+class XarrayWriter(WriterAbstract[str, xr.Dataset]):
+    """Write Xarray dataset."""
 
     TO_NETCDF_KWARGS: dict[str, t.Any] = {}
     """Arguments passed to the function writing files."""
@@ -229,44 +204,6 @@ class XarrayWriterAbstract(WriterAbstract[T_Source, xr.Dataset]):
             metadata.pop(k)
         return ds.assign_attrs(**metadata)
 
-
-class XarrayWriter(XarrayWriterAbstract[str]):
-    """Write from Xarray to a single file."""
-
-    def write(  # type: ignore[override]
-        self,
-        data: xr.Dataset,
-        target: str | None = None,
-        **kwargs,
-    ) -> t.Any:
-        """Write data to target.
-
-        Currently, target can be a netcdf file, or zarr store.
-        Directories are created as needed. Metadata is added to the dataset.
-
-        Parameters
-        ----------
-        data
-            Dataset to write.
-        target
-            If None (default), target location is automatically obtained via
-            :meth:`.DataManagerBase.get_source`.
-        kwargs
-            Passed to the function that writes to disk
-            (:meth:`xarray.Dataset.to_netcdf` or :meth:`xarray.Dataset.to_zarr`).
-        """
-        if target is None:
-            target = self.dm.get_source()
-
-        data = self.add_metadata(data)
-        call = target, data
-        self.check_directory(call)
-        return self.send_single_call(call, **kwargs)
-
-
-class XarrayMultiFileWriter(XarrayWriterAbstract[list[str]]):
-    """Write from an xarray dataset to multiple files using Dask."""
-
     def send_calls_together(
         self,
         calls: abc.Sequence[CallXr],
@@ -329,10 +266,10 @@ class XarrayMultiFileWriter(XarrayWriterAbstract[list[str]]):
             for future in distributed.as_completed(client.compute(delayed)):
                 log.debug("\t\tfuture completed: %s", future)
 
-    def write(  # type: ignore[override]
+    def write(
         self,
-        data: abc.Sequence[xr.Dataset],
-        target: list[str] | None = None,
+        data: xr.Dataset | abc.Sequence[xr.Dataset],
+        target: str | abc.Sequence[str] | None = None,
         client: Client | None = None,
         **kwargs,
     ) -> t.Any:
@@ -345,9 +282,9 @@ class XarrayMultiFileWriter(XarrayWriterAbstract[list[str]]):
         Parameters
         ----------
         data
-            Sequence of datasets to write.
+            Dataset or Sequence of datasets to write.
         target
-            If None (default), target locations are automatically obtained via
+            If None (default), target location(s) are automatically obtained via
             :meth:`.DataManagerBase.get_source`.
         client:
             Dask :class:`distributed.Client` instance. If present multiple write calls
@@ -359,6 +296,11 @@ class XarrayMultiFileWriter(XarrayWriterAbstract[list[str]]):
         """
         if target is None:
             target = self.dm.get_source()
+        if isinstance(target, PathLike):
+            target = [target]
+
+        if isinstance(data, xr.Dataset):
+            data = [data]
 
         data = [self.add_metadata(d) for d in data]
 
@@ -371,12 +313,12 @@ class XarrayMultiFileWriter(XarrayWriterAbstract[list[str]]):
 
         self.check_directories(calls)
         self.check_overwriting_calls(calls)
-        if client is not None:
+        if len(calls) > 1 and client is not None:
             return self.send_calls_together(calls, client, **kwargs)
         return self.send_calls(calls, **kwargs)
 
 
-class XarraySplitWriter(SplitWriterMixin, XarrayMultiFileWriter):
+class XarraySplitWriter(SplitWriterMixin, XarrayWriter):
     """Writer for Xarray datasets in multifiles.
 
     Can automatically split a dataset to the corresponding files by communicating

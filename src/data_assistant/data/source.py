@@ -1,7 +1,4 @@
-"""Plugin to manages and find data sources.
-
-Currently mainly give some basic options for the source being multiple files on disk.
-"""
+"""Plugin to manages and find data sources."""
 
 from __future__ import annotations
 
@@ -9,10 +6,11 @@ import itertools
 import logging
 import typing as t
 from collections import abc
-from os import PathLike, path
+from os import path
+from pathlib import Path
 
 from .module import CachedModule, Module, ModuleMix, autocached
-from .util import T_Source
+from .util import PathLike, T_Source
 
 log = logging.getLogger(__name__)
 
@@ -25,7 +23,7 @@ T_MultiSource = t.TypeVar("T_MultiSource", bound=abc.Sequence)
 class SourceAbstract(t.Generic[T_Source], Module):
     """Abstract of source managing module."""
 
-    def get_source(self, _warn: bool = True) -> T_Source:
+    def get_source(self, _warn: bool = True) -> T_Source | list[T_Source]:
         """Return source of data.
 
         :Not Implemented: Implement in Module subclass
@@ -50,7 +48,7 @@ class SimpleSource(SourceAbstract[T_Source]):
         return [f"Source directly specified: {self.get_source()}"]
 
 
-class MultiFileSource(SourceAbstract[list[str]]):
+class MultiFileSource(SourceAbstract[str]):
     """Abstract class for source consisting of multiple files.
 
     It is easier to deal with multiple files when separating a root directory, and the
@@ -60,26 +58,7 @@ class MultiFileSource(SourceAbstract[list[str]]):
     asking the source. If they are many files, caching this can make sense.
     """
 
-    def get_filename(self, **fixes) -> str:
-        """Create a filename corresponding to a set of parameters values.
-
-        All parameters must be defined, either in the DataManager
-        :attr:`~.data_manager.DataManagerBase.params`, or by the ``fixes``
-        arguments.
-
-        :Not implemented: implement in your DataManager subclass or a plugin subclass.
-
-        Parameters
-        ----------
-        fixes:
-            Parameters to fix to specific values to obtain a filename. Should take
-            precedence over the parent ``params`` attribute, which will be unaffected.
-        """
-        raise NotImplementedError(
-            "Implement in your DataManager subclass or a plugin subclass."
-        )
-
-    def get_root_directory(self) -> str | list[str]:
+    def get_root_directory(self) -> PathLike | list[PathLike]:
         """Return the directory containing all datafiles.
 
         Can return a path, or an iterable of directories that will automatically be
@@ -90,7 +69,7 @@ class MultiFileSource(SourceAbstract[list[str]]):
         raise NotImplementedError("Implemented in your DataManager subclass.")
 
     @property
-    def root_directory(self) -> str:
+    def root_directory(self) -> Path:
         """Root directory containing data.
 
         Call :meth:`get_root_directory` and, if necessary, joins individuals folders
@@ -99,7 +78,9 @@ class MultiFileSource(SourceAbstract[list[str]]):
         rootdir = self.get_root_directory()
 
         if isinstance(rootdir, list | tuple):
-            rootdir = path.join(*rootdir)
+            rootdir = Path(*rootdir)
+        else:
+            rootdir = Path(rootdir)
 
         return rootdir
 
@@ -111,7 +92,7 @@ class MultiFileSource(SourceAbstract[list[str]]):
 
     @property
     def datafiles(self) -> list[str]:
-        """Cached list of source files.
+        """List of source files.
 
         :Not implemented: implement in plugin subclass.
         """
@@ -252,7 +233,7 @@ class FileFinderSource(MultiFileSource, CachedModule):
         """
         from filefinder import Finder
 
-        finder = Finder(self.root_directory, self.get_filename_pattern())
+        finder = Finder(str(self.root_directory), self.get_filename_pattern())
 
         # We now fix the parameters present in the filename (we don't have to worry
         # about them after that). We re-use code from self.fixable to avoid
@@ -350,7 +331,7 @@ class climato:  # noqa: N801
 
         def get_root_dir_wrapped(obj):
             root_dir = super(cls, obj).get_root_directory()
-            if isinstance(root_dir, str | PathLike):
+            if isinstance(root_dir, PathLike):
                 root_dir = path.join(root_dir, self.append_folder)
             else:
                 root_dir.append(self.append_folder)

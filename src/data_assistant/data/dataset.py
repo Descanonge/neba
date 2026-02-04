@@ -262,7 +262,7 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data], Section):
             callback = self._reset_callbacks[key]
             callback(self, **kwargs)
 
-    def get_source(self, *args, **kwargs) -> T_Source:
+    def get_source(self, *args, **kwargs) -> T_Source | list[T_Source]:
         """Return source for the data.
 
         Can be filenames, URL, store object, etc.

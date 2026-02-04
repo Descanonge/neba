@@ -167,6 +167,26 @@ class WriterAbstract(t.Generic[T_Source, T_Data], Module):
 
         return meta
 
+    def write(
+        self,
+        data: T_Data | abc.Sequence[T_Data],
+        target: T_Source | abc.Sequence[T_Source] | None = None,
+        **kwargs,
+    ) -> t.Any:
+        """Write data to file or store.
+
+        :Not implemented: implement in plugin subclass.
+
+        Parameters
+        ----------
+        data
+            Data to write.
+        target
+            If None, target location(s) should be obtained via
+            :meth:`.DataManagerBase.get_source`.
+        """
+        raise NotImplementedError("Implement in plugin subclass.")
+
     def check_directories(self, calls: abc.Sequence[tuple[T_Source, T_Data]]):
         """Check if directories are missing, and create them if necessary."""
         files = [f for f, _ in calls]
@@ -186,18 +206,6 @@ class WriterAbstract(t.Generic[T_Source, T_Data], Module):
         """Check if directory is missing, and create it if necessary."""
         self.check_directories([call])
 
-    def send_single_call(self, call: tuple[T_Source, T_Data], **kwargs) -> t.Any:
-        """Execute a single call.
-
-        :Not implemented: implement in plugin subclass.
-
-        Parameters
-        ----------
-        kwargs
-            Passed to the writing function.
-        """
-        raise NotImplementedError("Implement in plugin subclass.")
-
     def check_overwriting_calls(self, calls: abc.Sequence[tuple[T_Source, T_Data]]):
         """Check if some calls have the same filename."""
         outfiles = [f for f, _ in calls]
@@ -210,6 +218,18 @@ class WriterAbstract(t.Generic[T_Source, T_Data], Module):
             raise ValueError(
                 f"Multiple writing calls to the same filename·s: {duplicates}"
             )
+
+    def send_single_call(self, call: tuple[T_Source, T_Data], **kwargs) -> t.Any:
+        """Execute a single call.
+
+        :Not implemented: implement in plugin subclass.
+
+        Parameters
+        ----------
+        kwargs
+            Passed to the writing function.
+        """
+        raise NotImplementedError("Implement in plugin subclass.")
 
     def send_calls(
         self, calls: abc.Sequence[tuple[T_Source, T_Data]], **kwargs
@@ -228,26 +248,6 @@ class WriterAbstract(t.Generic[T_Source, T_Data], Module):
         self.check_directories(calls)
 
         return [self.send_single_call(call, **kwargs) for call in calls]
-
-    def write(
-        self,
-        data: T_Data | abc.Sequence[T_Data],
-        target: T_Source | None = None,
-        **kwargs,
-    ) -> t.Any:
-        """Write data to file or store.
-
-        :Not implemented: implement in plugin subclass.
-
-        Parameters
-        ----------
-        data
-            Data to write.
-        target
-            If None, target location(s) should be obtained via
-            :meth:`.DataManagerBase.get_source`.
-        """
-        raise NotImplementedError("Implement in plugin subclass.")
 
 
 T = t.TypeVar("T", covariant=True)
@@ -291,7 +291,7 @@ class Splitable(t.Protocol[T]):
 class SplitWriterMixin(WriterAbstract[T_Source, T_Data]):
     """Split data to multiple writing targets.
 
-    For that, we need to have an appropriate Source module, that adheres to the
+    For that, we need to have an appropriate Source module that adheres to the
     :class:`Splitable` protocol. This mixin checks this. It makes available the
     necessary methods directly to the Writer module.
     """

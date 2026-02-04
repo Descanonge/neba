@@ -20,7 +20,7 @@ class LoaderAbstract(t.Generic[T_Source, T_Data], Module):
         self,
         /,
         *,
-        source: T_Source | None = None,
+        source: T_Source | abc.Sequence[T_Source] | None = None,
         ignore_postprocess: bool = False,
         load_kwargs: abc.Mapping[str, t.Any] | None = None,
         **kwargs,
@@ -68,7 +68,9 @@ class LoaderAbstract(t.Generic[T_Source, T_Data], Module):
         """
         raise NotImplementedError("Implement in your DataManager subclass.")
 
-    def load_data_concrete(self, source: T_Source, **kwargs) -> t.Any:
+    def load_data_concrete(
+        self, source: T_Source | abc.Sequence[T_Source], **kwargs
+    ) -> t.Any:
         """Load the data from datafiles.
 
         This method should be implemented in subclasses to account for different
