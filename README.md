@@ -66,13 +66,13 @@ For instance one dataset can deal with multiple source files selected via glob p
 An example of a dataset where multiple files are managed with a glob pattern, and fed into Xarray:
 ``` python
 from data_assistant.data import Dataset, GlobSource, ParamsManagerDict
-from data_assistant.data.xarray import XarrayMultiFileLoader
+from data_assistant.data.xarray import XarrayLoader
 
 class SST(Dataset):
     # parameters will be held in a simple dict
     Params = ParamsManagerDict
     # loader module uses xarray.open_mfdataset
-    Loader = XarrayMultiFileLoader
+    Loader = XarrayLoader
     
     # Source module is configured further
     class Source(GlobSource):

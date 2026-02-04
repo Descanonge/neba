@@ -182,54 +182,52 @@ evel package to avoid importing Xarray unless needed.
 Loaders
 -------
 
-:class:`.XarrayLoader` will load from a single file or store with
-:external+xarray:func:`~xarray.open_dataset` and :class:`.XarrayMultiFileLoader`
-from multiple files using :external+xarray:func:`~xarray.open_mfdataset`.
+:class:`.XarrayLoader` will load from either a single file or store with
+:external+xarray:func:`~xarray.open_dataset` or from multiple files using
+::external+xarray:func:`~xarray.open_mfdataset`.
 
 Options for these functions can be changed in the attributes
 :attr:`~.XarrayLoader.OPEN_DATASET_KWARGS` and
-:attr:`~.XarrayMultiFileLoader.OPEN_MFDATASET_KWARGS` respectively::
+:attr:`~.XarrayLoader.OPEN_MFDATASET_KWARGS`::
 
     class MyDataset(Dataset):
-        class Loader(XarrayMultiFileLoader):
+        class Loader(XarrayLoader):
             OPEN_MFDATASET_KWARGS = dict(...)
 
 Writers
 -------
 
-To write data to a single file or store, use :class:`.XarrayWriter`. It
-will guess to function to use from the file extension. It currently supports
-Zarr and Netcdf.
+class:`.XarrayWriter` allows to write to either a single file/store or multiple
+files if given a sequence of datasets. It will guess to function to use from the
+file extension. It currently supports Zarr and Netcdf.
 
 .. note::
 
    The ``write()`` method will automatically add metadata to the dataset
-   attributes via :meth:`~.XarrayWriterAbstract.add_metadata`. This is true for
-   the other writer modules below.
+   attributes via :meth:`~.XarrayWriter.add_metadata`.
 
-For data that is to be written across multiple files or stores, the module
-:class:`.XarrayMultiFileWriter` will execute several writing calls either one
-after the other, or in parallel. If given a :class:`Dask
-client<distributed.Client>` argument, :meth:`~.XarrayMultiFileWriter.write` will
-use :meth:`~.XarrayMultiFileWriter.send_calls_together` to execute multiple
-writing operations in parallel.
+When writing data across multiple files or stores, if given a :class:`Dask
+client<distributed.Client>` argument, it will use
+:meth:`~.XarrayWriter.send_calls_together` to execute multiple writing
+operations in parallel.
 
 .. important::
 
     Doing so is not so straightforward. It may fail on some filesystems with
     permisssion errors. Using the scratch filesystem on a cluster might solve
-    this issue. See :meth:`~.XarrayMultiFileWriter.send_calls_together`
+    this issue. See :meth:`~.XarrayWriter.send_calls_together`
     documentation for details on the implementation.
 
-The :class:`.XarrayMultiFileWriter` module needs multiple datasets and their
-respective target file. :class:`.XarraySplitWriter` intends to simplify further
-the writing process by splitting automatically a dataset across files. It must
-be paired with a source-managing module that implements the :class:`.Splitable`
-protocol. Which means that some parameters can be left unspecified and along
-which the dataset will be split. It must also be able to return a filename given
-values for those unspecified parameters. The :class:`.FileFinderSource` can be
-used to that purpose. For instance we can split a dataset along its depth
-dimension and automatically group by month, using a dataset along the lines of::
+When writing to multiple files, :class:`.XarrayWriter` module needs multiple
+datasets and their respective target file. :class:`.XarraySplitWriter` intends
+to simplify further the writing process by splitting automatically a dataset
+across files. It must be paired with a source-managing module that implements
+the :class:`.Splitable` protocol. Which means that some parameters can be left
+unspecified and along which the dataset will be split. It must also be able to
+return a filename given values for those unspecified parameters. The
+:class:`.FileFinderSource` can be used to that purpose. For instance we can
+split a dataset along its depth dimension and automatically group by month,
+using a dataset along the lines of::
 
     >>> ds
     <xarray.Dataset>

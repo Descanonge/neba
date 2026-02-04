@@ -319,7 +319,7 @@ class XarrayWriter(WriterAbstract[str, xr.Dataset]):
 
 
 class XarraySplitWriter(SplitWriterMixin, XarrayWriter):
-    """Writer for Xarray datasets in multifiles.
+    """Writer for Xarray datasets in multiple files automatically.
 
     Can automatically split a dataset to the corresponding files by communicating
     with a source plugin that implement the :class:`HasUnfixed` protocol.
@@ -384,7 +384,7 @@ class XarraySplitWriter(SplitWriterMixin, XarrayWriter):
         data
             Data to write.
         target:
-            Cannot be used here. Use :class:`.XarrayMultiFileWriterPlugin` instead.
+            Cannot be used here. Use :class:`.XarrayWriter` instead.
         time_freq:
             If it is a string, use it as a frequency/period for
             :meth:`xarray.Dataset.resample`. For example ``M`` will return datasets
