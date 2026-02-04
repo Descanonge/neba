@@ -35,6 +35,9 @@ dev = [
 ]
 tests = [
     'xarray',
+    'netCDF4',
+    'numpy',
+    'pandas',
     'dask',
     'tomlkit',
     'ruamel.yaml>=0.18',

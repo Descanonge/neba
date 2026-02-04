@@ -87,3 +87,7 @@ class TestModuleMix:
 
         # automatic dispatch
         assert dm.source.get_filename() == "file_b_1"
+
+
+# TODO: filefinder
+# test some of the properties, like unfixed?
