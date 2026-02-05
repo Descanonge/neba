@@ -9,7 +9,6 @@ from .params import (
     ParamsManagerDict,
     ParamsManagerSection,
 )
-from .register import DatasetStore
 from .source import (
     FileFinderSource,
     GlobSource,
@@ -19,6 +18,7 @@ from .source import (
     SourceIntersection,
     SourceUnion,
 )
+from .store import DatasetStore
 from .util import import_all
 from .writer import Splitable, SplitWriterMixin, WriterAbstract
 

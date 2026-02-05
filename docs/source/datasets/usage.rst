@@ -351,3 +351,44 @@ be useful to have interplay. The dataset provides some basic API that modules
 can leverage like :meth:`.Dataset.get_source` or :meth:`.Dataset.get_data`. For
 more specific features the package contains some abstract base classes that
 define the methods to be expected. See :doc:`existing_modules` for examples.
+
+Dataset store
+=============
+
+To help deal with numerous Dataset classes, we provide a
+:class:`mapping<.DatasetStore>` allowing to store and easily access your
+datasets using the dataset :attr:`~.Dataset.ID` or :attr:`~.Dataset.SHORTNAME`
+attributes, or a custom name.
+
+::
+
+    from data_assistant.data import Dataset, DatasetStore
+
+    class MyDataset(Dataset):
+        ID = "MyDatasetLongID"
+        SHORTNAME = "SST"
+
+    store = DatasetStore(MyDataset)
+
+    dm = store["MyDatasetLongID"]
+    # or
+    dm = store["SST"]
+
+If multiple datasets have the same shortname, they can only be accessed by their
+ID. Trying to access with an ambiguous shortname will raise a KeyError.
+
+You can directly register a dataset with a decorator::
+
+    store = DatasetStore()
+
+    @store.register()
+    class MyDataset(Dataset):
+        ...
+
+You can also store a dataset as an import string. When accessed, the store will
+automatically import your dataset (and replace the string for subsequent
+accesses).::
+
+    store.add("path.to.MyDataset")
+    ds = store["MyDataset"]
+    # a dataset class
