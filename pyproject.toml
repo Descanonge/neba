@@ -36,6 +36,7 @@ dev = [
 tests = [
     'xarray',
     'netCDF4',
+    'zarr',
     'numpy',
     'pandas',
     'dask',
