@@ -69,7 +69,7 @@ class XarrayLoader(LoaderAbstract[PathLike, xr.Dataset]):
             and :attr:`OPEN_MFDATASET_KWARGS`.
         """
         func: abc.Callable[..., xr.Dataset]
-        if isinstance(source, str):
+        if isinstance(source, PathLike):
             func = xr.open_dataset
             kwargs = self.OPEN_DATASET_KWARGS | kwargs
         else:
