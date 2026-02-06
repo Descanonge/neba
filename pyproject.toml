@@ -106,3 +106,11 @@ convention = 'numpy'
 
 [tool.ruff.format]
 quote-style = 'double'
+
+[tool.coverage.report]
+exclude_also = [
+    'def __repr__',
+    'raise NotImplementedError',
+    'if (t\.)?TYPE_CHECKING',
+]
+omit = ['src/neba/autodoc_trait.py', 'src/neba/config/mypy_plugin.py']
