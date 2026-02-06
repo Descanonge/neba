@@ -18,10 +18,7 @@ def import_item(name: str) -> t.Any:
     return obj
 
 
-T = t.TypeVar("T")
-
-
-def get_classname(cls: type[T] | T, module: bool = True) -> str:
+def get_classname(cls: t.Any, module: bool = True) -> str:
     """Return fullname of a class."""
     if not isinstance(cls, type):
         cls = type(cls)
