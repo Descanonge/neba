@@ -14,13 +14,13 @@ from tomlkit.container import Container
 from tomlkit.items import InlineTable, Item, String, Table, Trivia
 from traitlets import Enum
 
-from data_assistant.config.util import get_trait_typehint, wrap_text
-from data_assistant.util import get_classname
+from neba.config.util import get_trait_typehint, wrap_text
+from neba.util import get_classname
 
 from .core import ConfigValue, DictLikeLoaderMixin, FileLoader
 
 if TYPE_CHECKING:
-    from data_assistant.config.section import Section
+    from neba.config.section import Section
 
 T = TypeVar("T", bound=Container | Table)
 
@@ -28,9 +28,9 @@ T = TypeVar("T", bound=Container | Table)
 class TomlkitLoader(FileLoader, DictLikeLoaderMixin):
     """Load config from TOML files using tomlkit library.
 
-    The :mod:`tomlkit` library is the default for data-assistant, as it allows precise
-    creation of toml files (including comments) which is useful for creating fully
-    documented config files.
+    The :mod:`tomlkit` library is the default for neba, as it allows precise creation of
+    toml files (including comments) which is useful for creating fully documented config
+    files.
     """
 
     def load_config(self) -> abc.Iterator[ConfigValue]:

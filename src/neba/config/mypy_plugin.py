@@ -1,7 +1,7 @@
 """Mypy plugin to handle dynamic Section definitions.
 
 Use by adding to the list of plugins in your mypy configuration:
-``"data_assistant.config.mypy_plugin"``
+``"neba.config.mypy_plugin"``
 """
 
 from collections import abc
@@ -11,8 +11,8 @@ from mypy.plugin import ClassDefContext, Plugin, SemanticAnalyzerPluginInterface
 from mypy.plugins.common import add_attribute_to_class
 from mypy.types import Instance, TypeVarLikeType
 
-SECTION = "data_assistant.config.section.Section"
-SUBSECTION = "data_assistant.config.section.Subsection"
+SECTION = "neba.config.section.Section"
+SUBSECTION = "neba.config.section.Subsection"
 
 
 def _name_to_classdef(name: str) -> str:
@@ -200,7 +200,7 @@ class SectionTransformer:
 
         Return False if mypy failed to resolve the import.
         """
-        self.api.add_plugin_dependency("data_assistant")
+        self.api.add_plugin_dependency("neba")
         sym = self.api.lookup_fully_qualified_or_none(SUBSECTION)
         if (
             sym is None

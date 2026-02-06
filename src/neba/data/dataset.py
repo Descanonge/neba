@@ -7,8 +7,8 @@ import logging
 import typing as t
 from collections import abc
 
-from data_assistant.config.section import Section
-from data_assistant.util import get_classname
+from neba.config.section import Section
+from neba.util import get_classname
 
 from .loader import LoaderAbstract
 from .module import CachedModule, Module

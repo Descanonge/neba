@@ -23,7 +23,7 @@ from traitlets.traitlets import (
 )
 from traitlets.utils.text import wrap_paragraphs
 
-from data_assistant.util import get_classname
+from neba.util import get_classname
 
 
 class ConfigError(Exception):

@@ -5,13 +5,13 @@ import logging
 import pytest
 from traitlets import Float, Int
 
-from data_assistant.config.application import ApplicationBase
-from data_assistant.config.loaders import ConfigValue, FileLoader
-from data_assistant.config.loaders.json import JsonLoader
-from data_assistant.config.loaders.python import PyLoader
-from data_assistant.config.loaders.toml import TomlkitLoader
-from data_assistant.config.loaders.yaml import YamlLoader
-from data_assistant.config.util import ConfigError
+from neba.config.application import ApplicationBase
+from neba.config.loaders import ConfigValue, FileLoader
+from neba.config.loaders.json import JsonLoader
+from neba.config.loaders.python import PyLoader
+from neba.config.loaders.toml import TomlkitLoader
+from neba.config.loaders.yaml import YamlLoader
+from neba.config.util import ConfigError
 from tests.config.generic_config import GenericConfig, GenericConfigInfo
 
 

@@ -21,7 +21,7 @@ from traitlets import (
 )
 from traitlets.config.configurable import LoggingConfigurable
 
-from data_assistant.util import get_classname, import_item
+from neba.util import get_classname, import_item
 
 from .loaders import CLILoader, ConfigValue
 from .section import Section
@@ -45,10 +45,10 @@ class ApplicationBase(Section, LoggingConfigurable):
     """
 
     file_loaders: dict[tuple[str, ...], str | type] = {
-        ("toml",): "data_assistant.config.loaders.toml.TomlkitLoader",
-        ("py", "ipy"): "data_assistant.config.loaders.python.PyLoader",
-        ("yaml", "yml"): "data_assistant.config.loaders.yaml.YamlLoader",
-        ("json",): "data_assistant.config.loaders.json.JsonLoader",
+        ("toml",): "neba.config.loaders.toml.TomlkitLoader",
+        ("py", "ipy"): "neba.config.loaders.python.PyLoader",
+        ("yaml", "yml"): "neba.config.loaders.yaml.YamlLoader",
+        ("json",): "neba.config.loaders.json.JsonLoader",
     }
     """Mapping from file extension to loader class or location of loader to import."""
 

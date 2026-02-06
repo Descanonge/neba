@@ -13,7 +13,7 @@ from collections import abc
 from datetime import datetime
 from os import PathLike, path
 
-from data_assistant.config.loaders.json import JsonEncoderTypes
+from neba.config.loaders.json import JsonEncoderTypes
 
 from .module import Module
 from .util import T_Data, T_Source
@@ -139,7 +139,7 @@ class WriterAbstract(t.Generic[T_Source, T_Data], Module):
         hostname = socket.gethostname()
         script = ""
         for stack in inspect.stack():
-            if "data_assistant" not in stack.filename:
+            if "neba" not in stack.filename:
                 script = stack.filename
                 break
 

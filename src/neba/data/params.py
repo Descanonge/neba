@@ -8,8 +8,8 @@ from collections import abc
 
 from traitlets import Bunch
 
-from data_assistant.config.application import ApplicationBase
-from data_assistant.config.section import Section
+from neba.config.application import ApplicationBase
+from neba.config.section import Section
 
 from .module import Module
 from .util import T_Params

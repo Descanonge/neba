@@ -1,11 +1,11 @@
 
-.. currentmodule:: data_assistant.data
+.. currentmodule:: neba.data
 
 ******************
 Dataset management
 ******************
 
-This package has a submodule :mod:`~data_assistant.data` to ease the creation
+This package has a submodule :mod:`~neba.data` to ease the creation
 and management of multiple dataset with different file format, structure, etc.
 that can all depend on various parameters. Each new dataset is specified by
 creating a new subclass of :class:`~.Dataset`. It contains

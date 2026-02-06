@@ -6,7 +6,7 @@ build-backend = 'setuptools.build_meta'
 [project]
 dynamic = ['version']
 
-name = 'data-assistant'
+name = 'neba'
 authors = [
     {name='Clément Haëck', email='clement.haeck@locean.ipsl.fr'}
 ]
@@ -68,7 +68,7 @@ docs = [
 [tool.setuptools_scm]
 
 [tool.mypy]
-plugins = ['numpy.typing.mypy_plugin', 'data_assistant.config.mypy_plugin']
+plugins = ['numpy.typing.mypy_plugin', 'neba.config.mypy_plugin']
 ignore_missing_imports = true
 
 [tool.ruff]

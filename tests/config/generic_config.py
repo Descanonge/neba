@@ -26,7 +26,7 @@ from traitlets import (
     Union,
 )
 
-from data_assistant.config.section import Section, Subsection
+from neba.config.section import Section, Subsection
 from tests.util import Drawer
 
 from .trait_generation import DummyClass, trait_to_strat

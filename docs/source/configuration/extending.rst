@@ -1,5 +1,5 @@
 
-.. currentmodule:: data_assistant
+.. currentmodule:: neba
 
 **************************
 Extending and going beyond

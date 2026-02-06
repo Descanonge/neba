@@ -9,15 +9,15 @@ from ruamel.yaml.constructor import DuplicateKeyError
 from tomlkit.exceptions import ParseError
 from traitlets import Instance, Int, List, TraitType, Unicode, Union
 
-from data_assistant.config.application import ApplicationBase
-from data_assistant.config.loaders.core import (
+from neba.config.application import ApplicationBase
+from neba.config.loaders.core import (
     ConfigLoader,
     ConfigValue,
     DictLoader,
     FileLoader,
 )
-from data_assistant.config.loaders.python import PyConfigContainer
-from data_assistant.config.util import (
+from neba.config.loaders.python import PyConfigContainer
+from neba.config.util import (
     ConfigParsingError,
     MultipleConfigKeyError,
     UnknownConfigKeyError,

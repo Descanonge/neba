@@ -2,9 +2,9 @@
 
 import pytest
 
-from data_assistant.data.dataset import Dataset
-from data_assistant.data.params import ParamsManagerDict
-from data_assistant.data.source import SimpleSource, SourceIntersection, SourceUnion
+from neba.data.dataset import Dataset
+from neba.data.params import ParamsManagerDict
+from neba.data.source import SimpleSource, SourceIntersection, SourceUnion
 
 
 def get_simple_source(name, files: list[str]):

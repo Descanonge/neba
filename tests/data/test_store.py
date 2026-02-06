@@ -1,6 +1,6 @@
 import pytest
 
-from data_assistant.data import Dataset, DatasetStore
+from neba.data import Dataset, DatasetStore
 
 
 class DatasetOnlyId(Dataset):

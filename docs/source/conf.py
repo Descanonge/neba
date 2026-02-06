@@ -6,16 +6,16 @@
 
 import sphinx_book_theme
 
-import data_assistant
+import neba
 
 ## Project information
 
-project = "data-assistant"
+project = "neba"
 copyright = "2023, Clément Haëck"
 author = "Clément Haëck"
 
-version = data_assistant.__version__
-release = data_assistant.__version__
+version = neba.__version__
+release = neba.__version__
 
 print(f"{project}: {version}")
 
@@ -39,7 +39,7 @@ templates_path = ["_templates"]
 exclude_patterns = ["_build"]
 
 extensions = [
-    "data_assistant.autodoc_trait",
+    "neba.autodoc_trait",
     "sphinx.ext.intersphinx",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",

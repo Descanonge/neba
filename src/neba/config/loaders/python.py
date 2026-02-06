@@ -8,15 +8,15 @@ from textwrap import dedent
 
 from traitlets import Enum, Instance, TraitType, Type
 
-from data_assistant.config.section import Section
-from data_assistant.config.util import (
+from neba.config.section import Section
+from neba.config.util import (
     ConfigParsingError,
     MultipleConfigKeyError,
     get_trait_typehint,
     underline,
     wrap_text,
 )
-from data_assistant.util import get_classname
+from neba.util import get_classname
 
 from .core import ConfigValue, FileLoader, SerializerDefault
 

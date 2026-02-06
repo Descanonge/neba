@@ -1,5 +1,5 @@
 
-.. currentmodule:: data_assistant.config
+.. currentmodule:: neba.config
 
 
 *****
@@ -142,12 +142,12 @@ configuration. It can be done by in two ways:
   '*pyproject.toml*'::
 
     [mypy]
-    plugins = ['data_assistant.config.mypy_plugin']
+    plugins = ['neba.config.mypy_plugin']
 
 * A more standard way is by using the :class:`~section.Subsection` class
   and setting it as an attribute in the parent section::
 
-    from data_assistant.config import Subsection
+    from neba.config import Subsection
 
     class ChildSection(Section):
         param_b = Int(1)
@@ -186,7 +186,7 @@ configuration files and the command line, and more.
 
 Here is a simple example::
 
-     from data_assistant.config import ApplicationBase, Section
+     from neba.config import ApplicationBase, Section
      from traitlets import Bool, Float, Int, List, Unicode
 
 

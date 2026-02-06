@@ -7,8 +7,8 @@ import pandas as pd
 import xarray as xr
 from xarray.testing import assert_equal
 
-from data_assistant.data import Dataset, FileFinderSource, ParamsManagerDict
-from data_assistant.data.xarray import XarrayLoader, XarraySplitWriter, XarrayWriter
+from neba.data import Dataset, FileFinderSource, ParamsManagerDict
+from neba.data.xarray import XarrayLoader, XarraySplitWriter, XarrayWriter
 from tests.conftest import todo
 
 

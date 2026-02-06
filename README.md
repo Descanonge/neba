@@ -1,4 +1,4 @@
-# data-assistant
+# Neba
 
 > Manages parameters and datasets
 
@@ -21,7 +21,7 @@ This package extends it to allow nesting and shifts to a more centralized config
 
 Here is a simple example project:
 ``` python
-from data_assistant.config import ApplicationBase, Section
+from neba.config import ApplicationBase, Section
 from traitlets import Float, List, Int, Unicode
 
 class App(ApplicationBase):
@@ -65,8 +65,8 @@ For instance one dataset can deal with multiple source files selected via glob p
 
 An example of a dataset where multiple files are managed with a glob pattern, and fed into Xarray:
 ``` python
-from data_assistant.data import Dataset, GlobSource, ParamsManagerDict
-from data_assistant.data.xarray import XarrayLoader
+from neba.data import Dataset, GlobSource, ParamsManagerDict
+from neba.data.xarray import XarrayLoader
 
 class SST(Dataset):
     # parameters will be held in a simple dict

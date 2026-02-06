@@ -362,7 +362,7 @@ attributes, or a custom name.
 
 ::
 
-    from data_assistant.data import Dataset, DatasetStore
+    from neba.data import Dataset, DatasetStore
 
     class MyDataset(Dataset):
         ID = "MyDatasetLongID"

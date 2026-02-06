@@ -6,7 +6,7 @@ Add the extension to your sphinx config (in conf.py):
 
     extensions = [
         ...,
-        "data_assistant.autodoc_trait",
+        "neba.autodoc_trait",
     ]
 
 This adds a new autodoc directive for sections (and applications):
@@ -64,10 +64,10 @@ from sphinx.ext.autodoc._legacy_class_based._directive_options import bool_optio
 from sphinx.ext.autodoc._legacy_class_based._documenters import ObjectMember
 from sphinx.util.docstrings import prepare_docstring
 from sphinx.util.inspect import getdoc
-from traitlets import EventHandler, ObserveHandler, ValidateHandler
+from traitlets import ObserveHandler, ValidateHandler
 
-from data_assistant.config.section import Section
-from data_assistant.config.util import (
+from neba.config.section import Section
+from neba.config.util import (
     FixableTrait,
     get_trait_typehint,
     indent,

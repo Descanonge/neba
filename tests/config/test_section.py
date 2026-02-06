@@ -8,8 +8,8 @@ import pytest
 from hypothesis import given, settings
 from traitlets import Bool, Int
 
-from data_assistant.config import Section, Subsection
-from data_assistant.config.util import UnknownConfigKeyError
+from neba.config import Section, Subsection
+from neba.config.util import UnknownConfigKeyError
 from tests.config.generic_config import (
     GenericConfig,
     GenericConfigInfo,

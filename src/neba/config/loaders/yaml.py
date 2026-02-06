@@ -14,13 +14,13 @@ from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap, CommentedSeq, CommentedSet
 from traitlets import Instance, List, Set, TraitType, Tuple
 
-from data_assistant.config.util import get_trait_typehint, wrap_text
-from data_assistant.util import get_classname
+from neba.config.util import get_trait_typehint, wrap_text
+from neba.util import get_classname
 
 from .core import ConfigValue, DictLikeLoaderMixin, FileLoader
 
 if t.TYPE_CHECKING:
-    from data_assistant.config.section import Section
+    from neba.config.section import Section
 
 log = logging.getLogger(__name__)
 

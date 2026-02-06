@@ -15,7 +15,7 @@ from textwrap import dedent
 from traitlets import Enum, Sentinel, TraitType, Type, Undefined, Unicode, Union
 from traitlets.config import HasTraits
 
-from data_assistant.util import get_classname, import_item
+from neba.util import get_classname, import_item
 
 from .loaders import ConfigValue
 from .util import (

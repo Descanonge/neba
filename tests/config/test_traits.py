@@ -8,7 +8,7 @@ from hypothesis import example, given, note
 from hypothesis import strategies as st
 from traitlets import Bool, Float, Int, List, TraitError
 
-from data_assistant.config.util import RangeTrait
+from neba.config.util import RangeTrait
 
 floats_nice = st.floats(
     allow_nan=False, allow_infinity=False, min_value=-1e12, max_value=1e12

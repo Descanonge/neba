@@ -1,5 +1,5 @@
 
-.. currentmodule:: data_assistant
+.. currentmodule:: neba
 
 ****************
 Existing modules
@@ -176,7 +176,7 @@ Xarray
 
 A compilation of module for interfacing with `Xarray
 <https://xarray.pydata.org/>`__ is available in
-:mod:`data_assistant.data.xarray`. This submodule is not imported in the top
+:mod:`neba.data.xarray`. This submodule is not imported in the top
 evel package to avoid importing Xarray unless needed.
 
 Loaders

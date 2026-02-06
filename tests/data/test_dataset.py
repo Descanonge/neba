@@ -3,15 +3,15 @@
 import pytest
 from traitlets import Int
 
-from data_assistant.config import Section
-from data_assistant.data import (
+from neba.config import Section
+from neba.data import (
     LoaderAbstract,
     ParamsManagerAbstract,
     SourceAbstract,
     WriterAbstract,
 )
-from data_assistant.data.dataset import Dataset
-from data_assistant.data.module import ModuleMix
+from neba.data.dataset import Dataset
+from neba.data.module import ModuleMix
 
 
 def test_abstract_dataset():

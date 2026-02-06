@@ -11,14 +11,14 @@ from os import path
 from traitlets.traitlets import HasTraits, TraitError, TraitType, Union
 from traitlets.utils.sentinel import Sentinel
 
-from data_assistant.config.util import ConfigParsingError, MultipleConfigKeyError
+from neba.config.util import ConfigParsingError, MultipleConfigKeyError
 
 if t.TYPE_CHECKING:
-    from data_assistant.config.application import ApplicationBase
-    from data_assistant.config.section import Section
+    from neba.config.application import ApplicationBase
+    from neba.config.section import Section
 
 Undefined = Sentinel(
-    "Undefined", "data-assistant", "Configuration value not (yet) set or parsed."
+    "Undefined", "neba", "Configuration value not (yet) set or parsed."
 )
 """:class:`traitlets.Sentinel<traitlets.utils.sentinel.Sentinel>` object for undefined configuration values.
 

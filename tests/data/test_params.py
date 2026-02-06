@@ -2,8 +2,8 @@
 
 from traitlets import Float, Int, Unicode
 
-from data_assistant.config import ApplicationBase, Section
-from data_assistant.data import (
+from neba.config import ApplicationBase, Section
+from neba.data import (
     Dataset,
     ParamsManagerApp,
     ParamsManagerDict,

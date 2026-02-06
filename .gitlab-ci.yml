@@ -39,7 +39,7 @@ tests:
       pip install .[tests]
 
       pytest --junitxml='$JUNIT_PATH'
-      --cov=data_assistant --cov=tests
+      --cov=neba --cov=tests
       --forked
       -m 'not todo' tests || exit_code=$?
 

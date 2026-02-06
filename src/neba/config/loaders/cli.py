@@ -14,7 +14,7 @@ try:
 except ImportError:
     _HAS_ARGCOMPLETE = False
 
-from data_assistant.config.util import (
+from neba.config.util import (
     MultipleConfigKeyError,
     UnknownConfigKeyError,
     did_you_mean,

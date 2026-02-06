@@ -3,7 +3,7 @@
 API Reference
 *************
 
-.. automodule:: data_assistant
+.. automodule:: neba
 
 Content
 =======
@@ -12,7 +12,7 @@ Content
 Modules
 =======
 
-.. currentmodule:: data_assistant
+.. currentmodule:: neba
 .. autosummary::
    :toctree: _generated
    :nosignatures:

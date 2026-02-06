@@ -1,9 +1,9 @@
 
-.. currentmodule:: data_assistant
+.. currentmodule:: neba
 
-###########################
-Data-Asistant documentation
-###########################
+##################
+Neba documentation
+##################
 
 ..
 
