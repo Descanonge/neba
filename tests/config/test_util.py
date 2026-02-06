@@ -1,9 +1,8 @@
-"""Test various functions of data_assistant.config.util."""
+"""Test various functions of neba.config.util."""
 
 from traitlets import Dict, Enum, Instance, Int, List, Tuple, Type, Unicode, Union
 
-from data_assistant.config.util import get_trait_typehint, stringify
-from tests.conftest import todo
+from neba.config.util import get_trait_typehint
 
 
 class TestTypehint:
@@ -21,7 +20,7 @@ class TestTypehint:
         class Test:
             pass
 
-        qual_path = "tests.config.test_various.TestTypehint.test_basic_object.<locals>"
+        qual_path = "tests.config.test_util.TestTypehint.test_basic_object.<locals>"
 
         self.valid(Test(), f"~{qual_path}.Test")
         self.valid(Test(), f"{qual_path}.Test", mode="full")
@@ -132,7 +131,7 @@ class TestTypehint:
             pass
 
         qual_path = (
-            "tests.config.test_various.TestTypehint.test_instance_and_type.<locals>"
+            "tests.config.test_util.TestTypehint.test_instance_and_type.<locals>"
         )
 
         trait = Instance(Test)
