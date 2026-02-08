@@ -60,11 +60,26 @@ from textwrap import dedent
 from docutils import nodes
 from sphinx.addnodes import desc_sig_space, desc_signature
 from sphinx.domains.python import PyAttribute
+from sphinx.ext.autodoc import (
+    SUPPRESS,
+    AttributeDocumenter,
+    ClassDocumenter,
+    Documenter,
+)
 from sphinx.ext.autodoc._legacy_class_based._directive_options import bool_option
 from sphinx.ext.autodoc._legacy_class_based._documenters import ObjectMember
 from sphinx.util.docstrings import prepare_docstring
 from sphinx.util.inspect import getdoc
-from traitlets import ObserveHandler, ValidateHandler
+from traitlets import (
+    Dict,
+    Enum,
+    List,
+    ObserveHandler,
+    Set,
+    TraitType,
+    Union,
+    ValidateHandler,
+)
 
 from neba.config.section import Section
 from neba.config.util import (
@@ -78,16 +93,6 @@ from neba.config.util import (
 if t.TYPE_CHECKING:
     from sphinx.application import Sphinx
     from sphinx.ext.autodoc import ObjectMember
-
-import logging
-
-from sphinx.ext.autodoc import (
-    SUPPRESS,
-    AttributeDocumenter,
-    ClassDocumenter,
-    Documenter,
-)
-from traitlets import Dict, Enum, List, Set, TraitType
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("autodoc_trait")
@@ -172,7 +177,14 @@ class TraitDocumenter(AttributeDocumenter):
     @property
     def accepted_values(self) -> tuple[str, list[str]] | None:
         """List of accepted values in an Enum."""
-        if isinstance(self.object, Enum) and (values := self.object.values) is not None:
+        trait = self.object
+        if isinstance(self.object, Union):
+            for t in self.object.trait_types:
+                print(t)
+                if isinstance(t, Enum):
+                    trait = t
+                    break
+        if isinstance(trait, Enum) and (values := trait.values) is not None:
             return ("Accepted values", [", ".join([stringify(v) for v in values])])
         return None
 
@@ -430,6 +442,10 @@ class SectionDocumenter(ClassDocumenter):
                     fullname = ".".join([*fullpath, name])
 
                     if isinstance(obj, TraitType):
+                        if self.options.only_configurables and not obj.metadata.get(
+                            "config", False
+                        ):
+                            continue
                         members[("trait", fullname)] = ObjectMember(fullname, obj)
 
                     elif isinstance(obj, type) and issubclass(obj, Section):
