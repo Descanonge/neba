@@ -278,7 +278,6 @@ class Splitable(t.Protocol[T]):
         This must take into account the values that are specified (or not) in the
         data-manager parameters.
         """
-        ...
 
     def get_filename(self, **fixes: t.Any) -> T:
         """Return a filename corresponding to this set of values.

@@ -84,11 +84,15 @@ class MultiFileSource(SourceAbstract[str]):
 
         return rootdir
 
-    def get_source(self, _warn: bool = True) -> list[str]:  # noqa: D102
+    def get_source(self, relative: bool = False, _warn: bool = True) -> list[str]:  # type: ignore[override] # noqa: D102
         datafiles = self.datafiles
         if _warn and len(datafiles) == 0:
             log.warning("No files found for %s", repr(self))
-        return self.datafiles
+
+        if relative:
+            datafiles = [path.relpath(f, self.root_directory) for f in datafiles]
+
+        return datafiles
 
     @property
     def datafiles(self) -> list[str]:
@@ -111,12 +115,8 @@ class GlobSource(MultiFileSource, CachedModule):
     * ``[!seq]`` matches any character *not* in seq
     """
 
-    RECURSIVE: bool = True
-    """Correspond to the recursive argument to glob.
-
-    If True, the pattern ``**`` will match any files and zero or more directories,
-    subdirectories and symbolic links to directories.
-    """
+    GLOB_KWARGS = dict(recursive=True)
+    """Kwargs passed to :func:`glob.glob`."""
 
     def get_glob_pattern(self) -> str:
         """Return the glob pattern matching your files.
@@ -139,7 +139,13 @@ class GlobSource(MultiFileSource, CachedModule):
             root = None
 
         pattern = self.get_glob_pattern()
-        files = glob.glob(pattern, root_dir=root, recursive=self.RECURSIVE)
+        files = glob.glob(pattern, root_dir=root, **self.GLOB_KWARGS)
+
+        if root is not None:
+            files = [path.join(root, f) for f in files]
+
+        files = sorted(files)
+
         return files
 
     def _lines(self) -> list[str]:
