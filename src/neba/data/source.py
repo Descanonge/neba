@@ -253,14 +253,14 @@ class FileFinderSource(MultiFileSource, CachedModule):
 
     @property
     @autocached
-    def fixable(self) -> list[str]:
+    def fixable(self) -> set[str]:
         """List of parameters that can vary in the filename.
 
         Found automatically from a :class:`filefinder.Finder` instance.
         This correspond to the list of the group names in the Finder (without
         duplicates).
         """
-        return list(self.filefinder.get_group_names())
+        return self.filefinder.get_group_names()
 
     @property
     @autocached
@@ -274,10 +274,14 @@ class FileFinderSource(MultiFileSource, CachedModule):
         unfixed = [
             g.name
             for g in self.filefinder.groups
-            if g.fixed_value is None or isinstance(g.fixed_value, abc.Sequence)
+            if g.fixed_value is None
+            or (
+                isinstance(g.fixed_value, abc.Sequence)
+                and not isinstance(g.fixed_value, str)
+            )
         ]
         # remove duplicates
-        return list(set(unfixed))
+        return list(dict.fromkeys(unfixed).keys())
 
     @property
     @autocached
