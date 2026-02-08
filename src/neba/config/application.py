@@ -24,7 +24,7 @@ from traitlets.config.configurable import LoggingConfigurable
 from neba.util import get_classname, import_item
 
 from .loaders import CLILoader, ConfigValue
-from .section import Section
+from .section import Section, Subsection
 from .util import ConfigError, UnknownConfigKeyError, did_you_mean
 
 if t.TYPE_CHECKING:
@@ -283,9 +283,9 @@ class ApplicationBase(Section, LoggingConfigurable):
         traits = dict(traits)
         traits.update(**kwargs)
 
-        current_extra_cls = cls._subsections.get("extra", Section)
+        current_extra_cls = cls.class_subsections().get("extra", Section)
         extra_cls: type[Section] = type("ExtraSection", (current_extra_cls,), traits)
-        cls._subsections["extra"] = extra_cls
+        cls._subsections["extra"] = Subsection(extra_cls)
 
     def load_config_files(self) -> dict[str, ConfigValue]:
         """Return configuration loaded from files."""

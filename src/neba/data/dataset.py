@@ -83,7 +83,7 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data], Section):
         def handler(change):
             self.reset()
 
-        for subsection in self._subsections_recursive():
+        for subsection in self.subsections_recursive():
             subsection.observe(handler)
 
         # extract traits from kwargs

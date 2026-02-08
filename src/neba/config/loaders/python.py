@@ -197,9 +197,7 @@ class PyLoader(FileLoader):
             if comment != "none":
                 lines.append("")
 
-        for name in sorted(section._subsections):
-            subsection = section._subsections[name]
-
+        for name, subsection in section.class_subsections().items():
             lines.append("")
             lines.append(f"## {subsection.__class__.__name__} (.{name}) ##")
             underline(lines, "#")

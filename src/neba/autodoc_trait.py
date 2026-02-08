@@ -423,7 +423,7 @@ class SectionDocumenter(ClassDocumenter):
                         continue
                     # subsections attributes are not initialized
                     if hasattr(base, "_subsections") and name in base._subsections:
-                        obj = base._subsections[name]
+                        obj = base._subsections[name].klass
                     else:
                         obj = getattr(base, name)
 

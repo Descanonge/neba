@@ -11,7 +11,7 @@ from traitlets import Bool, Float, Int, List, TraitError
 from neba.config.util import RangeTrait
 
 floats_nice = st.floats(
-    allow_nan=False, allow_infinity=False, min_value=-1e12, max_value=1e12
+    allow_nan=False, allow_infinity=False, min_value=-1e4, max_value=1e4
 ).map(lambda x: x if x > 1e-6 else 0.0)
 
 

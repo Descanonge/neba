@@ -94,8 +94,7 @@ class YamlLoader(DictLikeLoaderMixin, FileLoader):
                 for line in wrap_text(trait.help):
                     data.yaml_set_comment_before_after_key(last_key, after=line)
 
-        for name in sorted(section._subsections):
-            subsection = section._subsections[name]
+        for name, subsection in section.class_subsections().items():
             data[name] = CommentedMap()
 
             if comment == "full":

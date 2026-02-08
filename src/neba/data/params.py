@@ -156,7 +156,7 @@ class ParamsManagerSectionAbstract(ParamsManagerAbstract[T_Section]):
         def handler(change: Bunch):
             self.dm.reset()
 
-        for subsection in self._params._subsections_recursive():
+        for subsection in self._params.subsections_recursive():
             subsection.observe(handler)
 
     def set_params(

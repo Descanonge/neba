@@ -78,19 +78,15 @@ class TestDefinition(SectionTest):
         cls_b = S._bSectionDef
         cls_c = S._bSectionDef._cSectionDef
 
-        assert S._subsections["a"] is cls_a
-        assert S._subsections["b"] is cls_b
-        assert S._subsections["b"]._subsections["c"] is cls_c
-        assert S._subsections["normal"] is NormalSubsection
-        # check descriptors
+        assert S._subsections["a"].klass is cls_a
+        assert S._subsections["b"].klass is cls_b
+        assert S._subsections["b"].klass._subsections["c"].klass is cls_c
+        assert S._subsections["normal"].klass is NormalSubsection
+        # check using descriptors
         assert S.a.klass is cls_a
         assert S.b.klass is cls_b
         assert S.b.klass.c.klass is cls_c
         assert S.normal.klass is NormalSubsection
-
-        assert S._subsections_descr["a"].klass is cls_a
-        assert S._subsections_descr["b"].klass is cls_b
-        assert S.b.klass._subsections_descr["c"].klass is cls_c
 
         inst = S()
         assert isinstance(inst.a, cls_a)
@@ -197,6 +193,28 @@ class TestDefinition(SectionTest):
         section.add_trait("new_empty.new_trait", Int(0))
         cls = type(section)
         ref_list: list[type[Section]] = [
+            GenericSection,
+            TwinSubsection,
+            TwinSubsection,
+            cls.sub_twin.klass,
+            cls.deep_sub.klass,
+            cls.empty_a.klass,
+            cls.empty_b.klass,
+            section._subsections["new_empty"].klass,
+        ]
+        for sub_inst, ref in zip(section.subsections().values(), ref_list, strict=True):
+            assert isinstance(sub_inst, ref)
+        for sub_cls, ref in zip(
+            section.class_subsections().values(), ref_list, strict=True
+        ):
+            assert sub_cls is ref
+
+    def test_iter_subsections_recursive(
+        self, info: type[GenericConfigInfo], section: GenericConfig
+    ):
+        section.add_trait("new_empty.new_trait", Int(0))
+        cls = type(section)
+        ref_list: list[type[Section]] = [
             GenericConfig,
             GenericSection,
             TwinSubsection,
@@ -208,16 +226,16 @@ class TestDefinition(SectionTest):
             cls.empty_a.klass,
             cls.empty_b.klass,
             cls.empty_b.klass.empty_c.klass,
-            section._subsections_descr["new_empty"].klass,
+            section._subsections["new_empty"].klass,
         ]
-        for sub_inst, inst_ref in zip(
-            section._subsections_recursive(), ref_list, strict=True
+        for sub_inst, ref in zip(
+            section.subsections_recursive(), ref_list, strict=True
         ):
-            assert isinstance(sub_inst, inst_ref)
-        for sub_cls, cls_ref in zip(
-            section._class_subsections_recursive(), ref_list, strict=True
+            assert isinstance(sub_inst, ref)
+        for sub_cls, ref in zip(
+            section.class_subsections_recursive(), ref_list, strict=True
         ):
-            assert sub_cls is cls_ref
+            assert sub_cls is ref
 
 
 class TestInstantiation(SectionTest):
@@ -240,7 +258,7 @@ class TestInstantiation(SectionTest):
     def test_subsections(self, info: type[GenericConfigInfo], section: GenericConfig):
         def test_subsection_class(info, section):
             for name, sub_info in info.subsections.items():
-                assert issubclass(section._subsections[name], sub_info.section)
+                assert issubclass(section._subsections[name].klass, sub_info.section)
                 assert isinstance(section[name], sub_info.section)
                 test_subsection_class(sub_info, section[name])
 
@@ -820,7 +838,7 @@ class TestTraitListing(SectionTest):
     def test_traits_recursive_simple(self):
         traits = SimpleSection.traits_recursive(recursive=False)
         assert list(traits.keys()) == ["a", "b"]
-        traits = SimpleSection._subsections["sub"].traits_recursive(recursive=False)
+        traits = SimpleSection.sub.klass.traits_recursive(recursive=False)
         assert list(traits.keys()) == ["c", "d"]
 
         traits = SimpleSection.traits_recursive()
