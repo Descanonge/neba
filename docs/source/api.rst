@@ -21,5 +21,3 @@ Modules
    config
 
    data
-
-   autodoc_trait

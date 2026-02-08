@@ -6,15 +6,16 @@ Existing modules
 ****************
 
 The *Dataset* class is expected to be populated by modules (see
-:ref:`module-system`). Here is a quick description of modules that are bundled
-with this package.
+:ref:`module-system`). Here is a quick description of modules that are already
+defined.
 
 The features managed by the modules presented below inherit from abstract
 classes that define the API for that feature. Note that they are not defined
 through the :external+python:mod:`abc` module, and thus will not raise if
 instantiated. These classes are more guidelines than strict protocols.
 
-.. note:: For developers
+
+.. admonition:: For developers
 
     Nevertheless it is advised to keep a common signature for module subclasses,
     relying on keyword arguments if necessary. This helps ensure
@@ -81,31 +82,39 @@ object. An application *must* be supplied as argument. It will be **copied**
 (any modification of the dataset parameters will not affect the original
 application instance).
 
-.. tip:: Typechecking
+.. tip::
 
     The specific application class does not need to be specified, but can be
     type-hinted with::
 
-        class MyApp(ApplicationBase):
-            ...
-
         class MyDataset(Dataset):
             ParamsManager = ParamsManagerApp
             params_manager: ParamsManagerApp[MyApp]
+
+    or::
+
+        from neba.data.util import T_Source, T_Data
+
+        class MyDataset(Dataset[MyApp, T_Source, T_Data]):
+            ...
+
+    ``T_Source`` and ``T_Data`` can also be specified.
+
 
 .. _existing_source:
 
 Source
 ======
 
-The data is found from a source: one or more files on disk, or a remote
-data-store for instance.
-
 Simple
 ------
 
 For simple case where you do not need a full method, :class:`.SimpleSource` will
-just return its attribute :attr:`~.SimpleSource.source_loc`.
+just return its attribute :attr:`~.SimpleSource.source_loc`::
+
+    class MyDataset(Dataset):
+        Source = SimpleSource
+        Source.source_loc = "/my_data/file.txt"
 
 MultiFile
 ---------
@@ -120,9 +129,9 @@ Glob
 ++++
 
 The module :class:`.GlobSource` can find files on disk that follow a given
-pattern, defined by :meth:`~.GlobSource.get_glob_pattern`. Files on disk
-matching the pattern are cached and available at :meth:`~.GlobSource.datafiles`.
-For instance::
+pattern using :mod:`glob`, defined by :meth:`~.GlobSource.get_glob_pattern`.
+Files on disk matching the pattern are cached and available at
+:meth:`~.GlobSource.datafiles`. For instance::
 
     class MyDataManager(DataManagerBase):
 
@@ -184,7 +193,7 @@ Loaders
 
 :class:`.XarrayLoader` will load from either a single file or store with
 :external+xarray:func:`~xarray.open_dataset` or from multiple files using
-::external+xarray:func:`~xarray.open_mfdataset`.
+:external+xarray:func:`~xarray.open_mfdataset`.
 
 Options for these functions can be changed in the attributes
 :attr:`~.XarrayLoader.OPEN_DATASET_KWARGS` and
@@ -197,8 +206,8 @@ Options for these functions can be changed in the attributes
 Writers
 -------
 
-class:`.XarrayWriter` allows to write to either a single file/store or multiple
-files if given a sequence of datasets. It will guess to function to use from the
+:class:`.XarrayWriter` allows to write to either a single file/store or multiple
+files if given a sequence of datasets. It will guess the function to use from the
 file extension. It currently supports Zarr and Netcdf.
 
 .. note::
@@ -214,16 +223,16 @@ operations in parallel.
 .. important::
 
     Doing so is not so straightforward. It may fail on some filesystems with
-    permisssion errors. Using the scratch filesystem on a cluster might solve
+    permission errors. Using the scratch filesystem on a cluster might solve
     this issue. See :meth:`~.XarrayWriter.send_calls_together`
     documentation for details on the implementation.
 
-When writing to multiple files, :class:`.XarrayWriter` module needs multiple
+When writing to multiple files, the :class:`.XarrayWriter` module needs multiple
 datasets and their respective target file. :class:`.XarraySplitWriter` intends
 to simplify further the writing process by splitting automatically a dataset
-across files. It must be paired with a source-managing module that implements
-the :class:`.Splitable` protocol. Which means that some parameters can be left
-unspecified and along which the dataset will be split. It must also be able to
+across files. It must be paired with a source module that implements the
+:class:`.Splitable` protocol. Which means that some parameters can be left
+unspecified along which the dataset will be split. It must also be able to
 return a filename given values for those unspecified parameters. The
 :class:`.FileFinderSource` can be used to that purpose. For instance we can
 split a dataset along its depth dimension and automatically group by month,
@@ -258,7 +267,7 @@ and a data manager defined as::
 we can then simply call ``MyDataset().write(ds)``. Note this will detect that
 the smallest time parameter in the filename pattern is the month and split the
 dataset appropriately using :external+xarray:meth:`xarray.Dataset.resample`.
-This can be specified manually or avoided alltogether. See
+This can be specified manually or avoided alltogether. See the
 :meth:`.XarraySplitWriter.write` documentation for details.
 
 .. note::

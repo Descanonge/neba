@@ -10,7 +10,7 @@ import neba
 
 ## Project information
 
-project = "neba"
+project = "Neba"
 copyright = "2023, Clément Haëck"
 author = "Clément Haëck"
 

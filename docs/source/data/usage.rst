@@ -68,19 +68,19 @@ attribute change, or a class definition with the appropriate name, like so::
 Parameters
 ----------
 
-The parameters of the dataset are stored in the `Params` module. They are given
-as argument to the Dataset. They can be directly accessed from
+The parameters of the dataset are stored in the `ParamsManager` module. They are
+given as argument to the Dataset. They can be directly accessed from
 :attr:`.Dataset.params`, or in any module at :attr:`.Module.params`.
 
 Parameters can be stored in a simple dictionary, or using objects from the
-:doc:`/configuration/index` part of this package in a Section or in an
-Application. See the :ref:`existing parameters modules<existing_params>`.
+:doc:`/configuration/index` part of Neba in a Section or Application. See the
+:ref:`existing parameters modules<existing_params>`.
 
 .. tip::
 
     To ensure inter-operability, it is preferred to access parameters as a
     mapping (``dm.params["my_param"]``), this will work with all parameters
-    module.
+    modules.
 
 Changing parameters might affect other modules. In particular, modules using a
 cache will need to be reset when parameters are changed. Existing parameters
@@ -137,7 +137,7 @@ Source
 The Source module manages the location of data that will be read or written by
 other modules. It could be files on disk, or the address of a remote data-store.
 It allows to use :meth:`.Dataset.get_source`, though other modules will
-typically do it automatically.
+typically call it automatically when they need it.
 
 See :ref:`existing source modules<existing_source>`.
 
@@ -195,7 +195,7 @@ to 2010, and the second one the years after that.::
         Source = SourceUnion.create([Source1, Source2], select=_select_source)
 
 We can then run a method on a selected module with
-``dm.source.apply_select("get_filename", year=2015")``, we can specify the year
+``dm.source.apply_select("get_filename", year=2015)``, we can specify the year
 by hand or the year in the dataset parameters will be used.
 
 We can also call any method, the module mix will dispatch it if it exists in
@@ -206,13 +206,13 @@ More details on :ref:`module_mixes`.
 Loader
 ------
 
-The Loader deals with loading the data in memory from the location specified by
-the Source module. It allows to use :meth:`.Dataset.get_data`. Different loaders
-may use different libraries or functions. The source can always be overwritten
-using ``dm.get_data(source="my_file")``. It allows to post-process your data:
-*ie* run a function every time it is loaded. For instance say we need to change
-units on a variable, we only need to implement the
-:meth:`~.LoaderAbstract.postprocess` method::
+The Loader module deals with loading the data in memory from the location
+specified by the Source module. It allows to use :meth:`.Dataset.get_data`.
+Different loaders may use different libraries or functions. The source can
+always be overwritten using ``dm.get_data(source="my_file")``. It also allows to
+post-process your data: *ie* run a function every time it is loaded. For
+instance say we need to change units on a variable, we only need to implement
+the :meth:`~.LoaderAbstract.postprocess` method::
 
     class MyDataset(Dataset):
 
@@ -330,8 +330,8 @@ one containing the module type must be indicated in
 
 .. note::
 
-   Modules will be instanciated and setup in the order of the mapping, except
-   for the parameters module that will always be first.
+   The parameters module is instantiated first. Other modules are instantiated
+   in the order of that mapping. Modules are then setup in the same order.
 
 Dataset managers are initialized with an optional argument giving the
 parameters, and additional keyword arguments. All modules are instantiated with

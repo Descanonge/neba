@@ -5,9 +5,7 @@
 Neba documentation
 ##################
 
-..
-
-   Help manage multiple datasets and a full configuration.
+A package to manage a configuration and multiple datasets.
 
 
 .. grid:: 1 1 3 3
@@ -19,11 +17,12 @@ Neba documentation
       - strict
       - structured
       - easily documented
+
       Retrieve parameters from configuration files and
       command line arguments.
 
    .. grid-item-card:: Dataset management
-      :link: datasets
+      :link: data
       :link-alt: dataset management
 
       Definition framework to help bridge the gap between on-disk files and
@@ -32,6 +31,17 @@ Neba documentation
    .. grid-item-card:: API Reference
       :link: api
       :link-alt: API Reference
+
+Install
+=======
+
+🚧 Soon on PyPI 🚧
+
+From source::
+
+   git pull ...
+   cd neba
+   pip install -e .
 
 
 Links
@@ -46,7 +56,7 @@ Project home: https://gitlab.in2p3.fr/biofronts/data-assistant
 
    configuration/index
 
-   datasets/index
+   data/index
 
    api
 

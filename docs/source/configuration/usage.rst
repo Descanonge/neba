@@ -6,8 +6,36 @@
 Usage
 *****
 
+This page details how to use the configuration framework of Neba.
+
 Specifying parameters
 =====================
+
+To use the configuration framework, you must first define your configuration
+in Python. Here is an example of how it will look::
+
+    from neba.config import ApplicationBase, Section
+    from traitlets import Bool, Float, Int, List, Unicode
+
+
+    class App(ApplicationBase):
+
+        class computation(Section):
+            parallel = Bool(False, help="Conduct computation in parallel if true.")
+            n_cores = Int(1, help="Number of cores to use for computation.")
+
+        class physical(Section):
+            threshold = Float(2.5, help="Threshold for some computation.")
+            data_name = Unicode("SST")
+            years = List(
+                Int(),
+                default_value=[2000, 2001, 2008],
+                min_length=1,
+                help="Years to do the computation on."
+            )
+
+        >>> app = App()
+        >>> app.physical.years = [2023, 2024]
 
 Traits
 ------
@@ -15,8 +43,7 @@ Traits
 The configuration is specified through :class:`~.section.Section` classes. Each
 section contains parameters in the form of class attribute of type
 :class:`traitlets.TraitType` (for instance :class:`~traitlets.Float`,
-:class:`~traitlets.Unicode`, or :class:`~traitlets.List`), or other (nested)
-sections.
+:class:`~traitlets.Unicode`, or :class:`~traitlets.List`).
 
 .. _traits-explain:
 
@@ -43,51 +70,52 @@ sections.
      >>> c.name
      2.0
 
-   It behaves nearly like a typical float attribute. When we change the value
+   It behaves *nearly* like a normal float attribute. When we change the value
    for instance, the trait (again which is a *class attribute*) will be used
    to validate the new value, or do some more advanced things. But the value
-   is tied to the container instance ``c``.
+   remains tied to the container instance ``c``.
 
 Here are some of the basic traits types:
 
-+------------------------------+------------------------------------------------+
-| :class:`~traitlets.Int`,     |                                                |
-| :class:`~traitlets.Float`,   |                                                |
-| :class:`~traitlets.Bool`     |                                                |
-+------------------------------+------------------------------------------------+
-| :class:`~traitlets.Unicode`  | For strings. Traitlets                         |
-|                              | differentiates unicode and bytes               |
-|                              | strings.                                       |
-+------------------------------+------------------------------------------------+
-| :class:`~traitlets.List`,    | Containers *can* check the                     |
-| :class:`~traitlets.Set`,     | element type: ``List(Float())``                |
-+------------------------------+------------------------------------------------+
-| :class:`~traitlets.Tuple`    | To check type, Tuple *must*                    |
-|                              | specify every element:                         |
-|                              | ``Tuple(Int(), Unicode())``                    |
-+------------------------------+------------------------------------------------+
-| :class:`~traitlets.Dict`     | Dict can specify both key and                  |
-|                              | values:                                        |
-|                              | ``Dict(key_trait=Unicode(),value_trait=Int())``|
-+------------------------------+------------------------------------------------+
-| :class:`~traitlets.Enum`     | Must be one of the specified values:           |
-|                              | ``Enum(["a", "b"], default_value="a")``        |
-+------------------------------+------------------------------------------------+
-| :class:`~traitlets.Union`    | Multiple types are permitted. Will try to      |
-|                              | convert in the order they are specified. For   |
-|                              | instance, always use this order:               |
-|                              | ``Union([Float(), Int()]``, otherwise floats   |
-|                              | will be truncated.                             |
-+------------------------------+------------------------------------------------+
-| :class:`~traitlets.Type`     | ``Type(klass=MyClass)`` will allow subclasses  |
-|                              | of MyClass. In your configuration files you can|
-|                              | use an import string ("my_module.MyClass").    |
-+------------------------------+------------------------------------------------+
-| :class:`~traitlets.Instance` | This is currently unsupported.                 |
-+------------------------------+------------------------------------------------+
++------------------------------+--------------------------------------------------+
+| :class:`~traitlets.Int`,     |                                                  |
+| :class:`~traitlets.Float`,   |                                                  |
+| :class:`~traitlets.Bool`     |                                                  |
++------------------------------+--------------------------------------------------+
+| :class:`~traitlets.Unicode`  | For strings (Traitlets                           |
+|                              | differentiates unicode and bytes                 |
+|                              | strings).                                        |
++------------------------------+--------------------------------------------------+
+| :class:`~traitlets.List`,    | Containers *can* check the                       |
+| :class:`~traitlets.Set`,     | element type: ``List(Float())``, or not:         |
+|                              | ``List()``.                                      |
++------------------------------+--------------------------------------------------+
+| :class:`~traitlets.Tuple`    | Tuples are fixed length. To check the types of   |
+|                              | its elements, you *must* specify every element:  |
+|                              | ``Tuple(Int(), Unicode())``                      |
++------------------------------+--------------------------------------------------+
+| :class:`~traitlets.Dict`     | Dict can specify either keys and values:         |
+|                              | ``Dict(key_trait=Unicode(), value_trait=Int())`` |
++------------------------------+--------------------------------------------------+
+| :class:`~traitlets.Enum`     | Must be one of the specified values:             |
+|                              | ``Enum(["a", "b"], default_value="a")``          |
++------------------------------+--------------------------------------------------+
+| :class:`~traitlets.Union`    | Multiple types are permitted. Will try to        |
+|                              | convert values in the order types are specified  |
+|                              | until it succeds.                                |
+|                              | For instance, prefer this order:                 |
+|                              | ``Union([Int(), Float()]``, otherwise integers   |
+|                              | will always be converted to floats.              |
++------------------------------+--------------------------------------------------+
+| :class:`~traitlets.Type`     | ``Type(klass=MyClass)`` will allow subclasses    |
+|                              | of MyClass. In your configuration files you can  |
+|                              | use an import string ("my_module.MyClass").      |
++------------------------------+--------------------------------------------------+
+| :class:`~traitlets.Instance` | This is currently unsupported.                   |
++------------------------------+--------------------------------------------------+
 
-The packages provides two new of types traits. :class:`.RangeTrait` is a list of
-integers or floats that can be parsed from a slice specification in the form
+Neba provides two new of types traits. :class:`.RangeTrait` is a list of
+integers or floats that can be parsed from a slice specification of the form
 ``start:stop[:step]``. 'stop' is **inclusive**. It can still take in lists of
 values normally (``--year 2002 2005 2006``).
 
@@ -95,6 +123,9 @@ values normally (``--year 2002 2005 2006``).
   ``[2002, 2003, 2004]``
 * With ``coef = RangeTrait(Float())``, ``--coef=0:1:0.5`` will be parsed as
   ``[0.0, 0.5, 1.0]``.
+
+To get a descending list, change the order of start and stop:
+``--year=2008:2002:4`` will be parsed as ``[2008, 2004]``.
 
 :class:`.FixableTrait` is meant to work with `filefinder
 <https://filefinder.readthedocs.io/>`__, for parameters defined in filename
@@ -104,7 +135,7 @@ patterns. It can take
 * a string that will be interpreted as a range of values if the trait type
   allows it (Int or Float)
 * a string that will be interpreted as a regular expression (this is disabled by
-  default as it can be dangerous: any value from command line that cannot be
+  default as it can be dangerous: any value from the command line that cannot be
   parsed would still be allowed).
 * a list of values
 
@@ -116,8 +147,8 @@ A section can contain other sub-sections, allowing a tree-like, nested
 configuration. It can be done by in two ways:
 
 * Subsections can be defined directly inside another section class definition.
-  The name of such a nested class will be used for the corresponding subsection
-  attribute. The class definition will be renamed and moved under the attribute
+  The name of the nested class will be used to access the subsection and its
+  traits. The class definition will be renamed and moved under the attribute
   ``_{name}SectionDef``. For example::
 
     class MyConfig(Section):
@@ -150,20 +181,27 @@ configuration. It can be done by in two ways:
     from neba.config import Subsection
 
     class ChildSection(Section):
-        param_b = Int(1)
+        b = Int(2)
 
     class ParentSection(Section):
-        param_a = Int(1)
+        a = Int(1)
 
         child = Subsection(ChildSection)
 
-  In the example above we have two parameters available at ``param_a`` and
-  ``child.param_b``.
+    >>> sec = ParentSection()
+    >>> sec.a
+    1
+    >>> sec.child.b
+    2
 
-.. important::
+.. Note::
 
-   Like traits, Subsections are also descriptors: accessing
-   ``ParentSection().child`` returns a ``ChildSection`` instance.
+   Like traits, Subsections are also descriptors: accessing from an instance
+   will give the subsection instance (``sec.child`` is a ChildSection instance),
+   and accessing from a class will give a :class:`.Subsection` object which
+   contains information about the subsection type (``ParentSection.child.klass
+   is ChildSection``).
+
 
 
 Aliases
@@ -183,31 +221,6 @@ The principal section, at the root of the configuration tree, is the
 :class:`~.Section`, it can hold directly all your parameters and nested
 subsections. It will also be responsible for gathering the parameters from
 configuration files and the command line, and more.
-
-Here is a simple example::
-
-     from neba.config import ApplicationBase, Section
-     from traitlets import Bool, Float, Int, List, Unicode
-
-
-     class App(ApplicationBase):
-
-        class computation(Section):
-            parallel = Bool(False, help="Conduct computation in parallel if true.")
-            n_cores = Int(1, help="Number of cores to use for computation.")
-
-        class physical(Section):
-            threshold = Float(2.5, help="Threshold for some computation.")
-            data_name = Unicode("SST")
-            years = List(
-                Int(),
-                default_value=[2000, 2001, 2008],
-                min_length=1,
-                help="Years to do the computation on."
-            )
-
-     >>> app = App()
-     >>> app.physical.years = [2023, 2024]
 
 Starting the application
 ------------------------
@@ -254,14 +267,6 @@ accessed (or changed) just like attributes of the section that contains them.
 This allows for deeply nested access::
 
   app.some.deeply.nested.trait = 2
-
-.. note::
-
-    This benefits from the features of traitlets: type checking, value
-    validation, "on-change" callbacks, dynamic default value generation. This
-    can ensure that a configuration stays valid. Refer to the
-    :external+traitlets:doc:`traitlets documentation<using_traitlets>` for more
-    details on how to use these features.
 
 .. tip::
 
@@ -317,11 +322,19 @@ with some specific input, see the docstring for details.
    updated accordingly, but this is a possibly dangerous operation and it would
    be preferred to set traits statically.
 
+.. note::
+
+    When changing the value of a trait (with any method), traitlets will
+    validate the new value and trigger callbacks if registered. Refer to the
+    :external+traitlets:doc:`traitlets documentation<using_traitlets>` for more
+    details on how to use these features.
+
 
 Obtaining subsets of all parameters
 -----------------------------------
 
-Using :meth:`.Section.select` we can select only some of the parameters by name::
+We can select only some of the parameters by name by using
+:meth:`~.Section.select`::
 
   >>> app.select("physical.threshold", "computation.n_cores")
   {
@@ -329,16 +342,25 @@ Using :meth:`.Section.select` we can select only some of the parameters by name:
       "computation.n_cores": 1
   }
 
-Some parameters may be destined for a specific function. It is possible to
-select those by name as shown above, or one could tag the target traits during
-definition like so::
+Each trait can be tagged. This can be used to group traits together. For
+instance if we tag some traits with::
 
-  some_parameter = Bool(True).tag(for_this_function=True)
+  some_parameter = Bool(True).tag(group_a=True)
 
-These traits can then automatically be retrieved using the `metadata` argument
-of many methods such as :meth:`~.Section.keys` or :meth:`~.Section.select`.
+we can recover them all accross the configuration by using the `metadata`
+argument in many methods such as :meth:`~.Section.keys` or
+:meth:`~.Section.select` (``app.select(group_a=True)``).
+Use :func:`@tag_all_traits<.tag_all_traits>` to tag all traits of a section::
 
-:meth:`.Section.trait_values_from_func_signature` will find the parameters that
+    class App(ApplicationBase):
+
+        @tag_all_traits(group_a=True)
+        class subsection(Section):
+            a = Int(0)
+            b = Int(1).tag(group_a=False)  # will not be tagged as True
+
+If some traits are meant to be used as arguments to a specific function,
+:meth:`~.Section.trait_values_from_func_signature` will find the parameters that
 share the same name as arguments from a function signature.
 
 Input parameters
@@ -370,6 +392,17 @@ Parameters are stored in :attr:`~.ApplicationBase.file_conf`,
 Finally, the application will recursively instantiate all sections while passing
 the configuration values. Unspecified values will take the trait default value.
 All values will undergo validation from traitlets.
+
+.. important::
+
+    By default, all this process is automatic, to use your application you only
+    have to instantiate your application::
+
+        class App(ApplicationBase):
+            ...
+
+        app = App()
+        app.my_parameter  # retrieved from config files or CLI
 
 From configuration files
 ------------------------
@@ -425,9 +458,9 @@ its :attr:`~.ConfigLoader.config` attribute. This allows to generate lengthy
 configuration files, with different amounts of additional information in
 comments. The end user can simply use :meth:`.ApplicationBase.write_config`
 which automatically deals with an existing configuration file that may need to
-be updated, while keeping its current values (or not).
+be updated, keeping its current values (or not).
 
-This package supports and recommends `TOML <https://toml.io>`__ configuration
+Neba supports and **recommends** `TOML <https://toml.io>`__ configuration
 files. It is both easily readable and unambiguous. Despite allowing nested
 configuration, it can be written without indentation, allowing to add long
 comments for each parameters. The :external+python:mod:`tomllib` builtin module
@@ -435,10 +468,10 @@ does not support writing, so we use (for both reading and writing) one of the
 recommended replacement: `tomlkit <https://pypi.org/project/tomlkit>`__.
 
 The package also support python scripts as configuration files, similarly to how
-traitlets is doing it. To load a configuration file, the file loader
-:class:`.PyLoader` creates a :class:`.PyConfigContainer` object. That object
-will be bound to the ``c`` variable in the script/configuration file. It allows
-arbitrarily nested attribute setting so that the following syntax is valid::
+traitlets is doing it. To load a configuration file, the file loader creates a
+:class:`.PyConfigContainer` object. That object will be bound to the ``c``
+variable in the script/configuration file. It allows setting nested attribute so
+that the following syntax is valid::
 
     c.section.subsection.parameter = 5
 
@@ -451,7 +484,7 @@ arbitrarily nested attribute setting so that the following syntax is valid::
     Of course running arbitrary code dynamically is a security liability, do not
     load parameters from a python script unless you trust it.
 
-The loader do not support the traitlets feature of configuration file
+The loader does not support the traitlets feature of configuration file
 inheritance via (in the config file) ``load_subconfig("some_other_script.py")``.
 This would be doable, but for the moment we recommend instead that you specify
 multiple configuration files in :attr:`.ApplicationBase.config_files`,
@@ -514,7 +547,7 @@ to be used::
 
     --physical.years 2015 --physical.years 2016 ...
 
-This will raise an error since duplicate are forbidden to avoid possible
+This will raise an error since duplicates are forbidden to avoid possible
 mistakes in user input.
 
 Extra parameters
@@ -527,8 +560,8 @@ single script for instance. If in our script we write::
 
     App.add_extra_parameters(threshold=Float(5.0))
 
-we can then pass a parameter by command line at ``--extra.threshold`` and
-retrieve it with ``app.extra.threshold``.
+we can then pass a parameter from the command line with ``--extra.threshold``
+and retrieve it with ``app.extra.threshold``.
 
 Autocompletion
 ++++++++++++++
