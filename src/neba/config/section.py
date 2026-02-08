@@ -1123,40 +1123,5 @@ class Section(HasTraits):
 
         return params
 
-    def import_types(
-        self, allow_error: bool = True, recursive: bool = True, **metadata
-    ) -> None:
-        """Transform Type traits with string value into a type object.
-
-        Only works for simple Type traits and if in Unions.
-        """
-        metadata.setdefault("config", True)
-        traits = (
-            self.traits_recursive(**metadata) if recursive else self.traits(**metadata)
-        )
-        for key, trait in traits.items():
-            value = self[key]
-            if isinstance(value, str) and (
-                isinstance(trait, Type)
-                or (
-                    isinstance(trait, Union)
-                    and any(isinstance(t, Type) for t in trait.trait_types)
-                )
-            ):
-                # we allow to keep value as string if trait is Union(Type, Unicode, ...)
-                allow_error = (
-                    allow_error
-                    and isinstance(trait, Union)
-                    and any(isinstance(t, Unicode) for t in trait.trait_types)
-                )
-                try:
-                    cls = import_item(value)
-                except ImportError as e:
-                    log.warning("Could not import '%s' for trait '%s'", value, key)
-                    if not allow_error:
-                        raise e
-                else:
-                    self[key] = cls
-
 
 abc.MutableMapping[str, t.Any].register(Section)
