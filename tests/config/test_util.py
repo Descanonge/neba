@@ -2,7 +2,8 @@
 
 from traitlets import Dict, Enum, Instance, Int, List, Tuple, Type, Unicode, Union
 
-from neba.config.util import get_trait_typehint
+from neba.config.section import Section
+from neba.config.util import get_trait_typehint, tag_all_traits
 
 
 class TestTypehint:
@@ -185,3 +186,13 @@ class TestTypehint:
         self.valid(
             trait, "Dict[Unicode, List[Int | Tuple[Int, Unicode]]]", mode="minimal"
         )
+
+
+def test_tag_all_traits():
+    @tag_all_traits(test_tag=True)
+    class MySection(Section):
+        a = Int()
+        b = Int()
+        c = Int().tag(test_tag=False)
+
+    assert MySection().trait_names(test_tag=True) == ["a", "b"]

@@ -36,6 +36,9 @@ class TestRangeTrait:
         assert t.from_string("0:3:2") == [0, 2]
         assert t.from_string("3:0:2") == [3, 1]
 
+        with pytest.raises(ValueError):
+            t.from_string("1.5:3")
+
         t = RangeTrait(Float())
         assert t.from_string("1:2:0.5") == [1.0, 1.5, 2.0]
         assert t.from_string("2:1:0.5") == [2.0, 1.5, 1.0]
@@ -50,6 +53,15 @@ class TestRangeTrait:
             t.from_string("0:a:1")
         with pytest.raises(ValueError):
             t.from_string("0:2:0")
+
+    def test_multiple_parsing(self):
+        t = RangeTrait(Int())
+        assert t.from_string_list(["1:3", "7:5"]) == [1, 2, 3, 7, 6, 5]
+
+        with pytest.raises(ValueError):
+            t.from_string_list(["1:3", "7:5:0"])
+        with pytest.raises(ValueError):
+            t.from_string_list(["1:3", "1.5:3"])
 
     @given(
         start=st.integers(min_value=-20_000, max_value=20_000),

@@ -6,7 +6,7 @@ from collections import abc
 import hypothesis.strategies as st
 import pytest
 from hypothesis import given, settings
-from traitlets import Bool, Int
+from traitlets import Bool, Int, Unicode
 
 from neba.config import Section, Subsection
 from neba.config.util import UnknownConfigKeyError
@@ -32,6 +32,21 @@ class SectionTest:
     @pytest.fixture
     def section(self, info) -> GenericConfig:
         return info.section()
+
+
+class SimpleSection(Section):
+    aliases = {"deep": "sub.sub2"}
+
+    a = Unicode("a").tag(test_meta=True)
+    b = Unicode("b")
+
+    class sub(Section):
+        c = Unicode("c").tag(test_meta=True)
+        d = Unicode("d")
+
+        class sub2(Section):
+            e = Unicode("e").tag(test_meta=True)
+            f = Unicode("f")
 
 
 class TestDefinition(SectionTest):
@@ -63,10 +78,19 @@ class TestDefinition(SectionTest):
         cls_b = S._bSectionDef
         cls_c = S._bSectionDef._cSectionDef
 
-        assert issubclass(S._subsections["a"], cls_a)
-        assert issubclass(S._subsections["b"], cls_b)
-        assert issubclass(S._subsections["b"]._subsections["c"], cls_c)
-        assert issubclass(S._subsections["normal"], NormalSubsection)
+        assert S._subsections["a"] is cls_a
+        assert S._subsections["b"] is cls_b
+        assert S._subsections["b"]._subsections["c"] is cls_c
+        assert S._subsections["normal"] is NormalSubsection
+        # check descriptors
+        assert S.a.klass is cls_a
+        assert S.b.klass is cls_b
+        assert S.b.klass.c.klass is cls_c
+        assert S.normal.klass is NormalSubsection
+
+        assert S._subsections_descr["a"].klass is cls_a
+        assert S._subsections_descr["b"].klass is cls_b
+        assert S.b.klass._subsections_descr["c"].klass is cls_c
 
         inst = S()
         assert isinstance(inst.a, cls_a)
@@ -166,31 +190,34 @@ class TestDefinition(SectionTest):
     def test_iter_subsections(
         self, info: type[GenericConfigInfo], section: GenericConfig
     ):
-        ref_list = [
-            GenericConfig,  # self
-            GenericSection,  # sub_generic
-            TwinSubsection,  # twin_a
-            TwinSubsection,  # twin_b
-            Section,  # sub_twin
-            TwinSubsection,  # twin_c,
-            Section,  # deep_sub,
-            GenericSection,  # sub_generic_deep
-            Section,  # empty_a
-            Section,  # empty_b
-            Section,  # empty_c
+        """Test iterating on subsections.
+
+        Also test Subsection descriptors access.
+        """
+        section.add_trait("new_empty.new_trait", Int(0))
+        cls = type(section)
+        ref_list: list[type[Section]] = [
+            GenericConfig,
+            GenericSection,
+            TwinSubsection,
+            TwinSubsection,
+            cls.sub_twin.klass,
+            cls.sub_twin.klass.twin_c.klass,
+            cls.deep_sub.klass,
+            GenericSection,
+            cls.empty_a.klass,
+            cls.empty_b.klass,
+            cls.empty_b.klass.empty_c.klass,
+            section._subsections_descr["new_empty"].klass,
         ]
-        assert all(
-            isinstance(inst, ref)
-            for inst, ref in zip(
-                section._subsections_recursive(), ref_list, strict=True
-            )
-        )
-        assert all(
-            issubclass(cls, ref)
-            for cls, ref in zip(
-                section._class_subsections_recursive(), ref_list, strict=True
-            )
-        )
+        for sub_inst, inst_ref in zip(
+            section._subsections_recursive(), ref_list, strict=True
+        ):
+            assert isinstance(sub_inst, inst_ref)
+        for sub_cls, cls_ref in zip(
+            section._class_subsections_recursive(), ref_list, strict=True
+        ):
+            assert sub_cls is cls_ref
 
 
 class TestInstantiation(SectionTest):
@@ -353,7 +380,7 @@ class TestMappingInterface(SectionTest):
         assert section_a != section_b
 
         # other is not a section
-        assert section_a != None
+        assert section_a is not None
         assert section_a != {}
 
         # test other has not same keys
@@ -471,6 +498,50 @@ class TestMutableMappingInterface(SectionTest):
             with pytest.raises(KeyError):
                 section[key] = 0
 
+    def test_add_trait(self, section: GenericConfig):
+        # simple
+        section.add_trait("new_trait", Int(1))
+        assert "new_trait" in section
+        assert "new_trait" in section.trait_names()
+        assert isinstance(section.traits()["new_trait"], Int)
+        assert section["new_trait"] == 1
+        section["new_trait"] = 3
+        assert section.new_trait == 3  # type: ignore[attr-defined]
+        assert section["new_trait"] == 3
+
+        # already in use
+        with pytest.raises(KeyError):
+            section.add_trait("dict_any", Int(1))
+
+        # recursive (not adding sections)
+        section.add_trait("deep_sub.new_trait", Int(2))
+        assert "deep_sub.new_trait" in section
+
+        section.add_trait("deep_sub.sub_generic_deep.new_trait", Int(10))
+        assert "deep_sub.sub_generic_deep.new_trait" in section
+        assert "new_trait" in section.deep_sub.sub_generic_deep.trait_names()
+        assert isinstance(section.deep_sub.sub_generic_deep.traits()["new_trait"], Int)
+        assert section["deep_sub.sub_generic_deep.new_trait"] == 10
+        section["deep_sub.sub_generic_deep.new_trait"] = 3
+        assert section.deep_sub.sub_generic_deep.new_trait == 3  # type: ignore[attr-defined]
+        assert section["deep_sub.sub_generic_deep.new_trait"] == 3
+
+        # recursive (adding)
+        section.add_trait("new_section1.new_section2.new_trait", Int(20))
+        assert "new_section1.new_section2.new_trait" in section
+        assert "new_trait" in section.new_section1.new_section2.trait_names()  # type: ignore[attr-defined]
+        assert isinstance(section.new_section1.new_section2.traits()["new_trait"], Int)  # type: ignore[attr-defined]
+        assert section["new_section1.new_section2.new_trait"] == 20
+        section["new_section1.new_section2.new_trait"] = 3
+        assert section.new_section1.new_section2.new_trait == 3  # type: ignore[attr-defined]
+        assert section["new_section1.new_section2.new_trait"] == 3
+
+        # recursive (not allowed)
+        with pytest.raises(KeyError):
+            section.add_trait(
+                "new_section3.new_section4.new_trait", Int(1), allow_recursive=False
+            )
+
     def test_setdefault(self, section: GenericConfig):
         # set with trait existing
         assert section.setdefault("int") == 0
@@ -518,6 +589,13 @@ class TestMutableMappingInterface(SectionTest):
         section.twin_a.list_int.append(1)
         assert section.twin_b.list_int == [0]
 
+        # adding traits
+        section.twin_a.add_trait("new_trait", Int(0))
+        assert not hasattr(section.twin_b, "new_trait")
+        assert "new_trait" not in section.twin_b.traits_recursive()
+        assert "twin_b.new_trait" not in type(section).traits_recursive()
+        assert "new_trait" not in type(section).twin_b.klass.class_traits()
+
     def test_twin_recursive(self, section: GenericConfig):
         """Two sections at different nesting level are from the same class."""
         # non-mutable trait
@@ -532,49 +610,12 @@ class TestMutableMappingInterface(SectionTest):
         section.twin_a.list_int.append(1)
         assert section.sub_twin.twin_c.list_int == [0]
 
-    def test_add_trait(self, section: GenericConfig):
-        # simple
-        section.add_trait("new_trait", Int(1))
-        assert "new_trait" in section
-        assert "new_trait" in section.trait_names()
-        assert isinstance(section.traits()["new_trait"], Int)
-        assert section["new_trait"] == 1
-        section["new_trait"] = 3
-        assert section.new_trait == 3  # type: ignore[attr-defined]
-        assert section["new_trait"] == 3
-
-        # already in use
-        with pytest.raises(KeyError):
-            section.add_trait("dict_any", Int(1))
-
-        # recursive (not adding sections)
-        section.add_trait("deep_sub.new_trait", Int(2))
-        assert "deep_sub.new_trait" in section
-
-        section.add_trait("deep_sub.sub_generic_deep.new_trait", Int(10))
-        assert "deep_sub.sub_generic_deep.new_trait" in section
-        assert "new_trait" in section.deep_sub.sub_generic_deep.trait_names()
-        assert isinstance(section.deep_sub.sub_generic_deep.traits()["new_trait"], Int)
-        assert section["deep_sub.sub_generic_deep.new_trait"] == 10
-        section["deep_sub.sub_generic_deep.new_trait"] = 3
-        assert section.deep_sub.sub_generic_deep.new_trait == 3  # type: ignore[attr-defined]
-        assert section["deep_sub.sub_generic_deep.new_trait"] == 3
-
-        # recursive (adding)
-        section.add_trait("new_section1.new_section2.new_trait", Int(20))
-        assert "new_section1.new_section2.new_trait" in section
-        assert "new_trait" in section.new_section1.new_section2.trait_names()  # type: ignore[attr-defined]
-        assert isinstance(section.new_section1.new_section2.traits()["new_trait"], Int)  # type: ignore[attr-defined]
-        assert section["new_section1.new_section2.new_trait"] == 20
-        section["new_section1.new_section2.new_trait"] = 3
-        assert section.new_section1.new_section2.new_trait == 3  # type: ignore[attr-defined]
-        assert section["new_section1.new_section2.new_trait"] == 3
-
-        # recursive (not allowed)
-        with pytest.raises(KeyError):
-            section.add_trait(
-                "new_section3.new_section4.new_trait", Int(1), allow_recursive=False
-            )
+        # adding traits
+        section.add_trait("sub_twin.twin_c.new_trait", Int(0))
+        assert not hasattr(section.twin_a, "new_trait")
+        assert "new_trait" not in section.twin_a.traits_recursive()
+        assert "twin_a.new_trait" not in type(section).traits_recursive()
+        assert "new_trait" not in type(section).twin_a.klass.class_traits()
 
     @given(values=GenericConfigInfo.values_strat())
     def test_update_base(self, values: dict):
@@ -697,10 +738,7 @@ class TestDidYouMean(SectionTest):
 
 
 class TestTraitListing(SectionTest):
-    """Test the trait listing abilities that use remap.
-
-    To filter out some traits, select some, list all recursively, etc.
-    """
+    """Test the trait listing abilities."""
 
     def test_dir(self, info: type[GenericConfigInfo], section: GenericConfig):
         section._attr_completion_only_traits = True
@@ -716,21 +754,6 @@ class TestTraitListing(SectionTest):
         section = GenericConfig()
         out = section.select(*keys)
         assert keys == list(out.keys())
-
-    def test_own_traits(self):
-        class ChildSection(GenericSection):
-            a = Int(0)
-
-            class sub(Section):
-                b = Int(0)
-
-        names = [
-            k
-            for k, _ in ChildSection._iter_traits(
-                subsections=True, own_traits=True, config=True
-            )
-        ]
-        assert names == ["a", "sub", "sub.b"]
 
     def test_metadata_select(self):
         class MetaSection(Section):
@@ -760,12 +783,131 @@ class TestTraitListing(SectionTest):
         keys = list(sec.traits_recursive(config=True, tagged=None).keys())
         assert keys == ["normal", "sub.normal"]
 
-    def test_default_recursive(
+    def test_iter_traits(self):
+        traits = dict(SimpleSection._iter_traits(subsections=True, aliases=True))
+        for key in [
+            "a",
+            "b",
+            "sub.c",
+            "sub.d",
+            "sub.sub2.e",
+            "sub.sub2.f",
+            "deep.e",
+            "deep.f",
+        ]:
+            assert isinstance(traits[key], Unicode)
+            assert traits[key].default_value == key.rsplit(".", 1)[-1]
+        for key in ["sub", "sub.sub2", "deep"]:
+            assert issubclass(traits[key], Section)
+
+        assert "deep.e" not in dict(SimpleSection._iter_traits(aliases=False))
+
+    def test_own_traits(self):
+        class ChildSection(GenericSection):
+            a = Int(0)
+
+            class sub(Section):
+                b = Int(0)
+
+        names = [
+            k
+            for k, _ in ChildSection._iter_traits(
+                subsections=True, own_traits=True, config=True
+            )
+        ]
+        assert names == ["a", "sub", "sub.b"]
+
+    def test_traits_recursive_simple(self):
+        traits = SimpleSection.traits_recursive(recursive=False)
+        assert list(traits.keys()) == ["a", "b"]
+        traits = SimpleSection._subsections["sub"].traits_recursive(recursive=False)
+        assert list(traits.keys()) == ["c", "d"]
+
+        traits = SimpleSection.traits_recursive()
+        assert list(traits.keys()) == [
+            "a",
+            "b",
+            "sub.c",
+            "sub.d",
+            "sub.sub2.e",
+            "sub.sub2.f",
+        ]
+        for key, trait in traits.items():
+            assert trait.default_value == key.rsplit(".", 1)[-1]
+
+        traits = SimpleSection.traits_recursive(aliases=True)
+        keys = [
+            "a",
+            "b",
+            "sub.c",
+            "sub.d",
+            "sub.sub2.e",
+            "sub.sub2.f",
+            "deep.e",
+            "deep.f",
+        ]
+        assert list(traits.keys()) == keys
+        for key, trait in traits.items():
+            assert trait.default_value == key.rsplit(".", 1)[-1]
+
+        traits = SimpleSection.traits_recursive(nest=True)
+        assert list(traits.keys()) == ["a", "b", "sub"]
+
+        traits = SimpleSection.traits_recursive(nest=True, aliases=True)
+        assert list(traits.keys()) == ["a", "b", "sub", "deep"]
+        assert list(traits["sub"].keys()) == ["c", "d", "sub2"]
+        assert list(traits["sub"]["sub2"].keys()) == ["e", "f"]
+        assert list(traits["deep"].keys()) == ["e", "f"]
+        assert traits["a"].default_value == "a"
+        assert traits["sub"]["sub2"]["e"].default_value == "e"
+        assert traits["deep"]["f"].default_value == "f"
+
+    def test_defaults_recursive(
         self, info: type[GenericConfigInfo], section: GenericConfig
     ):
         assert list(section.defaults_recursive().keys()) == info.keys()
         for k, v in section.defaults_recursive().items():
             assert info.default(k) == v
+
+        assert SimpleSection.defaults_recursive() == {
+            "a": "a",
+            "b": "b",
+            "sub.c": "c",
+            "sub.d": "d",
+            "sub.sub2.e": "e",
+            "sub.sub2.f": "f",
+        }
+
+        assert SimpleSection.defaults_recursive(aliases=True) == {
+            "a": "a",
+            "b": "b",
+            "sub.c": "c",
+            "sub.d": "d",
+            "sub.sub2.e": "e",
+            "sub.sub2.f": "f",
+            "deep.e": "e",
+            "deep.f": "f",
+        }
+
+        assert SimpleSection.defaults_recursive(nest=True) == {
+            "a": "a",
+            "b": "b",
+            "sub": {
+                "c": "c",
+                "d": "d",
+                "sub2": {"e": "e", "f": "f"},
+            },
+        }
+        assert SimpleSection.defaults_recursive(nest=True, aliases=True) == {
+            "a": "a",
+            "b": "b",
+            "sub": {
+                "c": "c",
+                "d": "d",
+                "sub2": {"e": "e", "f": "f"},
+            },
+            "deep": {"e": "e", "f": "f"},
+        }
 
     def test_value_from_func_signature(self, section: GenericConfig):
         def func(list_int, enum_int, tuple_float, other_a, other_b):

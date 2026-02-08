@@ -1,10 +1,19 @@
 """Test source modules."""
 
+from pathlib import Path
+
+import pandas as pd
 import pytest
 
 from neba.data.dataset import Dataset
 from neba.data.params import ParamsManagerDict
-from neba.data.source import SimpleSource, SourceIntersection, SourceUnion
+from neba.data.source import (
+    FileFinderSource,
+    GlobSource,
+    SimpleSource,
+    SourceIntersection,
+    SourceUnion,
+)
 
 
 def get_simple_source(name, files: list[str]):
@@ -89,5 +98,96 @@ class TestModuleMix:
         assert dm.source.get_filename() == "file_b_1"
 
 
-# TODO: filefinder
-# test some of the properties, like unfixed?
+def setup_multiple_files(tmpdir, var: str = "A") -> list[str]:
+    """Create empty files in tmpdir.
+
+    Pattern is <year>/<var>_<year><month><day>_<param>.nc
+    """
+    dates = pd.date_range(start="20100101", end="20121231", freq="1MS")
+    params = [1, 2, 3]
+
+    filenames = []
+    for date in dates:
+        for param in params:
+            filename = (
+                f"{date.year:04d}/"
+                f"{var}_{date.year:04d}{date.month:02d}{date.day:02d}"
+                f"_{param:02d}.nc"
+            )
+            new_file = Path(tmpdir) / filename
+            if not new_file.parent.exists():
+                new_file.parent.mkdir(parents=True, exist_ok=True)
+            new_file.touch()
+            filenames.append(str(new_file))
+
+    return filenames
+
+
+class TestGlob:
+    def test_get_source(self, tmpdir):
+        class MyDataset(Dataset):
+            ParamsManager = ParamsManagerDict
+
+            class Source(GlobSource):
+                def get_root_directory(self):
+                    return str(tmpdir)
+
+                def get_glob_pattern(self):
+                    return f"*/{self.params['var']}_*.nc"
+
+        ref_filenames = setup_multiple_files(tmpdir, var="A")
+
+        dm = MyDataset(var="A")
+        assert dm.get_source() == ref_filenames
+
+        # check files cached
+        assert dm.source.cache["datafiles"] == ref_filenames
+
+        # check void cache
+        dm.params["var"] = "B"
+        assert "datafiles" not in dm.source.cache
+        assert len(dm.get_source()) == 0
+
+
+class TestFileFinder:
+    def setup_dataset(self, tmpdir) -> type[Dataset]:
+        class MyDataset(Dataset):
+            ParamsManager = ParamsManagerDict
+
+            class Source(FileFinderSource):
+                def get_root_directory(self):
+                    return str(tmpdir)
+
+                def get_filename_pattern(self):
+                    return f"%(Y)/{self.params['var']}_%(Y)%(m)%(d)_%(param:fmt=02d).nc"
+
+        return MyDataset
+
+    def test_get_source(self, tmpdir):
+        ref_filenames = setup_multiple_files(tmpdir, var="A")
+
+        dm = self.setup_dataset(tmpdir)(var="A")
+        assert dm.get_source() == ref_filenames
+
+        # check files cached
+        assert dm.source.cache["datafiles"] == ref_filenames
+
+        # check void cache
+        dm.params["var"] = "B"
+        assert "datafiles" not in dm.source.cache
+        assert len(dm.get_source()) == 0
+
+    def test_fixes(self, tmpdir):
+        ref_filenames = setup_multiple_files(tmpdir, var="A")
+
+        dm = self.setup_dataset(tmpdir)(var="A", Y="2010")
+
+        assert dm.get_source() == ref_filenames[:36]
+        assert dm.source.fixable == {"Y", "m", "d", "param"}
+        assert dm.source.unfixed == ["m", "d", "param"]
+
+        dm.params["d"] = 1
+        dm.params["m"] = [1, 2]
+
+        assert dm.source.unfixed == ["m", "param"]
+        assert dm.get_source() == ref_filenames[:6]
