@@ -55,10 +55,10 @@ docs = [
     'tomlkit',
     'ruamel.yaml>=0.18',
     'filefinder>=1.2',
-    'sphinx',
-    'sphinx-book-theme',
-    'sphinx-design',
-    'sphinx-copybutton',
+    'sphinx==9.1.*',
+    'sphinx-book-theme==1.1.*',
+    'sphinx-design==0.7.*',
+    'sphinx-copybutton==0.5.*',
 ]
 
 
