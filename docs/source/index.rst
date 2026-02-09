@@ -47,7 +47,7 @@ From source::
 Links
 =====
 
-Project home: https://gitlab.in2p3.fr/biofronts/data-assistant
+Project home: https://github.com/Descanonge/neba
 
 
 .. toctree::

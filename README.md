@@ -17,7 +17,7 @@ The configuration framework is:
 The parameters values can be retrieved from configuration files (TOML, YAML, Python files, JSON), and from the command line.
 
 The framework is based on the existing [traitlets](https://traitlets.readthedocs.io/) library. It allows type-checking, arbitrary value validation and "on-change" callbacks.
-This package extends it to allow nesting and shifts to a more centralized configuration. The objects containing parameters are significantly extended to ease manipulation, and mimic dictionaries.
+This package extends it to allow nesting. The objects containing parameters are significantly extended to ease manipulation.
 
 Here is a simple example project:
 ``` python
@@ -93,24 +93,25 @@ Most modules will use methods like this to take advantage of the parameters cont
 
 ## Documentation
 
-https://biofronts.pages.in2p3.fr/data-assistant
+...
 
 ## Requirements
 
 - Python >= 3.11
-- traitlets >= 5.13
+- [traitlets](https://pypi.org/project/traitlets/) >= 5.13
+- [Levenshtein](https://pypi.org/project/Levenshtein/) >= 0.27
 
 ## Installation
 
-PyPI: someday...🚧 
+🚧 Soon on PyPI 🚧
 
 From source:
 ``` shell
-git clone https://gitlab.in2p3.fr/biofronts/data-assistant
-cd data-assistant
+git clone https://github.com/Descanonge/neba
+cd neba
 pip install -e .
 ```
 or
 ``` shell
-pip install -e https://gitlab.in2p3.fr/biofronts/data-assistant.git#egg=data-assistant
+pip install -e https://github.com/Descanonge/neba.git#egg=neba
 ```

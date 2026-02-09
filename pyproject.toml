@@ -63,7 +63,7 @@ docs = [
 
 
 [project.urls]
-'Homepage' = 'https://gitlab.in2p3.fr/biofronts/data-assistant'
+'Source' = 'https://github.com/Descanonge/neba'
 
 [tool.setuptools_scm]
 

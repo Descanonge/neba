@@ -109,8 +109,8 @@ html_theme_options = dict(
     icon_links=[
         dict(
             name="Repository",
-            url="https://gitlab.in2p3.fr/biofronts/data-assistant",
-            icon="fa-brands fa-square-gitlab",
+            url="https://github.com/Descanonge/neba",
+            icon="fa-brands fa-square-github",
         ),
     ],
     # Footer
@@ -118,7 +118,7 @@ html_theme_options = dict(
     footer_start=["version", "last-updated", "copyright"],
     footer_end=["sphinx-theme-version"],
     # For showing source
-    repository_url="https://gitlab.in2p3.fr/biofronts/data-assistant",
+    repository_url="https://github.com/Descanonge/neba",
     use_source_button=True,
     repository_branch="main",
     path_to_docs="docs/source",
