@@ -39,7 +39,7 @@ Install
 
 From source::
 
-   git pull ...
+   git clone https://github.com/Descanonge/neba
    cd neba
    pip install -e .
 
