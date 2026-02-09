@@ -25,8 +25,8 @@ A package to manage a configuration and multiple datasets.
       :link: data
       :link-alt: dataset management
 
-      Definition framework to help bridge the gap between on-disk files and
-      in-memory objects.
+      Bridge the gap between on-disk files and in-memory objects by declaring
+      dataset objects.
 
    .. grid-item-card:: API Reference
       :link: api
@@ -59,6 +59,13 @@ Project home: https://gitlab.in2p3.fr/biofronts/data-assistant
    data/index
 
    api
+
+About
+=====
+
+Named after one of the assessors of Maat, mentioned in the book of the dead. The
+deceased would have had to declare themselves innocent of various "sins" in
+front of 42 assessors. Neba would judge the sin of lying.
 
 Indices and tables
 ==================
