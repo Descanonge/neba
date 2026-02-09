@@ -28,15 +28,12 @@ LOADERS: list[type[ConfigLoader]]
 FILE_LOADERS: list[type[FileLoader]]
 
 
-allow_fixture = settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
-
-
-@pytest.fixture
-def App() -> type[ApplicationBase]:
+def get_App() -> type[ApplicationBase]:
     class App(ApplicationBase, GenericConfig):
         pass
 
     App.config_files.default_value = []
+
     return App
 
 
@@ -111,11 +108,10 @@ class TestDictLoader:
     """Test on python dict."""
 
     @given(values=GenericConfigInfo.values_strat_nested())
-    @allow_fixture
-    def test_flat(self, values: tuple[dict, dict], App: type[ApplicationBase]):
+    def test_flat(self, values: tuple[dict, dict]):
         values_nest, values_flat = values
 
-        app: ApplicationBase = App(argv=[], start=False)
+        app = get_App()(argv=[], start=False)
 
         loader = DictLoader(app)
         conf_cv = loader.get_config(values_nest)
@@ -124,13 +120,15 @@ class TestDictLoader:
 
 
 class TestCLILoader:
-    def test_help(self, App: type[ApplicationBase]):
+    def test_help(self):
+        App = get_App()
         with pytest.raises(SystemExit):
             App(argv=["--help"])
         with pytest.raises(SystemExit):
             App(argv=["-h"])
 
-    def test_list_parameters(self, capsys, App: type[ApplicationBase]):
+    def test_list_parameters(self, capsys):
+        App = get_App()
         with pytest.raises(SystemExit):
             App(argv=["--list-parameters"])
         captured = capsys.readouterr()
@@ -140,7 +138,7 @@ class TestCLILoader:
             assert param.split()[0].removeprefix("--") in traits
         assert len(traits) == len(listed_parameters)
 
-    def test_parsing(self, App: type[ApplicationBase]):
+    def test_parsing(self):
         args = []
         ref = {}
         for k, (arg, value) in GenericConfigInfo.generic_args().items():
@@ -150,6 +148,7 @@ class TestCLILoader:
 
         args += ["--deep_short.alias_only", "5"]
 
+        App = get_App()
         app = App(start=False)
         parsed = app.parse_command_line(args)
 
@@ -157,11 +156,13 @@ class TestCLILoader:
         assert parsed.pop("deep_sub.sub_generic_deep.alias_only") == 5
         assert ref == parsed
 
-    def test_duplicate_keys(self, App: type[ApplicationBase]):
+    def test_duplicate_keys(self):
+        App = get_App()
         with pytest.raises(MultipleConfigKeyError):
             App(argv="--sub-generic.int 1 --sub-generic.int 2".split())
 
-    def test_extra_parameters(self, App: type[ApplicationBase]):
+    def test_extra_parameters(self):
+        App = get_App()
         App.add_extra_parameters(test=Int(0))
 
         assert "extra" in App._subsections
@@ -169,7 +170,8 @@ class TestCLILoader:
         assert "extra.test" in app
         assert app["extra.test"] == 5
 
-    def test_didyoumean(self, App: type[ApplicationBase]):
+    def test_didyoumean(self):
+        App = get_App()
         with pytest.raises(UnknownConfigKeyError) as excinfo:
             App(argv="--int_ 0 --sub_generic_.int 0 --sub_generic.int_ 0".split())
         assert str(excinfo.value) == (
@@ -181,14 +183,45 @@ class TestCLILoader:
         )
 
 
+def assert_write_read(values: dict, ext: str, comments: str):
+    """Assert written configuration is read identical."""
+    App = get_App()
+    app = App(argv=[])
+    traits = app.traits_recursive()
+    defaults = app.defaults_recursive()
+
+    # Modify values and store them
+    ref = {}
+    for k, v in values.items():
+        # Instances/Types must be imported in config file, not automatic yet
+        if type(traits[k]) in [Instance]:
+            continue
+        # ignore thoses equal as default values, they will not be written
+        if v == defaults[k]:
+            continue
+
+        app[k] = v
+        ref[k] = v
+
+    with NamedTemporaryFile(suffix=ext) as conf_file:
+        filename = conf_file.name
+        app.write_config(filename, clobber="overwrite", comment=comments)
+
+        App.config_files.default_value = [filename]
+        app = App(argv=[])
+
+    for k in ref:
+        assert app[k] == values[k]
+
+
 class FileLoaderTest:
     ext: str
 
     convert_set_tuple = True
     comments = "full"
 
-    def test_reading(self, App: type[ApplicationBase]):
-        app = App(start=False)
+    def test_reading(self):
+        app = get_App()(start=False)
         app.config_files = f"./tests/config/config{self.ext}"
         conf: dict[str, Any] = app.load_config_files()
         conf = {k: v.get_value() for k, v in conf.items()}
@@ -209,67 +242,39 @@ class FileLoaderTest:
 
         assert conf == ref
 
-    @given(values=GenericConfigInfo.values_all_strat())
-    @allow_fixture
-    def test_write_and_read_all(self, values: dict, App: type[ApplicationBase]):
-        self.assert_write_read(values, App)
-
-    @given(values=GenericConfigInfo.values_half_strat())
-    @allow_fixture
-    def test_write_and_read_half(self, values: dict, App: type[ApplicationBase]):
-        self.assert_write_read(values, App)
-
-    def assert_write_read(self, values: dict, App: type[ApplicationBase]):
-        app = App(argv=[])
-        traits = app.traits_recursive()
-        defaults = app.defaults_recursive()
-
-        # Modify values and store them
-        ref = {}
-        for k, v in values.items():
-            # Instances/Types must be imported in config file, not automatic yet
-            if type(traits[k]) in [Instance]:
-                continue
-            # ignore thoses equal as default values, they will not be written
-            if v == defaults[k]:
-                continue
-
-            app[k] = v
-            ref[k] = v
-
-        with NamedTemporaryFile(suffix=self.ext) as conf_file:
-            filename = conf_file.name
-            app.write_config(filename, clobber="overwrite", comment=self.comments)
-
-            App.config_files = [filename]
-            app = App(argv=[])
-
-        for k in ref:
-            assert app[k] == values[k]
-
 
 class TestTomlLoader(FileLoaderTest):
     ext = ".toml"
 
-    def test_duplicate_keys(self, App: type[ApplicationBase]):
+    @given(values=GenericConfigInfo.values_all_strat())
+    def test_write_and_read_all(self, values: dict):
+        assert_write_read(values, self.ext, self.comments)
+
+    @given(values=GenericConfigInfo.values_half_strat())
+    def test_write_and_read_half(self, values: dict):
+        assert_write_read(values, self.ext, self.comments)
+
+    def test_duplicate_keys(self):
+        App = get_App()
         with NamedTemporaryFile(suffix=self.ext) as conf_file:
             filename = conf_file.name
             with open(filename, "w") as fp:
                 print("bool = false", file=fp)
                 print("bool = true", file=fp)
 
-            App.config_files = [filename]
+            App.config_files.default_value = [filename]
 
             with pytest.raises(ParseError):
                 App(ignore_cli=True)
 
-    def test_didyoumean(self, App: type[ApplicationBase]):
+    def test_didyoumean(self):
+        App = get_App()
         with NamedTemporaryFile(suffix=self.ext) as conf_file:
             filename = conf_file.name
             with open(filename, "w") as fp:
                 print("int_ = 0", file=fp)
 
-            App.config_files = [filename]
+            App.config_files.default_value = [filename]
 
             with pytest.raises(UnknownConfigKeyError) as excinfo:
                 App(ignore_cli=True)
@@ -299,26 +304,36 @@ class TestPythonLoader(FileLoaderTest):
 
         assert c.as_flat_dict() == ref
 
-    def test_exception(self, App: type[ApplicationBase]):
+    @given(values=GenericConfigInfo.values_all_strat())
+    def test_write_and_read_all(self, values: dict):
+        assert_write_read(values, self.ext, self.comments)
+
+    @given(values=GenericConfigInfo.values_half_strat())
+    def test_write_and_read_half(self, values: dict):
+        assert_write_read(values, self.ext, self.comments)
+
+    def test_exception(self):
         """Test when file throw exception."""
+        App = get_App()
         with NamedTemporaryFile(suffix=self.ext) as conf_file:
             filename = conf_file.name
             with open(filename, "w") as fp:
                 print("c.bool = undefined_var", file=fp)
 
-            App.config_files = [filename]
+            App.config_files.default_value = [filename]
 
             with pytest.raises(ConfigParsingError):
                 App(ignore_cli=True)
 
-    def test_duplicate_keys(self, App: type[ApplicationBase]):
+    def test_duplicate_keys(self):
+        App = get_App()
         with NamedTemporaryFile(suffix=self.ext) as conf_file:
             filename = conf_file.name
             with open(filename, "w") as fp:
                 print("c.bool = False", file=fp)
                 print("c.bool = True", file=fp)
 
-            App.config_files = [filename]
+            App.config_files.default_value = [filename]
 
             with pytest.raises(ConfigParsingError):
                 App(ignore_cli=True)
@@ -330,14 +345,23 @@ class TestYamlLoader(FileLoaderTest):
     # empty subsections. A user should be able to spot yaml mistakes.
     comments = "no-help"
 
-    def test_duplicate_keys(self, App: type[ApplicationBase]):
+    @given(values=GenericConfigInfo.values_all_strat())
+    def test_write_and_read_all(self, values: dict):
+        assert_write_read(values, self.ext, self.comments)
+
+    @given(values=GenericConfigInfo.values_half_strat())
+    def test_write_and_read_half(self, values: dict):
+        assert_write_read(values, self.ext, self.comments)
+
+    def test_duplicate_keys(self):
+        App = get_App()
         with NamedTemporaryFile(suffix=self.ext) as conf_file:
             filename = conf_file.name
             with open(filename, "w") as fp:
                 print("bool: False", file=fp)
                 print("bool: True", file=fp)
 
-            App.config_files = [filename]
+            App.config_files.default_value = [filename]
 
             with pytest.raises(DuplicateKeyError):
                 App(ignore_cli=True)
@@ -347,19 +371,28 @@ class TestJsonLoader(FileLoaderTest):
     ext = ".json"
     comments = "none"
 
-    def test_duplicate_keys(self, App: type[ApplicationBase]):
+    @given(values=GenericConfigInfo.values_all_strat())
+    def test_write_and_read_all(self, values: dict):
+        assert_write_read(values, self.ext, self.comments)
+
+    @given(values=GenericConfigInfo.values_half_strat())
+    def test_write_and_read_half(self, values: dict):
+        assert_write_read(values, self.ext, self.comments)
+
+    def test_duplicate_keys(self):
+        App = get_App()
         with NamedTemporaryFile(suffix=self.ext) as conf_file:
             filename = conf_file.name
             with open(filename, "w") as fp:
                 print('{"bool": false, "bool": true}', file=fp)
 
-            App.config_files = [filename]
+            App.config_files.default_value = [filename]
 
             with pytest.raises(MultipleConfigKeyError):
                 App(ignore_cli=True)
 
 
-def test_config_merge(App):
+def test_config_merge():
     """Test config from different sources get merged properly.
 
     Ordered (in increasing priority) as Py, Toml, CLI.
@@ -414,7 +447,8 @@ def test_config_merge(App):
             "--sub_generic.enum_mix=3",
         ]
 
-        App.config_files = [py_filename, toml_filename]
+        App = get_App()
+        App.config_files.default_value = [py_filename, toml_filename]
         app = App(argv=argv)
 
         def check_cv(key: str, value: Any, origin: str):

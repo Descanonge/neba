@@ -81,14 +81,18 @@ class SectionGenerator:
 
 def st_section_generator(max_leaves=32) -> st.SearchStrategy[SectionGenerator]:
     base = st.dictionaries(
-        keys=st_varname, values=st_trait_gen(), max_size=SectionGenerator.MAX_SIZE
+        keys=st_varname.filter(lambda x: x not in dir(Section)),
+        values=st_trait_gen(),
+        max_size=SectionGenerator.MAX_SIZE,
     )
 
     def extend(
         base: st.SearchStrategy,
     ) -> st.SearchStrategy[dict[str, TraitGenerator | t.Any]]:
         return st.dictionaries(
-            keys=st_varname, values=base, max_size=SectionGenerator.MAX_SIZE
+            keys=st_varname.filter(lambda x: x not in dir(Section)),
+            values=base,
+            max_size=SectionGenerator.MAX_SIZE,
         )
 
     @st.composite

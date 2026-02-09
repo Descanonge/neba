@@ -42,6 +42,10 @@ class SectionInfo(t.Generic[S]):
 
     It is recursive for subsections. The list of keys is cached for efficiency (we use
     hypothesis so I fear that computing it dynamically might be costly).
+
+    If the test modifies the section class (like when testing add_trait), use
+    section_subclass and section_subclass_inst that will subclass the section and all
+    its subsections. That way the original class is not modified.
     """
 
     section: type[S]
@@ -58,6 +62,24 @@ class SectionInfo(t.Generic[S]):
         cls.traits = dict(cls.traits)
         cls.subsections = dict(cls.subsections)
         cls.aliases = dict(cls.aliases)
+
+    @classmethod
+    def section_subclass(cls) -> type[S]:
+        """Return subclass of section."""
+        # we subclass all subsections
+
+        def subclass(section_cls):
+            section_subcls = type(section_cls.__name__, (section_cls,), {})
+            for name, subsection_cls in section_subcls.class_subsections().items():
+                section_subcls._subsections[name] = Subsection(subclass(subsection_cls))
+            return section_subcls
+
+        return subclass(cls.section)
+
+    @classmethod
+    def section_subclass_inst(cls, *args, **kwargs) -> S:
+        """Return instance of a subclass of section."""
+        return cls.section_subclass()(*args, **kwargs)
 
     @classmethod
     def keys(

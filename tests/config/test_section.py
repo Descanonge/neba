@@ -21,17 +21,7 @@ from tests.config.section_generation import st_section_inst
 
 log = logging.getLogger(__name__)
 
-
-class SectionTest:
-    """Make available a config and information about it."""
-
-    @pytest.fixture
-    def info(self) -> type[GenericConfigInfo]:
-        return GenericConfigInfo
-
-    @pytest.fixture
-    def section(self, info) -> GenericConfig:
-        return info.section()
+info = GenericConfigInfo
 
 
 class SimpleSection(Section):
@@ -49,7 +39,7 @@ class SimpleSection(Section):
             f = Unicode("f")
 
 
-class TestDefinition(SectionTest):
+class TestDefinition:
     """Test defining sections.
 
     Especially metaclass stuff.
@@ -137,7 +127,7 @@ class TestDefinition(SectionTest):
 
         assert list(inst.keys()) == ["dynamic.a.control"]
 
-    def test_traits_tagged(self, info: type[GenericConfigInfo], section: GenericConfig):
+    def test_traits_tagged(self):
         """Test that trait are automatically tagged configurable."""
 
         def test_tagged_section(info: type[SectionInfo], section: Section):
@@ -148,7 +138,7 @@ class TestDefinition(SectionTest):
             for name, sub_info in info.subsections.items():
                 test_tagged_section(sub_info, section[name])
 
-        test_tagged_section(info, section)
+        test_tagged_section(info, info.section())
 
     def test_traits_tag_overwrite(self):
         """Test that traits forcefully specified as not configurable are kept that way."""
@@ -171,7 +161,7 @@ class TestDefinition(SectionTest):
             "sub_generic.dict_any",
         ],
     )
-    def test_wrong_alias(self, alias, section: GenericConfig):
+    def test_wrong_alias(self, alias):
         """Make sure we detect wrong aliases."""
         with pytest.raises(KeyError):
 
@@ -183,16 +173,15 @@ class TestDefinition(SectionTest):
             class SubclassB(Section):
                 aliases = {"short.with.dots": "alias"}
 
-    def test_iter_subsections(
-        self, info: type[GenericConfigInfo], section: GenericConfig
-    ):
+    def test_iter_subsections(self):
         """Test iterating on subsections.
 
         Also test Subsection descriptors access.
         """
+        cls = info.section_subclass()
+        section = cls()
         section.add_trait("new_empty.new_trait", Int(0))
-        cls = type(section)
-        ref_list: list[type[Section]] = [
+        ref_list = [
             GenericSection,
             TwinSubsection,
             TwinSubsection,
@@ -207,15 +196,14 @@ class TestDefinition(SectionTest):
         for sub_cls, ref in zip(
             section.class_subsections().values(), ref_list, strict=True
         ):
-            assert sub_cls is ref
+            assert issubclass(sub_cls, ref)
 
-    def test_iter_subsections_recursive(
-        self, info: type[GenericConfigInfo], section: GenericConfig
-    ):
+    def test_iter_subsections_recursive(self):
+        cls = info.section_subclass()
+        section = cls()
         section.add_trait("new_empty.new_trait", Int(0))
-        cls = type(section)
-        ref_list: list[type[Section]] = [
-            GenericConfig,
+        ref_list = [
+            cls,
             GenericSection,
             TwinSubsection,
             TwinSubsection,
@@ -235,10 +223,10 @@ class TestDefinition(SectionTest):
         for sub_cls, ref in zip(
             section.class_subsections_recursive(), ref_list, strict=True
         ):
-            assert sub_cls is ref
+            assert issubclass(sub_cls, ref)
 
 
-class TestInstantiation(SectionTest):
+class TestInstantiation:
     """Test instantiation of Sections.
 
     Make sure the recursive config is passed correctly.
@@ -255,14 +243,14 @@ class TestInstantiation(SectionTest):
         cls = type("Subclass", (Section,), {})
         _ = cls()
 
-    def test_subsections(self, info: type[GenericConfigInfo], section: GenericConfig):
+    def test_subsections(self):
         def test_subsection_class(info, section):
             for name, sub_info in info.subsections.items():
                 assert issubclass(section._subsections[name].klass, sub_info.section)
                 assert isinstance(section[name], sub_info.section)
                 test_subsection_class(sub_info, section[name])
 
-        test_subsection_class(info, section)
+        test_subsection_class(info, info.section())
 
     @given(values=GenericConfigInfo.values_strat())
     def test_recursive(self, values: dict):
@@ -275,7 +263,7 @@ class TestInstantiation(SectionTest):
             else:
                 assert s[key] == info.default(key)
 
-    def test_init_kwargs(self, info: type[GenericConfigInfo]):
+    def test_init_kwargs(self):
         conf = dict(int=10, str="a")
         s = info.section(conf, int=20)
         assert s.int == 20
@@ -283,7 +271,7 @@ class TestInstantiation(SectionTest):
         # conf dict has not been modified
         assert conf == dict(int=10, str="a")
 
-    def test_wrong_extra_parameters(self, section: GenericConfig):
+    def test_wrong_extra_parameters(self):
         bad_keys = [
             "bad_trait",
             "sub_generic.bad_trait",
@@ -297,7 +285,7 @@ class TestInstantiation(SectionTest):
             with pytest.raises(KeyError):
                 Section({key: 0}, **{key: 0})  # type: ignore[arg-type]
 
-    def test_repr(self, info: type[GenericConfigInfo]):
+    def test_repr(self):
         prefixes = "\u2574\u251c\u2514\u251d\u2501\u2511\u2515\u2502 "
         section = info.section(init_subsections=False)
 
@@ -319,12 +307,13 @@ class TestInstantiation(SectionTest):
 
     @given(values=GenericConfigInfo.values_strat())
     def test_copy(self, values: dict):
-        section = GenericConfig(values)
+        section = info.section(values)
         copy = section.copy()
 
         assert section == copy
 
-    def test_copy_no_link(self, section: GenericConfig):
+    def test_copy_no_link(self):
+        section = info.section()
         copy = section.copy()
         copy.int = 2
         copy.list_int.append(1)
@@ -338,24 +327,26 @@ def bool_param(name: str):
     return pytest.mark.parametrize(name, values, ids=ids)
 
 
-class TestMappingInterface(SectionTest):
+class TestMappingInterface:
     """Test the Mapping interface of Sections."""
 
-    def test_is_mapping(self, info: type[GenericConfigInfo]):
+    def test_is_mapping(self):
         assert issubclass(Section, abc.Mapping)
         assert isinstance(Section(), abc.Mapping)
 
         assert issubclass(info.section, abc.Mapping)
         assert isinstance(info.section(), abc.Mapping)
 
-    def test_getitem(self, info: type[GenericConfigInfo], section: GenericConfig):
+    def test_getitem(self):
+        section = info.section()
         for key in info.keys(subsections=True, aliases=True):
             if key in info.keys(aliases=True):
                 assert section[key] == info.default(key)
             else:
                 assert isinstance(section[key], Section)
 
-    def test_get(self, info: type[GenericConfigInfo], section: GenericConfig):
+    def test_get(self):
+        section = info.section()
         for key in info.keys(subsections=True, aliases=True):
             if key in info.keys(aliases=True):
                 assert section.get(key) == info.default(key)
@@ -368,29 +359,33 @@ class TestMappingInterface(SectionTest):
         assert section.get("wrong_subsection.wrong_key") is None
         assert section.get("wrong_subsection.wrong_key", 2) == 2
 
-    def test_missing_keys(self, info: type[GenericConfigInfo], section: GenericConfig):
+    def test_missing_keys(self):
+        section = info.section()
         for key in ["missing_key", "missing_sub.key"]:
             assert key not in section
         with pytest.raises(KeyError):
             section[key]
 
-    def test_iter(self, info: type[GenericConfigInfo], section: GenericConfig):
+    def test_iter(self):
+        section = info.section()
         for ref, key in zip(info.keys(), section, strict=True):
             assert ref == key
 
-    def test_contains(self, info: type[GenericConfigInfo], section: GenericConfig):
+    def test_contains(self):
+        section = info.section()
         for key in info.keys(subsections=True, aliases=True):
             assert key in section
 
         assert "invalid" not in section
         assert "nested.invalid" not in section
 
-    def test_length(self, info: type[GenericConfigInfo], section: GenericConfig):
+    def test_length(self):
+        section = info.section()
         assert len(section) == len(info.keys())
 
     def test_eq_basic(self):
-        section_a = GenericConfigInfo.section()
-        section_b = GenericConfigInfo.section()
+        section_a = info.section()
+        section_b = info.section()
 
         assert section_a == section_b
 
@@ -410,8 +405,8 @@ class TestMappingInterface(SectionTest):
     @given(values=GenericConfigInfo.values_strat())
     @settings(deadline=None)
     def test_eq_values(self, values: dict):
-        section_a = GenericConfigInfo.section(values)
-        section_b = GenericConfigInfo.section()
+        section_a = info.section(values)
+        section_b = info.section()
 
         for k, v in values.items():
             section_b[k] = v
@@ -422,25 +417,21 @@ class TestMappingInterface(SectionTest):
     @bool_param("recursive")
     @bool_param("subsections")
     @bool_param("aliases")
-    def test_keys(
-        self,
-        info: type[GenericConfigInfo],
-        section: GenericConfig,
-        recursive: bool,
-        subsections: bool,
-        aliases: bool,
-    ):
+    def test_keys(self, recursive: bool, subsections: bool, aliases: bool):
+        section = info.section()
         assert info.keys(
             recursive=recursive, subsections=subsections, aliases=aliases
         ) == list(
             section.keys(recursive=recursive, subsections=subsections, aliases=aliases)
         )
 
-    def test_values(self, info: type[GenericConfigInfo], section: GenericConfig):
+    def test_values(self):
+        section = info.section()
         for k, v in zip(info.keys(), section.values(), strict=True):
             assert info.default(k) == v
 
-    def test_items(self, info: type[GenericConfigInfo], section: GenericConfig):
+    def test_items(self):
+        section = info.section()
         for ref, (k, v) in zip(info.keys(), section.items(), strict=True):
             assert ref == k
             assert info.default(k) == v
@@ -450,21 +441,21 @@ class TestMappingInterface(SectionTest):
 
     @given(values=GenericConfigInfo.values_strat())
     def test_as_dict(self, values: dict):
-        section = GenericConfig(values)
+        section = info.section(values)
 
         as_dict = section.as_dict()
-        for k in GenericConfigInfo.keys():
-            value = values[k] if k in values else GenericConfigInfo.default(k)
+        for k in info.keys():
+            value = values[k] if k in values else info.default(k)
             assert as_dict[k] == value
 
 
-class TestMutableMappingInterface(SectionTest):
+class TestMutableMappingInterface:
     """Test the mutable mapping interface of Sections.
 
     With some dictionnary functions as well.
     """
 
-    def test_is_mutable_mapping(self, info: type[GenericConfigInfo]):
+    def test_is_mutable_mapping(self):
         assert issubclass(Section, abc.MutableMapping)
         assert isinstance(Section(), abc.MutableMapping)
 
@@ -480,7 +471,6 @@ class TestMutableMappingInterface(SectionTest):
         changed, to make sure we have no side effect (especially in twin sections). Which
         only works for our generic section that has no observe events or stuff like that.
         """
-        info = GenericConfigInfo
         section = info.section()
 
         for key, val in values.items():
@@ -492,7 +482,9 @@ class TestMutableMappingInterface(SectionTest):
             else:
                 assert section[key] == info.default(key)
 
-    def test_set_manual(self, info: type[GenericConfigInfo], section: GenericConfig):
+    def test_set_manual(self):
+        section = info.section()
+
         section["bool"] = False
         assert section["bool"] is False
 
@@ -510,13 +502,16 @@ class TestMutableMappingInterface(SectionTest):
         assert section["deep_sub.sub_generic_deep.float"] == 5.0
         assert section.deep_sub.sub_generic_deep.float == 5.0
 
-    def test_set_wrong(self, section: GenericConfig):
+    def test_set_wrong(self):
+        section = info.section()
         bad_keys = ["bad_trait", "sub_generic.bad_trait", "bad_section.bad_trait"]
         for key in bad_keys:
             with pytest.raises(KeyError):
                 section[key] = 0
 
-    def test_add_trait(self, section: GenericConfig):
+    def test_add_trait(self):
+        section = info.section_subclass_inst()
+
         # simple
         section.add_trait("new_trait", Int(1))
         assert "new_trait" in section
@@ -560,7 +555,15 @@ class TestMutableMappingInterface(SectionTest):
                 "new_section3.new_section4.new_trait", Int(1), allow_recursive=False
             )
 
-    def test_setdefault(self, section: GenericConfig):
+        # check original section class has not been affected
+        section = info.section()
+        assert "new_trait" not in section
+        assert "deep_sub.sub_generic_deep.new_trait" not in section
+        assert "new_trait" not in section.deep_sub.sub_generic_deep
+
+    def test_setdefault(self):
+        section = info.section_subclass_inst()
+
         # set with trait existing
         assert section.setdefault("int") == 0
 
@@ -574,7 +577,15 @@ class TestMutableMappingInterface(SectionTest):
         with pytest.raises(TypeError):
             section.setdefault("new_int_wrong")
 
-    def test_unavailable(self, section: GenericConfig):
+        # check original section class has not been affected
+        section = info.section()
+        assert "new_int" not in section
+        assert "sub_generic.new_int" not in section
+        assert "new_int" not in section.sub_generic
+
+    def test_unavailable(self):
+        section = info.section()
+
         with pytest.raises(TypeError):
             section.pop("anything")
 
@@ -586,15 +597,16 @@ class TestMutableMappingInterface(SectionTest):
 
     @given(values=GenericConfigInfo.values_strat())
     def test_reset(self, values: dict):
-        info = GenericConfigInfo
         section = info.section()
         section.update(values)
         section.reset()
         for key in values:
             assert section[key] == info.default(key)
 
-    def test_twin_siblings(self, section: GenericConfig):
+    def test_twin_siblings(self):
         """Two subsections on are from the same class."""
+        section = info.section_subclass_inst()
+
         # non-mutable trait
         section.twin_a.int = 0
         section.twin_b.int = 0
@@ -614,8 +626,10 @@ class TestMutableMappingInterface(SectionTest):
         assert "twin_b.new_trait" not in type(section).traits_recursive()
         assert "new_trait" not in type(section).twin_b.klass.class_traits()
 
-    def test_twin_recursive(self, section: GenericConfig):
+    def test_twin_recursive(self):
         """Two sections at different nesting level are from the same class."""
+        section = info.section_subclass_inst()
+
         # non-mutable trait
         section.twin_a.int = 0
         section.sub_twin.twin_c.int = 0
@@ -636,8 +650,7 @@ class TestMutableMappingInterface(SectionTest):
         assert "new_trait" not in type(section).twin_a.klass.class_traits()
 
     @given(values=GenericConfigInfo.values_strat())
-    def test_update_base(self, values: dict):
-        info = GenericConfigInfo
+    def test_update_dict(self, values: dict):
         section = info.section()
         section.update(values)
 
@@ -649,8 +662,8 @@ class TestMutableMappingInterface(SectionTest):
 
     @given(values=GenericConfigInfo.values_strat())
     def test_update_section(self, values: dict):
-        sectionA = GenericConfig()
-        sectionB = GenericConfig(values)
+        sectionA = info.section()
+        sectionB = info.section(values)
         sectionA.update(sectionB)
         assert sectionB == sectionA
         for k, v in values.items():
@@ -667,7 +680,8 @@ class TestMutableMappingInterface(SectionTest):
         valA.update(valB)
         assert dict(sectionA.items()) == valA
 
-    def test_update_add_traits(self, section: GenericConfig):
+    def test_update_add_traits(self):
+        section = info.section_subclass_inst()
         section.update(
             {"new_trait": Int(10)},
             allow_new=True,
@@ -689,7 +703,8 @@ class TestMutableMappingInterface(SectionTest):
         section.update(other, allow_new=True)
         assert section["new_trait_from_section"] == 10
 
-    def test_update_wrong(self, section: GenericConfig):
+    def test_update_wrong(self):
+        section = info.section()
         with pytest.raises(RuntimeError):
             section.update({"new_trait": Int(10)})
         with pytest.raises(KeyError):
@@ -697,9 +712,13 @@ class TestMutableMappingInterface(SectionTest):
         with pytest.raises(TypeError):
             section.update({"new_trait": 10}, allow_new=True)
 
+        assert "new_trait" not in section
 
-class TestDidYouMean(SectionTest):
-    def test_getattr(self, section: GenericConfig):
+
+class TestDidYouMean:
+    def test_getattr(self):
+        section = info.section()
+
         with pytest.raises(AttributeError) as excinfo:
             _ = section.int_
         assert str(excinfo.value) == (
@@ -720,7 +739,9 @@ class TestDidYouMean(SectionTest):
             " (did you mean 'int'?)"
         )
 
-    def test_getitem(self, section: GenericConfig):
+    def test_getitem(self):
+        section = info.section()
+
         with pytest.raises(KeyError) as excinfo:
             _ = section["int_"]
         assert str(excinfo.value).strip('"') == (
@@ -736,11 +757,12 @@ class TestDidYouMean(SectionTest):
         with pytest.raises(KeyError) as excinfo:
             _ = section["sub_generic.int_"]
         assert str(excinfo.value).strip('"') == (
-            "Could not resolve key 'sub_generic.int_' "
-            "(did you mean 'sub_generic.int'?)"
+            "Could not resolve key 'sub_generic.int_' (did you mean 'sub_generic.int'?)"
         )
 
-    def test_setitem(self, section: GenericConfig):
+    def test_setitem(self):
+        section = info.section()
+
         with pytest.raises(KeyError) as excinfo:
             section["int_"] = 0
         assert str(excinfo.value).strip('"') == (
@@ -750,15 +772,15 @@ class TestDidYouMean(SectionTest):
         with pytest.raises(KeyError) as excinfo:
             section["sub_generic.int_"] = 0
         assert str(excinfo.value).strip('"') == (
-            "Could not resolve key 'sub_generic.int_' "
-            "(did you mean 'sub_generic.int'?)"
+            "Could not resolve key 'sub_generic.int_' (did you mean 'sub_generic.int'?)"
         )
 
 
-class TestTraitListing(SectionTest):
+class TestTraitListing:
     """Test the trait listing abilities."""
 
-    def test_dir(self, info: type[GenericConfigInfo], section: GenericConfig):
+    def test_dir(self):
+        section = info.section()
         section._attr_completion_only_traits = True
         assert dir(section) == sorted(info.keys(subsections=True, recursive=False))
 
@@ -769,12 +791,12 @@ class TestTraitListing(SectionTest):
     )
     def test_select(self, keys: list[str]):
         # We only test flattened, we assume nest_dict() works and is tested
-        section = GenericConfig()
+        section = info.section()
         out = section.select(*keys)
         assert keys == list(out.keys())
 
     def test_metadata_select(self):
-        class MetaSection(Section):
+        class MetadataSection(Section):
             no_config = Int(0).tag(config=False)
             no_config_tagged = Int(0).tag(config=False, tagged=True)
             normal = Int(0)
@@ -786,7 +808,7 @@ class TestTraitListing(SectionTest):
                 normal = Int(0)
                 normal_tagged = Int(0).tag(tagged=True)
 
-        sec = MetaSection()
+        sec = MetadataSection()
         keys = list(sec.trait_names())
         assert keys == ["no_config", "no_config_tagged", "normal", "normal_tagged"]
         keys = list(sec.traits_recursive(config=True).keys())
@@ -880,9 +902,9 @@ class TestTraitListing(SectionTest):
         assert traits["sub"]["sub2"]["e"].default_value == "e"
         assert traits["deep"]["f"].default_value == "f"
 
-    def test_defaults_recursive(
-        self, info: type[GenericConfigInfo], section: GenericConfig
-    ):
+    def test_defaults_recursive(self):
+        section = info.section()
+
         assert list(section.defaults_recursive().keys()) == info.keys()
         for k, v in section.defaults_recursive().items():
             assert info.default(k) == v
@@ -927,53 +949,55 @@ class TestTraitListing(SectionTest):
             "deep": {"e": "e", "f": "f"},
         }
 
-    def test_value_from_func_signature(self, section: GenericConfig):
+    def test_value_from_func_signature(self):
         def func(list_int, enum_int, tuple_float, other_a, other_b):
             pass
 
+        section = info.section()
         values = section.trait_values_from_func_signature(func)
         assert all(k in values for k in ["list_int", "enum_int", "tuple_float"])
         assert "other_a" not in values
         assert "other_b" not in values
 
 
-class TestResolveKey(SectionTest):
+class TestResolveKey:
     """Test key resolution."""
 
     def test_resolve_key(self):
-        key, section_cls, trait = GenericConfig.resolve_key("bool")
+        section_cls = info.section
+
+        key, container_cls, trait = section_cls.resolve_key("bool")
         assert key == "bool"
-        assert issubclass(section_cls, GenericConfig)
+        assert issubclass(container_cls, section_cls)
         assert isinstance(trait, Bool)
 
-        key, section_cls, trait = GenericConfig.resolve_key("sub_generic.int")
+        key, container_cls, trait = section_cls.resolve_key("sub_generic.int")
         assert key == "sub_generic.int"
-        assert issubclass(section_cls, GenericSection)
+        assert issubclass(container_cls, GenericSection)
         assert isinstance(trait, Int)
 
-        key, section_cls, trait = GenericConfig.resolve_key("twin_a.int")
+        key, container_cls, trait = section_cls.resolve_key("twin_a.int")
         assert key == "twin_a.int"
-        assert issubclass(section_cls, TwinSubsection)
+        assert issubclass(container_cls, TwinSubsection)
         assert isinstance(trait, Int)
 
-        key, section_cls, trait = GenericConfig.resolve_key("deep_short.int")
+        key, container_cls, trait = section_cls.resolve_key("deep_short.int")
         assert key == "deep_sub.sub_generic_deep.int"
-        assert issubclass(section_cls, GenericSection)
+        assert issubclass(container_cls, GenericSection)
         assert isinstance(trait, Int)
 
-    def test_wrong_keys(self, info: type[GenericConfigInfo]):
+    def test_wrong_keys(self):
         def assert_bad_key(key: str):
             with pytest.raises(UnknownConfigKeyError):
-                cls.resolve_key(key)
+                info.section.resolve_key(key)
 
-        cls = info.section
         assert_bad_key("invalid_trait")
         assert_bad_key("invalid_sub.trait_name")
         assert_bad_key("sub_generic.invalid_trait")
         assert_bad_key("empty_b.empty_c.invalid_trait")
 
 
-class TestNestFlatten(SectionTest):
+class TestNestFlatten:
     single_level_flat = dict(int=0, bool=1, str=2)
 
     two_levels_flat = {
@@ -1001,13 +1025,15 @@ class TestNestFlatten(SectionTest):
     }
     deep_nested = {"deep_sub": {"sub_generic_deep": {"int": 0, "bool": 1}}}
 
-    def test_nest_dict(self, section: GenericConfig):
+    def test_nest_dict(self):
+        section = info.section()
         assert section.nest_dict({}) == {}
         assert section.nest_dict(self.single_level_flat) == self.single_level_flat
         assert section.nest_dict(self.two_levels_flat) == self.two_levels_nested
         assert section.nest_dict(self.deep_flat) == self.deep_nested
 
-    def test_flatten_dict(self, section: GenericConfig):
+    def test_flatten_dict(self):
+        section = info.section()
         assert section.flatten_dict({}) == {}
         assert section.flatten_dict(self.single_level_flat) == self.single_level_flat
         assert section.flatten_dict(self.two_levels_nested) == self.two_levels_flat
@@ -1015,18 +1041,19 @@ class TestNestFlatten(SectionTest):
 
     @given(flat=GenericConfigInfo.values_strat())
     def test_flat_to_nest_around(self, flat: dict):
-        section = GenericConfigInfo.section
+        section = info.section()
         nested = section.nest_dict(flat)
         assert flat == section.flatten_dict(nested)
 
     @given(dicts=GenericConfigInfo.values_strat_nested())
     def test_flat_and_nested(self, dicts: dict):
         nested, flat = dicts
-        section = GenericConfigInfo.section
+        section = info.section()
         assert nested == section.nest_dict(flat)
         assert flat == section.flatten_dict(nested)
 
-    def test_nest_wrong(self, section: GenericConfig):
+    def test_nest_wrong(self):
+        section = info.section()
         flat = {"int": 0, "sub_generic.float": 0.0}
         bad_keys = ["bad_trait", "sub_generic.bad_trait", "bad_subsection.bad_trait"]
         for bad_key in bad_keys:
@@ -1035,7 +1062,8 @@ class TestNestFlatten(SectionTest):
             with pytest.raises(KeyError):
                 section.nest_dict(flat_bad)
 
-    def test_flatten_wrong(self, section: GenericConfig):
+    def test_flatten_wrong(self):
+        section = info.section()
         # bad trait
         nested = dict(int=0, sub_generic=dict(float=0.0), bad_trait=0)
         with pytest.raises(KeyError):

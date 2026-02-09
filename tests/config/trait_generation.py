@@ -369,7 +369,7 @@ class DictGen(ComposedGenerator[Dict]):
     Key and value generator must be supplied.
     """
 
-    traittype = Dict
+    traittype: type[Dict] = Dict
 
     def __init__(self, key_gen: TraitGenerator, value_gen: TraitGenerator, **kwargs):
         super().__init__(**kwargs)
