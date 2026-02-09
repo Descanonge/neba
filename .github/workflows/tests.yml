@@ -38,7 +38,6 @@ jobs:
       - name: Run tests
         run: |
           python -m pytest -v -m 'not todo' \
-            --hypothesis-profile=dev \
             --cov=neba --cov-branch --cov-report=xml \
             tests/config/test_section.py
 
