@@ -8,7 +8,7 @@ build:
   jobs:
     install:
       - pip install --upgrade pip
-      - pip install --group docs
+      - pip install . --group docs
 
 sphinx:
   builder: html
@@ -16,8 +16,3 @@ sphinx:
 
 formats:
   - htmlzip
-
-python:
-  install:
-    - method: pip
-      path: .
