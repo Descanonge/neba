@@ -89,6 +89,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Run tests (slow)
+        if: ${{ success() && gitub.ref == 'refs/head/main' }}
         run: |
           python -m pytest -v -m 'not todo' \
             --hypothesis-profile=ci --hypothesis-show-statistics
@@ -96,7 +97,7 @@ jobs:
 
       - name: Save hypothesis cache
         uses: actions/cache/save@v5
-        if: always()
+        if: ${{ always() }}
         with:
           path: .hypothesis
           key: cache-hypothesis-${{ runner.os }}-${{ github.run_id }}
