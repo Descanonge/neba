@@ -42,6 +42,7 @@ thirdparty = [
 ]
 mypy = [
     'mypy',
+    'types-docutils',
     {include-group = 'thirdparty'},
 ]
 tests = [

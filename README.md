@@ -81,7 +81,7 @@ class SST(Dataset):
     # loader module uses xarray.open_mfdataset
     Loader = XarrayLoader
     
-    # Source module is configured further
+    # source files are retrieved from disk using glob
     class Source(GlobSource):
         def get_root_directory(self):
             # we use the parameters of the Dataset instance
@@ -100,7 +100,7 @@ Most modules will use methods like this to take advantage of the parameters cont
 
 ## Documentation
 
-...
+https://neba.readthedocs.io/en/latest/
 
 ## Requirements
 

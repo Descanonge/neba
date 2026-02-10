@@ -180,6 +180,7 @@ class ModuleMix(t.Generic[T_Mod], Module):
         return getattr(selected, name)
 
     def setup(self) -> None:
+        """Set up all base modules."""
         for mod in self.base_modules.values():
             mod.dm = self.dm
             mod.setup()

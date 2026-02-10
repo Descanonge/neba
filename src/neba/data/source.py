@@ -410,6 +410,7 @@ class SourceUnion(_SourceMix[T_ModSource]):
         return s
 
     def get_source(self, _warn: bool = True) -> list[t.Any]:
+        """Get the union of sources from all base module."""
         source = self._get_grouped_source()
         # use fromkeys to remove duplicates. dict keep order which is nice
         union = list(dict.fromkeys(itertools.chain(*source)))
@@ -438,14 +439,15 @@ class SourceIntersection(_SourceMix[T_ModSource]):
         return s
 
     def get_source(self, _warn: bool = True) -> list[t.Any]:
+        """Get the intersection of sources from all base module."""
         groups = self._get_grouped_source()
         inter = []
         for group in groups:
-            for f in group:
-                if f in inter:
+            for filename in group:
+                if filename in inter:
                     continue
-                if all(f in g for g in groups):
-                    inter.append(f)
+                if all(filename in g for g in groups):
+                    inter.append(filename)
 
         if _warn:
             if len(inter) == 0:

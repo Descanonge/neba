@@ -213,5 +213,5 @@ class SectionTransformer:
         return True
 
 
-def plugin(version: str) -> type[Plugin]:
+def plugin(version: str) -> type[Plugin]:  # noqa: D103
     return SectionPlugin

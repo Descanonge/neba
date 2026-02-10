@@ -1,3 +1,5 @@
+"""Various itilities."""
+
 import itertools
 import os
 import typing as t

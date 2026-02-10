@@ -28,10 +28,16 @@ _DOT = "__DOT__"
 
 
 class CLIConfigValue(ConfigValue):
+    """Container for a parameter value obtain from CLI.
+
+    Automatically parse it when retrieving it.
+    """
+
     def __init__(self, input: t.Any, key: str, origin: str | None = "CLI"):
         super().__init__(input, key, origin=origin)
 
     def get_value(self) -> t.Any:
+        """Return the parsed value."""
         if self.value is not Undefined:
             return self.value
 

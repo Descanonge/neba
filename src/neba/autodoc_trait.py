@@ -1,5 +1,7 @@
 """Autodoc extension for automatic documentation of Traits."""
 
+# ruff: noqa: D102
+
 from __future__ import annotations
 
 import logging
@@ -51,8 +53,9 @@ log.setLevel(logging.INFO)
 
 
 def member_order_option(arg: t.Any) -> str:
+    """Replace autodoc option."""
     if arg in {None, True}:
-        return "alphabetical"
+        return "bysource"
     elif arg in {"bysource", "traits-first", "alphabetical"}:
         return arg
     else:
@@ -77,6 +80,7 @@ class PyAttributeSubsection(PyAttributeFullkeyTOC):
         return ".".join([*sections, name])
 
     def get_signature_prefix(self, sig: str) -> list[nodes.Node]:
+        """Add 'Section' before subsections."""
         prefix = list(super().get_signature_prefix(sig))
         prefix.append(nodes.Text("Section"))
         prefix.append(desc_sig_space())

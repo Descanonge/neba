@@ -256,6 +256,7 @@ def tag_all_traits(**metadata) -> abc.Callable:
 
 
 def did_you_mean(suggestions: abc.Iterable[str], wrong_key: str) -> str | None:
+    """Return element of `suggestions` closest to `wrong_key`."""
     min_distance = 9999
     closest_key = None
     for suggestion in suggestions:

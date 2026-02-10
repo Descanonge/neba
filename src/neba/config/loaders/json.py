@@ -11,9 +11,13 @@ from .core import ConfigValue, DictLikeLoaderMixin, FileLoader
 
 
 class JsonEncoderTypes(json.JSONEncoder):
-    """Json encoder supporting type objects."""
+    """Basic JSON encoder.
+
+    Serialize types as strings and lists as sets.
+    """
 
     def default(self, o: t.Any) -> t.Any:
+        """Serialize object."""
         if isinstance(o, type):
             return get_classname(o)
         if isinstance(o, set):

@@ -20,10 +20,6 @@ if t.TYPE_CHECKING:
     except ImportError:
         Delayed = None  # type: ignore
         Client = None  # type: ignore
-    try:
-        from zarr.storage import BaseStore
-    except ImportError:
-        BaseStore = None  # type: ignore
 
     CallXr = tuple[str, xr.Dataset]
 
@@ -68,17 +64,15 @@ class XarrayLoader(LoaderAbstract[PathLike, xr.Dataset]):
             over the default values of the class attribute :attr:`OPEN_DATASET_KWARGS`
             and :attr:`OPEN_MFDATASET_KWARGS`.
         """
-        func: abc.Callable[..., xr.Dataset]
         if isinstance(source, PathLike):
-            func = xr.open_dataset
             kwargs = self.OPEN_DATASET_KWARGS | kwargs
+            ds = xr.open_dataset(source, **kwargs)
         else:
-            func = xr.open_mfdataset
             kwargs = self.OPEN_MFDATASET_KWARGS | kwargs
             if kwargs.get("preprocess", False) is True:
                 kwargs["preprocess"] = self.preprocess()
+            ds = xr.open_mfdataset(source, **kwargs)
 
-        ds = func(source, **kwargs)
         return ds
 
 
@@ -107,7 +101,7 @@ class XarrayWriter(WriterAbstract[str, xr.Dataset]):
         format: t.Literal[None] = ...,
         compute: t.Literal[True] = ...,
         **kwargs,
-    ) -> None | BaseStore: ...
+    ) -> None | xr.backends.ZarrStore: ...
 
     @t.overload
     def send_single_call(
@@ -125,7 +119,7 @@ class XarrayWriter(WriterAbstract[str, xr.Dataset]):
         format: t.Literal["zarr"],
         compute: t.Literal[True],
         **kwargs,
-    ) -> BaseStore: ...
+    ) -> xr.backends.ZarrStore: ...
 
     @t.overload
     def send_single_call(
@@ -142,7 +136,7 @@ class XarrayWriter(WriterAbstract[str, xr.Dataset]):
         format: t.Literal["nc", "zarr", None] = None,
         compute: bool = True,
         **kwargs,
-    ) -> Delayed | None | BaseStore:
+    ) -> Delayed | None | xr.backends.ZarrStore:
         """Execute a single call.
 
         Parameters
@@ -429,6 +423,9 @@ class XarraySplitWriter(SplitWriterMixin, XarrayWriter):
             datasets_by_all += self.split_by_time(dataset, time_freq=time_freq)
 
         calls = self.to_calls(datasets_by_all, squeeze=squeeze)
+
+        self.check_directories(calls)
+        self.check_overwriting_calls(calls)
 
         metadata = self.get_metadata()
         calls = [(f, self._add_metadata(ds, metadata)) for f, ds in calls]

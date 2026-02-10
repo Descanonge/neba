@@ -71,6 +71,7 @@ class ConfigValue:
 
     @property
     def path(self) -> list[str]:
+        """List of the dot-separated names of the key."""
         return self.key.split(".")
 
     def copy(self) -> t.Self:
@@ -254,9 +255,11 @@ class SerializerDefault:
     """Serialize trait values for config files."""
 
     def default(self, trait: TraitType, key: str | None = None) -> t.Any:
+        """Serialize the default value of the trait."""
         raise NotImplementedError()
 
     def value(self, trait: TraitType, value: t.Any, key: str | None = None) -> t.Any:
+        """Serialize the current value of the trait."""
         raise NotImplementedError()
 
 

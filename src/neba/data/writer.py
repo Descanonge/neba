@@ -11,12 +11,12 @@ import subprocess
 import typing as t
 from collections import abc
 from datetime import datetime
-from os import PathLike, path
+from os import path
 
 from neba.config.loaders.json import JsonEncoderTypes
 
 from .module import Module
-from .util import T_Data, T_Source
+from .util import PathLike, T_Data, T_Source
 
 log = logging.getLogger(__name__)
 
@@ -194,8 +194,7 @@ class WriterAbstract(t.Generic[T_Source, T_Data], Module):
         # Keep only the containing directories, with no duplicate
         directories = set()
         for f in files:
-            assert isinstance(f, str | PathLike)
-            directories.add(path.dirname(f))
+            directories.add(path.dirname(t.cast(PathLike, f)))
 
         for d in directories:
             if not path.isdir(d):
@@ -298,6 +297,7 @@ class SplitWriterMixin(WriterAbstract[T_Source, T_Data]):
     source: Splitable[T_Source]
 
     def setup(self):
+        """Set up module. Check the source is following the Splitable protocol."""
         super().setup()
 
         if not isinstance(self.dm.source, Splitable):
@@ -305,7 +305,9 @@ class SplitWriterMixin(WriterAbstract[T_Source, T_Data]):
         self.source = self.dm.source
 
     def unfixed(self) -> set[T_Source]:
+        """Return set of parameters that are not fixed."""
         return set(self.source.unfixed)
 
     def get_filename(self, **kwargs) -> T_Source:
+        """Return a filename corresponding to current parameters and kwargs."""
         return self.source.get_filename(**kwargs)

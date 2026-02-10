@@ -1,3 +1,12 @@
+"""Neba.
+
+Provides:
+- a configuration framework to retrieve parameters from configuration files and command
+  line arguments,
+- a dataset definition framework to help bridge the gap between on-disk files and
+  in-memory objects.
+"""
+
 from importlib.metadata import version
 
 try:

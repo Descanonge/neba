@@ -71,7 +71,10 @@ class PyConfigContainer:
 
 
 class SerializerPython(SerializerDefault):
+    """Serializer for writing to a Python file."""
+
     def default(self, trait: TraitType, key: str | None = None) -> str:
+        """Serialize the default value of the trait."""
         if trait.default_value is None:
             if isinstance(trait, Type | Instance) and trait.klass is not None:
                 return self.value(trait, trait.klass)
@@ -83,6 +86,7 @@ class SerializerPython(SerializerDefault):
             return self.value(trait, trait.default(), key=key)
 
     def value(self, trait: TraitType, value: t.Any, key: str | None = None) -> str:
+        """Serialize the current value of the trait using repr."""
         if type(trait) is Type:
             return get_classname(value)
         return repr(value)

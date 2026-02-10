@@ -14,19 +14,16 @@ A package to manage a configuration and multiple datasets.
       :link: configuration
       :link-alt: configuration
 
-      - strict
-      - structured
-      - easily documented
-
-      Retrieve parameters from configuration files and
-      command line arguments.
+      Obtain your parameters from configuration files or command line arguments.
+      Validate them against a structured specification that is easy to write,
+      expandable, and which allows to document every parameter.
 
    .. grid-item-card:: Dataset management
       :link: data
       :link-alt: dataset management
 
-      Bridge the gap between on-disk files and in-memory objects by declaring
-      dataset objects.
+      Declare datasets in a flexible way to manage multiple source files and to
+      read and write data easily using different libraries.
 
    .. grid-item-card:: API Reference
       :link: api
