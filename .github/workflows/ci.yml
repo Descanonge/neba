@@ -79,7 +79,7 @@ jobs:
       - name: Run tests (fast)
         run: |
           python -m pytest -v -m 'not todo' \
-            --hypothesis-profile=dev
+            --hypothesis-profile=dev \
             --cov=neba --cov-branch --cov-report=xml \
             tests
 
@@ -92,7 +92,7 @@ jobs:
         if: success() && github.ref == 'refs/head/main'
         run: |
           python -m pytest -v -m 'not todo' \
-            --hypothesis-profile=ci --hypothesis-show-statistics
+            --hypothesis-profile=ci --hypothesis-show-statistics \
             tests
 
       - name: Save hypothesis cache
