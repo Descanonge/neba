@@ -28,12 +28,8 @@ dependencies = [
     "levenshtein>=0.27",
 ]
 
-[project.optional-dependencies]
-dev = [
-    'ruff',
-    'mypy>=1.5',
-]
-tests = [
+[dependency-groups]
+thirdparty = [
     'xarray',
     'netCDF4',
     'zarr',
@@ -43,21 +39,29 @@ tests = [
     'tomlkit',
     'ruamel.yaml>=0.18',
     'filefinder>=1.2',
+]
+mypy = [
+    'mypy',
+    {include-group = 'thirdparty'},
+]
+tests = [
     'pytest>=7.4',
     'coverage',
     'pytest-cov',
     'hypothesis',
+    {include-group = 'thirdparty'},
 ]
 docs = [
-    'xarray',
-    'dask',
-    'tomlkit',
-    'ruamel.yaml>=0.18',
-    'filefinder>=1.2',
     'sphinx==9.1.*',
     'sphinx-book-theme==1.1.*',
     'sphinx-design==0.7.*',
     'sphinx-copybutton==0.5.*',
+    {include-group = 'thirdparty'},
+]
+all = [
+    {include-group = 'mypy'},
+    {include-group = 'tests'},
+    {include-group = 'docs'},
 ]
 
 
@@ -67,7 +71,7 @@ docs = [
 [tool.setuptools_scm]
 
 [tool.mypy]
-plugins = ['numpy.typing.mypy_plugin', 'neba.config.mypy_plugin']
+plugins = ['neba.config.mypy_plugin']
 ignore_missing_imports = true
 
 [tool.ruff]

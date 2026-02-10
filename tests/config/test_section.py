@@ -11,7 +11,6 @@ from traitlets import Bool, Int, Unicode
 from neba.config import Section, Subsection
 from neba.config.util import UnknownConfigKeyError
 from tests.config.generic_config import (
-    GenericConfig,
     GenericConfigInfo,
     GenericSection,
     SectionInfo,

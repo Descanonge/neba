@@ -1,0 +1,120 @@
+name: CI
+
+on:
+  push:
+    path-ignore:
+      - '*.md'
+      - 'docs/**'
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: 3.13
+          cache: pip
+
+      - name: Install ruff
+        run: python -m pip install ruff
+
+      - name: Run ruff
+        run: ruff check src/neba
+
+  mypy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: 3.13
+          cache: pip
+
+      - name: Install dependencies
+        run: python -m pip install -e . --group mypy
+
+      - name: Run mypy
+        run: mypy src/neba
+
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: 3.13
+          cache: pip
+
+      - name: Install dependencies
+        run: python -m pip install -e . --group tests
+
+      - name: Run tests (fast)
+        run: |
+          python -m pytest -v -m 'not todo' \
+            --hypothesis-profile=dev
+            --cov=neba --cov-branch --cov-report=xml \
+            tests
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  tests-slow:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: 3.13
+          cache: pip
+
+      - name: Install dependencies
+        run: python -m pip install -e . --group tests
+
+      # https://github.com/actions/cache/blob/main/tips-and-workarounds.md#update-a-cache
+      - name: Restore hypothesis cache
+        id: restore-hypothesis-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: .hypothesis/
+          key: cache-hypothesis-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            cache-hypothesis-
+
+
+      - name: Run tests (fast)
+        run: |
+          python -m pytest -v -m 'not todo' \
+            --hypothesis-profile=ci --hypothesis-show-statistics
+            tests
+
+      - name: Save hypothesis cache
+        uses: actions/cache/save@v5
+        if: always()
+        with:
+          path: .hypothesis
+          key: cache-hypothesis-${{ runner.os }}-${{ github.run_id }}
