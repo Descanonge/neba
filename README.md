@@ -4,6 +4,7 @@
 
 <div align="left">
 
+[![PyPI](https://img.shields.io/pypi/v/neba)](https://pypi.org/project/neba)
 [![GitHub release](https://img.shields.io/github/v/release/Descanonge/neba)](https://github.com/Descanonge/neba/releases)
 [![test status](https://github.com/Descanonge/neba/actions/workflows/ci.yml/badge.svg)](https://github.com/Descanonge/neba/actions)
 [![codecov](https://codecov.io/gh/Descanonge/neba/graph/badge.svg?token=PF281O06Y5)](https://codecov.io/gh/Descanonge/neba)
@@ -110,7 +111,10 @@ https://neba.readthedocs.io/en/latest/
 
 ## Installation
 
-🚧 Soon on PyPI 🚧
+From PyPI:
+``` shell
+pip install neba
+```
 
 From source:
 ``` shell

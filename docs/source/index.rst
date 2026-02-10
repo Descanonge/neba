@@ -32,7 +32,9 @@ A package to manage a configuration and multiple datasets.
 Install
 =======
 
-🚧 Soon on PyPI 🚧
+From PyPI::
+
+   pip install neba
 
 From source::
 
