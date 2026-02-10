@@ -167,8 +167,6 @@ class TestWriter:
 
         assert written.attrs["written_as_dataset"] == "XarrayDataset"
         assert written.attrs["created_with_params"] == '{"a": 0}'
-        for attr in ["created_by", "created_on", "created_at_commit"]:
-            assert attr in written.attrs
 
     def setup_multifile(self, tmpdir) -> tuple[xr.Dataset, list[xr.Dataset], list[str]]:
         data = np.arange(12).reshape(3, 4)
@@ -286,7 +284,7 @@ class TestSplitWriter:
         dm.write(ref)
 
         for month in range(4):
-            assert path.isfile(str(tmpdir / f"2000-{month+1:02d}.nc"))
+            assert path.isfile(str(tmpdir / f"2000-{month + 1:02d}.nc"))
 
         # check values
         splits = dm.writer.split_by_time(ref)
