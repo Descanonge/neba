@@ -1,11 +1,18 @@
 # Neba
 
-> Manages parameters and datasets
+> Manage parameters and datasets
 
-This package provides:
+<div align="left">
 
-- configuration framework to retrieve parameters from configuration files and command line arguments,
-- a dataset definition framework to help bridge the gap between on-disk files and in-memory objects.
+[![GitHub release](https://img.shields.io/github/v/release/Descanonge/neba)](https://github.com/Descanonge/neba/releases)
+[![test status](https://github.com/Descanonge/neba/actions/workflows/ci.yml/badge.svg)](https://github.com/Descanonge/neba/actions)
+[![codecov](https://codecov.io/gh/Descanonge/neba/graph/badge.svg?token=PF281O06Y5)](https://codecov.io/gh/Descanonge/neba)
+[![Documentation Status](https://readthedocs.org/projects/neba/badge/?version=latest)](https://neba.readthedocs.io/en/latest/?badge=latest)
+
+</div>
+
+- Obtain your parameters from configuration files or command line arguments. Validate them against a structured specification that is easy to write, expandable, and which allows to document every parameter.
+- Declare datasets in a flexible way to manage multiple source files and to read and write data easily using different libraries.
 
 ## Configuration
 
