@@ -110,9 +110,8 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data], Section):
             mod.dm = self
 
         # Setup modules
-        # Start with parameters. Don't use setup_safe, we want errors raised.
-        self.params_manager.setup()
-        self.params_manager._is_setup = True
+        # Start with parameters.
+        self.params_manager.setup_safe(raise_errors=True)
 
         # Parameters won't initialize again
         for mod in self._modules.values():

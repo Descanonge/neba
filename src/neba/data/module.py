@@ -45,10 +45,12 @@ class Module:
         """Initialize module."""
         pass
 
-    def setup_safe(self) -> None:
+    def setup_safe(self, raise_errors: bool = False) -> None:
         """Initialize module safely.
 
-        Will only run if :attr:`_is_setup` is False. Errors are logged and ignored.
+        Will only run if :attr:`_is_setup` is False.
+
+        :param raise_errors: If False (default), errors are logged and not raised.
         """
         if self._is_setup:
             return
@@ -62,6 +64,8 @@ class Module:
                 self,
                 exc_info=e,
             )
+            if raise_errors:
+                raise e
 
 
 class CachedModule(Module):
