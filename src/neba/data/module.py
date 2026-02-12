@@ -35,7 +35,10 @@ class Module:
         pass
 
     def __repr__(self) -> str:
-        return "\n".join(self._lines())
+        lines = self._lines()
+        if not lines:
+            lines.append(get_classname(self))
+        return "\n".join(lines)
 
     def _lines(self) -> list[str]:
         """Lines to show in DataManager repr (human readable)."""
