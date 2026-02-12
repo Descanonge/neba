@@ -10,7 +10,7 @@ from collections import abc
 import xarray as xr
 
 from .loader import LoaderAbstract
-from .util import PathLike, cut_slices
+from .util import cut_slices
 from .writer import SplitWriterMixin, WriterAbstract
 
 if t.TYPE_CHECKING:
@@ -27,7 +27,7 @@ if t.TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 
-class XarrayLoader(LoaderAbstract[PathLike, xr.Dataset]):
+class XarrayLoader(LoaderAbstract[str | os.PathLike, xr.Dataset]):
     """Load from single source with Xarray.
 
     Uses :func:`xarray.open_dataset` or :func:`xarray.open_mfdataset` to open data.
@@ -51,7 +51,7 @@ class XarrayLoader(LoaderAbstract[PathLike, xr.Dataset]):
         raise NotImplementedError
 
     def load_data_concrete(
-        self, source: PathLike | abc.Sequence[PathLike], **kwargs
+        self, source: str | os.PathLike | abc.Sequence[str | os.PathLike], **kwargs
     ) -> xr.Dataset:
         """Read a dataset object.
 
@@ -64,7 +64,7 @@ class XarrayLoader(LoaderAbstract[PathLike, xr.Dataset]):
             over the default values of the class attribute :attr:`OPEN_DATASET_KWARGS`
             and :attr:`OPEN_MFDATASET_KWARGS`.
         """
-        if isinstance(source, PathLike):
+        if isinstance(source, str | os.PathLike):
             kwargs = self.OPEN_DATASET_KWARGS | kwargs
             ds = xr.open_dataset(source, **kwargs)
         else:
@@ -290,7 +290,7 @@ class XarrayWriter(WriterAbstract[str, xr.Dataset]):
         """
         if target is None:
             target = self.dm.get_source()
-        if isinstance(target, PathLike):
+        if isinstance(target, str | os.PathLike):
             target = [target]
 
         if isinstance(data, xr.Dataset):

@@ -4,26 +4,25 @@ from __future__ import annotations
 
 import itertools
 import logging
+import os
 import typing as t
 from collections import abc
 from os import path
 from pathlib import Path
 
 from .module import CachedModule, Module, ModuleMix, autocached
-from .util import PathLike, T_Source
+from .util import T_Source_co
 
 log = logging.getLogger(__name__)
 
 if t.TYPE_CHECKING:
     from filefinder import Finder
 
-T_MultiSource = t.TypeVar("T_MultiSource", bound=abc.Sequence)
 
-
-class SourceAbstract(t.Generic[T_Source], Module):
+class SourceAbstract(t.Generic[T_Source_co], Module):
     """Abstract of source managing module."""
 
-    def get_source(self, _warn: bool = True) -> T_Source | list[T_Source]:
+    def get_source(self, _warn: bool = True) -> t.Any:
         """Return source of data.
 
         :Not Implemented: Implement in Module subclass
@@ -31,16 +30,16 @@ class SourceAbstract(t.Generic[T_Source], Module):
         raise NotImplementedError("Implement in Module subclass.")
 
 
-class SimpleSource(SourceAbstract[T_Source]):
+class SimpleSource(SourceAbstract[T_Source_co]):
     """Simple module where data source is specified by class attribute.
 
     The source is specified in :attr:`source_loc`.
     """
 
-    source_loc: T_Source
+    source_loc: T_Source_co
     """Location of the source to return."""
 
-    def get_source(self, _warn: bool = True) -> T_Source:
+    def get_source(self, _warn: bool = True) -> T_Source_co:
         """Return source specified by :attr:`source_loc` attribute."""
         return self.source_loc
 
@@ -58,7 +57,7 @@ class MultiFileSource(SourceAbstract[str]):
     asking the source. If they are many files, caching this can make sense.
     """
 
-    def get_root_directory(self) -> PathLike | list[PathLike]:
+    def get_root_directory(self) -> str | os.PathLike | list[str | os.PathLike]:
         """Return the directory containing all datafiles.
 
         Can return a path, or an iterable of directories that will automatically be
@@ -84,7 +83,16 @@ class MultiFileSource(SourceAbstract[str]):
 
         return rootdir
 
-    def get_source(self, relative: bool = False, _warn: bool = True) -> list[str]:  # type: ignore[override] # noqa: D102
+    def get_source(self, relative: bool = False, _warn: bool = True) -> list[str]:  # type: ignore
+        """Return list of filenames.
+
+        Parameters
+        ----------
+        relative
+            If True, return filenames relative to the root directory. Default is False.
+        _warn
+            If True, log a warning when no files are found.
+        """
         datafiles = self.datafiles
         if _warn and len(datafiles) == 0:
             log.warning("No files found for %s", repr(self))
@@ -341,7 +349,7 @@ class climato:  # noqa: N801
 
         def get_root_dir_wrapped(obj):
             root_dir = super(cls, obj).get_root_directory()
-            if isinstance(root_dir, PathLike):
+            if isinstance(root_dir, os.PathLike):
                 root_dir = path.join(root_dir, self.append_folder)
             else:
                 root_dir.append(self.append_folder)

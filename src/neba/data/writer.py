@@ -16,13 +16,13 @@ from os import path
 from neba.config.loaders.json import JsonEncoderTypes
 
 from .module import Module
-from .util import PathLike, T_Data, T_Source
+from .util import T_Data, T_Source, T_Source_contra
 
 log = logging.getLogger(__name__)
 
 
-class WriterAbstract(t.Generic[T_Source, T_Data], Module):
     """Abstract class of Writer plugin.
+class WriterAbstract(t.Generic[T_Source_contra, T_Data], Module):
 
     Manages metadata to (eventually) add to data before writing.
     """
@@ -170,7 +170,7 @@ class WriterAbstract(t.Generic[T_Source, T_Data], Module):
     def write(
         self,
         data: T_Data | abc.Sequence[T_Data],
-        target: T_Source | abc.Sequence[T_Source] | None = None,
+        target: T_Source_contra | abc.Sequence[T_Source_contra] | None = None,
         **kwargs,
     ) -> t.Any:
         """Write data to file or store.
@@ -187,25 +187,27 @@ class WriterAbstract(t.Generic[T_Source, T_Data], Module):
         """
         raise NotImplementedError("Implement in plugin subclass.")
 
-    def check_directories(self, calls: abc.Sequence[tuple[T_Source, T_Data]]):
+    def check_directories(self, calls: abc.Sequence[tuple[T_Source_contra, T_Data]]):
         """Check if directories are missing, and create them if necessary."""
         files = [f for f, _ in calls]
 
         # Keep only the containing directories, with no duplicate
         directories = set()
         for f in files:
-            directories.add(path.dirname(t.cast(PathLike, f)))
+            directories.add(path.dirname(t.cast(str | os.PathLike, f)))
 
         for d in directories:
             if not path.isdir(d):
                 log.debug("Creating output directory %s", d)
                 os.makedirs(d)
 
-    def check_directory(self, call: tuple[T_Source, T_Data]):
+    def check_directory(self, call: tuple[T_Source_contra, T_Data]):
         """Check if directory is missing, and create it if necessary."""
         self.check_directories([call])
 
-    def check_overwriting_calls(self, calls: abc.Sequence[tuple[T_Source, T_Data]]):
+    def check_overwriting_calls(
+        self, calls: abc.Sequence[tuple[T_Source_contra, T_Data]]
+    ):
         """Check if some calls have the same filename."""
         outfiles = [f for f, _ in calls]
         duplicates = []
@@ -218,7 +220,7 @@ class WriterAbstract(t.Generic[T_Source, T_Data], Module):
                 f"Multiple writing calls to the same filename·s: {duplicates}"
             )
 
-    def send_single_call(self, call: tuple[T_Source, T_Data], **kwargs) -> t.Any:
+    def send_single_call(self, call: tuple[T_Source_contra, T_Data], **kwargs) -> t.Any:
         """Execute a single call.
 
         :Not implemented: implement in plugin subclass.
@@ -231,7 +233,7 @@ class WriterAbstract(t.Generic[T_Source, T_Data], Module):
         raise NotImplementedError("Implement in plugin subclass.")
 
     def send_calls(
-        self, calls: abc.Sequence[tuple[T_Source, T_Data]], **kwargs
+        self, calls: abc.Sequence[tuple[T_Source_contra, T_Data]], **kwargs
     ) -> list[t.Any]:
         """Send multiple calls serially.
 

@@ -3,6 +3,7 @@
 import itertools
 import os
 import typing as t
+from os import path
 
 T_Data = t.TypeVar("T_Data")
 """Type of data (numpy, pandas, xarray, etc.)."""
@@ -11,7 +12,10 @@ T_Source = t.TypeVar("T_Source")
 T_Params = t.TypeVar("T_Params")
 """Type of the parameters storage."""
 
-PathLike = str | os.PathLike
+T_Source_co = t.TypeVar("T_Source_co", covariant=True)
+"""For Source (the source is an output)."""
+T_Source_contra = t.TypeVar("T_Source_contra", contravariant=True)
+"""For Loader and Writer (the source an input)."""
 
 
 def import_all(file, /) -> None:
@@ -24,12 +28,10 @@ def import_all(file, /) -> None:
     imported.
     """
     import importlib
-    import os
     from glob import glob
-    from os import path
 
-    file = path.relpath(file, os.getcwd())
-    directory = path.dirname(file)
+    file = os.path.relpath(file, os.getcwd())
+    directory = os.path.dirname(file)
 
     files = glob(path.join(directory, "*.py"))
     files = [

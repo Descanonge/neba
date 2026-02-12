@@ -6,11 +6,11 @@ import typing as t
 from collections import abc
 
 from .module import Module
-from .util import T_Data, T_Source
+from .util import T_Data, T_Source_contra
 
 
-class LoaderAbstract(t.Generic[T_Source, T_Data], Module):
     """Abstract class of Loader plugin.
+class LoaderAbstract(t.Generic[T_Source_contra, T_Data], Module):
 
     The Loader is tasked with opening the data into Python.
     It may run post-processing if defined by the user.
@@ -20,7 +20,7 @@ class LoaderAbstract(t.Generic[T_Source, T_Data], Module):
         self,
         /,
         *,
-        source: T_Source | abc.Sequence[T_Source] | None = None,
+        source: T_Source_contra | abc.Sequence[T_Source_contra] | None = None,
         ignore_postprocess: bool = False,
         load_kwargs: abc.Mapping[str, t.Any] | None = None,
         **kwargs,
@@ -69,7 +69,7 @@ class LoaderAbstract(t.Generic[T_Source, T_Data], Module):
         raise NotImplementedError("Implement in your DataManager subclass.")
 
     def load_data_concrete(
-        self, source: T_Source | abc.Sequence[T_Source], **kwargs
+        self, source: T_Source_contra | abc.Sequence[T_Source_contra], **kwargs
     ) -> t.Any:
         """Load the data from datafiles.
 
