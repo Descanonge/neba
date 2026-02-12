@@ -109,7 +109,7 @@ class DatasetStore(abc.MutableMapping[str, _V]):
             ) from e
 
     def __getitem__(self, key: str) -> _V:
-        """Return DataManagerBase subclass with this ID or SHORTNAME.
+        """Return Dataset subclass with this ID or SHORTNAME.
 
         Import the dataset if registered as an import string.
         """

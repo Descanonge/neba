@@ -11,7 +11,7 @@ A package to manage a configuration and multiple datasets.
 .. grid:: 1 1 3 3
 
    .. grid-item-card:: Configuration framework
-      :link: configuration
+      :link: config
       :link-alt: configuration
 
       Obtain your parameters from configuration files or command line arguments.
@@ -53,7 +53,7 @@ Project home: https://github.com/Descanonge/neba
    :maxdepth: 2
    :hidden:
 
-   configuration/index
+   config/index
 
    data/index
 

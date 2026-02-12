@@ -18,7 +18,7 @@ can get your data with two simple lines::
   >>> dm.get_data()
 
 Each *instance* of that subclass corresponds to a set of parameters that can be
-used to change aspects of the dataset on the fly: choose only some files for a
+used to change aspects of the dataset on the fly: choose only files for a
 specific year, change the method to open data, etc.
 
 .. _module-system:
@@ -69,12 +69,13 @@ Parameters
 ----------
 
 The parameters of the dataset are stored in the `ParamsManager` module. They are
-given as argument to the Dataset. They can be directly accessed from
-:attr:`.Dataset.params`, or in any module at :attr:`.Module.params`.
+given as argument to the Dataset on initialization. They can be directly
+accessed from :attr:`.Dataset.params`, or in any module at
+:attr:`.Module.params`.
 
 Parameters can be stored in a simple dictionary, or using objects from the
-:doc:`/configuration/index` part of Neba in a Section or Application. See the
-:ref:`existing parameters modules<existing_params>`.
+:doc:`configuration</config/index>` part of Neba like a Section or Application.
+See the :ref:`existing parameters modules<existing_params>`.
 
 .. tip::
 
@@ -82,27 +83,19 @@ Parameters can be stored in a simple dictionary, or using objects from the
     mapping (``dm.params["my_param"]``), this will work with all parameters
     modules.
 
-Changing parameters might affect other modules. In particular, modules using a
-cache will need to be reset when parameters are changed. Existing parameters
-modules make sure that any modification of the parameters will trigger all
-registered callbacks. Otherwise, using :meth:`.Dataset.set_params` and
-:meth:`.Dataset.reset_params` should be extra safe.
+Changing parameters might affect other modules. In particular, some modules use
+a cache that needs to be reset when parameters are changed. Using
+:meth:`.Dataset.set_params` and :meth:`.Dataset.reset_params` will void the
+cache, but existing parameters modules will make sure that directly modifying
+parameters will do as well.
 
 .. important::
 
    This does not include in-place operations on mutable parameters::
 
      dm.params["my_list"].append(1)
-
-   will **not** trigger a callback.
-
-.. important::
-
-   Parameters in :class:`.ParamsManagerDict` are actually stored in a special
-   subclass with a patched ``__set__`` method. The dictionary is considered to
-   be **flat**. Nested dicts are not transformed into this special class::
-
-     dm.params["my_sub_params"]["key"] = 1
+     # or
+     dm.params["my_dict"]["key"] = 1
 
    will **not** trigger a callback.
 
@@ -131,6 +124,9 @@ sets of parameters, for instance to get specific dates::
         ]
     )
 
+
+.. _source_module:
+
 Source
 ------
 
@@ -142,7 +138,7 @@ typically call it automatically when they need it.
 See :ref:`existing source modules<existing_source>`.
 
 Sometimes, you may have datasets split in different locations. To solve this,
-you can combine two source modules into one by taking the union (or
+you can combine multiple source modules into one by taking the union (or
 intersection) of their results.
 Say you have data files in two locations with different naming convention::
 
@@ -198,21 +194,23 @@ We can then run a method on a selected module with
 ``dm.source.apply_select("get_filename", year=2015)``, we can specify the year
 by hand or the year in the dataset parameters will be used.
 
-We can also call any method, the module mix will dispatch it if it exists in
-the base module (``dm.source.get_filename()``).
+.. tip::
+
+   The module mix will also try to dispatch any attribute access to the selected
+   base module, so ``dm.source.get_filename()`` will work.
 
 More details on :ref:`module_mixes`.
 
 Loader
 ------
 
-The Loader module deals with loading the data in memory from the location
-specified by the Source module. It allows to use :meth:`.Dataset.get_data`.
-Different loaders may use different libraries or functions. The source can
-always be overwritten using ``dm.get_data(source="my_file")``. It also allows to
-post-process your data: *ie* run a function every time it is loaded. For
-instance say we need to change units on a variable, we only need to implement
-the :meth:`~.LoaderAbstract.postprocess` method::
+The Loader module deals with loading the data from the location specified by the
+Source module. It allows to use :meth:`.Dataset.get_data`. Different loaders may
+use different libraries or functions. The source can always be specified
+manually with ``dm.get_data(source="my_file")``. It also allows to post-process
+your data: *ie* run a function every time it is loaded. For instance say we need
+to change units on a variable, we just need to implement the
+:meth:`~.LoaderAbstract.postprocess` method::
 
     class MyDataset(Dataset):
 
@@ -225,6 +223,11 @@ the :meth:`~.LoaderAbstract.postprocess` method::
 Now, every time we load data (using :meth:`.Dataset.get_data`), the function is
 applied. You can always disable it by passing
 ``dm.get_data(ignore_postprocess=True)``.
+
+New loaders should implement the method
+:meth:`~.LoaderAbstract.load_data_concrete` that loads data from a given source.
+:meth:`.LoaderAbstract.get_data` will deal with getting the source and applying
+post-processing.
 
 Writer
 ------
@@ -244,13 +247,70 @@ data you are writing:
 * ``git_diff_long``: if workdir is dirty, the full diff (truncated) at
   :attr:`~.WriterAbstract.metadata_max_diff_lines`.
 
+The writer will generate one or more *calls*, each consisting of a location
+and data to write there. Calls can then be executed serially or in parallel
+(for instance when using Xarray and Dask).
+
 Some writers are able to split your dataset into multiple files. They should
 inherit :class:`.SplitWriterMixin`, and the source module should follow the
 :class:`.Splitable` protocol.
 
-The writer will generate one or more *calls*, each consisting of a location
-and data to write there. Calls can then be executed serially or in parallel
-(for instance when using Xarray and Dask).
+
+.. _dataset-typing:
+
+Typing
+------
+
+Modules may deal with different types of parameters, source and data. Module
+classes specify their supported types as generics, so you can check their base
+class to see what input/output they support. For instance,
+:class:`.XarrayLoader` can receive :class:`str` | :class:`os.PathLike` and
+returns :class:`xarray.Dataset`.
+
+However, since one of the use of Neba is to ease the management of multi-file
+datasets, all modules are to be expected to receive either one source file, or
+a list of them. ``XarrayLoader`` may receive a ``str`` or list thereof (that it
+will concatenate into a single output).
+
+The types of parameters, source, and data are also left as generics for the
+Dataset class (in this order). By specifying them you get type-checks for some
+top-level methods like :meth:`.Dataset.get_data` or :meth:`.Dataset.get_source`,
+and because those generics are transmitted to modules, it also allows to
+type-check compatibility between modules.
+
+::
+
+    class MyDataset(Dataset[App, str, xr.Dataset]):
+        ParamsManager = ParamsManagerApp
+        Source = FileFinderSource
+        Loader = XarrayLoader
+
+        # module instances must be type-hinted by hand :(
+        params_manager: ParamsManagerApp[App]
+        source: FileFinderSource
+        Loader: XarrayLoader
+
+
+.. note::
+
+    Module having union types can be tricky. You can think about it in terms of
+    inputs and outputs:
+
+    - source modules output source,
+    - loader modules take in source and output data,
+    - writer modules take in source and data.
+
+    For outputs, you should specify all types in your Dataset generic. For
+    inputs, it's okay not to list them all.
+
+    For example, if your source modules returns ``str | bytes`` you should list
+    them all. That way, if your loader modules only takes in ``str`` as source,
+    your type-checker should complain (since the loader might receive
+    ``bytes``). And if your writer takes in ``str | bytes | os.PathLike``, you
+    don't need to list ``os.PathLike``, since the source module will never
+    return that.
+
+.. _module_mixes:
 
 Module mixes
 ============
@@ -259,13 +319,14 @@ Modules can be compounded together in some cases. The common API for this is
 contained in :class:`.ModuleMix`. This generates a module with multiple 'base
 modules'. It will instantiate and initialize all modules and store them in
 :attr:`.ModuleMix.base_modules`.
-Mixes class should be created with the class method :meth:`~.ModuleMix.create`.
+Mix classes should be created with the class method :meth:`~.ModuleMix.create`.
 
 This is used for instance to obtain the :class:`union<.SourceUnion>` or
 :class:`intersection<.SourceIntersection>` of source files obtained by different
-source modules.
+source modules. Or it could be used to write to multiple file format at once
+(with different base writers).
 
-Mixes can run methods on its base modules:
+Mixes can run methods on their base modules:
 
 * :meth:`~.ModuleMix.apply_all` will run on **all** the base modules of the mix
   and return a list of outputs.
@@ -282,7 +343,7 @@ Mixes can run methods on its base modules:
 
 .. tip::
 
-    If a attribute access fails on a ModuleMix, it tries to select a base module
+    If an attribute access fails on a ModuleMix, it tries to select a base module
     and access that attribute on it. This allows to dispatch quickly to a base
     module.
 
@@ -296,13 +357,12 @@ Cache module
    This section is aimed at module writers. Users can safely ignore it.
 
 It might help for some modules to have a cache to write information into. For
-instance plugins managing source consisting of multiple files leverage this. A
-module simply needs to be a subclass of :class:`.CachedModule`. This will
-automatically create a ``cache`` attribute containing a dictionnary. It will
-also add a callback to the list of reset-callbacks of the data manager, so that
-this module cache will be voided on parameters change. This can be disabled
-however by setting the class attribute ``_add_void_callback`` to False (in the
-new submodule class).
+instance source modules for multiple files leverage this. A module simply needs
+to be a subclass of :class:`.CachedModule`. This will automatically create a
+``cache`` attribute containing a dictionnary. It will also add a callback to the
+list of reset-callbacks of the Dataset, so that this module cache will be
+voided on parameters change. This can be disabled however by setting the class
+attribute ``_add_void_callback`` to False (in the new submodule class).
 
 If a module has a cache, you can use the :func:`.autocached` decorator to make
 the value of one of its property automatically cached::
@@ -314,31 +374,40 @@ the value of one of its property automatically cached::
         def something(self):
             ...
 
-
-.. _module_mixes:
-
 Defining new modules
 ====================
 
 Users will typically only need to use existing modules, possibly redefining some
-of their methods. In the case more dramatic changes are necessary, here are more
+of their methods, but in the case more dramatic changes are necessary, here are more
 details on the module system.
 
-The correspondence between the attribute containing the module instance and the
-one containing the module type must be indicated in
-:attr:`~.Dataset._modules_attributes`.
+All modules inherit from abstract classes that define their API. Note that they
+are not defined through the :external+python:mod:`abc` module, and thus will not
+raise if instantiated. These classes are more guidelines than strict protocols.
+
+.. admonition:: For developers
+
+    Nevertheless it is advised to keep a common signature for module subclasses,
+    relying on keyword arguments if necessary. This helps ensure
+    inter-operability between module and easy substitution of modules types.
+
+To add more modules types, the correspondence between the attribute containing
+the module instance and the one containing the module type must be indicated in
+the mapping :attr:`~.Dataset._modules_attributes`.
 
 .. note::
 
    The parameters module is instantiated first. Other modules are instantiated
    in the order of that mapping. Modules are then setup in the same order.
 
-Dataset managers are initialized with an optional argument giving the
-parameters, and additional keyword arguments. All modules are instantiated with
-the same arguments. Immediately after, their :attr:`~.Module.dm` attribute is
-set to the containing data manager. Once they are all instantiated, they are
-setup using the :meth:`.Module.setup` method. This allow to be (mostly) sure
-that all other module exist if there is need for interplay.
+Datasets are initialized with an optional argument giving the parameters, and
+additional keyword arguments. Datasets are :doc:`Sections</config/usage>`, so
+keyword arguments corresponding to traits are extracted and applied. All modules
+are instantiated with the same arguments (minus keyword arguments corresponding
+to traits). Their :attr:`~.Module.dm` attribute is set to the containing
+dataset. Once they are all instantiated, they are setup using the
+:meth:`.Module.setup` method. This allow to be (mostly) sure that all other
+module exist if there is need for interplay.
 
 .. note::
 
@@ -386,8 +455,8 @@ You can directly register a dataset with a decorator::
         ...
 
 You can also store a dataset as an import string. When accessed, the store will
-automatically import your dataset (and replace the string for subsequent
-accesses).::
+automatically import your dataset (and replace the string by the dataset for
+subsequent accesses).::
 
     store.add("path.to.MyDataset")
     ds = store["MyDataset"]

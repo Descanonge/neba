@@ -1,4 +1,4 @@
-"""Plugin to manages and find data sources."""
+"""Module to manages and find data sources."""
 
 from __future__ import annotations
 
@@ -63,9 +63,9 @@ class MultiFileSource(SourceAbstract[str]):
         Can return a path, or an iterable of directories that will automatically be
         joined into a valid path.
 
-        :Not implemented: implement in your DataManager subclass.
+        :Not implemented: implement in your Source module subclass.
         """
-        raise NotImplementedError("Implemented in your DataManager subclass.")
+        raise NotImplementedError("Implement in your Source module subclass.")
 
     @property
     def root_directory(self) -> Path:
@@ -106,9 +106,9 @@ class MultiFileSource(SourceAbstract[str]):
     def datafiles(self) -> list[str]:
         """List of source files.
 
-        :Not implemented: implement in plugin subclass.
+        :Not implemented: implement in a module subclass.
         """
-        raise NotImplementedError("Implement in plugin subclass.")
+        raise NotImplementedError("Implement in a module subclass.")
 
 
 class GlobSource(MultiFileSource, CachedModule):
@@ -131,9 +131,9 @@ class GlobSource(MultiFileSource, CachedModule):
 
         If it is defined, the pattern starts from :meth:`get_root_directory`.
 
-        :Not implemented: implement in your DataManager subclass.
+        :Not implemented: implement in your Source module subclass.
         """
-        raise NotImplementedError("Implement in your DataManager subclass.")
+        raise NotImplementedError("Implement in your Source module subclass.")
 
     @property
     @autocached
@@ -171,17 +171,17 @@ class FileFinderSource(MultiFileSource, CachedModule):
 
     Written for datasets comprising of many datafiles, either because of they have long
     time series, or many parameters.
-    The user has to define two methods. One returning the root directory containing
-    all the datafiles (:meth:`get_root_directory`). And another one returning the
-    filename pattern (:meth:`get_filename_pattern`). Using methods allows to return
-    a different directory or pattern depending on the parameters.
+    The user has to define two methods. One returning the root directory containing all
+    the datafiles (:meth:`~.MultiFileSource.get_root_directory`). And another one
+    returning the filename pattern (:meth:`get_filename_pattern`). Using methods allows
+    to return a different directory or pattern depending on the parameters.
 
     .. note::
 
         It is important to note that only parameters in the filename pattern can take
-        multiple values in a single :meth:`~.data_manager.DataManagerBase.get_source`
-        call. To get files from different root directories and merge the results,
-        the current solution is to use :meth:`~.data_manager.DataManager.get_data_sets`.
+        multiple values in a single :meth:`~.Dataset.get_source` call. To get files from
+        different root directories and merge the results, either use
+        :meth:`~.Dataset.get_data_sets` or a :ref:`module mix<source_module>`.
 
     The filename pattern specify the parts of the datafiles that vary from file to file
     using a powerful syntax. See the filefinder package `documentation
@@ -202,9 +202,9 @@ class FileFinderSource(MultiFileSource, CachedModule):
         file. See the filefinder package `documentation
         <https://filefinder.readthedocs.io/en/latest/>`_ for the details.
 
-        :Not implemented: implement in your DataManager class.
+        :Not implemented: implement in your Source module subclass.
         """
-        raise NotImplementedError("Implement in your DataManager class.")
+        raise NotImplementedError("Implement in your Source module subclass.")
 
     def get_filename(self, relative: bool = False, **fixes) -> str:
         """Create a filename corresponding to a set of parameters values.
@@ -349,7 +349,7 @@ class climato:  # noqa: N801
 
         def get_root_dir_wrapped(obj):
             root_dir = super(cls, obj).get_root_directory()
-            if isinstance(root_dir, os.PathLike):
+            if isinstance(root_dir, str | os.PathLike):
                 root_dir = path.join(root_dir, self.append_folder)
             else:
                 root_dir.append(self.append_folder)

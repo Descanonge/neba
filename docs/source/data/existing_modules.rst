@@ -7,19 +7,8 @@ Existing modules
 
 The *Dataset* class is expected to be populated by modules (see
 :ref:`module-system`). Here is a quick description of modules that are already
-defined.
+defined in Neba.
 
-The features managed by the modules presented below inherit from abstract
-classes that define the API for that feature. Note that they are not defined
-through the :external+python:mod:`abc` module, and thus will not raise if
-instantiated. These classes are more guidelines than strict protocols.
-
-
-.. admonition:: For developers
-
-    Nevertheless it is advised to keep a common signature for module subclasses,
-    relying on keyword arguments if necessary. This helps ensure
-    inter-operability between module and easy substitution of modules types.
 
 .. _existing_params:
 
@@ -31,7 +20,7 @@ Dict
 
 :class:`.ParamsManagerDict` stores the parameters in a dictionary.
 Technically it is a subclass of dict that has a callback setup to void the
-modules cache when a parameters is changed.
+modules cache when a parameter is changed.
 
 The callback is called only when setting a value that is new or different from
 the old value. Any change to a mutable (list or dict) will not register::
@@ -49,10 +38,10 @@ Section
 -------
 
 :class:`.ParamsManagerSection` stores the parameters in a :class:`.Section`
-object. The Section class is specified in the attribute
+object. The section class is specified in the attribute
 :attr:`~.ParamsManagerSection.SECTION_CLS` and defaults to an empty Section.
-When initialized, the modules creates a new ``SECTION_CLS`` and updates it
-with the argument passed to it.
+When initialized, the module creates a new ``SECTION_CLS`` and updates it
+with the arguments passed to it.
 
 It can be defined with::
 
@@ -87,18 +76,13 @@ application instance).
     The specific application class does not need to be specified, but can be
     type-hinted with::
 
-        class MyDataset(Dataset):
-            ParamsManager = ParamsManagerApp
-            params_manager: ParamsManagerApp[MyApp]
-
-    or::
-
         from neba.data.util import T_Source, T_Data
 
         class MyDataset(Dataset[MyApp, T_Source, T_Data]):
             ...
 
-    ``T_Source`` and ``T_Data`` can also be specified.
+    ``T_Source`` and ``T_Data`` can also be specified, see
+    :ref:`dataset-typing`.
 
 
 .. _existing_source:
@@ -109,8 +93,8 @@ Source
 Simple
 ------
 
-For simple case where you do not need a full method, :class:`.SimpleSource` will
-just return its attribute :attr:`~.SimpleSource.source_loc`::
+For simple case, :class:`.SimpleSource` will just return its attribute
+:attr:`~.SimpleSource.source_loc`::
 
     class MyDataset(Dataset):
         Source = SimpleSource
@@ -128,12 +112,12 @@ joined).
 Glob
 ++++
 
-The module :class:`.GlobSource` can find files on disk that follow a given
-pattern using :mod:`glob`, defined by :meth:`~.GlobSource.get_glob_pattern`.
-Files on disk matching the pattern are cached and available at
+The module :class:`.GlobSource` can find files on disk that follow a pattern
+defined by :meth:`~.GlobSource.get_glob_pattern`, using :mod:`glob`. Files on
+disk matching the pattern are cached and available at
 :meth:`~.GlobSource.datafiles`. For instance::
 
-    class MyDataManager(DataManagerBase):
+    class MyDataset(Dataset):
 
         class Source(GlobSource):
             def get_root_directory(self):
@@ -142,7 +126,7 @@ Files on disk matching the pattern are cached and available at
             def get_glob_pattern(self):
                 return "SST_*.nc"
 
-    files = MyDataManager().get_source()
+    files = MyDataset().get_source()
 
 FileFinder
 ++++++++++
@@ -153,7 +137,7 @@ by :class:`.FileFinderSource`. This module relies on the `filefinder
 <https://filefinder.readthedocs.io/en/latest/>`__ package to find files
 according to a specific filename pattern. For instance::
 
-    class MyDataManager(DataManagerBase):
+    class MyDataset(Dataset):
 
         class Source(FileFinderSource):
             def get_root_directory(self):
@@ -167,14 +151,14 @@ pattern can define parameters with specific formatting. Thus it can "fix" some
 parameters and restrict its search. With the same example as above we can
 select only the files for a specific depth::
 
-    MyDataManager(depth=10.0).get_source()
+    MyDataset(depth=10.0).get_source()
 
 If we fix all parameters we can also generate a filename for a given set of
 parameters::
 
-    MyDataManager(depth=10.0).source.get_filename(Y=2015, m=5, d=1)
+    MyDataset(depth=10.0).source.get_filename(Y=2015, m=5, d=1)
     # or equivalent:
-    MyDataManager(depth=10.0, Y=2015, m=5, d=1).source.get_filename()
+    MyDataset(depth=10.0, Y=2015, m=5, d=1).source.get_filename()
 
 See the `filefinder <https://filefinder.readthedocs.io/en/latest/>`__
 documentation for more details on its features.
@@ -191,7 +175,7 @@ evel package to avoid importing Xarray unless needed.
 Loaders
 -------
 
-:class:`.XarrayLoader` will load from either a single file or store with
+:class:`.XarrayLoader` will load either from a single file or store with
 :external+xarray:func:`~xarray.open_dataset` or from multiple files using
 :external+xarray:func:`~xarray.open_mfdataset`.
 

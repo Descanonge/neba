@@ -1,4 +1,4 @@
-"""Writer plugin: write data to disk."""
+"""Writer module: write data to disk."""
 
 from __future__ import annotations
 
@@ -21,8 +21,8 @@ from .util import T_Data, T_Source, T_Source_contra
 log = logging.getLogger(__name__)
 
 
-    """Abstract class of Writer plugin.
 class WriterAbstract(t.Generic[T_Source_contra, T_Data], Module):
+    """Abstract class of Writer module.
 
     Manages metadata to (eventually) add to data before writing.
     """
@@ -175,7 +175,7 @@ class WriterAbstract(t.Generic[T_Source_contra, T_Data], Module):
     ) -> t.Any:
         """Write data to file or store.
 
-        :Not implemented: implement in plugin subclass.
+        :Not implemented: implement in a module subclass.
 
         Parameters
         ----------
@@ -183,9 +183,9 @@ class WriterAbstract(t.Generic[T_Source_contra, T_Data], Module):
             Data to write.
         target
             If None, target location(s) should be obtained via
-            :meth:`.DataManagerBase.get_source`.
+            :meth:`.Dataset.get_source`.
         """
-        raise NotImplementedError("Implement in plugin subclass.")
+        raise NotImplementedError("Implement in a module subclass.")
 
     def check_directories(self, calls: abc.Sequence[tuple[T_Source_contra, T_Data]]):
         """Check if directories are missing, and create them if necessary."""
@@ -223,14 +223,14 @@ class WriterAbstract(t.Generic[T_Source_contra, T_Data], Module):
     def send_single_call(self, call: tuple[T_Source_contra, T_Data], **kwargs) -> t.Any:
         """Execute a single call.
 
-        :Not implemented: implement in plugin subclass.
+        :Not implemented: implement in a module subclass.
 
         Parameters
         ----------
         kwargs
             Passed to the writing function.
         """
-        raise NotImplementedError("Implement in plugin subclass.")
+        raise NotImplementedError("Implement in a module subclass.")
 
     def send_calls(
         self, calls: abc.Sequence[tuple[T_Source_contra, T_Data]], **kwargs
@@ -256,7 +256,7 @@ T = t.TypeVar("T", covariant=True)
 
 @t.runtime_checkable
 class Splitable(t.Protocol[T]):
-    """Protocol for a source plugin that can split data into multiple sources.
+    """Protocol for a source module that can split data into multiple sources.
 
     A number of parameters can be left :meth:`unfixed` which results in multiple files
     (for instance, if we do not "fix" the parameter *year*, we can have files for any
@@ -265,7 +265,7 @@ class Splitable(t.Protocol[T]):
     It must also implement a :meth:`get_filename` method that returns a filename when
     given a specific set of values.
 
-    The idea is that a plugin can split data according to the parameters that are left
+    The idea is that a module can split data according to the parameters that are left
     unfixed (example by year), once the data is split we find the associated filename
     for each year and we then write to files.
 

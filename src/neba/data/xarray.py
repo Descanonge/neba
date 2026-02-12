@@ -1,4 +1,4 @@
-"""Plugin definitions for XArray."""
+"""Modules for XArray."""
 
 from __future__ import annotations
 
@@ -279,7 +279,7 @@ class XarrayWriter(WriterAbstract[str, xr.Dataset]):
             Dataset or Sequence of datasets to write.
         target
             If None (default), target location(s) are automatically obtained via
-            :meth:`.DataManagerBase.get_source`.
+            :meth:`.Dataset.get_source`.
         client:
             Dask :class:`distributed.Client` instance. If present multiple write calls
             will be send in parallel. See :meth:`send_calls_together` for details.

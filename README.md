@@ -30,16 +30,17 @@ This package extends it to allow nesting. The objects containing parameters are 
 Here is a simple example project:
 ``` python
 from neba.config import ApplicationBase, Section
-from traitlets import Float, List, Int, Unicode
+from traitlets import Enum, Float, List, Unicode
 
 class App(ApplicationBase):
-    # our parameters
+    """The application will retrieve and store parameters."""
+
     result_dir = Unicode("/data/results", help="Directory containing results") 
 
-    # a nested section called "model"
     class model(Section):
-        year = Int(2000)
-        coefficients = List(Float(), [0.5, 1.5, 10.0])
+        """A nested section."""
+        coefficients = List(Float(), [0.5, 1.5, 10.0], help="Some coefficients for computation.")
+        style = Enum(["serial", "parallel"], "serial", help="Only some values are accepted.")
 
 app = App()
 print(app.model.year)
@@ -53,36 +54,42 @@ Parameters from the example above could be retrieved from the command line with 
 # Directory containing results
 
 [model]
+# A nested section.
 
 # coefficients = [0.5, 1.5, 10.0]
 # ------------
 # model.coefficients (List[Float]) default: [0.5, 1.5, 10.0]
+# Some coefficients for computation
 
-# year = 2000
-# ----
-# model.year (Int) default: 2000
+# style = "serial"
+# -----
+# model.style (Enum) default: "serial"
+# Accepted values: ['serial', 'parallel']
+# Only some values are accepted
 ```
 
 ## Dataset management
 
-The second part aims to ease the creation and management of datasets with different file formats, structures, etc. that can all depend on various parameters.
+The second part aims to ease the creation and management of datasets with different file formats, structures, etc.
+Each new dataset is specified by creating a new subclass. It contains
+interchangeable *modules* that each cover some functionalities. One dataset can
+deal with multiple source files selected via glob patterns, loaded into pandas,
+while another could have a remote data-store as input loaded into xarray.
 
-Each new dataset is specified by creating a new subclass.
-These classes are made as universal as possible via a system of modules that each cover specific features, and whose implementation can be changed between datasets.
-For instance one dataset can deal with multiple source files selected via glob patterns and loaded into Pandas, while another could have a remote data-store as input loaded into Xarray.
-
-An example of a dataset where multiple files are managed with a glob pattern, and fed into Xarray:
+Here is an example of a dataset where multiple files are found with a glob pattern, and fed into Xarray:
 ``` python
 from neba.data import Dataset, GlobSource, ParamsManagerDict
 from neba.data.xarray import XarrayLoader
 
 class SST(Dataset):
-    # parameters will be held in a simple dict
-    Params = ParamsManagerDict
-    # loader module uses xarray.open_mfdataset
+    # manage parameters with a simple dict
+    ParamsManager = ParamsManagerDict
+
+    # load data using xarray
     Loader = XarrayLoader
+    Loader.OPEN_MFDATASET_KWARGS = dict(parallel=True)
     
-    # source files are retrieved from disk using glob
+    # find files on disk using glob
     class Source(GlobSource):
         def get_root_directory(self):
             # we use the parameters of the Dataset instance
@@ -96,8 +103,7 @@ class SST(Dataset):
 ds = SST(year=2000, data_dir="/data")
 sst = ds.get_data()
 ```
-We used the parameters and loader module as is, but we configured the source module for our needs.
-Most modules will use methods like this to take advantage of the parameters contained in the dataset.
+We used the parameters and loader modules as is, but we configured the source module for our needs.
 
 ## Documentation
 

@@ -1,4 +1,4 @@
-"""Plugin to load data into python."""
+"""Module to load data into python."""
 
 from __future__ import annotations
 
@@ -9,8 +9,8 @@ from .module import Module
 from .util import T_Data, T_Source_contra
 
 
-    """Abstract class of Loader plugin.
 class LoaderAbstract(t.Generic[T_Source_contra, T_Data], Module):
+    """Abstract class of Loader module.
 
     The Loader is tasked with opening the data into Python.
     It may run post-processing if defined by the user.
@@ -37,7 +37,7 @@ class LoaderAbstract(t.Generic[T_Source_contra, T_Data], Module):
         ----------
         source
             Source location of the data to load. If left to None,
-            :meth:`~.data_manager.DataManagerBase.get_source` is used.
+            :meth:`~.Dataset.get_source` is used.
         ignore_postprocess
             If True, do not apply postprocessing. Default is False.
         load_kwargs
@@ -64,9 +64,11 @@ class LoaderAbstract(t.Generic[T_Source_contra, T_Data], Module):
     def postprocess(self, data: T_Data) -> T_Data:
         """Run operation after loading data.
 
-        :Not implemented: implement (if necessary) on your DataManager subclass.
+        :Not implemented: implement (if necessary) in your Loader module subclass.
         """
-        raise NotImplementedError("Implement in your DataManager subclass.")
+        raise NotImplementedError(
+            "Implement (if necessary) in your Loader module subclass."
+        )
 
     def load_data_concrete(
         self, source: T_Source_contra | abc.Sequence[T_Source_contra], **kwargs
@@ -76,6 +78,6 @@ class LoaderAbstract(t.Generic[T_Source_contra, T_Data], Module):
         This method should be implemented in subclasses to account for different
         format, libraries, etc.
 
-        :Not implemented: implement in a plugin subclass.
+        :Not implemented: implement in a module subclass.
         """
-        return NotImplementedError("Implement in a plugin subclass.")
+        return NotImplementedError("Implement in a module subclass.")

@@ -1,4 +1,4 @@
-"""DataManager base: the main class for your dataset."""
+"""Dataset: the main class for defining your datasets."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ log = logging.getLogger(__name__)
 
 
 class Dataset(t.Generic[T_Params, T_Source, T_Data], Section):
-    """DataManager base object.
+    """Object defining a dataset.
 
     Registers modules for parameters management, source management, data loading,
     and data writing.
@@ -240,8 +240,8 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data], Section):
     def reset(self, callbacks: bool | list[str] = True, **kwargs):
         """Call all registered callbacks when parameters are reset/changed.
 
-        Plugins should register callback in the dictionary :attr:`_RESET_CALLBACKS`
-        during :meth:`~.plugin.Plugin._init_plugin`.
+        Modules should register callback in the dictionary :attr:`_RESET_CALLBACKS`
+        during :meth:`~.Module.setup`.
         Callbacks should be functions that take the data manager as first argument, then
         any number of keyword arguments.
 
@@ -294,7 +294,7 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data], Section):
 
         Each set of parameter will specify one filename. Parameters that do not change
         from one set to the next do not need to be specified if they are fixed (by
-        setting them in the DataManager). The sets can be specified with either one of
+        setting them in the Dataset). The sets can be specified with either one of
         `params_maps` or `params_sets`.
 
         Parameters
@@ -309,7 +309,7 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data], Section):
             This will give 3 filenames for 3 different dates. Note that here, the
             parameters do not need to be the same for all sets, for example in a fourth
             set we could have ``{'Y': 2023, 'm': 1, 'd': 10, 'depth': 50}`` to override
-            the value of 'depth' set in the DataManager parameters.
+            the value of 'depth' set in the Dataset parameters.
         params_sets
             Here each set is specified by sequence of parameters values. This first row
             gives the order of parameters. The same input as before can be written as::

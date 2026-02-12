@@ -1,4 +1,4 @@
-"""Definition of base Module for the DataManager."""
+"""Definition of base Module for the Dataset."""
 
 from __future__ import annotations
 
@@ -41,7 +41,7 @@ class Module:
         return "\n".join(lines)
 
     def _lines(self) -> list[str]:
-        """Lines to show in DataManager repr (human readable)."""
+        """Lines to show in Dataset repr (human readable)."""
         return []
 
     def setup(self) -> None:
@@ -72,9 +72,9 @@ class Module:
 
 
 class CachedModule(Module):
-    """Plugin containing a cache.
+    """Module containing a cache.
 
-    The cache is voided on a call of :meth:`.DataManagerBase.reset`. This is typically
+    The cache is voided on a call of :meth:`.Dataset.reset`. This is typically
     done everytime the parameters change.
     """
 
