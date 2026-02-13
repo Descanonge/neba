@@ -314,37 +314,22 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data]):
 
 class _ParamsContext:
     def __init__(self, dm: Dataset, save_cache: bool):
-        self.dm = dm
-        self.params = copy.deepcopy(dm.params)
+        # Save cache first, copying params might void it
         self.caches: dict | None = None
-
         if save_cache:
             self.caches = {
-                name: mod.cache
+                name: dict(mod.cache)
                 for name, mod in dm._modules.items()
                 if isinstance(mod, CachedModule)
             }
 
-    def repopulate_cache(self):
-        for module, save in self.caches.items():
-            cache = self._mod(module).cache
-            for key, val in save.items():
-                # do not overwrite current cache
-                if key not in cache:
-                    cache[key] = val
-                    continue
+        self.dm = dm
+        self.params = copy.deepcopy(dm.params)
 
-                # check that there is correspondance with saved and current cache
-                current_val = save[key]
-                if current_val != val:
-                    log.warning(
-                        "Different value when restoring module %s cache for key %s: "
-                        "saved '%s', has '%s'.",
-                        module,
-                        key,
-                        str(val),
-                        str(current_val),
-                    )
+    def repopulate_cache(self):
+        for name, saved_cache in self.caches.items():
+            for key, val in saved_cache.items():
+                self.dm._modules[name].cache[key] = val
 
     def __enter__(self) -> t.Self:
         return self
