@@ -57,7 +57,7 @@ class MultiFileSource(SourceAbstract[str]):
     asking the source. If they are many files, caching this can make sense.
     """
 
-    def get_root_directory(self) -> str | os.PathLike | list[str | os.PathLike]:
+    def get_root_directory(self) -> str | os.PathLike | list[str] | list[os.PathLike]:
         """Return the directory containing all datafiles.
 
         Can return a path, or an iterable of directories that will automatically be
