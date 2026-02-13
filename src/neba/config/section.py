@@ -91,8 +91,7 @@ class Section(HasTraits):
     * all traits are automatically tagged as configurable (``.tag(config=True)``),
       unless already tagged.
     * Any class attribute that is a subclass of Section will be registered as a nested
-      *subsection* and replaced by a :class:`traitlets.Instance` trait, tagged as a
-      "subsection" in its metadata.
+      *subsection* and replaced by a :class:`.Subsection` descriptor..
     * Any nested class definition (subclass of Section) will also be considered as a
       subsection whose name is that of the class. The class definition will be kept under
       another attribute name (``_{subsection}SectionDef``).

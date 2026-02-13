@@ -85,9 +85,8 @@ See the :ref:`existing parameters modules<existing_params>`.
 
 Changing parameters might affect other modules. In particular, some modules use
 a cache that needs to be reset when parameters are changed. Using
-:meth:`.Dataset.set_params` and :meth:`.Dataset.reset_params` will void the
-cache, but existing parameters modules will make sure that directly modifying
-parameters will do as well.
+:meth:`.Dataset.update_params` will void the cache, but existing parameters
+modules will make sure that directly modifying parameters will do as well.
 
 .. important::
 
@@ -108,7 +107,7 @@ save the initial parameters and restore them when exiting::
 
     with self.save_excursion():
         # we change them
-        self.set_params(p=2)
+        self.update_params(p=2)
         self.get_data()
 
     # we are back to self.params["p"] = 0
@@ -365,7 +364,8 @@ voided on parameters change. This can be disabled however by setting the class
 attribute ``_add_void_callback`` to False (in the new submodule class).
 
 If a module has a cache, you can use the :func:`.autocached` decorator to make
-the value of one of its property automatically cached::
+the value of one of its method or property automatically cached. Watch out
+for the order of decorators for properties::
 
     class SubModule(SourceAbstract, CachedModule):
 
@@ -401,13 +401,11 @@ the mapping :attr:`~.Dataset._modules_attributes`.
    in the order of that mapping. Modules are then setup in the same order.
 
 Datasets are initialized with an optional argument giving the parameters, and
-additional keyword arguments. Datasets are :doc:`Sections</config/usage>`, so
-keyword arguments corresponding to traits are extracted and applied. All modules
-are instantiated with the same arguments (minus keyword arguments corresponding
-to traits). Their :attr:`~.Module.dm` attribute is set to the containing
-dataset. Once they are all instantiated, they are setup using the
-:meth:`.Module.setup` method. This allow to be (mostly) sure that all other
-module exist if there is need for interplay.
+additional keyword arguments. All modules are instantiated with the same
+arguments. Their :attr:`~.Module.dm` attribute is set to the containing dataset.
+Once they are all instantiated, they are setup using the :meth:`.Module.setup`
+method. This allow to be (mostly) sure that all other module exist if there is
+need for interplay.
 
 .. note::
 

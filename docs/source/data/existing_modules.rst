@@ -220,7 +220,7 @@ unspecified along which the dataset will be split. It must also be able to
 return a filename given values for those unspecified parameters. The
 :class:`.FileFinderSource` can be used to that purpose. For instance we can
 split a dataset along its depth dimension and automatically group by month,
-using a dataset along the lines of::
+using data along the lines of::
 
     >>> ds
     <xarray.Dataset>
@@ -234,7 +234,7 @@ using a dataset along the lines of::
         temp                  (time, depth, lat, lon) float32 dask.array<chunksize=(1, 1, 4320, 8640), meta=np.ndarray>
 
 
-and a data manager defined as::
+and a dataset defined as::
 
     class MyDataset(Dataset):
 

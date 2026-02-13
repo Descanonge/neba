@@ -28,7 +28,7 @@ class Module:
 
     @property
     def params(self) -> t.Any:
-        """Parameters of the data manager."""
+        """Parameters of the dataset."""
         return self.dm.params_manager.params
 
     def __init__(self, params: t.Any | None = None, **kwargs):
@@ -94,7 +94,7 @@ class CachedModule(Module):
 
         if self._add_void_callback:
             key = f"void_cache[{cls_name}]"
-            self.dm._register_callback(key, callback)
+            self.dm.register_callback(key, callback)
 
     def void_cache(self) -> None:
         """Clear the cache."""
@@ -109,15 +109,21 @@ T_CachedMod = t.TypeVar("T_CachedMod", bound=CachedModule)
 def autocached(
     func: abc.Callable[[T_CachedMod], R],
 ) -> abc.Callable[[T_CachedMod], R]:
-    """Make a property autocached.
+    """Make a method autocached.
 
-    When the property is accessed, it will first check if a key with the same name (as
+    When the method is accessed, it will first check if a key with the same name (as
     the property) exists in the module cache. If yes, it directly returns the cached
-    values, otherwise it runs the code of the property, caches the result and returns
+    values, otherwise it runs the code of the method, caches the result and returns
     it.
 
     There is no check on the module containing a cache. If not it will raise an
-    AttributeError on accessing the property.
+    AttributeError on accessing the method.
+
+    This also works for properties. Make sure you autocache the method first::
+
+        @property
+        @autocached
+        def my_property(self): ...
     """
     property_name = func.__name__
 

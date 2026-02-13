@@ -127,7 +127,7 @@ class ParamsManagerSectionAbstract(ParamsManagerAbstract[T_Section]):
 
     RAISE_ON_MISS: bool = True
     """Passed to Section.update, If True (default), raise if unkown parameter is passed
-    when using set_params."""
+    when using :meth:`update` or :meth:`set`."""
 
     _params: T_Section
 

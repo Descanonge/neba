@@ -173,10 +173,10 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data]):
         Parameters
         ----------
         save_cache:
-            If true, save and restore the cache. The context reset the parameters of the
-            data manager using :meth:`set_params` and then restore any saved key in the
-            cache, *without overwriting*. This may lead to unexpected behavior and is
-            disabled by default.
+            If true, save and restore the cache. The context resets the parameters of
+            the dataset using :meth:`reset_params` and :meth:`update_params` and then
+            restore any saved key in the cache. This may lead to unexpected behavior and
+            is disabled by default.
 
         Returns
         -------
