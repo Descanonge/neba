@@ -161,41 +161,23 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data], Section):
         """Parameters values for this instance."""
         return self.params_manager._params
 
-    def set_params(
-        self, params: t.Any | None = None, reset: bool | list[str] = True, **kwargs
-    ):
+    def update_params(self, params: t.Any | None = None, **kwargs):
         """Update one or more parameters values.
 
-        Other parameters are kept.
-
         Parameters
         ----------
-        reset:
-            Passed to :meth:`reset`.
-        kwargs:
+        params
+            Parameters to change.
+        kwargs
             Other parameters values in the form ``name=value``.
         """
-        self.params_manager.set_params(params, **kwargs)
-        self.reset(reset)
+        self.params_manager.update(params, **kwargs)
+        self.trigger_callbacks()
 
-    def reset_params(
-        self, params: t.Any | None = None, reset: bool | list[str] = True, **kwargs
-    ):
-        """Set parameters values.
-
-        Old parameters values are discarded.
-
-        Parameters
-        ----------
-        reset:
-            Passed to :meth:`reset`.
-        kwargs:
-            Other parameters values in the form ``name=value``.
-            Parameters will be taken in order of first available in:
-            ``kwargs``, ``params``, :attr:`PARAMS_DEFAULTS`.
-        """
-        self.params_manager.reset_params(params, **kwargs)
-        self.reset(reset)
+    def reset_params(self):
+        """Reset parameters to their default state and trigger callbacks."""
+        self.params_manager.reset()
+        self.trigger_callbacks()
 
     def save_excursion(self, save_cache: bool = False) -> _ParamsContext:
         """Save and restore current parameters after a with block.
@@ -205,7 +187,7 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data], Section):
             # we have some parameters, self.params["p"] = 0
             with self.save_excursion():
                 # we change them
-                self.set_params(p=2)
+                self.update_params(p=2)
                 self.get_data()
 
             # we are back to self.params["p"] = 0
@@ -229,7 +211,7 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data], Section):
 
     # - end of parameters methods
 
-    def _register_callback(self, key: str, func: abc.Callable[..., None]):
+    def register_callback(self, key: str, func: abc.Callable[..., None]):
         """Register a new callback. Throw error if it already exists."""
         if key in self._reset_callbacks:
             raise KeyError(
@@ -237,20 +219,18 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data], Section):
             )
         self._reset_callbacks[key] = func
 
-    def reset(self, callbacks: bool | list[str] = True, **kwargs):
-        """Call all registered callbacks when parameters are reset/changed.
+    def trigger_callbacks(self, callbacks: bool | list[str] = True, **kwargs):
+        """Call all registered callbacks.
 
-        Modules should register callback in the dictionary :attr:`_RESET_CALLBACKS`
+        Modules should register callback in the dictionary :attr:`_reset_callbacks`
         during :meth:`~.Module.setup`.
-        Callbacks should be functions that take the data manager as first argument, then
-        any number of keyword arguments.
 
         Parameters
         ----------
         callbacks
             If True all callbacks are run (default), if False none are run. Can also
             be a list of specific callback names to run (keys in the dictionary
-            :attr:`_RESET_CALLBACKS`).
+            :attr:`_reset_callbacks`).
         """
         if callbacks is False:
             return
@@ -350,7 +330,7 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data], Section):
         data = []
         with self.save_excursion():
             for p_map in params_maps:
-                self.reset_params(p_map)
+                self.update_params(p_map)
                 data.append(self.get_data(**kwargs))
 
         return data
@@ -394,7 +374,8 @@ class _ParamsContext:
         return self
 
     def __exit__(self, *exc):
-        self.dm.set_params(self.params)
+        self.dm.reset_params()
+        self.dm.update_params(self.params)
 
         if self.caches is not None:
             self.repopulate_cache()

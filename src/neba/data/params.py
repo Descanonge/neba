@@ -32,7 +32,7 @@ class ParamsManagerAbstract(t.Generic[T_Params], Module):
         """Parameters currently stored."""
         return self._params
 
-    def set_params(self, params: t.Any | None, **kwargs):
+    def update(self, params: t.Any | None, **kwargs):
         """Update one or more parameters values.
 
         Other parameters are kept.
@@ -41,14 +41,7 @@ class ParamsManagerAbstract(t.Generic[T_Params], Module):
         """
         raise NotImplementedError("Implement in a subclass of this module.")
 
-    def reset_params(self, params: t.Any | None = None, **kwargs):
-        """Reset parameters values.
-
-        :Not Implemented: Implement in a subclass of this module.
-        """
-        raise NotImplementedError("Implement in a subclass of this module.")
-
-    def _reset_params(self) -> None:
+    def reset(self) -> None:
         """Reset parameters to their initial state (empty dict).
 
         :Not Implemented: Implement in a subclass of this module.
@@ -96,40 +89,28 @@ class ParamsManagerDict(ParamsManagerAbstract[CallbackDict[str, t.Any]]):
         self._params.update(**kwargs)
 
         def handler(change: Bunch):
-            self.dm.reset()
+            self.dm.trigger_callbacks()
 
         self._params._callback = handler
 
-    def set_params(self, params: t.Any | None, **kwargs):
+    def update(self, params: t.Any | None, **kwargs):
         """Update one or more parameters values.
 
         Other parameters are kept.
 
         Parameters
         ----------
+        params
+            Mapping of parameters to set.
         kwargs:
-            Other parameters values in the form ``name=value``.
+            Other parameters to set (takes precedence over `params`).
         """
         if params is None:
             params = {}
         params.update(kwargs)
         self.params.update(params)
 
-    def reset_params(self, params: abc.Mapping[str, t.Any] | None = None, **kwargs):
-        """Reset parameters values.
-
-        Parameters
-        ----------
-        params:
-            Mapping of parameters values.
-        kwargs:
-            Additional parameters. Parameters will be taken in order of first available
-            in: ``kwargs``, ``params``, :attr:`PARAMS_DEFAULTS`.
-        """
-        self._reset_params()
-        self.set_params(params, **kwargs)
-
-    def _reset_params(self) -> None:
+    def reset(self) -> None:
         """Reset parameters to their initial state (empty dict)."""
         self._params.clear()
 
@@ -154,28 +135,29 @@ class ParamsManagerSectionAbstract(ParamsManagerAbstract[T_Section]):
         # add callbacks to void the cache
 
         def handler(change: Bunch):
-            self.dm.reset()
+            self.dm.trigger_callbacks()
 
         for subsection in self._params.subsections_recursive():
             subsection.observe(handler)
 
-    def set_params(
+    def update(
         self,
         params: Section | abc.Mapping[str, t.Any] | None = None,
         **kwargs,
     ):
         """Update one or more parameters values.
 
-        Other parameters are kept.
+        New traits can be added if :attr:`RAISE_ON_MISS` is False. If given via Section,
+        new traits will take their current value. If given via a
+        :class:`~traitlets.TraitType` instance (in a mapping), new traits will take
+        their default value.
 
         Parameters
         ----------
         params:
-            Section to add values to current parameters. Same as for :meth:`set_params`.
+            Section or mapping to use as parameters.
         kwargs:
-            Other parameters values in the form ``name=value``. The value can be
-            a :class:`~traitlets.TraitType` instance in which case it will be added
-            to the parameters section with its default value.
+            Other parameters values.
         """
         if params is None:
             params = {}
@@ -184,29 +166,8 @@ class ParamsManagerSectionAbstract(ParamsManagerAbstract[T_Section]):
             params, allow_new=True, raise_on_miss=self.RAISE_ON_MISS, **kwargs
         )
 
-    def reset_params(
-        self,
-        params: Section | abc.Mapping[str, t.Any] | None = None,
-        **kwargs,
-    ):
-        """Reset parameters values.
-
-        Parameters
-        ----------
-        params:
-            Section to use as parameters. If :attr:`PARAMS_PATH` is not None, it will be
-            used to obtain a sub-section to use. If None, the default section class
-            (:attr:`SECTION`) will be used (with :attr:`PARAMS_DEFAULTS` added). Traits
-            that do not already exist in the :attr:`params` section will be added.
-        kwargs:
-            Other parameters values in the form ``name=value``. The value can be
-            a :class:`~traitlets.TraitType` instance in which case it will be added
-            to the parameters section with its default value.
-        """
-        self._reset_params()
-        self.set_params(params, **kwargs)
-
-    def _reset_params(self) -> None:
+    def reset(self) -> None:
+        """Reset section to its default values."""
         self._params.reset()
 
 
