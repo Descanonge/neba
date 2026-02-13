@@ -20,7 +20,7 @@ from .writer import WriterAbstract
 log = logging.getLogger(__name__)
 
 
-class Dataset(t.Generic[T_Params, T_Source, T_Data], Section):
+class Dataset(t.Generic[T_Params, T_Source, T_Data]):
     """Object defining a dataset.
 
     Registers modules for parameters management, source management, data loading,
@@ -71,37 +71,13 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data], Section):
     _reset_callbacks: dict[str, abc.Callable[..., None]]
     """Dictionary of callbacks to run when parameters are changed/reset.
 
-    Callbacks should be functions that take the data manager as first argument, then
-    any number of keyword arguments.
+    Callbacks should be functions that take the dataset as first argument, then any
+    number of keyword arguments.
     """
 
     def __init__(self, params: t.Any | None = None, **kwargs) -> None:
         self._modules = {}
         self._reset_callbacks = {}
-
-        # Reset on trait change
-        def handler(change):
-            self.reset()
-
-        for subsection in self.subsections_recursive():
-            subsection.observe(handler)
-
-        # extract traits from kwargs
-        config = {}
-        for name in self.keys():
-            if name in kwargs:
-                # `name` could correspond to a parameter for the application or section,
-                # rather than for the dataset itself. Check things are unambiguous
-                if isinstance(params, Section) and name in params.keys(
-                    subsections=False, aliases=True
-                ):
-                    raise KeyError(
-                        f"""Keyword argument '{name}' is both a trait in the parameters
-                        ({params.__class__.__name__}) and the Dataset
-                        ({self.__class__.__name__}), I cannot choose between the two."""
-                    )
-                config[name] = kwargs.pop(name)
-        Section.__init__(self, config)
 
         self._instantiate_modules(params, **kwargs)
 
@@ -382,3 +358,43 @@ class _ParamsContext:
 
         # return false to raise any exception that may have occured
         return False
+
+
+class DatasetSection(Dataset, Section):
+    """A dataset that is also a configurable section.
+
+    Any modification of the dataset traits will void the cache.
+
+    Parameters
+    ----------
+    params:
+        Passed to the parameters manager and other modules.
+    kwargs:
+        Traits of the dataset are extracted. The rest is passed to modules as usual.
+    """
+
+    def __init__(self, params: t.Any | None = None, **kwargs) -> None:
+        # extract traits from kwargs
+        config = {}
+        for name in self.keys():
+            if name in kwargs:
+                # `name` could correspond to a parameter for the application or section,
+                # rather than for the dataset itself. Check things are unambiguous
+                if isinstance(params, Section) and name in params.keys(
+                    subsections=False, aliases=True
+                ):
+                    raise KeyError(
+                        f"""Keyword argument '{name}' is both a trait in the parameters
+                        ({params.__class__.__name__}) and the Dataset
+                        ({self.__class__.__name__}), I cannot choose between the two."""
+                    )
+                config[name] = kwargs.pop(name)
+        Section.__init__(self, config)
+        Dataset.__init__(self, params, **kwargs)
+
+        # Reset on trait change
+        def handler(change):
+            self.trigger_callbacks()
+
+        for subsection in self.subsections_recursive():
+            subsection.observe(handler)

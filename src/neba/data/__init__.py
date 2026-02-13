@@ -1,6 +1,6 @@
 """Define easily classes to deal with your many datasets."""
 
-from .dataset import Dataset
+from .dataset import Dataset, DatasetSection
 from .loader import LoaderAbstract
 from .module import CachedModule, Module, autocached
 from .params import (
@@ -25,6 +25,7 @@ from .writer import Splitable, SplitWriterMixin, WriterAbstract
 __all__ = [
     "CachedModule",
     "Dataset",
+    "DatasetSection",
     "DatasetStore",
     "FileFinderSource",
     "GlobSource",
