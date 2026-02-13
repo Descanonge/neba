@@ -119,7 +119,7 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data]):
         if self.ID is not None:
             name.append(self.ID)
 
-        cls_name = get_classname(self)
+        cls_name = self.__class__.__name__
         if name:
             cls_name = f" ({cls_name})"
 
