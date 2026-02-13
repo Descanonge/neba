@@ -7,6 +7,7 @@ from neba.config import Section
 from neba.data import (
     LoaderAbstract,
     ParamsManagerAbstract,
+    ParamsManagerDict,
     SourceAbstract,
     WriterAbstract,
 )
@@ -105,21 +106,6 @@ def test_parent_dataset_access():
         assert mod.dm is dm
 
 
-def test_parameter_extraction():
-    class TestSection(Section):
-        a = Int(0)
-
-    class TestDataset(Dataset):
-        a = Int(0)
-
-    dm = TestDataset(a=1)
-    assert dm.a == 1
-
-    section = TestSection()
-    with pytest.raises(KeyError):
-        TestDataset(section, a=1)
-
-
 def test_module_setup():
     """Test all modules are setup, and in order."""
     order = []
@@ -165,6 +151,93 @@ def test_module_setup_ancestors():
 
     TestDataset()
     assert is_setup == {"A", "B", "C"}
+
+
+def test_str():
+    class OnlyID(Dataset):
+        ID = "MyID"
+
+    class OnlyShortname(Dataset):
+        SHORTNAME = "MySHORTNAME"
+
+    class Both(Dataset):
+        ID = "MyID"
+        SHORTNAME = "MySHORTNAME"
+
+    class Neither(Dataset):
+        pass
+
+    assert str(OnlyID()) == "MyID (OnlyID)"
+    assert str(OnlyShortname()) == "MySHORTNAME (OnlyShortname)"
+    assert str(Both()) == "MySHORTNAME:MyID (Both)"
+    assert str(Neither()) == "Neither"
+
+
+def test_reset_callbacks():
+    class TestDataset(Dataset):
+        called = False
+        called_bis = False
+
+    def callback(dm, **kwargs):
+        dm.called = True
+
+    def callback_bis(dm, **kwargs):
+        dm.called_bis = True
+
+    dm = TestDataset()
+    dm.register_callback("test_callback", callback)
+    dm.register_callback("test_callback_bis", callback_bis)
+
+    with pytest.raises(KeyError):
+        dm.register_callback("test_callback", callback)
+
+    assert not dm.called
+    assert not dm.called_bis
+    dm.trigger_callbacks()
+    assert dm.called
+    assert dm.called_bis
+
+    dm.called = False
+    dm.called_bis = False
+
+    dm.trigger_callbacks(False)
+    assert not dm.called
+    assert not dm.called_bis
+
+    dm.trigger_callbacks(["test_callback_bis"])
+    assert not dm.called
+    assert dm.called_bis
+
+
+def test_get_data_sets():
+    class MyDataset(Dataset):
+        ParamsManager = ParamsManagerDict
+
+        # just return a copy of parameters as data
+        def get_data(self, **kwargs):
+            return dict(self.params)
+
+    dm = MyDataset(a=0, b=0)
+
+    params_maps = [
+        {"a": 0, "b": 0, "c": 0},
+        {"a": 1, "b": 0, "c": 1},
+        {"a": 2, "b": 3, "c": 4},
+    ]
+    data = dm.get_data_sets(params_maps)
+    assert data == params_maps
+    assert dm.params == dict(a=0, b=0)
+
+    data = dm.get_data_sets(
+        params_sets=[
+            ["a", "b", "c"],
+            [0, 0, 0],
+            [1, 0, 1],
+            [2, 3, 4],
+        ]
+    )
+    assert data == params_maps
+    assert dm.params == dict(a=0, b=0)
 
 
 class TestModuleMix:
