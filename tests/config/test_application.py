@@ -5,17 +5,17 @@ import logging
 import pytest
 from traitlets import Float, Int
 
-from neba.config.application import ApplicationBase
+from neba.config.application import Application
 from neba.config.loaders import ConfigValue, FileLoader
 from neba.config.loaders.json import JsonLoader
 from neba.config.loaders.python import PyLoader
 from neba.config.loaders.toml import TomlkitLoader
 from neba.config.loaders.yaml import YamlLoader
-from neba.config.util import ConfigError
+from neba.config.types import ConfigError
 from tests.config.generic_config import GenericConfig, GenericConfigInfo
 
 
-class App(ApplicationBase, GenericConfig):
+class App(Application, GenericConfig):
     pass
 
 

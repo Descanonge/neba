@@ -19,7 +19,6 @@ from .source import (
     SourceUnion,
 )
 from .store import DatasetStore
-from .util import import_all
 from .writer import Splitable, SplitWriterMixin, WriterAbstract
 
 __all__ = [
@@ -45,5 +44,4 @@ __all__ = [
     "Splitable",
     "WriterAbstract",
     "autocached",
-    "import_all",
 ]

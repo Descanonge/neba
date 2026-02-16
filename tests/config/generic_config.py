@@ -27,7 +27,7 @@ from traitlets import (
 )
 
 from neba.config.section import Section, Subsection
-from tests.util import Drawer
+from tests.utils import Drawer
 
 from .trait_generation import DummyClass, trait_to_strat
 

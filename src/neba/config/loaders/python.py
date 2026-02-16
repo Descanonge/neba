@@ -8,15 +8,10 @@ from textwrap import dedent
 
 from traitlets import Enum, Instance, TraitType, Type
 
+from neba.config.docs import get_trait_typehint, underline, wrap_text
 from neba.config.section import Section
-from neba.config.util import (
-    ConfigParsingError,
-    MultipleConfigKeyError,
-    get_trait_typehint,
-    underline,
-    wrap_text,
-)
-from neba.util import get_classname
+from neba.config.types import ConfigParsingError, MultipleConfigKeyError
+from neba.utils import get_classname
 
 from .core import ConfigValue, FileLoader, SerializerDefault
 

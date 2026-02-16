@@ -16,7 +16,7 @@ from os import path
 from neba.config.loaders.json import JsonEncoderTypes
 
 from .module import Module
-from .util import T_Data, T_Source, T_Source_contra
+from .types import T_Data, T_Source, T_Source_contra
 
 log = logging.getLogger(__name__)
 

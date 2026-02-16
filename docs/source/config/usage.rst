@@ -14,11 +14,11 @@ Specifying parameters
 To use the configuration framework, you must first define your configuration
 in Python. Here is an example of how it will look::
 
-    from neba.config import ApplicationBase, Section
+    from neba.config import Application, Section
     from traitlets import Bool, Float, Int, List, Unicode
 
 
-    class App(ApplicationBase):
+    class App(Application):
 
         class computation(Section):
             parallel = Bool(False, help="Conduct computation in parallel if true.")
@@ -217,7 +217,7 @@ Application
 ===========
 
 The principal section, at the root of the configuration tree, is the
-:class:`Application<.application.ApplicationBase>`. As a subclass of
+:class:`Application<.application.Application>`. As a subclass of
 :class:`~.Section`, it can hold directly all your parameters and nested
 subsections. It will also be responsible for gathering the parameters from
 configuration files and the command line, and more.
@@ -226,7 +226,7 @@ Starting the application
 ------------------------
 
 By default, when the application is instantiated it executes its starting
-sequence with the :meth:`~.ApplicationBase.start` method. It will:
+sequence with the :meth:`~.Application.start` method. It will:
 
 - Parse command line arguments
 - Read parameters from configuration files
@@ -246,13 +246,13 @@ Logging
 -------
 
 The base application contains some parameters to easily log information. A
-logger instance is available at :attr:`.ApplicationBase.log` that will log to
-the console (stderr), and can be configured via the (trait) parameters
-:attr:`~.ApplicationBase.log_level`, :attr:`~.ApplicationBase.log_format`, and
-:attr:`~.ApplicationBase.log_datefmt`.
+logger instance is available at :attr:`.Application.log` that will log to the
+console (stderr), and can be configured via the (trait) parameters
+:attr:`~.Application.log_level`, :attr:`~.Application.log_format`, and
+:attr:`~.Application.log_datefmt`.
 
 The configuration of the logging setup is kept minimal. Users needing to
-configure it further may look into :meth:`.ApplicationBase._get_logging_config`.
+configure it further may look into :meth:`.Application._get_logging_config`.
 
 .. note::
 
@@ -352,7 +352,7 @@ argument in many methods such as :meth:`~.Section.keys` or
 :meth:`~.Section.select` (``app.select(group_a=True)``).
 Use :func:`@tag_all_traits<.tag_all_traits>` to tag all traits of a section::
 
-    class App(ApplicationBase):
+    class App(Application):
 
         @tag_all_traits(group_a=True)
         class subsection(Section):
@@ -366,13 +366,13 @@ share the same name as arguments from a function signature.
 Input parameters
 ================
 
-The :class:`.ApplicationBase` class allows to retrieve the values of parameters
-from configuration files or from command line arguments (CLI), when
-:meth:`.ApplicationBase.start` is launched. It first parses command line
-arguments (unless deactivated) and then reads values from specified
-configuration files. Each time parameters are loaded from any kind of source,
-the parameters for the application object are immediately applied to it, since
-they can alter the rest of the process.
+The :class:`.Application` class allows to retrieve the values of parameters from
+configuration files or from command line arguments (CLI), when
+:meth:`.Application.start` is launched. It first parses command line arguments
+(unless deactivated) and then reads values from specified configuration files.
+Each time parameters are loaded from any kind of source, the parameters for the
+application object are immediately applied to it, since they can alter the rest
+of the process.
 
 The configuration values are retrieved by :class:`.ConfigLoader` objects adapted
 for each source. Its output will be a **flat** dictionary mapping keys to a
@@ -385,9 +385,9 @@ for each source. Its output will be a **flat** dictionary mapping keys to a
    priority value used when merging configs. To obtain the value, use
    :meth:`.ConfigValue.get_value`.
 
-Parameters obtained from configuration files and from CLI are merged.
-Parameters are stored in :attr:`~.ApplicationBase.file_conf`,
-:attr:`~.ApplicationBase.cli_conf` and :attr:`~.ApplicationBase.conf`.
+Parameters obtained from configuration files and from CLI are merged. Parameters
+are stored in :attr:`~.Application.file_conf`, :attr:`~.Application.cli_conf`
+and :attr:`~.Application.conf`.
 
 Finally, the application will recursively instantiate all sections while passing
 the configuration values. Unspecified values will take the trait default value.
@@ -398,7 +398,7 @@ All values will undergo validation from traitlets.
     By default, all this process is automatic, to use your application you only
     have to instantiate your application::
 
-        class App(ApplicationBase):
+        class App(Application):
             ...
 
         app = App()
@@ -408,33 +408,33 @@ From configuration files
 ------------------------
 
 The application can retrieve parameters from configuration files by invoking
-:meth:`.ApplicationBase.load_config_files`. It will load the file (or files)
-specified in :attr:`.ApplicationBase.config_files`. If multiple files are
-specified, the parameter from one file will replace those from the previous
-files in the list. The resulting configuration will be stored in the
-:attr:`~.ApplicationBase.file_conf` attribute.
+:meth:`.Application.load_config_files`. It will load the file (or files)
+specified in :attr:`.Application.config_files`. If multiple files are specified,
+the parameter from one file will replace those from the previous files in the
+list. The resulting configuration will be stored in the
+:attr:`~.Application.file_conf` attribute.
 
 .. note::
 
-   The :attr:`~.ApplicationBase.config_files` attribute is a trait, which allows
-   to select configuration files from the command line. To specify it from your
+   The :attr:`~.Application.config_files` attribute is a trait, which allows to
+   select configuration files from the command line. To specify it from your
    script use::
 
-       class App(ApplicationBase):
+       class App(Application):
            pass
 
        App.config_files.default_value = ...
 
    or if you do not need to change the value using command line arguments::
 
-       class App(ApplicationBase):
+       class App(Application):
            config_files = ...
 
 
 Different file formats require specific subclasses of :class:`~.FileLoader`. A
 loader is selected by looking at the config file extension. As some loaders have
 external dependencies, loaders are only imported when needed, according to the
-import string in :attr:`.ApplicationBase.file_loaders`.
+import string in :attr:`.Application.file_loaders`.
 
 +-----------------+------------------------------+----------+
 | File extensions | Class                        | Library  |
@@ -456,9 +456,9 @@ File loaders can implement :meth:`.FileLoader.write` to generate a valid
 configuration file of the corresponding format, following the values present in
 its :attr:`~.ConfigLoader.config` attribute. This allows to generate lengthy
 configuration files, with different amounts of additional information in
-comments. The end user can simply use :meth:`.ApplicationBase.write_config`
-which automatically deals with an existing configuration file that may need to
-be updated, keeping its current values (or not).
+comments. The end user can simply use :meth:`.Application.write_config` which
+automatically deals with an existing configuration file that may need to be
+updated, keeping its current values (or not).
 
 Neba supports and **recommends** `TOML <https://toml.io>`__ configuration
 files. It is both easily readable and unambiguous. Despite allowing nested
@@ -487,9 +487,9 @@ that the following syntax is valid::
 The loader does not support the traitlets feature of configuration file
 inheritance via (in the config file) ``load_subconfig("some_other_script.py")``.
 This would be doable, but for the moment we recommend instead that you specify
-multiple configuration files in :attr:`.ApplicationBase.config_files`,
-remembering that each configuration file replaces the values of the previous one
-in the list.
+multiple configuration files in :attr:`.Application.config_files`, remembering
+that each configuration file replaces the values of the previous one in the
+list.
 
 `Yaml <https://yaml.org/>`__ is supported via :class:`.YamlLoader` and the
 third-party module `ruamel.ymal <ruamel_>`_.
@@ -502,10 +502,10 @@ From the command line
 ---------------------
 
 Parameters can be set from parsing command line arguments, although it can be
-skipped by either setting the :attr:`.ApplicationBase.ignore_cli` attribute or
-the ``ignore_cli`` argument to :meth:`.ApplicationBase.start`. The configuration
-obtained will be stored in the :attr:`~.ApplicationBase.cli_conf` attribute and
-will take priority over parameters from configuration files.
+skipped by either setting the :attr:`.Application.ignore_cli` attribute or the
+``ignore_cli`` argument to :meth:`.Application.start`. The configuration
+obtained will be stored in the :attr:`~.Application.cli_conf` attribute and will
+take priority over parameters from configuration files.
 
 The keys are indicated following **one or two** hyphen. Any subsequent hyphen is
 replaced by an underscore. So ``-computation.n_cores`` and
@@ -528,9 +528,9 @@ will deal with the parsing, using its ``from_string`` or ``from_string_list``
 .. note ::
 
     The list of command line arguments is obtained by
-    :meth:`.ApplicationBase.get_argv`. It tries to detect if python was launched
-    from IPython or Jupyter, in which case it ignores the arguments before
-    the first ``--``.
+    :meth:`.Application.get_argv`. It tries to detect if python was launched
+    from IPython or Jupyter, in which case it ignores the arguments before the
+    first ``--``.
 
 List arguments
 ++++++++++++++
@@ -553,8 +553,7 @@ mistakes in user input.
 Extra parameters
 ++++++++++++++++
 
-Extra parameters to the argument parser can be added with the class method
-:meth:`.ApplicationBase.add_extra_parameters`. This will add traits to a section
+Extra parameters to the argument parser can be added with the class method :meth:`.Application.add_extra_parameters`. This will add traits to a section
 named "extra", created if needed. This is useful when needing parameters for a
 single script for instance. If in our script we write::
 

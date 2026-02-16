@@ -66,7 +66,7 @@ cache void (except mutable modification)::
 App
 ---
 
-:class:`.ParamsManagerApp` stores its parameters in an :class:`.ApplicationBase`
+:class:`.ParamsManagerApp` stores its parameters in an :class:`.Application`
 object. An application *must* be supplied as argument. It will be **copied**
 (any modification of the dataset parameters will not affect the original
 application instance).

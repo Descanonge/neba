@@ -1,9 +1,9 @@
-"""Test various functions of neba.config.util."""
+"""Test documentation related functions of neba.config.docs."""
 
 from traitlets import Dict, Enum, Instance, Int, List, Tuple, Type, Unicode, Union
 
-from neba.config.section import Section
-from neba.config.util import get_trait_typehint, tag_all_traits
+from neba.config.docs import get_trait_typehint
+from neba.config.section import Section, tag_all_traits
 
 
 class TestTypehint:
@@ -21,7 +21,7 @@ class TestTypehint:
         class Test:
             pass
 
-        qual_path = "tests.config.test_util.TestTypehint.test_basic_object.<locals>"
+        qual_path = "tests.config.test_docs.TestTypehint.test_basic_object.<locals>"
 
         self.valid(Test(), f"~{qual_path}.Test")
         self.valid(Test(), f"{qual_path}.Test", mode="full")
@@ -116,10 +116,7 @@ class TestTypehint:
         trait = Dict(value_trait=Int(allow_none=True))
         self.valid(
             trait,
-            (
-                "~traitlets.traitlets.Dict"
-                "[~typing.Any, ~traitlets.traitlets.Int | None]"
-            ),
+            ("~traitlets.traitlets.Dict[~typing.Any, ~traitlets.traitlets.Int | None]"),
         )
         self.valid(trait, "Dict[Any, Int | None]", mode="minimal")
 
@@ -132,7 +129,7 @@ class TestTypehint:
             pass
 
         qual_path = (
-            "tests.config.test_util.TestTypehint.test_instance_and_type.<locals>"
+            "tests.config.test_docs.TestTypehint.test_instance_and_type.<locals>"
         )
 
         trait = Instance(Test)

@@ -6,7 +6,7 @@ import typing as t
 from collections import abc
 
 from .module import Module
-from .util import T_Data, T_Source_contra
+from .types import T_Data, T_Source_contra
 
 
 class LoaderAbstract(t.Generic[T_Source_contra, T_Data], Module):

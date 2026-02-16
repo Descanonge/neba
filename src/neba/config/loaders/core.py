@@ -11,10 +11,10 @@ from os import path
 from traitlets.traitlets import HasTraits, TraitError, TraitType, Union
 from traitlets.utils.sentinel import Sentinel
 
-from neba.config.util import ConfigParsingError, MultipleConfigKeyError
+from neba.config.types import ConfigParsingError, MultipleConfigKeyError
 
 if t.TYPE_CHECKING:
-    from neba.config.application import ApplicationBase
+    from neba.config.application import Application
     from neba.config.section import Section
 
 Undefined = Sentinel(
@@ -154,8 +154,7 @@ class ConfigLoader:
     """Abstract ConfigLoader.
 
     Define the public API that will be used by the
-    :class:`Application<.application.ApplicationBase>` object, as well as some common
-    logic.
+    :class:`Application<.application.Application>` object, as well as some common logic.
 
     Parameters
     ----------
@@ -165,7 +164,7 @@ class ConfigLoader:
         Logger instance.
     """
 
-    app: ApplicationBase
+    app: Application
     log: logging.Logger
     config: dict[str, ConfigValue]
     """Configuration dictionnary mapping keys to ConfigValues.
@@ -173,7 +172,7 @@ class ConfigLoader:
     It should be a flat dictionnary.
     """
 
-    def __init__(self, app: ApplicationBase, log: logging.Logger | None = None):
+    def __init__(self, app: Application, log: logging.Logger | None = None):
         self.app = app
         """Parent application that created this loader.
 
@@ -276,7 +275,7 @@ class FileLoader(ConfigLoader):
 
     serializer = SerializerDefault()
 
-    def __init__(self, app: ApplicationBase, filename: str, *args, **kwargs) -> None:
+    def __init__(self, app: Application, filename: str, *args, **kwargs) -> None:
         super().__init__(app, *args, **kwargs)
         self.filename = filename
         self.full_filename = path.abspath(filename)

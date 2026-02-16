@@ -9,8 +9,9 @@ from collections import abc
 
 import xarray as xr
 
+from neba.utils import cut_in_slices
+
 from .loader import LoaderAbstract
-from .util import cut_slices
 from .writer import SplitWriterMixin, WriterAbstract
 
 if t.TYPE_CHECKING:
@@ -240,7 +241,7 @@ class XarrayWriter(WriterAbstract[str, xr.Dataset]):
         if chop is None:
             chop = ncalls
 
-        slices = cut_slices(ncalls, chop)
+        slices = cut_in_slices(ncalls, chop)
         log.info("%d total calls in %d groups.", ncalls, len(slices))
 
         kwargs = self.TO_NETCDF_KWARGS | kwargs

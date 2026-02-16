@@ -14,12 +14,9 @@ try:
 except ImportError:
     _HAS_ARGCOMPLETE = False
 
-from neba.config.util import (
-    MultipleConfigKeyError,
-    UnknownConfigKeyError,
-    did_you_mean,
-    get_trait_typehint,
-)
+from neba.config.docs import get_trait_typehint
+from neba.config.types import MultipleConfigKeyError, UnknownConfigKeyError
+from neba.utils import did_you_mean
 
 from .core import ConfigLoader, ConfigValue, Undefined
 

@@ -4,8 +4,8 @@ import json
 import typing as t
 from collections import abc
 
-from neba.config.util import MultipleConfigKeyError
-from neba.util import get_classname
+from neba.config.types import MultipleConfigKeyError
+from neba.utils import get_classname
 
 from .core import ConfigValue, DictLikeLoaderMixin, FileLoader
 

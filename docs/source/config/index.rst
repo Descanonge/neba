@@ -23,7 +23,7 @@ Python files, or JSON) and from the command line.
     package. The main difference is that Neba allows nested configurations. To
     do that, it replace the :class:`traitlets.config.Configurable` class with
     :class:`~config.section.Section` and uses its own
-    :class:`~config.application.ApplicationBase` class. The objects reading the
+    :class:`~config.application.Application` class. The objects reading the
     configuration from files and command line arguments have also been rewritten
     and expanded.
 

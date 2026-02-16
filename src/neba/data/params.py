@@ -8,11 +8,11 @@ from collections import abc
 
 from traitlets import Bunch
 
-from neba.config.application import ApplicationBase
+from neba.config.application import Application
 from neba.config.section import Section
 
 from .module import Module
-from .util import T_Params
+from .types import T_Params
 
 log = logging.getLogger(__name__)
 
@@ -194,14 +194,14 @@ class ParamsManagerSection(ParamsManagerSectionAbstract[T_Section]):
         self._setup_cache_callback()
 
 
-T_App = t.TypeVar("T_App", bound=ApplicationBase)
+T_App = t.TypeVar("T_App", bound=Application)
 
 
 class ParamsManagerApp(ParamsManagerSectionAbstract[T_App]):
     """Parameters are retrieved from an application instance."""
 
     def __init__(self, params: T_App, **kwargs):
-        if not isinstance(params, ApplicationBase):
+        if not isinstance(params, Application):
             raise TypeError(
                 f"An application must be passed as parameter, received {type(params)}."
             )

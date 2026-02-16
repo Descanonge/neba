@@ -66,9 +66,9 @@ A good default is
 Example
 =======
 
-If we use it to document :class:`.ApplicationBase`:
+If we use it to document :class:`.Application`:
 
-.. autosection:: neba.config.application.ApplicationBase
+.. autosection:: neba.config.application.Application
     :inherited-members: Configurable
     :member-order: bysource
     :only-configurables:

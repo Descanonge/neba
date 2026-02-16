@@ -12,22 +12,21 @@ from collections import abc
 from inspect import Parameter, signature
 from textwrap import dedent
 
-from traitlets import Enum, Sentinel, TraitType, Undefined
-from traitlets.config import HasTraits
+from traitlets import Enum, HasTraits, Sentinel, TraitType, Undefined
+from traitlets.config import Configurable
 
-from neba.util import get_classname
+from neba.utils import did_you_mean, get_classname
 
-from .loaders import ConfigValue
-from .util import (
-    UnknownConfigKeyError,
+from .docs import (
     add_spacer,
-    did_you_mean,
     get_trait_typehint,
     indent,
     stringify,
     underline,
     wrap_text,
 )
+from .loaders import ConfigValue
+from .types import UnknownConfigKeyError
 
 log = logging.getLogger(__name__)
 
@@ -1126,3 +1125,26 @@ class Section(HasTraits):
 
 
 abc.MutableMapping[str, t.Any].register(Section)
+
+_C = t.TypeVar("_C", bound=Configurable)
+
+
+def tag_all_traits(**metadata) -> abc.Callable[[type[_C]], type[_C]]:
+    """Tag all class-own traits.
+
+    Do not replace existing tags.
+
+    Parameters
+    ----------
+    metadata:
+        Are passed to ``trait.tag(**metadata)``.
+    """
+
+    def decorator(cls: type[_C]) -> type[_C]:
+        for trait in cls.class_own_traits().values():
+            for key, value in metadata.items():
+                if key not in trait.metadata:
+                    trait.tag(**{key: value})
+        return cls
+
+    return decorator

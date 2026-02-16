@@ -34,14 +34,9 @@ from traitlets import (
     ValidateHandler,
 )
 
+from neba.config.docs import get_trait_typehint, indent, stringify, wrap_text
 from neba.config.section import Section
-from neba.config.util import (
-    FixableTrait,
-    get_trait_typehint,
-    indent,
-    stringify,
-    wrap_text,
-)
+from neba.config.traits import Fixable
 
 if t.TYPE_CHECKING:
     from sphinx.application import Sphinx
@@ -192,7 +187,7 @@ class TraitDocumenter(AttributeDocumenter):
 
         ie a parameter defined in a filename pattern from :mod:`filefinder`.
         """
-        if isinstance(self.object, FixableTrait):
+        if isinstance(self.object, Fixable):
             return ("Filename pattern parameter ('fixable')", [])
         return None
 

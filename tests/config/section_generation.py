@@ -6,7 +6,7 @@ import hypothesis.strategies as st
 from traitlets import TraitType
 
 from neba.config.section import Section, Subsection
-from tests.util import Drawer, st_varname
+from tests.utils import Drawer, st_varname
 
 from .trait_generation import TraitGenerator, st_trait_gen
 

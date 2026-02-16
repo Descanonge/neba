@@ -1,7 +1,11 @@
 """Various utilities."""
 
 import importlib
+import itertools
 import typing as t
+from collections import abc
+
+import Levenshtein
 
 
 def import_item(name: str) -> t.Any:
@@ -30,3 +34,25 @@ def get_classname(cls: t.Any, module: bool = True) -> str:
     elements.append(getattr(cls, "__qualname__", cls.__name__))
 
     return ".".join(elements)
+
+
+def cut_in_slices(total_size: int, slice_size: int) -> list[slice]:
+    """Return list of slices of size at most ``slice_size``."""
+    slices = itertools.starmap(
+        slice,
+        itertools.pairwise(itertools.chain(range(0, total_size, slice_size), [None])),
+    )
+    return list(slices)
+
+
+def did_you_mean(suggestions: abc.Iterable[str], wrong_key: str) -> str | None:
+    """Return element of `suggestions` closest to `wrong_key`."""
+    min_distance = 9999
+    closest_key = None
+    for suggestion in suggestions:
+        distance = Levenshtein.distance(suggestion, wrong_key)
+        if distance < min_distance:
+            min_distance = distance
+            closest_key = suggestion
+
+    return closest_key

@@ -29,10 +29,10 @@ This package extends it to allow nesting. The objects containing parameters are 
 
 Here is a simple example project:
 ``` python
-from neba.config import ApplicationBase, Section
+from neba.config import Application, Section
 from traitlets import Enum, Float, List, Unicode
 
-class App(ApplicationBase):
+class App(Application):
     """The application will retrieve and store parameters."""
 
     result_dir = Unicode("/data/results", help="Directory containing results") 

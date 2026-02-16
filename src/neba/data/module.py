@@ -7,7 +7,7 @@ import logging
 import typing as t
 from collections import abc
 
-from neba.util import get_classname
+from neba.utils import get_classname
 
 if t.TYPE_CHECKING:
     from .data_manager import Dataset

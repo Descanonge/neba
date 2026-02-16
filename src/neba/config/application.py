@@ -21,11 +21,11 @@ from traitlets import (
 )
 from traitlets.config.configurable import LoggingConfigurable
 
-from neba.util import get_classname, import_item
+from neba.utils import did_you_mean, get_classname, import_item
 
 from .loaders import CLILoader, ConfigValue
 from .section import Section, Subsection
-from .util import ConfigError, UnknownConfigKeyError, did_you_mean
+from .types import ConfigError, UnknownConfigKeyError
 
 if t.TYPE_CHECKING:
     from .loaders import ConfigValue, FileLoader
@@ -35,7 +35,7 @@ log = logging.getLogger(__name__)
 S = t.TypeVar("S", bound=Section)
 
 
-class ApplicationBase(Section, LoggingConfigurable):
+class Application(Section, LoggingConfigurable):
     """Base application class.
 
     Orchestrate the loading of configuration keys from files or from command line

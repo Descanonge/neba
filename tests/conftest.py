@@ -28,13 +28,12 @@ todo = pytest.mark.todo
 
 def pytest_collection_modifyitems(items):
     module_order = [
-        "tests.test_util",
-        "tests.config.test_util",
+        "tests.test_utils",
+        "tests.config.test_docs",
         "tests.config.test_section",
         "tests.config.test_traits",
         "tests.config.test_loaders",
         "tests.config.test_application",
-        "tests.data.test_util",
         "tests.data.test_dataset",
         "tests.data.test_params",
         "tests.data.test_source",

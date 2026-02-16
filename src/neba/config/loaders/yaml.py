@@ -14,8 +14,8 @@ from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap, CommentedSeq, CommentedSet
 from traitlets import Instance, List, Set, TraitType, Tuple
 
-from neba.config.util import get_trait_typehint, wrap_text
-from neba.util import get_classname
+from neba.config.docs import get_trait_typehint, wrap_text
+from neba.utils import get_classname
 
 from .core import ConfigValue, DictLikeLoaderMixin, FileLoader
 

@@ -3,7 +3,7 @@
 import typing as t
 from collections import abc
 
-from neba.util import import_item
+from neba.utils import import_item
 
 from .dataset import Dataset
 

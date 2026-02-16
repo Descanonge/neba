@@ -8,13 +8,12 @@ import typing as t
 from collections import abc
 
 from neba.config.section import Section
-from neba.util import get_classname
 
 from .loader import LoaderAbstract
 from .module import CachedModule, Module
 from .params import ParamsManagerAbstract
 from .source import SourceAbstract
-from .util import T_Data, T_Params, T_Source
+from .types import T_Data, T_Params, T_Source
 from .writer import WriterAbstract
 
 log = logging.getLogger(__name__)

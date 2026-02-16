@@ -8,29 +8,29 @@ from hypothesis import example, given, note
 from hypothesis import strategies as st
 from traitlets import Bool, Float, Int, List, TraitError
 
-from neba.config.util import RangeTrait
+from neba.config.traits import Range
 
 floats_nice = st.floats(
     allow_nan=False, allow_infinity=False, min_value=-1e4, max_value=1e4
 ).map(lambda x: x if x > 1e-6 else 0.0)
 
 
-class TestRangeTrait:
+class TestRange:
     def test_allowed_traits(self):
-        RangeTrait(Int(1))
-        RangeTrait(Int())
-        RangeTrait(Float())
+        Range(Int(1))
+        Range(Int())
+        Range(Float())
 
     @pytest.mark.parametrize("input", [None, Bool(), List(), List(Int(1))])
     def test_wrong_input(self, input: t.Any):
         with pytest.raises(TypeError):
             if input is None:
-                RangeTrait()
+                Range()
             else:
-                RangeTrait(input)
+                Range(input)
 
     def test_parsing(self):
-        t = RangeTrait(Int())
+        t = Range(Int())
         assert t.from_string("1:3") == [1, 2, 3]
         assert t.from_string("3:1") == [3, 2, 1]
         assert t.from_string("0:3:2") == [0, 2]
@@ -39,7 +39,7 @@ class TestRangeTrait:
         with pytest.raises(ValueError):
             t.from_string("1.5:3")
 
-        t = RangeTrait(Float())
+        t = Range(Float())
         assert t.from_string("1:2:0.5") == [1.0, 1.5, 2.0]
         assert t.from_string("2:1:0.5") == [2.0, 1.5, 1.0]
         assert t.from_string("0:4:1.5") == [0.0, 1.5, 3.0]
@@ -55,7 +55,7 @@ class TestRangeTrait:
             t.from_string("0:2:0")
 
     def test_multiple_parsing(self):
-        t = RangeTrait(Int())
+        t = Range(Int())
         assert t.from_string_list(["1:3", "7:5"]) == [1, 2, 3, 7, 6, 5]
 
         with pytest.raises(ValueError):
@@ -82,7 +82,7 @@ class TestRangeTrait:
             input_string += f":{step}"
         note(input_string)
 
-        trait: RangeTrait[int] = RangeTrait(Int())
+        trait: Range[int] = Range(Int())
 
         n_values = math.floor(abs(stop - start) / abs(step)) + 1
         if n_values >= trait.range_max_len:
@@ -125,7 +125,7 @@ class TestRangeTrait:
             input_string += f":{step}"
         note(input_string)
 
-        trait: RangeTrait[float] = RangeTrait(Float())
+        trait: Range[float] = Range(Float())
 
         n_values = math.floor(abs(stop - start) / abs(step)) + 1
         if n_values >= trait.range_max_len:

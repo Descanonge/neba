@@ -1,6 +1,6 @@
 """Specify parameters in a configuration tree."""
 
-from .application import ApplicationBase
+from .application import Application
 from .loaders import (
     CLILoader,
     ConfigLoader,
@@ -9,19 +9,19 @@ from .loaders import (
     FileLoader,
     Undefined,
 )
-from .section import Section, Subsection
-from .util import FixableTrait, RangeTrait, tag_all_traits
+from .section import Section, Subsection, tag_all_traits
+from .traits import Fixable, Range
 
 __all__ = [
-    "ApplicationBase",
+    "Application",
     "CLILoader",
     "ConfigLoader",
     "ConfigValue",
     "DictLoader",
     "FileLoader",
-    "FixableTrait",
+    "Fixable",
     "PyLoader",
-    "RangeTrait",
+    "Range",
     "Section",
     "Subsection",
     "Undefined",

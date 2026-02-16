@@ -4,12 +4,12 @@ from tempfile import NamedTemporaryFile
 from typing import Any
 
 import pytest
-from hypothesis import HealthCheck, given, settings
+from hypothesis import given
 from ruamel.yaml.constructor import DuplicateKeyError
 from tomlkit.exceptions import ParseError
 from traitlets import Instance, Int, List, TraitType, Unicode, Union
 
-from neba.config.application import ApplicationBase
+from neba.config.application import Application
 from neba.config.loaders.core import (
     ConfigLoader,
     ConfigValue,
@@ -17,7 +17,7 @@ from neba.config.loaders.core import (
     FileLoader,
 )
 from neba.config.loaders.python import PyConfigContainer
-from neba.config.util import (
+from neba.config.types import (
     ConfigParsingError,
     MultipleConfigKeyError,
     UnknownConfigKeyError,
@@ -28,8 +28,8 @@ LOADERS: list[type[ConfigLoader]]
 FILE_LOADERS: list[type[FileLoader]]
 
 
-def get_App() -> type[ApplicationBase]:
-    class App(ApplicationBase, GenericConfig):
+def get_App() -> type[Application]:
+    class App(Application, GenericConfig):
         pass
 
     App.config_files.default_value = []

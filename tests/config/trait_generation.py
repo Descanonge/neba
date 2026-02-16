@@ -31,7 +31,7 @@ from traitlets import (
     Union,
 )
 
-from tests.util import Drawer, T_Trait
+from tests.utils import Drawer, T_Trait
 
 MAX_CONTAINER_SIZE = 5
 """Max size for generating lists, sets, dicts."""

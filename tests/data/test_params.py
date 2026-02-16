@@ -3,7 +3,7 @@
 import pytest
 from traitlets import Float, Int, Unicode
 
-from neba.config import ApplicationBase, Section
+from neba.config import Application, Section
 from neba.data import (
     CachedModule,
     Dataset,
@@ -50,7 +50,7 @@ class TestPassingParams:
         assert dm.params.a == 2
 
     def test_app(self):
-        class App(ApplicationBase):
+        class App(Application):
             a = Int(0)
             b = Unicode("test")
             c = Float(0.0)
@@ -180,7 +180,7 @@ class TestCacheCallback:
         assert dm.called
 
     def test_app(self):
-        class App(ApplicationBase):
+        class App(Application):
             a = Int(0)
 
         class DatasetApp(Dataset):

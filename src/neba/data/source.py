@@ -11,7 +11,7 @@ from os import path
 from pathlib import Path
 
 from .module import CachedModule, Module, ModuleMix, autocached
-from .util import T_Source_co
+from .types import T_Source_co
 
 log = logging.getLogger(__name__)
 

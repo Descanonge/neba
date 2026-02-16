@@ -14,8 +14,8 @@ from tomlkit.container import Container
 from tomlkit.items import InlineTable, Item, String, Table, Trivia
 from traitlets import Enum
 
-from neba.config.util import get_trait_typehint, wrap_text
-from neba.util import get_classname
+from neba.config.docs import get_trait_typehint, wrap_text
+from neba.utils import get_classname
 
 from .core import ConfigValue, DictLikeLoaderMixin, FileLoader
 

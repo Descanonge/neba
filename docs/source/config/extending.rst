@@ -17,17 +17,17 @@ The building block of the nested configuration is the :class:`.Section` class.
 It holds crucial parts of the configuration framework, notably the methods to
 resolve keys. Using a subclass instead when creating your configuration should
 be enough to customize the behavior of the sections. Some functions (like
-:meth:`.Section.update` or :meth:`.ApplicationBase.add_extra_parameters`)
+:meth:`.Section.update` or :meth:`.Application.add_extra_parameters`)
 automatically create empty Section objects whose type is currently hard-coded.
 
 Application
 ===========
 
-One can overwrite the methods: :meth:`~.ApplicationBase.start` to change the
-general workflow, :meth:`~.ApplicationBase._create_cli_loader` and
-:meth:`~.ApplicationBase.get_argv` to change command line parsing. The attribute
-:attr:`~.ApplicationBase.file_loaders` contains the configuration loaders to be
-used for config files that can each be replaced.
+One can overwrite the methods: :meth:`~.Application.start` to change the general
+workflow, :meth:`~.Application._create_cli_loader` and
+:meth:`~.Application.get_argv` to change command line parsing. The attribute
+:attr:`~.Application.file_loaders` contains the configuration loaders to be used
+for config files that can each be replaced.
 
 Orphan keys
 -----------
@@ -51,8 +51,8 @@ Generic config type
 -------------------
 
 Currently, the configurations obtained from file
-(:attr:`.ApplicationBase.file_conf`) or command line arguments
-(:attr:`.ApplicationBase.cli_conf`) are stored as :class:`dict` mapping keys
+(:attr:`.Application.file_conf`) or command line arguments
+(:attr:`.Application.cli_conf`) are stored as :class:`dict` mapping keys
 (strings with dot to indicate nesting) to :class:`.ConfigValue`.
 
 It could possibly be replaced by other types of containers, such as `Box
@@ -75,7 +75,7 @@ classes in :mod:`.config.loaders` can serve as examples.
 .. important::
 
     Any additional file loader class should be added to
-    :attr:`.ApplicationBase.file_loaders` to be utilized by the application.
+    :attr:`.Application.file_loaders` to be utilized by the application.
 
 Parameter interpolation
 -----------------------
