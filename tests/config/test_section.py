@@ -704,10 +704,8 @@ class TestMutableMappingInterface:
 
     def test_update_wrong(self):
         section = info.section()
-        with pytest.raises(RuntimeError):
-            section.update({"new_trait": Int(10)})
         with pytest.raises(KeyError):
-            section.update({"new_trait": Int(10)}, raise_on_miss=True)
+            section.update({"new_trait": Int(10)})
         with pytest.raises(TypeError):
             section.update({"new_trait": 10}, allow_new=True)
 

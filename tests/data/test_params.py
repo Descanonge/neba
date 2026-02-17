@@ -20,10 +20,10 @@ class TestPassingParams:
     """Passing the parameters when creating the dataset."""
 
     def test_dict(self):
-        class DatasetDict(Dataset):
+        class MyDataset(Dataset):
             Parameters = ParametersDict
 
-        dm = DatasetDict({"a": 0, "b": "test"}, a=1, c=0.0)
+        dm = MyDataset({"a": 0, "b": "test"}, a=1, c=0.0)
         assert dm.parameters.direct == {"a": 1, "b": "test", "c": 0.0}
 
     def test_section(self):
@@ -34,21 +34,21 @@ class TestPassingParams:
             class sub(Section):
                 c = Float(0.0)
 
-        class DatasetSection(Dataset):
+        class MyDataset(Dataset):
             Parameters = ParametersSection.new(Config)
 
         # only default values
-        dm = DatasetSection()
+        dm = MyDataset()
         assert dm.parameters.direct == Config()
 
         config = Config(a=1, b="other", **{"sub.c": 2.0})
-        dm = DatasetSection(config)
+        dm = MyDataset(config)
         assert dm.parameters.direct == config
         assert dm.parameters.direct.a == 1
         assert dm.parameters.direct.b == "other"
         assert dm.parameters.direct.sub.c == 2.0
 
-        dm = DatasetSection(config, a=2)
+        dm = MyDataset(config, a=2)
         assert dm.parameters.direct.a == 2
 
     def test_app(self):
@@ -94,10 +94,10 @@ class TestSettingParameters:
     """Test modifiying parameters using the module API."""
 
     def test_dict(self):
-        class DatasetDict(Dataset):
+        class MyDataset(Dataset):
             Parameters = ParametersDict
 
-        dm = DatasetDict({"a": 0}, b=1)
+        dm = MyDataset({"a": 0}, b=1)
         assert dm.parameters.get("a") == 0
         assert dm.parameters["a"] == 0
         assert dm.parameters.get("b") == 1
@@ -123,10 +123,10 @@ class TestSettingParameters:
             class sub(Section):
                 c = Float(0.0)
 
-        class DatasetSection(Dataset):
+        class MyDataset(Dataset):
             Parameters = ParametersSection.new(Config)
 
-        dm = DatasetSection({"a": 0, "sub.c": 2.0}, b=1)
+        dm = MyDataset({"a": 0, "sub.c": 2.0}, b=1)
         assert dm.parameters.get("a") == 0
         assert dm.parameters["a"] == 0
         assert dm.parameters.get("b") == 1
@@ -150,7 +150,15 @@ class TestSettingParameters:
         assert dm.parameters.direct.b == 11
         assert dm.parameters.direct.sub.c == 12.0
 
-        # TODO: new traits
+        # New traits
+        with pytest.raises(KeyError):
+            dm.parameters["new_trait"] = 0
+
+        dm.parameters.allow_new = True
+        dm.parameters["new_trait_1"] = Int(5)
+        assert dm.parameters.direct.new_trait_1 == 5
+        dm.parameters.update(new_trait_2=Int(6))
+        assert dm.parameters.direct.new_trait_2 == 6
 
 
 class CallbackTest:
@@ -176,11 +184,11 @@ class TestCacheCallback:
         dm.called = True
 
     def test_dict(self):
-        class DatasetDict(Dataset):
+        class MyDataset(Dataset):
             Parameters = ParametersDict
             called = False
 
-        dm = DatasetDict()
+        dm = MyDataset()
         dm.register_callback("test_callback", self.callback)
 
         # module API
@@ -208,15 +216,18 @@ class TestCacheCallback:
             dm.parameters.direct["b"] = 1
 
     def test_section(self) -> None:
-        class Config(Section):
+        class MySection(Section):
             a = Int(0)
 
-        class DatasetSection(Dataset):
-            Parameters = ParametersSection.new(Config)
-            Parameters.RAISE_ON_MISS = False
+            class sub(Section):
+                b = Int(0)
+
+        class MyDataset(Dataset):
+            Parameters = ParametersSection.new(MySection)
+            Parameters.allow_new = True
             called = False
 
-        dm = DatasetSection()
+        dm = MyDataset()
         dm.register_callback("test_callback", self.callback)
 
         # module API
@@ -234,14 +245,20 @@ class TestCacheCallback:
         # with setattr
         with CallbackTest(dm):
             dm.parameters.direct.a = 1
+        with CallbackTest(dm):
+            dm.parameters.direct.sub.b = 1
 
         # with setitem
         with CallbackTest(dm):
             dm.parameters.direct["a"] = 2
+        with CallbackTest(dm):
+            dm.parameters.direct["sub.b"] = 2
 
         # if identical, no callback
         with CallbackTest(dm, is_called=False):
             dm.parameters.direct["a"] = 2
+        with CallbackTest(dm, is_called=False):
+            dm.parameters.direct["sub.b"] = 2
 
         # reset
         with CallbackTest(dm):
@@ -255,7 +272,28 @@ class TestCacheCallback:
             dm.parameters.direct.b = 2
 
     def test_dataset_section(self):
-        assert 0
+        class MyDataset(DatasetSection):
+            Parameters = ParametersDict
+            called = False
+
+            a = Int(0)
+
+            class sub(Section):
+                b = Int(0)
+
+        dm = MyDataset(b=0)
+        dm.register_callback("test_callback", self.callback)
+
+        with CallbackTest(dm):
+            dm.a = 1
+        with CallbackTest(dm):
+            dm.sub.b = 1
+
+        # no change
+        with CallbackTest(dm, is_called=False):
+            dm.a = 1
+        with CallbackTest(dm, is_called=False):
+            dm.sub.b = 1
 
 
 def test_autocached():
@@ -287,10 +325,10 @@ def test_autocached():
 
 class TestParamsExcursion:
     def test_dict(self):
-        class TestDataset(Dataset):
+        class MyDataset(Dataset):
             Parameters = ParametersDict
 
-        dm = TestDataset(dict(a=0, b=1))
+        dm = MyDataset(dict(a=0, b=1))
 
         with dm.save_excursion():
             dm.parameters["a"] = 5
@@ -306,13 +344,13 @@ class TestParamsExcursion:
         assert dm.parameters.direct == dict(a=0, b=1)
 
     def test_dict_cache(self):
-        class TestDataset(Dataset):
+        class MyDataset(Dataset):
             Parameters = ParametersDict
 
             class Loader(LoaderAbstract, CachedModule):
                 pass
 
-        dm = TestDataset(dict(a=0, b=1))
+        dm = MyDataset(dict(a=0, b=1))
         dm.loader.cache["test"] = 0
         with dm.save_excursion(save_cache=True):
             dm.parameters["a"] = 5
@@ -322,14 +360,14 @@ class TestParamsExcursion:
         assert dm.loader.cache["test"] == 0
 
     def test_section(self):
-        class MyParameters(Section):
+        class MySection(Section):
             a = Int(0)
             b = Int(1)
 
-        class TestDataset(Dataset):
-            Parameters = ParametersSection.new(MyParameters)
+        class MyDataset(Dataset):
+            Parameters = ParametersSection.new(MySection)
 
-        dm = TestDataset()
+        dm = MyDataset()
 
         with dm.save_excursion():
             dm.parameters["a"] = 5
@@ -348,17 +386,17 @@ class TestParamsExcursion:
         assert dm.parameters["b"] == 1
 
     def test_section_cache(self):
-        class MyParameters(Section):
+        class MySection(Section):
             a = Int(0)
             b = Int(1)
 
-        class TestDataset(Dataset):
-            Parameters = ParametersSection.new(MyParameters)
+        class MyDataset(Dataset):
+            Parameters = ParametersSection.new(MySection)
 
             class Loader(LoaderAbstract, CachedModule):
                 pass
 
-        dm = TestDataset()
+        dm = MyDataset()
         dm.loader.cache["test"] = 0
         with dm.save_excursion(save_cache=True):
             dm.parameters["a"] = 5
