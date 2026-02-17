@@ -1,13 +1,11 @@
 """Test main dataset and modules features."""
 
 import pytest
-from traitlets import Int
 
-from neba.config import Section
 from neba.data import (
     LoaderAbstract,
-    ParamsManagerAbstract,
-    ParamsManagerDict,
+    ParametersAbstract,
+    ParametersDict,
     SourceAbstract,
     WriterAbstract,
 )
@@ -21,13 +19,13 @@ def test_abstract_dataset():
     class TestDataset(Dataset):
         pass
 
-    assert issubclass(TestDataset.ParamsManager, ParamsManagerAbstract)
+    assert issubclass(TestDataset.Parameters, ParametersAbstract)
     assert issubclass(TestDataset.Source, SourceAbstract)
     assert issubclass(TestDataset.Loader, LoaderAbstract)
     assert issubclass(TestDataset.Writer, WriterAbstract)
 
     dm = TestDataset()
-    assert isinstance(dm.params_manager, ParamsManagerAbstract)
+    assert isinstance(dm.parameters, ParametersAbstract)
     assert isinstance(dm.source, SourceAbstract)
     assert isinstance(dm.loader, LoaderAbstract)
     assert isinstance(dm.writer, WriterAbstract)
@@ -37,14 +35,14 @@ def test_dataset_custom():
     """Test module definition."""
 
     # external module definition
-    class P(ParamsManagerAbstract):
+    class P(ParametersAbstract):
         pass
 
     class S(SourceAbstract):
         pass
 
     class TestDataset(Dataset):
-        ParamsManager = P
+        Parameters = P
         Source = S
 
         # internal definition
@@ -55,7 +53,7 @@ def test_dataset_custom():
             pass
 
     dm = TestDataset()
-    assert isinstance(dm.params_manager, P)
+    assert isinstance(dm.parameters, P)
     assert isinstance(dm.source, S)
     assert isinstance(dm.loader, TestDataset.Loader)
     assert isinstance(dm.writer, TestDataset.Writer)
@@ -69,7 +67,7 @@ def test_instantiate_order():
         order.append(self.__class__.__name__)
 
     class TestDataset(Dataset):
-        ParamsManager = type("P", (ParamsManagerAbstract,), {"__init__": init})
+        Parameters = type("P", (ParametersAbstract,), {"__init__": init})
         Source = type("S", (SourceAbstract,), {"__init__": init})
         Loader = type("L", (LoaderAbstract,), {"__init__": init})
         Writer = type("W", (WriterAbstract,), {"__init__": init})
@@ -114,7 +112,7 @@ def test_module_setup():
         order.append(self.__class__.__name__)
 
     class TestDataset(Dataset):
-        ParamsManager = type("P", (ParamsManagerAbstract,), {"setup": setup})
+        Parameters = type("P", (ParametersAbstract,), {"setup": setup})
         Source = type("S", (SourceAbstract,), {"setup": setup})
         Loader = type("L", (LoaderAbstract,), {"setup": setup})
         Writer = type("W", (WriterAbstract,), {"setup": setup})
@@ -211,11 +209,11 @@ def test_reset_callbacks():
 
 def test_get_data_sets():
     class MyDataset(Dataset):
-        ParamsManager = ParamsManagerDict
+        Parameters = ParametersDict
 
         # just return a copy of parameters as data
         def get_data(self, **kwargs):
-            return dict(self.params)
+            return dict(self.parameters.direct)
 
     dm = MyDataset(a=0, b=0)
 
@@ -226,7 +224,7 @@ def test_get_data_sets():
     ]
     data = dm.get_data_sets(params_maps)
     assert data == params_maps
-    assert dm.params == dict(a=0, b=0)
+    assert dm.parameters.direct == dict(a=0, b=0)
 
     data = dm.get_data_sets(
         params_sets=[
@@ -237,7 +235,7 @@ def test_get_data_sets():
         ]
     )
     assert data == params_maps
-    assert dm.params == dict(a=0, b=0)
+    assert dm.parameters.direct == dict(a=0, b=0)
 
 
 class TestModuleMix:

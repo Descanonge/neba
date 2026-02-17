@@ -7,13 +7,13 @@ import pandas as pd
 import xarray as xr
 from xarray.testing import assert_equal
 
-from neba.data import Dataset, FileFinderSource, ParamsManagerDict
+from neba.data import Dataset, FileFinderSource, ParametersDict
 from neba.data.xarray import XarrayLoader, XarraySplitWriter, XarrayWriter
 from tests.conftest import todo
 
 
 class XarrayDataset(Dataset):
-    ParamsManager = ParamsManagerDict
+    Parameters = ParametersDict
     Loader = XarrayLoader
     Writer = XarrayWriter
 
@@ -45,7 +45,7 @@ class TestLoader:
 
     def test_open_dataset_zarr(self, tmpdir):
         class XarrayDataset(Dataset):
-            ParamsManager = ParamsManagerDict
+            Parameters = ParametersDict
             Loader = XarrayLoader
 
         ref, filename = self.setup_single_file(tmpdir, "zarr")
@@ -59,7 +59,7 @@ class TestLoader:
         ref, filename = self.setup_single_file(tmpdir, "netcdf")
 
         class XarrayDataset(Dataset):
-            ParamsManager = ParamsManagerDict
+            Parameters = ParametersDict
 
             class Loader(XarrayLoader):
                 def postprocess(self, data):
@@ -107,7 +107,7 @@ class TestLoader:
         ref, filenames = self.setup_multifile(tmpdir, concatenate=False)
 
         class XarrayDataset(Dataset):
-            ParamsManager = ParamsManagerDict
+            Parameters = ParametersDict
 
             class Source(FileFinderSource):
                 def get_root_directory(self):
@@ -217,7 +217,7 @@ class TestSplitWriter:
 
     def test_daily(self, tmpdir):
         class XarrayDataset(Dataset):
-            ParamsManager = ParamsManagerDict
+            Parameters = ParametersDict
             Writer = XarraySplitWriter
 
             class Source(FileFinderSource):
@@ -237,7 +237,7 @@ class TestSplitWriter:
 
     def test_long_freq(self, tmpdir):
         class XarrayDataset(Dataset):
-            ParamsManager = ParamsManagerDict
+            Parameters = ParametersDict
             Writer = XarraySplitWriter
 
             class Source(FileFinderSource):
@@ -257,7 +257,7 @@ class TestSplitWriter:
 
     def test_monthly_file(self, tmpdir):
         class XarrayDataset(Dataset):
-            ParamsManager = ParamsManagerDict
+            Parameters = ParametersDict
             Writer = XarraySplitWriter
 
             class Source(FileFinderSource):

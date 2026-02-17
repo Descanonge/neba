@@ -11,7 +11,7 @@ from neba.config.section import Section
 
 from .loader import LoaderAbstract
 from .module import CachedModule, Module
-from .params import ParamsManagerAbstract
+from .params import ParametersAbstract
 from .source import SourceAbstract
 from .types import T_Data, T_Params, T_Source
 from .writer import WriterAbstract
@@ -40,7 +40,7 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data]):
     # -- Module related --
 
     _modules_attributes: dict[str, str] = dict(
-        params_manager="ParamsManager",
+        parameters="Parameters",
         source="Source",
         loader="Loader",
         writer="Writer",
@@ -54,13 +54,13 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data]):
     """Mapping from attribute names to module instances. Filled during initialization."""
 
     # Default module types
-    ParamsManager: type[ParamsManagerAbstract] = ParamsManagerAbstract
+    Parameters: type[ParametersAbstract] = ParametersAbstract
     Source: type[SourceAbstract] = SourceAbstract
     Loader: type[LoaderAbstract] = LoaderAbstract
     Writer: type[WriterAbstract] = WriterAbstract
 
     # -- Static type checking --
-    params_manager: ParamsManagerAbstract[T_Params]
+    parameters: ParametersAbstract[T_Params]
     source: SourceAbstract[T_Source]
     loader: LoaderAbstract[T_Source, T_Data]
     writer: WriterAbstract[T_Source, T_Data]
@@ -86,7 +86,7 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data]):
 
         # Setup modules
         # Start with parameters.
-        self.params_manager.setup_safe(raise_errors=True)
+        self.parameters.setup_safe(raise_errors=True)
 
         # Parameters won't initialize again
         for mod in self._modules.values():
@@ -131,51 +131,26 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data]):
             s += mod._lines()
         return "\n".join(s)
 
-    @property
-    def params(self) -> T_Params:
-        """Parameters values for this instance."""
-        return self.params_manager._params
-
-    def update_params(self, params: t.Any | None = None, **kwargs):
-        """Update one or more parameters values.
-
-        Parameters
-        ----------
-        params
-            Parameters to change.
-        kwargs
-            Other parameters values in the form ``name=value``.
-        """
-        self.params_manager.update(params, **kwargs)
-        self.trigger_callbacks()
-
-    def reset_params(self):
-        """Reset parameters to their default state and trigger callbacks."""
-        self.params_manager.reset()
-        self.trigger_callbacks()
-
     def save_excursion(self, save_cache: bool = False) -> _ParamsContext:
         """Save and restore current parameters after a with block.
 
         For instance::
 
-            # we have some parameters, self.params["p"] = 0
+            # we have some parameters, self.parameters["p"] = 0
             with self.save_excursion():
                 # we change them
-                self.update_params(p=2)
+                self.parameters["p"] = 2
                 self.get_data()
 
-            # we are back to self.params["p"] = 0
+            # we are back to self.parameters["p"] = 0
 
         Any exception happening in the with block will be raised.
 
         Parameters
         ----------
         save_cache:
-            If true, save and restore the cache. The context resets the parameters of
-            the dataset using :meth:`reset_params` and :meth:`update_params` and then
-            restore any saved key in the cache. This may lead to unexpected behavior and
-            is disabled by default.
+            If true, save and restore the cache. This may lead to unexpected behavior
+            and is disabled by default.
 
         Returns
         -------
@@ -305,7 +280,7 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data]):
         data = []
         with self.save_excursion():
             for p_map in params_maps:
-                self.update_params(p_map)
+                self.parameters.update(p_map)
                 data.append(self.get_data(**kwargs))
 
         return data
@@ -323,7 +298,7 @@ class _ParamsContext:
             }
 
         self.dm = dm
-        self.params = copy.deepcopy(dm.params)
+        self.params = copy.deepcopy(dm.parameters.direct)
 
     def repopulate_cache(self):
         for name, saved_cache in self.caches.items():
@@ -333,9 +308,9 @@ class _ParamsContext:
     def __enter__(self) -> t.Self:
         return self
 
-    def __exit__(self, *exc):
-        self.dm.reset_params()
-        self.dm.update_params(self.params)
+    def __exit__(self, *exc: t.Any):
+        self.dm.parameters.reset()
+        self.dm.parameters.update(self.params)
 
         if self.caches is not None:
             self.repopulate_cache()

@@ -148,7 +148,7 @@ class WriterAbstract(t.Generic[T_Source_contra, T_Data], Module):
         # Get parameters as string
         if add_dataset_params:
             # copy / convert to dict
-            params = dict(self.dm.params)
+            params = dict(self.dm.parameters.direct)
             for prefix in self.metadata_params_exclude:
                 params = {k: v for k, v in params.items() if not k.startswith(prefix)}
             try:

@@ -11,6 +11,7 @@ from neba.utils import get_classname
 
 if t.TYPE_CHECKING:
     from .data_manager import Dataset
+    from .params import ParametersAbstract
 
 log = logging.getLogger(__name__)
 
@@ -27,9 +28,9 @@ class Module:
     """Parent dataset."""
 
     @property
-    def params(self) -> t.Any:
-        """Parameters of the dataset."""
-        return self.dm.params_manager.params
+    def parameters(self) -> ParametersAbstract:
+        """Quick access to the parameters module."""
+        return self.dm.parameters
 
     def __init__(self, params: t.Any | None = None, **kwargs):
         pass

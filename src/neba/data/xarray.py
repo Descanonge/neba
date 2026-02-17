@@ -575,7 +575,7 @@ class XarraySplitWriter(SplitWriterMixin, XarrayWriter):
                 if dim in ds.coords:
                     val = ds.coords[dim].values.item()
                 else:
-                    val = self.params[dim]
+                    val = self.parameters.direct[dim]
                 unfixed_values[dim] = val
 
             # If there are time values, we simply get the first one

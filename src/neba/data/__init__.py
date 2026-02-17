@@ -4,10 +4,10 @@ from .dataset import Dataset, DatasetSection
 from .loader import LoaderAbstract
 from .module import CachedModule, Module, autocached
 from .params import (
-    ParamsManagerAbstract,
-    ParamsManagerApp,
-    ParamsManagerDict,
-    ParamsManagerSection,
+    ParametersAbstract,
+    ParametersApp,
+    ParametersDict,
+    ParametersSection,
 )
 from .source import (
     FileFinderSource,
@@ -31,11 +31,10 @@ __all__ = [
     "LoaderAbstract",
     "Module",
     "MultiFileSource",
-    "ParamsManagerDict",
-    "ParamsManagerAbstract",
-    "ParamsManagerApp",
-    "ParamsManagerSection",
-    "ParamsMap",
+    "ParametersDict",
+    "ParametersAbstract",
+    "ParametersApp",
+    "ParametersSection",
     "SimpleSource",
     "SourceAbstract",
     "SourceIntersection",

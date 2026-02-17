@@ -17,25 +17,57 @@ from .types import T_Params
 log = logging.getLogger(__name__)
 
 
-class ParamsManagerAbstract(t.Generic[T_Params], Module):
+class ParametersAbstract(t.Generic[T_Params], Module):
     """Abstract Module for parameters management."""
 
     _allow_instantiation_failure = False
 
-    PARAMS_DEFAULTS: abc.Mapping[str, t.Any] = {}
-    """Default values of parameters."""
-
     _params: T_Params
 
     @property
-    def params(self) -> T_Params:
-        """Parameters currently stored."""
+    def direct(self) -> T_Params:
+        """Direct access to parameters container."""
         return self._params
 
-    def update(self, params: t.Any | None, **kwargs):
+    def __getitem__(self, key: str) -> t.Any:
+        raise NotImplementedError("Implement in a subclass of this module.")
+
+    def __setitem__(self, key: str, value: t.Any):
+        self.set(key, value)
+
+    def __contains__(self, key: str) -> bool:
+        raise NotImplementedError("Implement in a subclass of this module.")
+
+    def get(self, key: str, default: t.Any = None) -> t.Any:
+        """Return a parameter value.
+
+        Parameters
+        ----------
+        key
+            Name of the parameter to retrieve.
+        default
+            If not None, return this value if the parameters is not found.
+
+        :Not Implemented: Implement in a subclass of this module.
+        """
+        raise NotImplementedError("Implement in a subclass of this module.")
+
+    def set(self, key: str, value: t.Any):
+        """Set a parameter to value.
+
+        :Not Implemented: Implement in a subclass of this module.
+        """
+        raise NotImplementedError("Implement in a subclass of this module.")
+
+    def update(self, params: t.Any | None = None, **kwargs):
         """Update one or more parameters values.
 
-        Other parameters are kept.
+        Parameters
+        ----------
+        params
+            Mapping of parameters to set.
+        kwargs:
+            Other parameters to set (takes precedence over `params`).
 
         :Not Implemented: Implement in a subclass of this module.
         """
@@ -79,7 +111,7 @@ class CallbackDict(dict, t.Generic[_K, _V]):
             self._callback(Bunch(name=k, old=old, new=v, type="change"))
 
 
-class ParamsManagerDict(ParamsManagerAbstract[CallbackDict[str, t.Any]]):
+class ParametersDict(ParametersAbstract[CallbackDict[str, t.Any]]):
     """Parameters stored in a dictionnary."""
 
     def __init__(self, params: abc.Mapping[str, t.Any] | None = None, **kwargs):
@@ -93,10 +125,31 @@ class ParamsManagerDict(ParamsManagerAbstract[CallbackDict[str, t.Any]]):
 
         self._params._callback = handler
 
-    def update(self, params: t.Any | None, **kwargs):
-        """Update one or more parameters values.
+    def __getitem__(self, key: str) -> t.Any:
+        return self._params[key]
 
-        Other parameters are kept.
+    def __contains__(self, key: str) -> bool:
+        return key in self._params
+
+    def get(self, key: str, default: t.Any = None) -> t.Any:
+        """Return a parameter value.
+
+        Parameters
+        ----------
+        key
+            Name of the parameter to retrieve.
+        default
+            Return this value if the parameters is not found.
+        """
+        return self._params.get(key, default)
+
+    def set(self, key: str, value: t.Any):
+        """Set a parameter to value."""
+        dict.__setitem__(self._params, key, value)
+        self.dm.trigger_callbacks()
+
+    def update(self, params: t.Any | None = None, **kwargs):
+        """Update one or more parameters values.
 
         Parameters
         ----------
@@ -108,17 +161,19 @@ class ParamsManagerDict(ParamsManagerAbstract[CallbackDict[str, t.Any]]):
         if params is None:
             params = {}
         params.update(kwargs)
-        self.params.update(params)
+        self._params.update(params)
+        self.dm.trigger_callbacks()
 
     def reset(self) -> None:
         """Reset parameters to their initial state (empty dict)."""
         self._params.clear()
+        self.dm.trigger_callbacks()
 
 
 T_Section = t.TypeVar("T_Section", bound=Section)
 
 
-class ParamsManagerSectionAbstract(ParamsManagerAbstract[T_Section]):
+class ParametersSectionBase(ParametersAbstract[T_Section]):
     """Parameters are stored in a Section object.
 
     Set and reset methods rely on :meth:`.Section.update` to merge the new parameters
@@ -140,38 +195,51 @@ class ParamsManagerSectionAbstract(ParamsManagerAbstract[T_Section]):
         for subsection in self._params.subsections_recursive():
             subsection.observe(handler)
 
-    def update(
-        self,
-        params: Section | abc.Mapping[str, t.Any] | None = None,
-        **kwargs,
-    ):
-        """Update one or more parameters values.
+    def __getitem__(self, key: str) -> t.Any:
+        return self._params[key]
 
-        New traits can be added if :attr:`RAISE_ON_MISS` is False. If given via Section,
-        new traits will take their current value. If given via a
-        :class:`~traitlets.TraitType` instance (in a mapping), new traits will take
-        their default value.
+    def __contains__(self, key: str) -> bool:
+        return key in self._params
+
+    def get(self, key: str, default: t.Any = None) -> t.Any:
+        """Return a parameter value.
 
         Parameters
         ----------
-        params:
-            Section or mapping to use as parameters.
-        kwargs:
-            Other parameters values.
+        key
+            Name of the parameter to retrieve.
+        default
+            Return this value if the parameters is not found.
         """
-        if params is None:
-            params = {}
+        return self._params.get(key, default)
 
+    def set(self, key: str, value: t.Any):
+        """Set a parameter to value."""
+        self._params.__setitem__(key, value)
+        self.dm.trigger_callbacks()
+
+    def update(self, params: t.Any | None = None, **kwargs):
+        """Update one or more parameters values.
+
+        Parameters
+        ----------
+        params
+            Mapping of parameters to set.
+        kwargs:
+            Other parameters to set (takes precedence over `params`).
+        """
         self._params.update(
             params, allow_new=True, raise_on_miss=self.RAISE_ON_MISS, **kwargs
         )
+        self.dm.trigger_callbacks()
 
     def reset(self) -> None:
         """Reset section to its default values."""
         self._params.reset()
+        self.dm.trigger_callbacks()
 
 
-class ParamsManagerSection(ParamsManagerSectionAbstract[T_Section]):
+class ParametersSection(ParametersSectionBase[T_Section]):
     """Parameters are stored in a Section object.
 
     Set and update methods rely on :meth:`.Section.update` to merge the new parameters
@@ -184,9 +252,9 @@ class ParamsManagerSection(ParamsManagerSectionAbstract[T_Section]):
     _params: T_Section
 
     @classmethod
-    def new(cls, section: type[T_Section]) -> type[ParamsManagerSection[T_Section]]:
+    def new(cls, section: type[T_Section]) -> type[ParametersSection[T_Section]]:
         """Return a subclass with the SECTION_CLS attribute set."""
-        return type("ParamsManagerSectionDynamic", (cls,), {"SECTION_CLS": section})
+        return type("ParametersSectionDynamic", (cls,), {"SECTION_CLS": section})
 
     def __init__(self, params: T_Section | None = None, **kwargs):
         self._params = self.SECTION_CLS()
@@ -197,7 +265,7 @@ class ParamsManagerSection(ParamsManagerSectionAbstract[T_Section]):
 T_App = t.TypeVar("T_App", bound=Application)
 
 
-class ParamsManagerApp(ParamsManagerSectionAbstract[T_App]):
+class ParametersApp(ParametersSectionBase[T_App]):
     """Parameters are retrieved from an application instance."""
 
     def __init__(self, params: T_App, **kwargs):

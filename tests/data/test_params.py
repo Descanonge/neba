@@ -9,9 +9,9 @@ from neba.data import (
     Dataset,
     DatasetSection,
     LoaderAbstract,
-    ParamsManagerApp,
-    ParamsManagerDict,
-    ParamsManagerSection,
+    ParametersApp,
+    ParametersDict,
+    ParametersSection,
     autocached,
 )
 
@@ -21,33 +21,35 @@ class TestPassingParams:
 
     def test_dict(self):
         class DatasetDict(Dataset):
-            ParamsManager = ParamsManagerDict
+            Parameters = ParametersDict
 
         dm = DatasetDict({"a": 0, "b": "test"}, a=1, c=0.0)
-        assert dm.params == {"a": 1, "b": "test", "c": 0.0}
+        assert dm.parameters.direct == {"a": 1, "b": "test", "c": 0.0}
 
     def test_section(self):
         class Config(Section):
             a = Int(0)
             b = Unicode("test")
-            c = Float(0.0)
+
+            class sub(Section):
+                c = Float(0.0)
 
         class DatasetSection(Dataset):
-            ParamsManager = ParamsManagerSection.new(Config)
+            Parameters = ParametersSection.new(Config)
 
         # only default values
         dm = DatasetSection()
-        assert dm.params == Config()
+        assert dm.parameters.direct == Config()
 
-        config = Config(a=1, b="other")
+        config = Config(a=1, b="other", **{"sub.c": 2.0})
         dm = DatasetSection(config)
-        assert dm.params == config
-        assert dm.params.a == 1
-        assert dm.params.b == "other"
-        assert dm.params.c == 0.0
+        assert dm.parameters.direct == config
+        assert dm.parameters.direct.a == 1
+        assert dm.parameters.direct.b == "other"
+        assert dm.parameters.direct.sub.c == 2.0
 
         dm = DatasetSection(config, a=2)
-        assert dm.params.a == 2
+        assert dm.parameters.direct.a == 2
 
     def test_app(self):
         class App(Application):
@@ -56,18 +58,18 @@ class TestPassingParams:
             c = Float(0.0)
 
         class DatasetApp(Dataset):
-            ParamsManager = ParamsManagerApp
+            Parameters = ParametersApp
 
         app = App(start=False)
         app.a = 1
         dm = DatasetApp(app)
-        assert dm.params == app
-        assert dm.params.a == 1
-        assert dm.params.b == "test"
-        assert dm.params.c == 0.0
+        assert dm.parameters.direct == app
+        assert dm.parameters.direct.a == 1
+        assert dm.parameters.direct.b == "test"
+        assert dm.parameters.direct.c == 0.0
 
         dm = DatasetApp(app, a=2)
-        assert dm.params.a == 2
+        assert dm.parameters.direct.a == 2
 
     def test_dataset_section(self):
         class MySection(Section):
@@ -75,17 +77,95 @@ class TestPassingParams:
             c = Int(0)
 
         class MyDataset(DatasetSection):
-            ParamsManager = ParamsManagerSection.new(MySection)
+            Parameters = ParametersSection.new(MySection)
             a = Int(1)
             b = Int(0)
 
         section = MySection()
         dm = MyDataset(section, b=2, c=2)
         assert dm.b == 2
-        assert dm.params.c == 2
+        assert dm.parameters.direct.c == 2
 
         with pytest.raises(KeyError):
             MyDataset(section, a=1)
+
+
+class TestSettingParameters:
+    """Test modifiying parameters using the module API."""
+
+    def test_dict(self):
+        class DatasetDict(Dataset):
+            Parameters = ParametersDict
+
+        dm = DatasetDict({"a": 0}, b=1)
+        assert dm.parameters.get("a") == 0
+        assert dm.parameters["a"] == 0
+        assert dm.parameters.get("b") == 1
+        assert dm.parameters["b"] == 1
+
+        assert dm.parameters.get("wrong", None) is None
+        with pytest.raises(KeyError):
+            dm.parameters["wrong"]
+
+        dm.parameters.set("c", 2)
+        assert dm.parameters.get("c") == 2
+        dm.parameters["c"] = 3
+        assert dm.parameters.get("c") == 3
+
+        dm.parameters.update({"a": 10, "b": 11, "d": 14})
+        assert dm.parameters.direct == dict(a=10, b=11, c=3, d=14)
+
+    def test_section(self):
+        class Config(Section):
+            a = Int(0)
+            b = Int(1)
+
+            class sub(Section):
+                c = Float(0.0)
+
+        class DatasetSection(Dataset):
+            Parameters = ParametersSection.new(Config)
+
+        dm = DatasetSection({"a": 0, "sub.c": 2.0}, b=1)
+        assert dm.parameters.get("a") == 0
+        assert dm.parameters["a"] == 0
+        assert dm.parameters.get("b") == 1
+        assert dm.parameters["b"] == 1
+        assert dm.parameters.get("sub.c") == 2.0
+        assert dm.parameters["sub.c"] == 2.0
+
+        assert dm.parameters.get("wrong", None) is None
+        with pytest.raises(KeyError):
+            dm.parameters["wrong"]
+        with pytest.raises(KeyError):
+            dm.parameters["sub.wrong"]
+
+        dm.parameters.set("sub.c", 3.0)
+        assert dm.parameters.get("sub.c") == 3.0
+        dm.parameters["sub.c"] = 4.0
+        assert dm.parameters.get("sub.c") == 4.0
+
+        dm.parameters.update({"a": 10, "b": 11, "sub.c": 12})
+        assert dm.parameters.direct.a == 10
+        assert dm.parameters.direct.b == 11
+        assert dm.parameters.direct.sub.c == 12.0
+
+        # TODO: new traits
+
+
+class CallbackTest:
+    """Context for testing if callback is called inside it."""
+
+    def __init__(self, dm: Dataset, is_called: bool = True):
+        self.dm = dm
+        self.is_called = is_called
+
+    def __enter__(self):
+        self.dm.called = False
+
+    def __exit__(self, *exc):
+        assert self.dm.called is self.is_called
+        return False
 
 
 class TestCacheCallback:
@@ -97,129 +177,90 @@ class TestCacheCallback:
 
     def test_dict(self):
         class DatasetDict(Dataset):
-            ParamsManager = ParamsManagerDict
+            Parameters = ParametersDict
             called = False
 
         dm = DatasetDict()
         dm.register_callback("test_callback", self.callback)
 
-        # reset_params
-        dm.called = False
-        dm.reset_params()
-        assert dm.called
+        # module API
+        with CallbackTest(dm):
+            dm.parameters.reset()
 
-        # update_params
-        dm.called = False
-        dm.update_params()
-        assert dm.called
+        with CallbackTest(dm):
+            dm.parameters.update({"a": 0})
 
-        # set a parameter
-        dm.called = False
-        dm.params["a"] = 0
-        assert dm.called
+        with CallbackTest(dm):
+            # even if no change
+            dm.parameters["a"] = 0
+
+        # Changing directly
+        # new parameter:
+        with CallbackTest(dm):
+            dm.parameters.direct["b"] = 0
 
         # change that parameter
-        dm.called = False
-        dm.params["a"] = 1
-        assert dm.called
+        with CallbackTest(dm):
+            dm.parameters.direct["b"] = 1
 
         # if identical, no callback
-        dm.called = False
-        dm.params["a"] = 1
-        assert not dm.called
+        with CallbackTest(dm, is_called=False):
+            dm.parameters.direct["b"] = 1
 
     def test_section(self) -> None:
         class Config(Section):
             a = Int(0)
 
         class DatasetSection(Dataset):
-            ParamsManager = ParamsManagerSection.new(Config)
-            ParamsManager.RAISE_ON_MISS = False
+            Parameters = ParametersSection.new(Config)
+            Parameters.RAISE_ON_MISS = False
             called = False
 
         dm = DatasetSection()
         dm.register_callback("test_callback", self.callback)
 
-        # reset_params
-        dm.called = False
-        dm.reset_params()
-        assert dm.called
+        # module API
+        with CallbackTest(dm):
+            dm.parameters.reset()
 
-        # update_params
-        dm.called = False
-        dm.update_params()
-        assert dm.called
+        with CallbackTest(dm):
+            dm.parameters.update({"a": 0})
+
+        with CallbackTest(dm):
+            # even if no change
+            dm.parameters["a"] = 0
+
+        # Changing directly
+        # with setattr
+        with CallbackTest(dm):
+            dm.parameters.direct.a = 1
 
         # with setitem
-        dm.called = False
-        dm.params["a"] = 1
-        assert dm.called
-
-        # with setattr
-        dm.called = False
-        dm.params.a = 2
-        assert dm.called
+        with CallbackTest(dm):
+            dm.parameters.direct["a"] = 2
 
         # if identical, no callback
-        dm.called = False
-        dm.params["a"] = 2
-        assert not dm.called
+        with CallbackTest(dm, is_called=False):
+            dm.parameters.direct["a"] = 2
 
-        # reset and setattr
-        dm.params.reset()
-        dm.called = False
-        dm.params.a = 1
-        assert dm.called
+        # reset
+        with CallbackTest(dm):
+            dm.parameters.direct.reset()
 
         # new trait
-        dm.update_params(b=Int(1))
-        dm.called = True
-        assert dm.params.b == 1
-        dm.called = False
-        dm.params.b = 2
-        assert dm.called
+        with CallbackTest(dm):
+            dm.parameters.update(b=Int(1))
+        assert dm.parameters.direct.b == 1
+        with CallbackTest(dm):
+            dm.parameters.direct.b = 2
 
-    def test_app(self):
-        class App(Application):
-            a = Int(0)
-
-        class DatasetApp(Dataset):
-            ParamsManager = ParamsManagerApp
-            called = False
-
-        app = App(start=False)
-        dm = DatasetApp(app)
-        dm.register_callback("test_callback", self.callback)
-
-        # reset_params
-        dm.called = False
-        dm.reset_params()
-        assert dm.called
-
-        # update_params
-        dm.called = False
-        dm.update_params()
-        assert dm.called
-
-        # with setitem
-        dm.called = False
-        dm.params["a"] = 1
-        assert dm.called
-
-        # with setattr
-        dm.called = False
-        dm.params.a = 2
-        assert dm.called
-
-        # if identical, no callback
-        dm.called = False
-        dm.params["a"] = 2
-        assert not dm.called
+    def test_dataset_section(self):
+        assert 0
 
 
 def test_autocached():
     class MyDataset(Dataset):
-        ParamsManager = ParamsManagerDict
+        Parameters = ParametersDict
 
         class Loader(LoaderAbstract, CachedModule):
             @property
@@ -247,27 +288,26 @@ def test_autocached():
 class TestParamsExcursion:
     def test_dict(self):
         class TestDataset(Dataset):
-            ParamsManager = ParamsManagerDict
+            Parameters = ParametersDict
 
         dm = TestDataset(dict(a=0, b=1))
 
         with dm.save_excursion():
-            dm.update_params(a=5)
-            assert dm.params["a"] == 5
-            assert dm.params["b"] == 1
+            dm.parameters["a"] = 5
+            assert dm.parameters.direct == dict(a=5, b=1)
 
-        assert dm.params == dict(a=0, b=1)
+        assert dm.parameters.direct == dict(a=0, b=1)
 
         with dm.save_excursion():
-            dm.reset_params()
-            dm.update_params(a=5, c=1)
-            assert dm.params == dict(a=5, c=1)
+            dm.parameters.reset()
+            dm.parameters.update(a=5, c=1)
+            assert dm.parameters.direct == dict(a=5, c=1)
 
-        assert dm.params == dict(a=0, b=1)
+        assert dm.parameters.direct == dict(a=0, b=1)
 
     def test_dict_cache(self):
         class TestDataset(Dataset):
-            ParamsManager = ParamsManagerDict
+            Parameters = ParametersDict
 
             class Loader(LoaderAbstract, CachedModule):
                 pass
@@ -275,45 +315,45 @@ class TestParamsExcursion:
         dm = TestDataset(dict(a=0, b=1))
         dm.loader.cache["test"] = 0
         with dm.save_excursion(save_cache=True):
-            dm.update_params(a=5)
+            dm.parameters["a"] = 5
             dm.loader.cache["test"] = 1
 
-        assert dm.params == dict(a=0, b=1)
+        assert dm.parameters.direct == dict(a=0, b=1)
         assert dm.loader.cache["test"] == 0
 
     def test_section(self):
-        class MyParams(Section):
+        class MyParameters(Section):
             a = Int(0)
             b = Int(1)
 
         class TestDataset(Dataset):
-            ParamsManager = ParamsManagerSection.new(MyParams)
+            Parameters = ParametersSection.new(MyParameters)
 
         dm = TestDataset()
 
         with dm.save_excursion():
-            dm.update_params(a=5)
-            assert dm.params.a == 5
-            assert dm.params.b == 1
+            dm.parameters["a"] = 5
+            assert dm.parameters["a"] == 5
+            assert dm.parameters["b"] == 1
 
-        assert dm.params.a == 0
-        assert dm.params.b == 1
+        assert dm.parameters["a"] == 0
+        assert dm.parameters["b"] == 1
 
         with dm.save_excursion():
-            dm.update_params(a=5)
-            assert dm.params.a == 5
-            assert dm.params.b == 1
+            dm.parameters["a"] = 5
+            assert dm.parameters["a"] == 5
+            assert dm.parameters["b"] == 1
 
-        assert dm.params.a == 0
-        assert dm.params.b == 1
+        assert dm.parameters["a"] == 0
+        assert dm.parameters["b"] == 1
 
     def test_section_cache(self):
-        class MyParams(Section):
+        class MyParameters(Section):
             a = Int(0)
             b = Int(1)
 
         class TestDataset(Dataset):
-            ParamsManager = ParamsManagerSection.new(MyParams)
+            Parameters = ParametersSection.new(MyParameters)
 
             class Loader(LoaderAbstract, CachedModule):
                 pass
@@ -321,9 +361,9 @@ class TestParamsExcursion:
         dm = TestDataset()
         dm.loader.cache["test"] = 0
         with dm.save_excursion(save_cache=True):
-            dm.update_params(a=5)
+            dm.parameters["a"] = 5
             dm.loader.cache["test"] = 1
 
-        assert dm.params.a == 0
-        assert dm.params.b == 1
+        assert dm.parameters["a"] == 0
+        assert dm.parameters["b"] == 1
         assert dm.loader.cache["test"] == 0

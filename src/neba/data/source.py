@@ -210,7 +210,7 @@ class FileFinderSource(MultiFileSource, CachedModule):
         """Create a filename corresponding to a set of parameters values.
 
         All parameters must be defined, either by the parent
-        :attr:`DatasetAbstract.params`, or by the ``fixes`` arguments.
+        :attr:`DatasetAbstract.parameters`, or by the ``fixes`` arguments.
 
         Parameters
         ----------
@@ -219,16 +219,16 @@ class FileFinderSource(MultiFileSource, CachedModule):
         fixes:
             Parameters to fix to specific values. Only parameters defined in the
             filename pattern can be fixed. Will take precedence over the
-            parent ``params`` attribute.
+            parent ``parameters`` attribute.
         """
         # Check they can be fixed (they exist in the pattern)
         for f in fixes:
             if f not in self.fixable:
                 raise KeyError(f"Parameter {f} cannot be fixed '{self}'.")
 
-        # In case params were changed sneakily and the cache was not invalidated
+        # In case parameters were changed sneakily and the cache was not invalidated
         fixable_params = {
-            p: self.dm.params[p] for p in self.fixable if p in self.dm.params
+            p: self.dm.parameters[p] for p in self.fixable if p in self.dm.parameters
         }
         fixes = fixable_params | fixes
 
@@ -255,7 +255,7 @@ class FileFinderSource(MultiFileSource, CachedModule):
         fixable = finder.get_group_names()
 
         for p in fixable:
-            if (value := self.dm.params.get(p, None)) is not None:
+            if (value := self.dm.parameters.get(p, None)) is not None:
                 finder.fix_group(p, value)
         return finder
 

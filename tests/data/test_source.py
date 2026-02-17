@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 
 from neba.data.dataset import Dataset
-from neba.data.params import ParamsManagerDict
+from neba.data.params import ParametersDict
 from neba.data.source import (
     FileFinderSource,
     GlobSource,
@@ -56,7 +56,7 @@ class TestModuleMix:
             source_loc = "a"
 
             def get_filename(self, **fixes):
-                param = self.params["param"]
+                param = self.parameters["param"]
                 if "param" in fixes:
                     param = fixes["param"]
                 return f"file_a_{param}"
@@ -65,24 +65,24 @@ class TestModuleMix:
             source_loc = "b"
 
             def get_filename(self, **fixes):
-                param = self.params["param"]
+                param = self.parameters["param"]
                 if "param" in fixes:
                     param = fixes["param"]
                 return f"file_b_{param}"
 
         def select(module, **kwargs):
-            return kwargs.get("selected", module.params["selected"])
+            return kwargs.get("selected", module.parameters["selected"])
 
         class DatasetMix(Dataset):
-            ParamsManager = ParamsManagerDict
+            Parameters = ParametersDict
             Source = SourceUnion.create([SourceA, SourceB], select_func=select)
 
         dm = DatasetMix(param=0, selected="SourceA")
 
         assert dm.source.apply_select("get_filename") == "file_a_0"
 
-        dm.params["param"] = 1
-        dm.params["selected"] = "SourceB"
+        dm.parameters["param"] = 1
+        dm.parameters["selected"] = "SourceB"
         assert dm.source.apply_select("get_filename") == "file_b_1"
         assert dm.source.apply_select("get_filename", param=2) == "file_b_2"
 
@@ -126,14 +126,14 @@ def setup_multiple_files(tmpdir, var: str = "A") -> list[str]:
 class TestGlob:
     def test_get_source(self, tmpdir):
         class MyDataset(Dataset):
-            ParamsManager = ParamsManagerDict
+            Parameters = ParametersDict
 
             class Source(GlobSource):
                 def get_root_directory(self):
                     return str(tmpdir)
 
                 def get_glob_pattern(self):
-                    return f"*/{self.params['var']}_*.nc"
+                    return f"*/{self.parameters['var']}_*.nc"
 
         ref_filenames = setup_multiple_files(tmpdir, var="A")
 
@@ -144,7 +144,7 @@ class TestGlob:
         assert dm.source.cache["datafiles"] == ref_filenames
 
         # check void cache
-        dm.params["var"] = "B"
+        dm.parameters["var"] = "B"
         assert "datafiles" not in dm.source.cache
         assert len(dm.get_source()) == 0
 
@@ -152,14 +152,15 @@ class TestGlob:
 class TestFileFinder:
     def setup_dataset(self, tmpdir) -> type[Dataset]:
         class MyDataset(Dataset):
-            ParamsManager = ParamsManagerDict
+            Parameters = ParametersDict
 
             class Source(FileFinderSource):
                 def get_root_directory(self):
                     return str(tmpdir)
 
                 def get_filename_pattern(self):
-                    return f"%(Y)/{self.params['var']}_%(Y)%(m)%(d)_%(param:fmt=02d).nc"
+                    var = self.parameters["var"]
+                    return f"%(Y)/{var}_%(Y)%(m)%(d)_%(param:fmt=02d).nc"
 
         return MyDataset
 
@@ -173,7 +174,7 @@ class TestFileFinder:
         assert dm.source.cache["datafiles"] == ref_filenames
 
         # check void cache
-        dm.params["var"] = "B"
+        dm.parameters["var"] = "B"
         assert "datafiles" not in dm.source.cache
         assert len(dm.get_source()) == 0
 
@@ -186,8 +187,8 @@ class TestFileFinder:
         assert dm.source.fixable == {"Y", "m", "d", "param"}
         assert dm.source.unfixed == ["m", "d", "param"]
 
-        dm.params["d"] = 1
-        dm.params["m"] = [1, 2]
+        dm.parameters["d"] = 1
+        dm.parameters["m"] = [1, 2]
 
         assert dm.source.unfixed == ["m", "param"]
         assert dm.get_source() == ref_filenames[:6]
