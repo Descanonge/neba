@@ -180,9 +180,9 @@ class ParametersSectionBase(ParametersAbstract[T_Section]):
     values to :attr:`params`.
     """
 
-    RAISE_ON_MISS: bool = True
-    """Passed to Section.update, If True (default), raise if unkown parameter is passed
-    when using :meth:`update` or :meth:`set`."""
+    allow_new: bool = True
+    """If True (default), allow to create new traits when using :meth:`update` and
+    :meth:`set`."""
 
     _params: T_Section
 
@@ -214,8 +214,15 @@ class ParametersSectionBase(ParametersAbstract[T_Section]):
         return self._params.get(key, default)
 
     def set(self, key: str, value: t.Any):
-        """Set a parameter to value."""
-        self._params.__setitem__(key, value)
+        """Set a parameter to value.
+
+        :param value: Value to set. If :attr:`allow_new` is True, can be a
+            :class:`traitlets.TraitType` to add to parameters.
+        """
+        if self.allow_new and isinstance(value, TraitType) and key not in self._params:
+            self._params.add_trait(key, value)
+        else:
+            self._params.__setitem__(key, value)
         self.dm.trigger_callbacks()
 
     def update(self, params: t.Any | None = None, **kwargs):
@@ -228,9 +235,7 @@ class ParametersSectionBase(ParametersAbstract[T_Section]):
         kwargs:
             Other parameters to set (takes precedence over `params`).
         """
-        self._params.update(
-            params, allow_new=True, raise_on_miss=self.RAISE_ON_MISS, **kwargs
-        )
+        self._params.update(params, allow_new=self.allow_new, **kwargs)
         self.dm.trigger_callbacks()
 
     def reset(self) -> None:

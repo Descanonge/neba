@@ -570,7 +570,6 @@ class Section(HasTraits):
         self,
         other: Section | abc.Mapping[str, t.Any] | None = None,
         allow_new: bool = False,
-        raise_on_miss: bool = False,
         **kwargs,
     ):
         """Update values of this Section traits.
@@ -588,9 +587,6 @@ class Section(HasTraits):
             If True, allow creating new traits for this Section. If `other` is a section
             the trait is copied over; in a mapping it must be a trait instance which
             default value will be used. Default is False.
-        raise_on_miss
-            If True, raise an exception if a trait in `other` is placed on a path that
-            does not lead to an existing subsection or trait. Default is False.
         kwargs
             Same as `other`.
         """
@@ -607,10 +603,11 @@ class Section(HasTraits):
 
         for key, value in values.items():
             if key not in self:
-                if raise_on_miss:
-                    raise KeyError(f"Trait '{key}' does not exist in {self}")
                 if not allow_new:
-                    raise RuntimeError(f"Trait creation was not authorized ({key})")
+                    raise KeyError(
+                        f"Trait '{key}' does not exist in {self} "
+                        "and trait creation was not authorized."
+                    )
 
                 if isinstance(value, TraitType):
                     newtrait = value
