@@ -6,7 +6,7 @@ import logging
 import typing as t
 from collections import abc
 
-from traitlets import Bunch
+from traitlets import Bunch, TraitType
 
 from neba.config.application import Application
 from neba.config.section import Section
@@ -41,14 +41,14 @@ class ParametersAbstract(t.Generic[T_Params], Module):
     def get(self, key: str, default: t.Any = None) -> t.Any:
         """Return a parameter value.
 
+        :Not Implemented: Implement in a subclass of this module.
+
         Parameters
         ----------
         key
             Name of the parameter to retrieve.
         default
             If not None, return this value if the parameters is not found.
-
-        :Not Implemented: Implement in a subclass of this module.
         """
         raise NotImplementedError("Implement in a subclass of this module.")
 
@@ -62,14 +62,14 @@ class ParametersAbstract(t.Generic[T_Params], Module):
     def update(self, params: t.Any | None = None, **kwargs):
         """Update one or more parameters values.
 
+        :Not Implemented: Implement in a subclass of this module.
+
         Parameters
         ----------
         params
             Mapping of parameters to set.
         kwargs:
             Other parameters to set (takes precedence over `params`).
-
-        :Not Implemented: Implement in a subclass of this module.
         """
         raise NotImplementedError("Implement in a subclass of this module.")
 

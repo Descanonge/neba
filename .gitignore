@@ -6,7 +6,7 @@ htmlcov
 .coverage.*
 
 docs/build
-docs/source/_generated
+docs/source/**/_generated
 
 /config.toml
 /config.py

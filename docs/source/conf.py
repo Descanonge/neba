@@ -69,7 +69,7 @@ python_use_unqualified_type_names = True
 autodoc_default_options = {"show-inheritance": True, "inherited-members": False}
 
 ## Autosummary config
-autosummary_generate = ["api.rst"]
+autosummary_generate = ["api/config.rst", "api/data.rst"]
 
 ## Napoleon config
 napoleon_google_docstring = False

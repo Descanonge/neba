@@ -69,6 +69,7 @@ Example
 If we use it to document :class:`.Application`:
 
 .. autosection:: neba.config.application.Application
+    :no-index:
     :inherited-members: Configurable
     :member-order: bysource
     :only-configurables:

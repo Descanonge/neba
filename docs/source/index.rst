@@ -57,7 +57,7 @@ Project home: https://github.com/Descanonge/neba
 
    data/index
 
-   api
+   api/index
 
 About
 =====
