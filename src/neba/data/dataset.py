@@ -357,3 +357,10 @@ class DatasetSection(Dataset, Section):
 
         for subsection in self.subsections_recursive():
             subsection.observe(handler)
+
+    def __repr__(self) -> str:
+        """Combine Dataset and Section repr."""
+        dataset = Dataset.__repr__(self)
+        section = Section.__repr__(self)
+        # remove first line (class name), redundant
+        return "\n".join([dataset, *section.splitlines()[1:]])
