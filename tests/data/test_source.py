@@ -5,7 +5,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from neba.data.dataset import Dataset
+from neba.data.interface import DataInterface
 from neba.data.params import ParametersDict
 from neba.data.source import (
     FileFinderSource,
@@ -73,29 +73,29 @@ class TestModuleMix:
         def select(module, **kwargs):
             return kwargs.get("selected", module.parameters["selected"])
 
-        class DatasetMix(Dataset):
+        class DataInterfaceMix(DataInterface):
             Parameters = ParametersDict
             Source = SourceUnion.create([SourceA, SourceB], select_func=select)
 
-        dm = DatasetMix(param=0, selected="SourceA")
+        di = DataInterfaceMix(param=0, selected="SourceA")
 
-        assert dm.source.apply_select("get_filename") == "file_a_0"
+        assert di.source.apply_select("get_filename") == "file_a_0"
 
-        dm.parameters["param"] = 1
-        dm.parameters["selected"] = "SourceB"
-        assert dm.source.apply_select("get_filename") == "file_b_1"
-        assert dm.source.apply_select("get_filename", param=2) == "file_b_2"
+        di.parameters["param"] = 1
+        di.parameters["selected"] = "SourceB"
+        assert di.source.apply_select("get_filename") == "file_b_1"
+        assert di.source.apply_select("get_filename", param=2) == "file_b_2"
 
-        # take precedence over dataset param
+        # take precedence over interface param
         assert (
-            dm.source.apply_select(
+            di.source.apply_select(
                 "get_filename", select={"selected": "SourceA"}, param=2
             )
             == "file_a_2"
         )
 
         # automatic dispatch
-        assert dm.source.get_filename() == "file_b_1"
+        assert di.source.get_filename() == "file_b_1"
 
 
 def setup_multiple_files(tmpdir, var: str = "A") -> list[str]:
@@ -125,7 +125,7 @@ def setup_multiple_files(tmpdir, var: str = "A") -> list[str]:
 
 class TestGlob:
     def test_get_source(self, tmpdir):
-        class MyDataset(Dataset):
+        class MyDataInterface(DataInterface):
             Parameters = ParametersDict
 
             class Source(GlobSource):
@@ -137,21 +137,21 @@ class TestGlob:
 
         ref_filenames = setup_multiple_files(tmpdir, var="A")
 
-        dm = MyDataset(var="A")
-        assert dm.get_source() == ref_filenames
+        di = MyDataInterface(var="A")
+        assert di.get_source() == ref_filenames
 
         # check files cached
-        assert dm.source.cache["datafiles"] == ref_filenames
+        assert di.source.cache["datafiles"] == ref_filenames
 
         # check void cache
-        dm.parameters["var"] = "B"
-        assert "datafiles" not in dm.source.cache
-        assert len(dm.get_source()) == 0
+        di.parameters["var"] = "B"
+        assert "datafiles" not in di.source.cache
+        assert len(di.get_source()) == 0
 
 
 class TestFileFinder:
-    def setup_dataset(self, tmpdir) -> type[Dataset]:
-        class MyDataset(Dataset):
+    def setup_interface(self, tmpdir) -> type[DataInterface]:
+        class MyDataInterface(DataInterface):
             Parameters = ParametersDict
 
             class Source(FileFinderSource):
@@ -162,33 +162,33 @@ class TestFileFinder:
                     var = self.parameters["var"]
                     return f"%(Y)/{var}_%(Y)%(m)%(d)_%(param:fmt=02d).nc"
 
-        return MyDataset
+        return MyDataInterface
 
     def test_get_source(self, tmpdir):
         ref_filenames = setup_multiple_files(tmpdir, var="A")
 
-        dm = self.setup_dataset(tmpdir)(var="A")
-        assert dm.get_source() == ref_filenames
+        di = self.setup_interface(tmpdir)(var="A")
+        assert di.get_source() == ref_filenames
 
         # check files cached
-        assert dm.source.cache["datafiles"] == ref_filenames
+        assert di.source.cache["datafiles"] == ref_filenames
 
         # check void cache
-        dm.parameters["var"] = "B"
-        assert "datafiles" not in dm.source.cache
-        assert len(dm.get_source()) == 0
+        di.parameters["var"] = "B"
+        assert "datafiles" not in di.source.cache
+        assert len(di.get_source()) == 0
 
     def test_fixes(self, tmpdir):
         ref_filenames = setup_multiple_files(tmpdir, var="A")
 
-        dm = self.setup_dataset(tmpdir)(var="A", Y="2010")
+        di = self.setup_interface(tmpdir)(var="A", Y="2010")
 
-        assert dm.get_source() == ref_filenames[:36]
-        assert dm.source.fixable == {"Y", "m", "d", "param"}
-        assert dm.source.unfixed == ["m", "d", "param"]
+        assert di.get_source() == ref_filenames[:36]
+        assert di.source.fixable == {"Y", "m", "d", "param"}
+        assert di.source.unfixed == ["m", "d", "param"]
 
-        dm.parameters["d"] = 1
-        dm.parameters["m"] = [1, 2]
+        di.parameters["d"] = 1
+        di.parameters["m"] = [1, 2]
 
-        assert dm.source.unfixed == ["m", "param"]
-        assert dm.get_source() == ref_filenames[:6]
+        assert di.source.unfixed == ["m", "param"]
+        assert di.get_source() == ref_filenames[:6]

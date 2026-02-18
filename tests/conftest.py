@@ -34,7 +34,7 @@ def pytest_collection_modifyitems(items):
         "tests.config.test_traits",
         "tests.config.test_loaders",
         "tests.config.test_application",
-        "tests.data.test_dataset",
+        "tests.data.test_interface",
         "tests.data.test_params",
         "tests.data.test_source",
         "tests.data.test_store",

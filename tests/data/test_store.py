@@ -1,38 +1,41 @@
 import pytest
 
-from neba.data import Dataset, DatasetStore
+from neba.data import DataInterface, DataInterfaceStore
 
 
-class DatasetOnlyId(Dataset):
+class InterfaceOnlyId(DataInterface):
     ID = "id1"
 
 
-class DatasetOnlyShortname(Dataset):
+class InterfaceOnlyShortname(DataInterface):
     SHORTNAME = "short2"
 
 
-class DatasetIdAndShortname(Dataset):
+class InterfaceIdAndShortname(DataInterface):
     ID = "id3"
     SHORTNAME = "short3"
 
 
-class DatasetForImport(Dataset):
+class InterfaceForImport(DataInterface):
     pass
 
 
-ds_import_string = "tests.data.test_store.DatasetForImport"
+ds_import_string = "tests.data.test_store.InterfaceForImport"
 
 
-class TestDatasetStore:
+class TestDataInterfaceStore:
     def get_store(self):
-        return DatasetStore(
-            DatasetOnlyId, DatasetOnlyShortname, DatasetIdAndShortname, ds_import_string
+        return DataInterfaceStore(
+            InterfaceOnlyId,
+            InterfaceOnlyShortname,
+            InterfaceIdAndShortname,
+            ds_import_string,
         )
 
     def test_mapping(self):
         store = self.get_store()
-        all_keys = ["id1", "short2", "id3", "short3", "DatasetForImport"]
-        ids = ["id1", "short2", "id3", "DatasetForImport"]
+        all_keys = ["id1", "short2", "id3", "short3", "InterfaceForImport"]
+        ids = ["id1", "short2", "id3", "InterfaceForImport"]
 
         # __contains__
         for key in all_keys:
@@ -43,10 +46,10 @@ class TestDatasetStore:
 
         # __str__
         assert str(store) == (
-            '{"id1" : DatasetOnlyId, '
-            '"short2" : DatasetOnlyShortname, '
-            '"id3" | "short3" : DatasetIdAndShortname, '
-            f'"DatasetForImport" : "{ds_import_string}"'
+            '{"id1" : InterfaceOnlyId, '
+            '"short2" : InterfaceOnlyShortname, '
+            '"id3" | "short3" : InterfaceIdAndShortname, '
+            f'"InterfaceForImport" : "{ds_import_string}"'
             "}"
         )
 
@@ -59,42 +62,42 @@ class TestDatasetStore:
         store.pop("id3")
         assert "id3" not in store
         assert "short3" not in store
-        store.pop("DatasetForImport")
-        assert "DatasetForImport" not in store
+        store.pop("InterfaceForImport")
+        assert "InterfaceForImport" not in store
 
     def test_get(self):
         store = self.get_store()
-        assert store["id1"] is DatasetOnlyId
-        assert store["short2"] is DatasetOnlyShortname
-        assert store["id3"] is DatasetIdAndShortname
-        assert store["short3"] is DatasetIdAndShortname
+        assert store["id1"] is InterfaceOnlyId
+        assert store["short2"] is InterfaceOnlyShortname
+        assert store["id3"] is InterfaceIdAndShortname
+        assert store["short3"] is InterfaceIdAndShortname
 
-        assert isinstance(store._datasets["DatasetForImport"], str)
-        assert store.get_no_import("DatasetForImport") == ds_import_string
-        assert isinstance(store._datasets["DatasetForImport"], str)
-        assert store["DatasetForImport"] is DatasetForImport
-        assert isinstance(store._datasets["DatasetForImport"], type)
+        assert isinstance(store._interfaces["InterfaceForImport"], str)
+        assert store.get_no_import("InterfaceForImport") == ds_import_string
+        assert isinstance(store._interfaces["InterfaceForImport"], str)
+        assert store["InterfaceForImport"] is InterfaceForImport
+        assert isinstance(store._interfaces["InterfaceForImport"], type)
 
     def test_set(self):
         store = self.get_store()
 
-        class DatasetDuplicateId(Dataset):
+        class InterfaceDuplicateId(DataInterface):
             ID = "id1"
 
         with pytest.raises(KeyError):
-            store.add(DatasetDuplicateId)
+            store.add(InterfaceDuplicateId)
 
-        store.add(DatasetDuplicateId, name="dupl")
-        assert store["dupl"] == DatasetDuplicateId
+        store.add(InterfaceDuplicateId, name="dupl")
+        assert store["dupl"] == InterfaceDuplicateId
 
     def test_multiple_shortnames(self):
         store = self.get_store()
 
-        class DatasetDuplicateShortname(Dataset):
+        class InterfaceDuplicateShortname(DataInterface):
             ID = "id4"
             SHORTNAME = "short3"
 
-        store.add(DatasetDuplicateShortname)
+        store.add(InterfaceDuplicateShortname)
 
         with pytest.raises(KeyError):
             store["short3"]

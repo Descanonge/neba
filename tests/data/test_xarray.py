@@ -7,12 +7,12 @@ import pandas as pd
 import xarray as xr
 from xarray.testing import assert_equal
 
-from neba.data import Dataset, FileFinderSource, ParametersDict
+from neba.data import DataInterface, FileFinderSource, ParametersDict
 from neba.data.xarray import XarrayLoader, XarraySplitWriter, XarrayWriter
 from tests.conftest import todo
 
 
-class XarrayDataset(Dataset):
+class XarrayInterface(DataInterface):
     Parameters = ParametersDict
     Loader = XarrayLoader
     Writer = XarrayWriter
@@ -38,27 +38,23 @@ class TestLoader:
     def test_open_dataset(self, tmpdir):
         ref, filename = self.setup_single_file(tmpdir, "netcdf")
 
-        dm = XarrayDataset()
-        loaded = dm.get_data(source=filename)
+        di = XarrayInterface()
+        loaded = di.get_data(source=filename)
 
         assert_equal(loaded, ref)
 
     def test_open_dataset_zarr(self, tmpdir):
-        class XarrayDataset(Dataset):
-            Parameters = ParametersDict
-            Loader = XarrayLoader
-
         ref, filename = self.setup_single_file(tmpdir, "zarr")
 
-        dm = XarrayDataset()
-        loaded = dm.get_data(source=filename)
+        di = XarrayInterface()
+        loaded = di.get_data(source=filename)
 
         assert_equal(loaded, ref)
 
     def test_postprocess(self, tmpdir):
         ref, filename = self.setup_single_file(tmpdir, "netcdf")
 
-        class XarrayDataset(Dataset):
+        class XarrayInterface(DataInterface):
             Parameters = ParametersDict
 
             class Loader(XarrayLoader):
@@ -66,13 +62,13 @@ class TestLoader:
                     data["test"] += 2
                     return data
 
-        dm = XarrayDataset()
+        di = XarrayInterface()
 
-        loaded = dm.get_data(source=filename, ignore_postprocess=True)
+        loaded = di.get_data(source=filename, ignore_postprocess=True)
         assert_equal(loaded, ref)
 
         ref["test"] += 2
-        loaded = dm.get_data(source=filename)
+        loaded = di.get_data(source=filename)
         assert_equal(loaded, ref)
 
     def setup_multifile(
@@ -97,8 +93,8 @@ class TestLoader:
     def test_open_mfdataset(self, tmpdir):
         ref, filenames = self.setup_multifile(tmpdir)
 
-        dm = XarrayDataset()
-        loaded = dm.get_data(source=filenames)
+        di = XarrayInterface()
+        loaded = di.get_data(source=filenames)
 
         assert_equal(loaded, ref)
 
@@ -106,7 +102,7 @@ class TestLoader:
         """Use FileFinderSource to add dimension for concatenation."""
         ref, filenames = self.setup_multifile(tmpdir, concatenate=False)
 
-        class XarrayDataset(Dataset):
+        class XarrayInterface(DataInterface):
             Parameters = ParametersDict
 
             class Source(FileFinderSource):
@@ -120,7 +116,7 @@ class TestLoader:
                 OPEN_MFDATASET_KWARGS = {"preprocess": True}
 
                 def preprocess(self):
-                    finder = self.dm.source.filefinder
+                    finder = self.di.source.filefinder
 
                     def func(ds: xr.Dataset) -> xr.Dataset:
                         filename = ds.encoding["source"]
@@ -130,8 +126,8 @@ class TestLoader:
 
                     return func
 
-        dm = XarrayDataset()
-        loaded = dm.get_data()
+        di = XarrayInterface()
+        loaded = di.get_data()
 
         assert_equal(loaded, ref)
 
@@ -143,8 +139,8 @@ class TestWriter:
         )
         filename = tmpdir / "test_dataset.nc"
 
-        dm = XarrayDataset()
-        dm.write(ref, target=filename)
+        di = XarrayInterface()
+        di.write(ref, target=filename)
 
         written = xr.open_dataset(filename)
 
@@ -160,12 +156,12 @@ class TestWriter:
         )
         filename = tmpdir / "test_dataset.nc"
 
-        dm = XarrayDataset(a=0)
-        dm.write(ref, target=filename)
+        di = XarrayInterface(a=0)
+        di.write(ref, target=filename)
 
         written = xr.open_dataset(filename)
 
-        assert written.attrs["written_as_dataset"] == "XarrayDataset"
+        assert written.attrs["written_with_interface"] == "XarrayInterface"
         assert written.attrs["created_with_params"] == '{"a": 0}'
 
     def setup_multifile(self, tmpdir) -> tuple[xr.Dataset, list[xr.Dataset], list[str]]:
@@ -186,8 +182,8 @@ class TestWriter:
     def test_multifile_serial(self, tmpdir):
         _, ref_split, filenames = self.setup_multifile(tmpdir)
 
-        dm = XarrayDataset()
-        dm.write(ref_split, target=filenames)
+        di = XarrayInterface()
+        di.write(ref_split, target=filenames)
 
         written = [xr.open_dataset(filename) for filename in filenames]
 
@@ -216,7 +212,7 @@ class TestSplitWriter:
         return ref
 
     def test_daily(self, tmpdir):
-        class XarrayDataset(Dataset):
+        class XarrayDataset(DataInterface):
             Parameters = ParametersDict
             Writer = XarraySplitWriter
 
@@ -228,15 +224,15 @@ class TestSplitWriter:
                     return "%(Y)-%(m)-%(d)_%(y:fmt=02d).nc"
 
         ref = self.get_data("1D")
-        dm = XarrayDataset()
-        dm.write(ref)
+        di = XarrayDataset()
+        di.write(ref)
 
         for date in ["01-01", "01-02", "01-03", "01-04"]:
             for y in range(2):
                 assert path.isfile(str(tmpdir / f"2000-{date}_{y:02d}.nc"))
 
     def test_long_freq(self, tmpdir):
-        class XarrayDataset(Dataset):
+        class XarrayDataset(DataInterface):
             Parameters = ParametersDict
             Writer = XarraySplitWriter
 
@@ -248,15 +244,15 @@ class TestSplitWriter:
                     return "%(Y)-%(m)-%(d)_%(y:fmt=02d).nc"
 
         ref = self.get_data("40D")
-        dm = XarrayDataset()
-        dm.write(ref)
+        di = XarrayDataset()
+        di.write(ref)
 
         for date in ["01-01", "02-10", "03-21", "04-30"]:
             for y in range(2):
                 assert path.isfile(str(tmpdir / f"2000-{date}_{y:02d}.nc"))
 
     def test_monthly_file(self, tmpdir):
-        class XarrayDataset(Dataset):
+        class XarrayInterface(DataInterface):
             Parameters = ParametersDict
             Writer = XarraySplitWriter
 
@@ -280,14 +276,14 @@ class TestSplitWriter:
             }
         )
 
-        dm = XarrayDataset()
-        dm.write(ref)
+        di = XarrayInterface()
+        di.write(ref)
 
         for month in range(4):
             assert path.isfile(str(tmpdir / f"2000-{month + 1:02d}.nc"))
 
         # check values
-        splits = dm.writer.split_by_time(ref)
+        splits = di.writer.split_by_time(ref)
         assert len(splits) == 4
         assert_equal(splits[0].time, ref.time[:4])
         assert_equal(splits[1].time, ref.time[4:6])
