@@ -25,7 +25,7 @@ class JsonEncoderTypes(json.JSONEncoder):
         return super().default(o)
 
 
-def dict_raise_on_duplicate(ordered_pairs) -> dict:
+def dict_raise_on_duplicate(ordered_pairs: abc.Sequence[tuple[t.Any, t.Any]]) -> dict:
     """Raise if there are duplicate keys."""
     d: dict = {}
     for k, v in ordered_pairs:
@@ -56,7 +56,7 @@ class JsonLoader(FileLoader, DictLikeLoaderMixin):
 
         return self.resolve_mapping(input, origin=self.filename)
 
-    def write(self, fp: t.IO[str], comment: str = "full"):
+    def write(self, fp: t.IO[str], comment: str = "full") -> None:
         """Serialize configuration."""
         if comment != "none":
             self.app.log.warning("No comments possible in JSON format.")

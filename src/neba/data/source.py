@@ -207,7 +207,7 @@ class FileFinderSource(MultiFileSource, CachedModule):
         """
         raise NotImplementedError("Implement in your Source module subclass.")
 
-    def get_filename(self, relative: bool = False, **fixes) -> str:
+    def get_filename(self, relative: bool = False, **fixes: t.Any) -> str:
         """Create a filename corresponding to a set of parameters values.
 
         All parameters must be defined, either by the interface parameters, or by the

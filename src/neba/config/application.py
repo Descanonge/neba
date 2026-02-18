@@ -158,7 +158,7 @@ class Application(Section, LoggingConfigurable):
     file_conf: dict[str, ConfigValue]
     """Configuration values obtained from configuration files."""
 
-    def __init__(self, /, start: bool = True, **kwargs) -> None:
+    def __init__(self, /, start: bool = True, **kwargs: t.Any) -> None:
         super().__init__(init_subsections=False)
 
         self.conf = {}
@@ -228,13 +228,16 @@ class Application(Section, LoggingConfigurable):
                 )
 
     def _create_cli_loader(
-        self, argv: list[str] | None, log: logging.Logger | None = None, **kwargs
+        self, argv: list[str] | None, log: logging.Logger | None = None, **kwargs: t.Any
     ) -> CLILoader:
         """Create a CLILoader instance to parse command line arguments."""
         return CLILoader(self, **kwargs)
 
     def parse_command_line(
-        self, argv: list[str] | None = None, log: logging.Logger | None = None, **kwargs
+        self,
+        argv: list[str] | None = None,
+        log: logging.Logger | None = None,
+        **kwargs: t.Any,
     ) -> dict[str, ConfigValue]:
         """Return configuration parsed from command line arguments.
 
@@ -268,7 +271,7 @@ class Application(Section, LoggingConfigurable):
     @classmethod
     def add_extra_parameters(
         cls, traits: Mapping[str, TraitType] | None = None, **kwargs: TraitType
-    ):
+    ) -> None:
         """Add extra parameters to a section named 'extra'.
 
         The section will be created if it does not exist already.
@@ -362,7 +365,7 @@ class Application(Section, LoggingConfigurable):
 
         return out
 
-    def copy(self, **kwargs) -> t.Self:
+    def copy(self, **kwargs: t.Any) -> t.Self:
         """Return a copy."""
         out = self.__class__(start=False, **kwargs)
         out.conf = self.conf.copy()
@@ -378,7 +381,7 @@ class Application(Section, LoggingConfigurable):
         comment: str = "full",
         use_current_values: bool = True,
         clobber: str | None = None,
-    ):
+    ) -> None:
         """(Over)write a configuration file.
 
         Parameters
@@ -477,6 +480,6 @@ class Application(Section, LoggingConfigurable):
         with open(filename, "w") as fp:
             loader.write(fp, comment=comment)
 
-    def exit(self, exit_status: int | str = 0):
+    def exit(self, exit_status: int | str = 0) -> t.Never:
         """Exit python interpreter."""
         sys.exit(exit_status)

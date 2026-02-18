@@ -30,7 +30,7 @@ class CLIConfigValue(ConfigValue):
     Automatically parse it when retrieving it.
     """
 
-    def __init__(self, input: t.Any, key: str, origin: str | None = "CLI"):
+    def __init__(self, input: t.Any, key: str, origin: str | None = "CLI") -> None:
         super().__init__(input, key, origin=origin)
 
     def get_value(self) -> t.Any:
@@ -56,7 +56,7 @@ class CLILoader(ConfigLoader):
     prefix: str = "both"
     """How much hyphens to use as prefix, either 'one', 'two', or 'both'."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: t.Any, **kwargs: t.Any) -> None:
         super().__init__(*args, **kwargs)
         self.parser = self.create_parser()
 
@@ -71,7 +71,7 @@ class CLILoader(ConfigLoader):
         if _HAS_ARGCOMPLETE:
             argcomplete.autocomplete(self.parser)
 
-    def create_parser(self, **kwargs) -> argparse.ArgumentParser:
+    def create_parser(self, **kwargs: t.Any) -> argparse.ArgumentParser:
         """Create a parser instance."""
         parser = argparse.ArgumentParser(
             add_help=False,
@@ -82,7 +82,7 @@ class CLILoader(ConfigLoader):
         )
         return parser
 
-    def add_argument(self, key: str, trait: TraitType):
+    def add_argument(self, key: str, trait: TraitType) -> None:
         """Add argument to the parser."""
         keys = [key]
         if self.allow_kebab and "_" in key:

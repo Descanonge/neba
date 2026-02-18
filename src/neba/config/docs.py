@@ -45,7 +45,7 @@ def wrap_text(text: str) -> list[str]:
     return paragraphs.splitlines()
 
 
-def stringify(obj, rst=True) -> str:
+def stringify(obj: t.Any, rst: bool = True) -> str:
     """Return a string representation of object.
 
     To put in trait metadata in the documentation.
@@ -114,11 +114,11 @@ def get_trait_typehint(
 
         return fullname
 
-    def recurse(obj):
+    def recurse(obj: t.Any) -> str:
         """Recurse this function, keeping optional arguments."""
         return get_trait_typehint(obj, mode, aliases)
 
-    def output(typehint, add_none=False):
+    def output(typehint: str, add_none: bool = False) -> str:
         """Hook before returning the typehint."""  # noqa: D401
         if (alias := aliases.get(typehint.lstrip("~"), None)) is not None:
             typehint = alias

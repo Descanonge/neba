@@ -91,6 +91,7 @@ select = [
        'F',  # pyflakes
        'UP',  #pyupgrade
        'D',  #pydocstyle
+       'ANN',
 ]
 
 ignore = [
@@ -100,6 +101,7 @@ ignore = [
        'D213', # multiline docstring start at 2nd line
        'D417', # not all parameters need doc
        'B905', # zip without strict parameter
+       'ANN401', # typing.Any typehints
 ]
 unfixable = ["F401"]
 

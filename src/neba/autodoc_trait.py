@@ -19,7 +19,7 @@ from sphinx.ext.autodoc import (
     ClassDocumenter,
     Documenter,
 )
-from sphinx.ext.autodoc._legacy_class_based._directive_options import bool_option
+from sphinx.ext.autodoc._directive_options import _AutoDocumenterOptions, bool_option
 from sphinx.ext.autodoc._legacy_class_based._documenters import ObjectMember
 from sphinx.util.docstrings import prepare_docstring
 from sphinx.util.inspect import getdoc
@@ -110,11 +110,11 @@ class TraitDocumenter(AttributeDocumenter):
 
     def __init__(
         self,
-        *args,
+        *args: t.Any,
         observers: abc.Sequence[ObjectMember] | None = None,
         validators: abc.Sequence[ObjectMember] | None = None,
-        **kwargs,
-    ):
+        **kwargs: t.Any,
+    ) -> None:
         super().__init__(*args, **kwargs)
         self.observers = observers
         self.validators = validators
@@ -366,7 +366,7 @@ class SectionDocumenter(ClassDocumenter):
         self.observers: dict[str, list[ObjectMember]] = {}
         self.validators: dict[str, list[ObjectMember]] = {}
 
-        def get_members(section: type[Section], fullpath: list[str]):
+        def get_members(section: type[Section], fullpath: list[str]) -> None:
             # start by inherited members
             inherited_members = self.options.inherited_members
             if inherited_members is None:
@@ -457,7 +457,7 @@ class SectionDocumenter(ClassDocumenter):
 
         return members_sorted
 
-    def document_members(self, want_all: bool = False):
+    def document_members(self, want_all: bool = False) -> None:
         _, members = self.get_object_members(want_all)
         for mname, member, _ in self.filter_members(members, want_all):
             documenter: Documenter
@@ -482,7 +482,14 @@ class SectionDocumenter(ClassDocumenter):
             documenter._generate()
 
 
-def skip_trait_member(app, what, name, obj, skip, options) -> bool | None:
+def skip_trait_member(
+    app: Sphinx,
+    what: str,
+    name: str,
+    obj: t.Any,
+    skip: bool,
+    options: _AutoDocumenterOptions,
+) -> bool | None:
     """Decide whether to skip trait autodoc.
 
     By default, autodoc will skip traits without any 'help' attribute. But we can
@@ -504,7 +511,7 @@ def skip_trait_member(app, what, name, obj, skip, options) -> bool | None:
     return skip
 
 
-def setup(app: Sphinx):  # noqa: D103
+def setup(app: Sphinx) -> dict:  # noqa: D103
     app.setup_extension("sphinx.ext.autodoc")
 
     app.add_config_value(

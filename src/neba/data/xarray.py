@@ -52,7 +52,9 @@ class XarrayLoader(LoaderAbstract[str | os.PathLike, xr.Dataset]):
         raise NotImplementedError
 
     def load_data_concrete(
-        self, source: str | os.PathLike | abc.Sequence[str | os.PathLike], **kwargs
+        self,
+        source: str | os.PathLike | abc.Sequence[str | os.PathLike],
+        **kwargs: t.Any,
     ) -> xr.Dataset:
         """Load data.
 
@@ -101,7 +103,7 @@ class XarrayWriter(WriterAbstract[str, xr.Dataset]):
         call: CallXr,
         format: t.Literal[None] = ...,
         compute: t.Literal[True] = ...,
-        **kwargs,
+        **kwargs: t.Any,
     ) -> None | xr.backends.ZarrStore: ...
 
     @t.overload
@@ -110,7 +112,7 @@ class XarrayWriter(WriterAbstract[str, xr.Dataset]):
         call: CallXr,
         format: t.Literal["nc"],
         compute: t.Literal[True],
-        **kwargs,
+        **kwargs: t.Any,
     ) -> None: ...
 
     @t.overload
@@ -119,7 +121,7 @@ class XarrayWriter(WriterAbstract[str, xr.Dataset]):
         call: CallXr,
         format: t.Literal["zarr"],
         compute: t.Literal[True],
-        **kwargs,
+        **kwargs: t.Any,
     ) -> xr.backends.ZarrStore: ...
 
     @t.overload
@@ -128,7 +130,7 @@ class XarrayWriter(WriterAbstract[str, xr.Dataset]):
         call: CallXr,
         *,
         compute: t.Literal[False],
-        **kwargs,
+        **kwargs: t.Any,
     ) -> Delayed: ...
 
     def send_single_call(
@@ -136,7 +138,7 @@ class XarrayWriter(WriterAbstract[str, xr.Dataset]):
         call: CallXr,
         format: t.Literal["nc", "zarr", None] = None,
         compute: bool = True,
-        **kwargs,
+        **kwargs: t.Any,
     ) -> Delayed | None | xr.backends.ZarrStore:
         """Execute a single call.
 
@@ -203,8 +205,8 @@ class XarrayWriter(WriterAbstract[str, xr.Dataset]):
         client: Client,
         chop: int | None = None,
         format: t.Literal["nc", "zarr", None] = None,
-        **kwargs,
-    ):
+        **kwargs: t.Any,
+    ) -> None:
         """Send multiple calls together.
 
         If Dask is correctly configured, the writing calls will be executed in parallel.
@@ -264,7 +266,7 @@ class XarrayWriter(WriterAbstract[str, xr.Dataset]):
         data: xr.Dataset | abc.Sequence[xr.Dataset],
         target: str | abc.Sequence[str] | None = None,
         client: Client | None = None,
-        **kwargs,
+        **kwargs: t.Any,
     ) -> t.Any:
         """Write datasets to multiple targets.
 
@@ -360,8 +362,8 @@ class XarraySplitWriter(SplitWriterMixin, XarrayWriter):
         squeeze: bool | str | abc.Mapping[abc.Hashable, bool | str] = False,
         client: Client | None = None,
         chop: int | None = None,
-        **kwargs,
-    ):
+        **kwargs: t.Any,
+    ) -> list[Delayed | xr.backends.ZarrStore | None] | None:
         """Write data to disk.
 
         First split datasets following the parameters that vary in the filename pattern.
@@ -430,7 +432,8 @@ class XarraySplitWriter(SplitWriterMixin, XarrayWriter):
         calls = [(f, self._add_metadata(ds, metadata)) for f, ds in calls]
 
         if client is not None:
-            return self.send_calls_together(calls, client, chop=chop, **kwargs)
+            self.send_calls_together(calls, client, chop=chop, **kwargs)
+            return None
         return self.send_calls(calls, **kwargs)
 
     def split_by_time(

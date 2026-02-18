@@ -34,7 +34,7 @@ class YamlLoader(DictLikeLoaderMixin, FileLoader):
 
     yaml: YAML
 
-    def setup_yaml(self):
+    def setup_yaml(self) -> None:
         """Set up main YAML instance.
 
         You can customize the yaml parsing and serializing here.
@@ -66,7 +66,7 @@ class YamlLoader(DictLikeLoaderMixin, FileLoader):
         section: type[Section],
         fullpath: list[str],
         comment: str = "full",
-    ):
+    ) -> None:
         """Populate `data` mapping."""
         traits = section.class_traits(config=True)
         for name, trait in traits.items():
@@ -128,7 +128,7 @@ class YamlLoader(DictLikeLoaderMixin, FileLoader):
 
         return value
 
-    def write(self, fp: IO, comment: str = "full"):
+    def write(self, fp: IO, comment: str = "full") -> None:
         """Return lines of configuration file corresponding to the app config tree."""
         self.setup_yaml()
         data = CommentedMap()

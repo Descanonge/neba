@@ -17,7 +17,7 @@ class DataInterfaceStore(abc.MutableMapping[str, _V]):
     They can be retrieved using ID or SHORTNAME, as preferred.
     """
 
-    def __init__(self, *args: _V | str):
+    def __init__(self, *args: _V | str) -> None:
         self._interfaces: dict[str, _V | str] = dict()
         self.shortnames: dict[str, list[str]] = {}
         """Mapping of shortnames to dict keys (the ID by default)."""
@@ -44,7 +44,7 @@ class DataInterfaceStore(abc.MutableMapping[str, _V]):
     def __repr__(self) -> str:
         return str(self)
 
-    def add(self, di: _V | str, name: str | None = None):
+    def add(self, di: _V | str, name: str | None = None) -> None:
         """Register an interface subclass.
 
         Will register it under:
@@ -121,7 +121,7 @@ class DataInterfaceStore(abc.MutableMapping[str, _V]):
             dict.__setitem__(self._interfaces, key, raw)
         return raw
 
-    def __setitem__(self, key: str, value: _V | str):
+    def __setitem__(self, key: str, value: _V | str) -> None:
         """Automatically adds shortcuts if value is an interface."""
         self.add(value, name=key)
 
@@ -137,7 +137,7 @@ class DataInterfaceStore(abc.MutableMapping[str, _V]):
         """Iterate over interfaces."""
         return iter(self._interfaces)
 
-    def __delitem__(self, key: str):
+    def __delitem__(self, key: str) -> None:
         """Delete an interface."""
         self._interfaces.__delitem__(self._get_id(key))
         if key in self.shortnames:

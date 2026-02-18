@@ -32,7 +32,7 @@ class Range(List[T]):
     allowed_traits: list[type[TraitType]] = [Float, Int]
     """Allowed trait types."""
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args: t.Any, **kwargs: t.Any) -> None:
         super().__init__(*args, **kwargs)
         if self._trait is None or not isinstance(
             self._trait, tuple(self.allowed_traits)
@@ -164,7 +164,7 @@ class Fixable(Union):
         unicode: bool = False,
         range: bool = True,
         allow_none: bool = True,
-        **kwargs,
+        **kwargs: t.Any,
     ) -> None:
         self.trait = trait
 

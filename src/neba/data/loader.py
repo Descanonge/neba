@@ -23,7 +23,7 @@ class LoaderAbstract(t.Generic[T_Source_contra, T_Data], Module):
         source: T_Source_contra | abc.Sequence[T_Source_contra] | None = None,
         ignore_postprocess: bool = False,
         load_kwargs: abc.Mapping[str, t.Any] | None = None,
-        **kwargs,
+        **kwargs: t.Any,
     ) -> T_Data:
         """Load data and run post-processing.
 
@@ -71,7 +71,7 @@ class LoaderAbstract(t.Generic[T_Source_contra, T_Data], Module):
         )
 
     def load_data_concrete(
-        self, source: T_Source_contra | abc.Sequence[T_Source_contra], **kwargs
+        self, source: T_Source_contra | abc.Sequence[T_Source_contra], **kwargs: t.Any
     ) -> t.Any:
         """Load the data from datafiles.
 

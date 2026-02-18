@@ -32,7 +32,7 @@ class Module:
         """Quick access to the parameters module."""
         return self.di.parameters
 
-    def __init__(self, params: t.Any | None = None, **kwargs):
+    def __init__(self, params: t.Any | None = None, **kwargs: t.Any) -> None:
         pass
 
     def __repr__(self) -> str:
@@ -90,7 +90,7 @@ class CachedModule(Module):
         log.debug("Setting up cache for %s", cls_name)
         self.cache: dict[str, t.Any] = {}
 
-        def callback(di, **kwargs) -> None:
+        def callback(di: DataInterface, **kwargs: t.Any) -> None:
             self.void_cache()
 
         if self._add_void_callback:
@@ -164,7 +164,7 @@ class ModuleMix(t.Generic[T_Mod], Module):
 
     _auto_dispatch_getattr: bool = True
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args: t.Any, **kwargs: t.Any) -> None:
         super().__init__(*args, **kwargs)
 
         # initialize every base module
@@ -221,7 +221,7 @@ class ModuleMix(t.Generic[T_Mod], Module):
         return cls
 
     @classmethod
-    def set_select(cls: type[T_Self], select_func: abc.Callable[..., str]):
+    def set_select(cls: type[T_Self], select_func: abc.Callable[..., str]) -> None:
         """Set the selection function.
 
         select_func
@@ -241,7 +241,7 @@ class ModuleMix(t.Generic[T_Mod], Module):
                 s += lines
         return s
 
-    def select(self, **kwargs) -> T_Mod:
+    def select(self, **kwargs: t.Any) -> T_Mod:
         """Return the module to select under current module and data-manager state.
 
         Parameters
@@ -259,7 +259,7 @@ class ModuleMix(t.Generic[T_Mod], Module):
         self._auto_dispatch_getattr = old
         return self.base_modules[selected]
 
-    def apply_all(self, method: str, *args, **kwargs) -> list[t.Any]:
+    def apply_all(self, method: str, *args: t.Any, **kwargs: t.Any) -> list[t.Any]:
         """Get results from every base module.
 
         Every output is put in a list if not already.
@@ -271,7 +271,11 @@ class ModuleMix(t.Generic[T_Mod], Module):
         return groups
 
     def apply_select(
-        self, method: str, *args, select: dict[str, t.Any] | None = None, **kwargs
+        self,
+        method: str,
+        *args: t.Any,
+        select: dict[str, t.Any] | None = None,
+        **kwargs: t.Any,
     ) -> list[t.Any]:
         """Get result from a single base module.
 
@@ -297,9 +301,9 @@ class ModuleMix(t.Generic[T_Mod], Module):
         self,
         method: str,
         all: t.Literal[True],
-        *args,
+        *args: t.Any,
         select: dict[str, t.Any] | None = None,
-        **kwargs,
+        **kwargs: t.Any,
     ) -> list[t.Any]: ...
 
     @t.overload
@@ -307,9 +311,9 @@ class ModuleMix(t.Generic[T_Mod], Module):
         self,
         method: str,
         all: t.Literal[False],
-        *args,
+        *args: t.Any,
         select: dict[str, t.Any] | None = None,
-        **kwargs,
+        **kwargs: t.Any,
     ) -> t.Any: ...
 
     @t.overload
@@ -317,18 +321,18 @@ class ModuleMix(t.Generic[T_Mod], Module):
         self,
         method: str,
         all: bool,
-        *args,
+        *args: t.Any,
         select: dict[str, t.Any] | None = None,
-        **kwargs,
+        **kwargs: t.Any,
     ) -> t.Any | list[t.Any]: ...
 
     def apply(
         self,
         method: str,
         all: bool,
-        *args,
+        *args: t.Any,
         select: dict[str, t.Any] | None = None,
-        **kwargs,
+        **kwargs: t.Any,
     ) -> t.Any | list[t.Any]:
         """Get results from all or one of the base modules.
 

@@ -42,7 +42,7 @@ class ConfigValue:
         purpose mainly.
     """
 
-    def __init__(self, input: t.Any, key: str, origin: str | None = None):
+    def __init__(self, input: t.Any, key: str, origin: str | None = None) -> None:
         self.key = key
         """The key this value was associated to."""
         self.input = input
@@ -172,7 +172,7 @@ class ConfigLoader:
     It should be a flat dictionnary.
     """
 
-    def __init__(self, app: Application, log: logging.Logger | None = None):
+    def __init__(self, app: Application, log: logging.Logger | None = None) -> None:
         self.app = app
         """Parent application that created this loader.
 
@@ -188,7 +188,7 @@ class ConfigLoader:
         """Empty the config."""
         self.config.clear()
 
-    def add(self, cv: ConfigValue):
+    def add(self, cv: ConfigValue) -> None:
         """Add key to configuration dictionnary.
 
         Raises
@@ -205,7 +205,7 @@ class ConfigLoader:
         *args: t.Any,
         apply_application_traits: bool = True,
         resolve: bool = True,
-        **kwargs,
+        **kwargs: t.Any,
     ) -> dict[str, ConfigValue]:
         """Load and return a proper configuration dict.
 
@@ -233,7 +233,7 @@ class ConfigLoader:
 
         return self.config
 
-    def apply_application_trait(self, cv: ConfigValue):
+    def apply_application_trait(self, cv: ConfigValue) -> None:
         """Apply config for Application."""
         if len(cv.path) == 1 and cv.key in self.app.trait_names():
             traitname = cv.path[0]
@@ -242,7 +242,7 @@ class ConfigLoader:
                 cv.parse()
             setattr(self.app, traitname, cv.get_value())
 
-    def load_config(self, *args, **kwargs) -> abc.Iterator[ConfigValue]:
+    def load_config(self, *args: t.Any, **kwargs: t.Any) -> abc.Iterator[ConfigValue]:
         """Populate the config attribute from a source.
 
         :Not implemented:
@@ -275,12 +275,14 @@ class FileLoader(ConfigLoader):
 
     serializer = SerializerDefault()
 
-    def __init__(self, app: Application, filename: str, *args, **kwargs) -> None:
+    def __init__(
+        self, app: Application, filename: str, *args: t.Any, **kwargs: t.Any
+    ) -> None:
         super().__init__(app, *args, **kwargs)
         self.filename = filename
         self.full_filename = path.abspath(filename)
 
-    def write(self, fp: t.IO, comment: t.Any = None):
+    def write(self, fp: t.IO, comment: t.Any = None) -> None:
         """Write a configuration file corresponding to the loader config.
 
         Parameters
@@ -350,7 +352,7 @@ class DictLoader(DictLikeLoaderMixin):
     """Loader for mappings."""
 
     def load_config(
-        self, input: abc.Mapping, *args, **kwargs
+        self, input: abc.Mapping, *args: t.Any, **kwargs: t.Any
     ) -> abc.Iterator[ConfigValue]:
         """Populate the config attribute from a nested mapping."""
         yield from self.resolve_mapping(input)

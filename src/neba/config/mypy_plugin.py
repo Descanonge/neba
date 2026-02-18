@@ -6,7 +6,7 @@ Use by adding to the list of plugins in your mypy configuration:
 
 from collections import abc
 
-from mypy.nodes import MDEF, ClassDef, PlaceholderNode, SymbolTableNode, TypeInfo
+from mypy.nodes import MDEF, ClassDef, Node, PlaceholderNode, SymbolTableNode, TypeInfo
 from mypy.plugin import ClassDefContext, Plugin, SemanticAnalyzerPluginInterface
 from mypy.plugins.common import add_attribute_to_class
 from mypy.types import Instance, TypeVarLikeType
@@ -63,7 +63,7 @@ class SectionTransformer:
 
     METADATA_KEY = "SectionTransformerPluginData"
 
-    def __init__(self, ctx: ClassDefContext):
+    def __init__(self, ctx: ClassDefContext) -> None:
         self.ctx = ctx
         self.cls: ClassDef = ctx.cls
         self.api: SemanticAnalyzerPluginInterface = ctx.api
@@ -94,7 +94,7 @@ class SectionTransformer:
         subsections_info = {n: k.info for n, k in new_defs.items()}
         self.assign_attributes(subsections_info)
 
-    def assign_attributes(self, subsections: dict[str, TypeInfo]):
+    def assign_attributes(self, subsections: dict[str, TypeInfo]) -> None:
         """Assign new attributes corresponding to subsections.
 
         We replace by traitlets.Instance[_someSectionDef].
@@ -111,7 +111,9 @@ class SectionTransformer:
             )
 
     @staticmethod
-    def change_fullname(node, old: str, new: str, index: int, attr: str = "_fullname"):
+    def change_fullname(
+        node: Node | None, old: str, new: str, index: int, attr: str = "_fullname"
+    ) -> None:
         """Change fullname of a node.
 
         Parameters
@@ -147,7 +149,7 @@ class SectionTransformer:
         """
 
         # Recursively alter the fullname of Nodes
-        def change_node(node, old, new, index):
+        def change_node(node: Node | None, old: str, new: str, index: int) -> None:
             if isinstance(node, TypeVarLikeType):
                 self.change_fullname(node, old, new, index, "fullname")
                 return

@@ -7,6 +7,8 @@ import logging
 import typing as t
 from collections import abc
 
+from traitlets import Bunch
+
 from neba.config.section import Section
 
 from .loader import LoaderAbstract
@@ -68,7 +70,7 @@ class DataInterface(t.Generic[T_Params, T_Source, T_Data]):
     number of keyword arguments.
     """
 
-    def __init__(self, params: t.Any | None = None, **kwargs) -> None:
+    def __init__(self, params: t.Any | None = None, **kwargs: t.Any) -> None:
         self._modules = {}
         self._reset_callbacks = {}
 
@@ -86,7 +88,7 @@ class DataInterface(t.Generic[T_Params, T_Source, T_Data]):
         for mod in self._modules.values():
             mod.setup_safe()
 
-    def _instantiate_modules(self, *args, **kwargs) -> None:
+    def _instantiate_modules(self, *args: t.Any, **kwargs: t.Any) -> None:
         for instance_attr, type_attr in self._modules_attributes.items():
             # None means the user has deleted module without unregistering it, fine.
             mod_type = getattr(self, type_attr, None)
@@ -155,7 +157,7 @@ class DataInterface(t.Generic[T_Params, T_Source, T_Data]):
 
     # - end of parameters methods
 
-    def register_callback(self, key: str, func: abc.Callable[..., None]):
+    def register_callback(self, key: str, func: abc.Callable[..., None]) -> None:
         """Register a new callback. Throw error if it already exists."""
         if key in self._reset_callbacks:
             raise KeyError(
@@ -163,7 +165,9 @@ class DataInterface(t.Generic[T_Params, T_Source, T_Data]):
             )
         self._reset_callbacks[key] = func
 
-    def trigger_callbacks(self, callbacks: bool | list[str] = True, **kwargs):
+    def trigger_callbacks(
+        self, callbacks: bool | list[str] = True, **kwargs: t.Any
+    ) -> None:
         """Call all registered callbacks.
 
         Modules should register callback in the dictionary :attr:`_reset_callbacks`
@@ -185,7 +189,7 @@ class DataInterface(t.Generic[T_Params, T_Source, T_Data]):
             callback = self._reset_callbacks[key]
             callback(self, **kwargs)
 
-    def get_source(self, *args, **kwargs) -> T_Source | list[T_Source]:
+    def get_source(self, *args: t.Any, **kwargs: t.Any) -> T_Source | list[T_Source]:
         """Return source for the data.
 
         Can be filenames, URL, store object, etc.
@@ -194,14 +198,14 @@ class DataInterface(t.Generic[T_Params, T_Source, T_Data]):
         """
         return self.source.get_source(*args, **kwargs)
 
-    def get_data(self, *args, **kwargs) -> T_Data:
+    def get_data(self, *args: t.Any, **kwargs: t.Any) -> T_Data:
         """Return data object.
 
         Wraps around ``loader.get_data()``.
         """
         return self.loader.get_data(*args, **kwargs)
 
-    def write(self, *args, **kwargs) -> t.Any:
+    def write(self, *args: t.Any, **kwargs: t.Any) -> t.Any:
         """Write data to target.
 
         Wraps around ``writer.write()``.
@@ -212,7 +216,7 @@ class DataInterface(t.Generic[T_Params, T_Source, T_Data]):
         self,
         params_maps: abc.Sequence[abc.Mapping[str, t.Any]] | None = None,
         params_sets: abc.Sequence[abc.Sequence] | None = None,
-        **kwargs,
+        **kwargs: t.Any,
     ) -> T_Data | list[T_Data]:
         """Return data for specific sets of parameters.
 
@@ -281,9 +285,9 @@ class DataInterface(t.Generic[T_Params, T_Source, T_Data]):
 
 
 class _ParamsContext:
-    def __init__(self, di: DataInterface, save_cache: bool):
+    def __init__(self, di: DataInterface, save_cache: bool) -> None:
         # Save cache first, copying params might void it
-        self.caches: dict | None = None
+        self.caches: dict = {}
         if save_cache:
             self.caches = {
                 name: dict(mod.cache)
@@ -294,15 +298,17 @@ class _ParamsContext:
         self.di = di
         self.params = copy.deepcopy(di.parameters.direct)
 
-    def repopulate_cache(self):
+    def repopulate_cache(self) -> None:
         for name, saved_cache in self.caches.items():
+            module = self.di._modules[name]
+            assert isinstance(module, CachedModule)
             for key, val in saved_cache.items():
-                self.di._modules[name].cache[key] = val
+                module.cache[key] = val
 
     def __enter__(self) -> t.Self:
         return self
 
-    def __exit__(self, *exc: t.Any):
+    def __exit__(self, *exc: t.Any) -> t.Literal[False]:
         self.di.parameters.reset()
         self.di.parameters.update(self.params)
 
@@ -326,7 +332,7 @@ class DataInterfaceSection(DataInterface, Section):
         Traits of the interface are extracted. The rest is passed to modules as usual.
     """
 
-    def __init__(self, params: t.Any | None = None, **kwargs) -> None:
+    def __init__(self, params: t.Any | None = None, **kwargs: t.Any) -> None:
         # extract traits from kwargs
         config = {}
         for name in self.keys():
@@ -346,7 +352,7 @@ class DataInterfaceSection(DataInterface, Section):
         DataInterface.__init__(self, params, **kwargs)
 
         # Reset on trait change
-        def handler(change):
+        def handler(change: Bunch) -> None:
             self.trigger_callbacks()
 
         for subsection in self.subsections_recursive():

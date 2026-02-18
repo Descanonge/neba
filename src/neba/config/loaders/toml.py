@@ -40,7 +40,7 @@ class TomlkitLoader(FileLoader, DictLikeLoaderMixin):
 
         return self.resolve_mapping(root_table.unwrap(), origin=self.filename)
 
-    def write(self, fp: IO[str], comment: str = "full"):
+    def write(self, fp: IO[str], comment: str = "full") -> None:
         """Return lines of configuration file corresponding to the app config tree."""
         doc = tomlkit.document()
 
@@ -147,7 +147,7 @@ class TomlkitLoader(FileLoader, DictLikeLoaderMixin):
 
         return tomlkit.item(value)
 
-    def wrap_comment(self, item: Table | Container, text: str | list[str]):
+    def wrap_comment(self, item: Table | Container, text: str | list[str]) -> None:
         """Wrap text correctly and add it to a toml container as comment lines."""
         if not isinstance(text, str):
             text = "\n".join(text)

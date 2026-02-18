@@ -36,7 +36,7 @@ class WriterAbstract(t.Generic[T_Source_contra, T_Data], Module):
     metadata_max_diff_lines = 30
     """Maximum number of lines to include in diff."""
 
-    def add_git_metadata(self, script: str, meta: dict[str, t.Any]):
+    def add_git_metadata(self, script: str, meta: dict[str, t.Any]) -> None:
         """Add git information to meta dictionary."""
         # use the directory of the calling script
         gitdir = path.dirname(script) if script else "."
@@ -172,7 +172,7 @@ class WriterAbstract(t.Generic[T_Source_contra, T_Data], Module):
         self,
         data: T_Data | abc.Sequence[T_Data],
         target: T_Source_contra | abc.Sequence[T_Source_contra] | None = None,
-        **kwargs,
+        **kwargs: t.Any,
     ) -> t.Any:
         """Write data to file or store.
 
@@ -188,7 +188,9 @@ class WriterAbstract(t.Generic[T_Source_contra, T_Data], Module):
         """
         raise NotImplementedError("Implement in a module subclass.")
 
-    def check_directories(self, calls: abc.Sequence[tuple[T_Source_contra, T_Data]]):
+    def check_directories(
+        self, calls: abc.Sequence[tuple[T_Source_contra, T_Data]]
+    ) -> None:
         """Check if directories are missing, and create them if necessary."""
         files = [f for f, _ in calls]
 
@@ -202,13 +204,13 @@ class WriterAbstract(t.Generic[T_Source_contra, T_Data], Module):
                 log.debug("Creating output directory %s", d)
                 os.makedirs(d)
 
-    def check_directory(self, call: tuple[T_Source_contra, T_Data]):
+    def check_directory(self, call: tuple[T_Source_contra, T_Data]) -> None:
         """Check if directory is missing, and create it if necessary."""
         self.check_directories([call])
 
     def check_overwriting_calls(
         self, calls: abc.Sequence[tuple[T_Source_contra, T_Data]]
-    ):
+    ) -> None:
         """Check if some calls have the same filename."""
         outfiles = [f for f, _ in calls]
         duplicates = []
@@ -221,7 +223,9 @@ class WriterAbstract(t.Generic[T_Source_contra, T_Data], Module):
                 f"Multiple writing calls to the same filename·s: {duplicates}"
             )
 
-    def send_single_call(self, call: tuple[T_Source_contra, T_Data], **kwargs) -> t.Any:
+    def send_single_call(
+        self, call: tuple[T_Source_contra, T_Data], **kwargs: t.Any
+    ) -> t.Any:
         """Execute a single call.
 
         :Not implemented: implement in a module subclass.
@@ -234,7 +238,7 @@ class WriterAbstract(t.Generic[T_Source_contra, T_Data], Module):
         raise NotImplementedError("Implement in a module subclass.")
 
     def send_calls(
-        self, calls: abc.Sequence[tuple[T_Source_contra, T_Data]], **kwargs
+        self, calls: abc.Sequence[tuple[T_Source_contra, T_Data]], **kwargs: t.Any
     ) -> list[t.Any]:
         """Send multiple calls serially.
 
@@ -299,7 +303,7 @@ class SplitWriterMixin(WriterAbstract[T_Source, T_Data]):
 
     source: Splitable[T_Source]
 
-    def setup(self):
+    def setup(self) -> None:
         """Set up module. Check the source is following the Splitable protocol."""
         super().setup()
 
@@ -311,6 +315,6 @@ class SplitWriterMixin(WriterAbstract[T_Source, T_Data]):
         """Return set of parameters that are not fixed."""
         return set(self.source.unfixed)
 
-    def get_filename(self, **kwargs) -> T_Source:
+    def get_filename(self, **kwargs: t.Any) -> T_Source:
         """Return a filename corresponding to current parameters and kwargs."""
         return self.source.get_filename(**kwargs)

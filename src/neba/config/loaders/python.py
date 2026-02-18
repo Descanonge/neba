@@ -40,7 +40,7 @@ class PyConfigContainer:
             self.__setattr__(key, obj)
             return obj
 
-    def __setattr__(self, name: str, value: t.Any):
+    def __setattr__(self, name: str, value: t.Any) -> None:
         if name in self.__dict__:
             raise MultipleConfigKeyError(name, [value, getattr(self, name)])
         super().__setattr__(name, value)
@@ -53,7 +53,7 @@ class PyConfigContainer:
         """
         out = {}
 
-        def recurse(cfg: PyConfigContainer, key: list[str]):
+        def recurse(cfg: PyConfigContainer, key: list[str]) -> None:
             for k, v in cfg.__dict__.items():
                 newkey = key + [k]
                 if isinstance(v, PyConfigContainer):
@@ -136,7 +136,7 @@ class PyLoader(FileLoader):
             cv.value = cv.input
             yield cv
 
-    def write(self, fp: t.IO[str], comment: str = "full"):
+    def write(self, fp: t.IO[str], comment: str = "full") -> None:
         """Return lines of configuration file corresponding to the app config tree."""
         lines = self.serialize_section(self.app.__class__, [], comment=comment)
 
