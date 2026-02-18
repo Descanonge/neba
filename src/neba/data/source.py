@@ -179,9 +179,9 @@ class FileFinderSource(MultiFileSource, CachedModule):
     .. note::
 
         It is important to note that only parameters in the filename pattern can take
-        multiple values in a single :meth:`~.Dataset.get_source` call. To get files from
-        different root directories and merge the results, either use
-        :meth:`~.Dataset.get_data_sets` or a :ref:`module mix<source_module>`.
+        multiple values in a single :meth:`~.DataInterface.get_source` call. To get
+        files from different root directories and merge the results, either use
+        :meth:`~.DataInterface.get_data_sets` or a :ref:`module mix<source_module>`.
 
     The filename pattern specify the parts of the datafiles that vary from file to file
     using a powerful syntax. See the filefinder package `documentation
@@ -193,6 +193,7 @@ class FileFinderSource(MultiFileSource, CachedModule):
     okay for finding files and opening the corresponding data. If the user 'fix' them to
     parameters to be set, for instance to generate a specific filename.
     a value, only part of the files will be selected. Some operation require all
+
     """
 
     def get_filename_pattern(self) -> str:
@@ -209,8 +210,8 @@ class FileFinderSource(MultiFileSource, CachedModule):
     def get_filename(self, relative: bool = False, **fixes) -> str:
         """Create a filename corresponding to a set of parameters values.
 
-        All parameters must be defined, either by the parent
-        :attr:`DatasetAbstract.parameters`, or by the ``fixes`` arguments.
+        All parameters must be defined, either by the interface parameters, or by the
+        ``fixes`` arguments.
 
         Parameters
         ----------
@@ -228,7 +229,7 @@ class FileFinderSource(MultiFileSource, CachedModule):
 
         # In case parameters were changed sneakily and the cache was not invalidated
         fixable_params = {
-            p: self.dm.parameters[p] for p in self.fixable if p in self.dm.parameters
+            p: self.di.parameters[p] for p in self.fixable if p in self.di.parameters
         }
         fixes = fixable_params | fixes
 
@@ -255,7 +256,7 @@ class FileFinderSource(MultiFileSource, CachedModule):
         fixable = finder.get_group_names()
 
         for p in fixable:
-            if (value := self.dm.parameters.get(p, None)) is not None:
+            if (value := self.di.parameters.get(p, None)) is not None:
                 finder.fix_group(p, value)
         return finder
 
@@ -275,7 +276,7 @@ class FileFinderSource(MultiFileSource, CachedModule):
     def unfixed(self) -> list[str]:
         """List of varying parameters whose value is not fixed.
 
-        Considering the current set of parameters of the dataset.
+        Considering the current set of parameters of the interface.
         Parameters set to ``None`` or set to a sequence of values are considered
         unfixed.
         """
@@ -318,69 +319,6 @@ class FileFinderSource(MultiFileSource, CachedModule):
         if "datafiles" in self.cache:
             s.append(f"Found {len(self.datafiles)} files")
         return s
-
-
-# maybe try better way to deal with this since now we can modify the source module
-# at runtime with an eventual parameter 'climato=something' ?
-
-
-class climato:  # noqa: N801
-    """Create a Dataset subclass for climatology.
-
-    Generate new subclass of a source module that correspond to its climatology.
-    Have to wrap around base class get_root and get_pattern.
-    Pattern is not easy, we have to get rid of time related groups.
-
-    Parameters
-    ----------
-    append_folder:
-        If None, do not change the root directory. If is a string, append it as a
-        new directory.
-    """
-
-    def __init__(self, append_folder: str | None = None):
-        self.append_folder = append_folder
-
-    def __call__(self, cls: type[FileFinderSource]):
-        """Apply decorator."""
-        from filefinder import Finder
-
-        time_pattern_names = "SXMHjdxFmBY"
-
-        def get_root_dir_wrapped(obj):
-            root_dir = super(cls, obj).get_root_directory()
-            if isinstance(root_dir, str | os.PathLike):
-                root_dir = path.join(root_dir, self.append_folder)
-            else:
-                root_dir.append(self.append_folder)
-            return root_dir
-
-        # Change get_filename_pattern
-        def get_filename_pattern_wrapped(obj):
-            pattern = super(cls, obj).get_filename_pattern()
-            finder = Finder("", pattern)
-            for g in finder.groups:
-                # remove fixable/groups related to time
-                if g.name in time_pattern_names:
-                    pattern = pattern.replace(f"%({g.definition})", "")
-
-            infile, ext = path.splitext(pattern)
-            # Clean pattern
-            infile = infile.strip("/_-")
-            # Add climatology group
-            infile += r"_%(climatology:fmt=s:rgx=\s+)"
-
-            pattern = infile + ext
-            return pattern
-
-        changes: dict[str, t.Any] = {}
-        changes["get_filename_pattern"] = get_filename_pattern_wrapped
-        if self.append_folder:
-            changes["get_root_directory"] = get_root_dir_wrapped
-
-        newcls = type(f"{cls.__name__}Climatology", (cls,), changes)
-
-        return newcls
 
 
 T_ModSource = t.TypeVar("T_ModSource", bound=SourceAbstract)

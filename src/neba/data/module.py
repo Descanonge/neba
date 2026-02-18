@@ -1,4 +1,4 @@
-"""Definition of base Module for the Dataset."""
+"""Definition of base Module for the interface."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from collections import abc
 from neba.utils import get_classname
 
 if t.TYPE_CHECKING:
-    from .data_manager import Dataset
+    from .interface import DataInterface
     from .params import ParametersAbstract
 
 log = logging.getLogger(__name__)
@@ -24,13 +24,13 @@ class Module:
     _is_setup: bool = False
     """Keep track if the module has been set up."""
 
-    dm: Dataset
-    """Parent dataset."""
+    di: DataInterface
+    """Parent interface."""
 
     @property
     def parameters(self) -> ParametersAbstract:
         """Quick access to the parameters module."""
-        return self.dm.parameters
+        return self.di.parameters
 
     def __init__(self, params: t.Any | None = None, **kwargs):
         pass
@@ -42,7 +42,7 @@ class Module:
         return "\n".join(lines)
 
     def _lines(self) -> list[str]:
-        """Lines to show in Dataset repr (human readable)."""
+        """Lines to show in interface repr (human readable)."""
         return []
 
     def setup(self) -> None:
@@ -75,8 +75,8 @@ class Module:
 class CachedModule(Module):
     """Module containing a cache.
 
-    The cache is voided on a call of :meth:`.Dataset.reset`. This is typically
-    done everytime the parameters change.
+    The cache is voided on a call of :meth:`.DataInterface.trigger_callbacks`. This is
+    typically done everytime the parameters change.
     """
 
     _add_void_callback = True
@@ -84,18 +84,18 @@ class CachedModule(Module):
     def setup(self) -> None:
         """Set up cache.
 
-        Add a callback to the parent dataset that will void the cache when called.
+        Add a callback to the parent interface that will void the cache when called.
         """
         cls_name = get_classname(self)
         log.debug("Setting up cache for %s", cls_name)
         self.cache: dict[str, t.Any] = {}
 
-        def callback(dm, **kwargs) -> None:
+        def callback(di, **kwargs) -> None:
             self.void_cache()
 
         if self._add_void_callback:
             key = f"void_cache[{cls_name}]"
-            self.dm.register_callback(key, callback)
+            self.di.register_callback(key, callback)
 
     def void_cache(self) -> None:
         """Clear the cache."""
@@ -196,7 +196,7 @@ class ModuleMix(t.Generic[T_Mod], Module):
     def setup(self) -> None:
         """Set up all base modules."""
         for mod in self.base_modules.values():
-            mod.dm = self.dm
+            mod.di = self.di
             mod.setup()
 
     @classmethod

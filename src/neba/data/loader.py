@@ -30,14 +30,14 @@ class LoaderAbstract(t.Generic[T_Source_contra, T_Data], Module):
         The actual loading is done by :meth:`load_data_concrete` that can be overwritten
         by subclasses.
 
-        Tries to run the method ``postprocess`` of the parent dataset. If it raises
+        Tries to run the method ``postprocess`` of the parent interface. If it raises
         NotImplementedError, postprocess will be ignored.
 
         Parameters
         ----------
         source
             Source location of the data to load. If left to None,
-            :meth:`~.Dataset.get_source` is used.
+            :meth:`~.DataInterface.get_source` is used.
         ignore_postprocess
             If True, do not apply postprocessing. Default is False.
         load_kwargs
@@ -46,7 +46,7 @@ class LoaderAbstract(t.Generic[T_Source_contra, T_Data], Module):
             Arguments passed to the postprocessing function.
         """
         if source is None:
-            source = self.dm.get_source()
+            source = self.di.get_source()
 
         if load_kwargs is None:
             load_kwargs = {}

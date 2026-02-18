@@ -102,14 +102,14 @@ class WriterAbstract(t.Generic[T_Source_contra, T_Data], Module):
 
     def get_metadata(
         self,
-        add_dataset_params: bool = True,
+        add_interface_params: bool = True,
         add_commit: bool = True,
     ) -> dict[str, t.Any]:
-        """Set some dataset attributes with information on how it was created.
+        """Get information on how data was created.
 
         Attributes are:
 
-        * ``written_as_dataset``: name of dataset class.
+        * ``written_with_interface``: name of interface class.
         * ``created_by``: hostname and filename of the python script used
         * ``created_with_params``: a string representing the parameters,
         * ``created_on``: date of creation
@@ -120,20 +120,21 @@ class WriterAbstract(t.Generic[T_Source_contra, T_Data], Module):
 
         Parameters
         ----------
-        add_dataset_params
-            If True (default), add the parent dataset parameters values to metadata.
-            Parameters "as dict" are serialized using json, and if that fails `str()`.
+        add_interface_params
+            If True (default), add the parent interface parameters to metadata.
+            Parameters are converted to a dictionary are serialized using json, and if
+            that fails `str()`.
         add_commit
-            If True (default), try to find the current commit hash of the directory
-            containing the script called.
+            If True (default), add the current commit hash of the directory
+            containing the script
         """
         meta = {}
 
         # Name of class
-        cls_name = self.dm.__class__.__name__
-        if self.dm.ID:
-            cls_name += f":{self.dm.ID}"
-        meta["written_as_dataset"] = cls_name
+        cls_name = self.di.__class__.__name__
+        if self.di.ID:
+            cls_name += f":{self.di.ID}"
+        meta["written_with_interface"] = cls_name
 
         # Get hostname and script name
         hostname = socket.gethostname()
@@ -146,9 +147,9 @@ class WriterAbstract(t.Generic[T_Source_contra, T_Data], Module):
         meta["created_by"] = f"{hostname}:{script}"
 
         # Get parameters as string
-        if add_dataset_params:
+        if add_interface_params:
             # copy / convert to dict
-            params = dict(self.dm.parameters.direct)
+            params = dict(self.di.parameters.direct)
             for prefix in self.metadata_params_exclude:
                 params = {k: v for k, v in params.items() if not k.startswith(prefix)}
             try:
@@ -183,7 +184,7 @@ class WriterAbstract(t.Generic[T_Source_contra, T_Data], Module):
             Data to write.
         target
             If None, target location(s) should be obtained via
-            :meth:`.Dataset.get_source`.
+            :meth:`.DataInterface.get_source`.
         """
         raise NotImplementedError("Implement in a module subclass.")
 
@@ -302,9 +303,9 @@ class SplitWriterMixin(WriterAbstract[T_Source, T_Data]):
         """Set up module. Check the source is following the Splitable protocol."""
         super().setup()
 
-        if not isinstance(self.dm.source, Splitable):
-            raise TypeError(f"Source module is not Splitable ({type(self.dm)})")
-        self.source = self.dm.source
+        if not isinstance(self.di.source, Splitable):
+            raise TypeError(f"Source module is not Splitable ({type(self.di)})")
+        self.source = self.di.source
 
     def unfixed(self) -> set[T_Source]:
         """Return set of parameters that are not fixed."""

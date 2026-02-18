@@ -35,12 +35,12 @@ class XarrayLoader(LoaderAbstract[str | os.PathLike, xr.Dataset]):
     """
 
     OPEN_DATASET_KWARGS: dict[str, t.Any] = {}
-    """Options passed to :func:`xarray.open_dataset`. :meth:`.Dataset.get_data` kwargs
-    take precedence."""
+    """Options passed to :func:`xarray.open_dataset`. :meth:`.DataInterface.get_data`
+    kwargs take precedence."""
 
     OPEN_MFDATASET_KWARGS: dict[str, t.Any] = {}
-    """Options passed to :func:`xarray.open_mfdataset`. :meth:`.Dataset.get_data` kwargs
-    take precedence."""
+    """Options passed to :func:`xarray.open_mfdataset`. :meth:`.DataInterface.get_data`
+    kwargs take precedence."""
 
     def preprocess(self) -> abc.Callable[[xr.Dataset], xr.Dataset]:
         """Return a function to preprocess data.
@@ -54,7 +54,7 @@ class XarrayLoader(LoaderAbstract[str | os.PathLike, xr.Dataset]):
     def load_data_concrete(
         self, source: str | os.PathLike | abc.Sequence[str | os.PathLike], **kwargs
     ) -> xr.Dataset:
-        """Read a dataset object.
+        """Load data.
 
         Parameters
         ----------
@@ -165,7 +165,7 @@ class XarrayWriter(WriterAbstract[str, xr.Dataset]):
     def add_metadata(
         self,
         ds: xr.Dataset,
-        add_dataset_parameters: bool = True,
+        add_interface_parameters: bool = True,
         add_commit: bool = True,
     ) -> xr.Dataset:
         """Set some dataset attributes with information on how it was created.
@@ -177,16 +177,14 @@ class XarrayWriter(WriterAbstract[str, xr.Dataset]):
         ----------
         ds
             Dataset to add global attributes to. This is **not** done in-place.
-        add_dataset_params
-            Add the parent dataset parameters values to serialization if True (default)
-            and if ``parameters`` is not a string. The parent parameters won't overwrite
-            the values of ``parameters``.
+        add_interface_params
+            Add the parent interface parameters to serialization if True (default).
         add_commit
             If True (default), try to find the current commit hash of the directory
             containing the script called.
         """
         meta = self.get_metadata(
-            add_dataset_params=add_dataset_parameters,
+            add_interface_params=add_interface_parameters,
             add_commit=add_commit,
         )
         return self._add_metadata(ds, meta)
@@ -280,7 +278,7 @@ class XarrayWriter(WriterAbstract[str, xr.Dataset]):
             Dataset or Sequence of datasets to write.
         target
             If None (default), target location(s) are automatically obtained via
-            :meth:`.Dataset.get_source`.
+            :meth:`.DataInterface.get_source`.
         client:
             Dask :class:`distributed.Client` instance. If present multiple write calls
             will be send in parallel. See :meth:`send_calls_together` for details.
@@ -290,7 +288,7 @@ class XarrayWriter(WriterAbstract[str, xr.Dataset]):
             (:meth:`xarray.Dataset.to_netcdf` or :meth:`xarray.Dataset.to_zarr`).
         """
         if target is None:
-            target = self.dm.get_source()
+            target = self.di.get_source()
         if isinstance(target, str | os.PathLike):
             target = [target]
 

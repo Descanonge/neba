@@ -1,4 +1,4 @@
-"""Dataset: the main class for defining your datasets."""
+"""The main class for interfacing with your data."""
 
 from __future__ import annotations
 
@@ -19,18 +19,14 @@ from .writer import WriterAbstract
 log = logging.getLogger(__name__)
 
 
-class Dataset(t.Generic[T_Params, T_Source, T_Data]):
-    """Object defining a dataset.
+class DataInterface(t.Generic[T_Params, T_Source, T_Data]):
+    """Define how to interface with data.
 
-    Registers modules for parameters management, source management, data loading,
-    and data writing.
-
-    The parameters (stored in :attr:`params`) are treated as global across the instance,
-    and those are the value that will be used when calling various methods. Few
-    methods may allow to complete them, fewer to overwrite them temporarily.
+    Delegates features to modules for parameters management, source management, data
+    loading, and data writing.
     """
 
-    # -- Dataset Identification --
+    # -- Interface Identification --
 
     SHORTNAME: str | None = None
     """Short name to refer to this data-manager class."""
@@ -59,18 +55,16 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data]):
     Loader: type[LoaderAbstract] = LoaderAbstract
     Writer: type[WriterAbstract] = WriterAbstract
 
-    # -- Static type checking --
+    # -- Instance attributes --
     parameters: ParametersAbstract[T_Params]
     source: SourceAbstract[T_Source]
     loader: LoaderAbstract[T_Source, T_Data]
     writer: WriterAbstract[T_Source, T_Data]
 
-    # -- Instance attributes --
-
     _reset_callbacks: dict[str, abc.Callable[..., None]]
     """Dictionary of callbacks to run when parameters are changed/reset.
 
-    Callbacks should be functions that take the dataset as first argument, then any
+    Callbacks should be functions that take the interface as first argument, then any
     number of keyword arguments.
     """
 
@@ -82,7 +76,7 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data]):
 
         # backref
         for mod in self._modules.values():
-            mod.dm = self
+            mod.di = self
 
         # Setup modules
         # Start with parameters.
@@ -224,7 +218,7 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data]):
 
         Each set of parameter will specify one filename. Parameters that do not change
         from one set to the next do not need to be specified if they are fixed (by
-        setting them in the Dataset). The sets can be specified with either one of
+        setting them in the interface). The sets can be specified with either one of
         `params_maps` or `params_sets`.
 
         Parameters
@@ -239,7 +233,7 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data]):
             This will give 3 filenames for 3 different dates. Note that here, the
             parameters do not need to be the same for all sets, for example in a fourth
             set we could have ``{'Y': 2023, 'm': 1, 'd': 10, 'depth': 50}`` to override
-            the value of 'depth' set in the Dataset parameters.
+            the value of 'depth' set in the interface parameters.
         params_sets
             Here each set is specified by sequence of parameters values. This first row
             gives the order of parameters. The same input as before can be written as::
@@ -287,30 +281,30 @@ class Dataset(t.Generic[T_Params, T_Source, T_Data]):
 
 
 class _ParamsContext:
-    def __init__(self, dm: Dataset, save_cache: bool):
+    def __init__(self, di: DataInterface, save_cache: bool):
         # Save cache first, copying params might void it
         self.caches: dict | None = None
         if save_cache:
             self.caches = {
                 name: dict(mod.cache)
-                for name, mod in dm._modules.items()
+                for name, mod in di._modules.items()
                 if isinstance(mod, CachedModule)
             }
 
-        self.dm = dm
-        self.params = copy.deepcopy(dm.parameters.direct)
+        self.di = di
+        self.params = copy.deepcopy(di.parameters.direct)
 
     def repopulate_cache(self):
         for name, saved_cache in self.caches.items():
             for key, val in saved_cache.items():
-                self.dm._modules[name].cache[key] = val
+                self.di._modules[name].cache[key] = val
 
     def __enter__(self) -> t.Self:
         return self
 
     def __exit__(self, *exc: t.Any):
-        self.dm.parameters.reset()
-        self.dm.parameters.update(self.params)
+        self.di.parameters.reset()
+        self.di.parameters.update(self.params)
 
         if self.caches is not None:
             self.repopulate_cache()
@@ -319,17 +313,17 @@ class _ParamsContext:
         return False
 
 
-class DatasetSection(Dataset, Section):
-    """A dataset that is also a configurable section.
+class DataInterfaceSection(DataInterface, Section):
+    """An interface that is also a configurable section.
 
-    Any modification of the dataset traits will void the cache.
+    Any modification of the interface traits will void the cache.
 
     Parameters
     ----------
     params:
         Passed to the parameters manager and other modules.
     kwargs:
-        Traits of the dataset are extracted. The rest is passed to modules as usual.
+        Traits of the interface are extracted. The rest is passed to modules as usual.
     """
 
     def __init__(self, params: t.Any | None = None, **kwargs) -> None:
@@ -338,18 +332,18 @@ class DatasetSection(Dataset, Section):
         for name in self.keys():
             if name in kwargs:
                 # `name` could correspond to a parameter for the application or section,
-                # rather than for the dataset itself. Check things are unambiguous
+                # rather than for the interface itself. Check things are unambiguous
                 if isinstance(params, Section) and name in params.keys(
                     subsections=False, aliases=True
                 ):
                     raise KeyError(
                         f"""Keyword argument '{name}' is both a trait in the parameters
-                        ({params.__class__.__name__}) and the Dataset
+                        ({params.__class__.__name__}) and the interface
                         ({self.__class__.__name__}), I cannot choose between the two."""
                     )
                 config[name] = kwargs.pop(name)
         Section.__init__(self, config)
-        Dataset.__init__(self, params, **kwargs)
+        DataInterface.__init__(self, params, **kwargs)
 
         # Reset on trait change
         def handler(change):
@@ -359,8 +353,8 @@ class DatasetSection(Dataset, Section):
             subsection.observe(handler)
 
     def __repr__(self) -> str:
-        """Combine Dataset and Section repr."""
-        dataset = Dataset.__repr__(self)
+        """Combine Inferface and Section repr."""
+        interface = DataInterface.__repr__(self)
         section = Section.__repr__(self)
         # remove first line (class name), redundant
-        return "\n".join([dataset, *section.splitlines()[1:]])
+        return "\n".join([interface, *section.splitlines()[1:]])

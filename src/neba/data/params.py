@@ -121,7 +121,7 @@ class ParametersDict(ParametersAbstract[CallbackDict[str, t.Any]]):
         self._params.update(**kwargs)
 
         def handler(change: Bunch):
-            self.dm.trigger_callbacks()
+            self.di.trigger_callbacks()
 
         self._params._callback = handler
 
@@ -146,7 +146,7 @@ class ParametersDict(ParametersAbstract[CallbackDict[str, t.Any]]):
     def set(self, key: str, value: t.Any):
         """Set a parameter to value."""
         dict.__setitem__(self._params, key, value)
-        self.dm.trigger_callbacks()
+        self.di.trigger_callbacks()
 
     def update(self, params: t.Any | None = None, **kwargs):
         """Update one or more parameters values.
@@ -162,12 +162,12 @@ class ParametersDict(ParametersAbstract[CallbackDict[str, t.Any]]):
             params = {}
         params.update(kwargs)
         self._params.update(params)
-        self.dm.trigger_callbacks()
+        self.di.trigger_callbacks()
 
     def reset(self) -> None:
         """Reset parameters to their initial state (empty dict)."""
         self._params.clear()
-        self.dm.trigger_callbacks()
+        self.di.trigger_callbacks()
 
 
 T_Section = t.TypeVar("T_Section", bound=Section)
@@ -190,7 +190,7 @@ class ParametersSectionBase(ParametersAbstract[T_Section]):
         # add callbacks to void the cache
 
         def handler(change: Bunch):
-            self.dm.trigger_callbacks()
+            self.di.trigger_callbacks()
 
         for subsection in self._params.subsections_recursive():
             subsection.observe(handler)
@@ -223,7 +223,7 @@ class ParametersSectionBase(ParametersAbstract[T_Section]):
             self._params.add_trait(key, value)
         else:
             self._params.__setitem__(key, value)
-        self.dm.trigger_callbacks()
+        self.di.trigger_callbacks()
 
     def update(self, params: t.Any | None = None, **kwargs):
         """Update one or more parameters values.
@@ -236,12 +236,12 @@ class ParametersSectionBase(ParametersAbstract[T_Section]):
             Other parameters to set (takes precedence over `params`).
         """
         self._params.update(params, allow_new=self.allow_new, **kwargs)
-        self.dm.trigger_callbacks()
+        self.di.trigger_callbacks()
 
     def reset(self) -> None:
         """Reset section to its default values."""
         self._params.reset()
-        self.dm.trigger_callbacks()
+        self.di.trigger_callbacks()
 
 
 class ParametersSection(ParametersSectionBase[T_Section]):
