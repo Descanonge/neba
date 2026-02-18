@@ -10,16 +10,16 @@ data
 Contents
 ========
 
-.. rubric:: Dataset and modules
+.. rubric:: Interface and modules
 .. autosummary::
    :nosignatures:
 
    ~module.autocached
    ~module.Module
    ~module.CachedModule
-   ~dataset.Dataset
-   ~dataset.DatasetSection
-   ~store.DatasetStore
+   ~interface.DataInterface
+   ~interface.DataInterfaceSection
+   ~store.DataInterfaceStore
 
 .. rubric:: Parameters
 .. autosummary::
@@ -68,7 +68,7 @@ Modules
    :nosignatures:
    :recursive:
 
-   dataset
+   interface
    loader
    module
    params

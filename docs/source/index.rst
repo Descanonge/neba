@@ -18,9 +18,9 @@ A package to manage a configuration and multiple datasets.
       Validate them against a structured specification that is easy to write,
       expandable, and which allows to document every parameter.
 
-   .. grid-item-card:: Dataset management
+   .. grid-item-card:: Data management
       :link: data
-      :link-alt: dataset management
+      :link-alt: data management
 
       Declare datasets in a flexible way to manage multiple source files and to
       read and write data easily using different libraries.

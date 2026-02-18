@@ -4,21 +4,21 @@
 Usage
 *****
 
-Each dataset is defined by creating a subclass of :class:`~.Dataset`. The class
-definition will contain information on:
+Each dataset is defined by creating a subclass of :class:`~.DataInterface`. The
+class definition will contain information on:
 
 - where the data is located: on disk or in a remote store
 - how to load or write data: with which library and function, how to
   post-process it, etc.
 
-That subclass can then be re-used in different scripts so that eventually, you
+The interface can then be re-used in different scripts so that eventually, you
 can get your data with two simple lines::
 
-  >>> dm = MyDataset()
-  >>> dm.get_data()
+  >>> di = MyDataInterface()
+  >>> di.get_data()
 
 Each *instance* of that subclass corresponds to a set of parameters that can be
-used to change aspects of the dataset on the fly: choose only files for a
+used to change aspects of the interface on the fly: choose only files for a
 specific year, change the method to open data, etc.
 
 .. _module-system:
@@ -26,34 +26,34 @@ specific year, change the method to open data, etc.
 Module system
 =============
 
-Features of the dataset are split into individual modules that can be swapped or
-modified.
-The default :class:`.Dataset` has four modules. Each module has an attribute
-where the module instance can be accessed, and an attribute where its type can
-changed:
+Features of the interface are split into individual modules that can be swapped
+or modified.
+The default :class:`.DataInterface` has four modules. Each module has an
+attribute where the module instance can be accessed, and an attribute where its
+type can changed:
 
-+---------------+--------------+---------------------------------+-------------+
-| Instance      | Definition   | Class                           |  Function   |
-| attribute     | attribute    |                                 |             |
-+===============+==============+=================================+=============+
-| params_manager| ParamsManager| :class:`.ParamsManagerAbstract` | manage      |
-|               |              |                                 | parameters  |
-+---------------+--------------+---------------------------------+-------------+
-| source        | Source       | :class:`.SourceAbstract`        | manage      |
-|               |              |                                 | data source |
-+---------------+--------------+---------------------------------+-------------+
-| loader        | Loader       | :class:`.LoaderAbstract`        |  load data  |
-+---------------+--------------+---------------------------------+-------------+
-| writer        | Writer       | :class:`.WriterAbstract`        | write data  |
-+---------------+--------------+---------------------------------+-------------+
++------------+------------+------------------------------+-------------+
+| Instance   | Definition | Class                        |  Function   |
+| attribute  | attribute  |                              |             |
++============+============+==============================+=============+
+| parameters | Parameters | :class:`.ParametersAbstract` | manage      |
+|            |            |                              | parameters  |
++------------+------------+------------------------------+-------------+
+| source     | Source     | :class:`.SourceAbstract`     | manage      |
+|            |            |                              | data source |
++------------+------------+------------------------------+-------------+
+| loader     | Loader     | :class:`.LoaderAbstract`     |  load data  |
++------------+------------+------------------------------+-------------+
+| writer     | Writer     | :class:`.WriterAbstract`     | write data  |
++------------+------------+------------------------------+-------------+
 
 To change a module, we only need to change the module type. It can be a simple
 attribute change, or a class definition with the appropriate name, like so::
 
-    class MyDataset(Dataset):
+    class MyDataInterface(DataInterface):
 
         # simple attribute change
-        Loader = XarrayLoader
+        Parameters = ParametersDict
 
         # or a more complex definition
         class Source(SimpleSource):
@@ -62,60 +62,97 @@ attribute change, or a class definition with the appropriate name, like so::
                 ...
 
     # we can then access the modules
-    dm = MyDataset()
-    dm.source.get_source()
+    di = MyDataInterface()
+    di.source.get_source()
+
+
+.. tip::
+
+    Every module can access its parent interface via :attr:`Module.di`.
 
 Parameters
 ----------
 
-The parameters of the dataset are stored in the `ParamsManager` module. They are
-given as argument to the Dataset on initialization. They can be directly
-accessed from :attr:`.Dataset.params`, or in any module at
-:attr:`.Module.params`.
+The parameters of the interface are stored in the `Parameters` module. They are
+given as argument to the interface on initialization.
 
 Parameters can be stored in a simple dictionary, or using objects from the
 :doc:`configuration</config/index>` part of Neba like a Section or Application.
 See the :ref:`existing parameters modules<existing_params>`.
 
-.. tip::
+There are two ways to access parameters.
 
-    To ensure inter-operability, it is preferred to access parameters as a
-    mapping (``dm.params["my_param"]``), this will work with all parameters
-    modules.
+- you can use the methods of the parameters module which works like a dictionary:
+  :meth:`~.ParametersAbstract.get`, :meth:`~.ParametersAbstract.set`,
+  :meth:`~.ParametersAbstract.update`::
 
-Changing parameters might affect other modules. In particular, some modules use
-a cache that needs to be reset when parameters are changed. Using
-:meth:`.Dataset.update_params` will void the cache, but existing parameters
-modules will make sure that directly modifying parameters will do as well.
+    >>> di.parameters["a"] = 0
+    >>> di.parameters["a"]
+    0
+    >>> di.parameters.update(a=1, b=2)
+
+  If a key is not defined, ``di.parameters[key]`` will raise KeyError, and
+  ``di.parameters.get(key)`` will return None by default.
+
+  This ensures that you can swap the parameters container without problems.
+
+- Or you can access the parameters container directly at
+  :attr:`di.parameters.direct<.ParametersAbstract.direct>`. This is useful
+  if you use a :class:`.Section` as a container::
+
+    di.parameters.direct.my_subsection.my_trait = 0
+
+  But using ``di.parameters["my_subsection.my_trait"] = 0`` will still work!
+
+Some modules use a cache that needs to be reset when parameters are changed.
+Both ways of accessing parameters will void the cache appropriately.
+
+.. note::
+
+    This is done in two ways. The parameters module methods will simply call
+    :meth:`.DataInterface.trigger_callbacks` after their operation. For direct
+    access, the dictionary container has ``__setitem__`` patched, and Sections
+    objects have an `observer event
+    <https://traitlets.readthedocs.io/en/stable/using_traitlets.html#observe>`__
+    added. Direct access will only void the cache if a new parameter is added,
+    or if the new value is different from the old
 
 .. important::
 
    This does not include in-place operations on mutable parameters::
 
-     dm.params["my_list"].append(1)
+     di.parameters["my_list"].append(1)
+     di.parameters["my_dict"]["key"] = 1
      # or
-     dm.params["my_dict"]["key"] = 1
+     di.parameters.direct["my_list"].append(1)
+     di.parameters.direct["my_dict"]["key"] = 1
 
    will **not** trigger a callback.
 
+
+.. tip::
+
+   The parameters module is accessible from any other module at
+   :attr:`Module.parameters`.
+
 It might be useful to quickly change parameters, eventually multiple times,
 before returning to the initial set of parameters. To this end, the method
-:meth:`.Dataset.save_excursion` will return a context manager that will
+:meth:`.DataInterface.save_excursion` will return a context manager that will
 save the initial parameters and restore them when exiting::
 
-    # we have some parameters, self.params["p"] = 0
+    di.parameters["p"] = 0
 
-    with self.save_excursion():
-        # we change them
-        self.update_params(p=2)
+    with di.save_excursion():
+        # we change parameters
+        self.parameters["p"] = 2
         self.get_data()
 
-    # we are back to self.params["p"] = 0
+    # we are back to di.parameters["p"] == 0
 
-This is used by :meth:`.Dataset.get_data_sets` that return data for multiple
-sets of parameters, for instance to get specific dates::
+This is used by :meth:`.DataInterface.get_data_sets` that return data for
+multiple sets of parameters, for instance to get specific dates::
 
-    data = dm.get_data_sets(
+    data = di.get_data_sets(
         [
             {"Y": 2020, "m": 1, "d": 15},
             {"Y": 2021, "m": 2, "d": 24},
@@ -129,17 +166,17 @@ sets of parameters, for instance to get specific dates::
 Source
 ------
 
-The Source module manages the location of data that will be read or written by
-other modules. It could be files on disk, or the address of a remote data-store.
-It allows to use :meth:`.Dataset.get_source`, though other modules will
-typically call it automatically when they need it.
+The ``Source`` module manages the location of data that will be read or written
+by other modules. It could be files on disk, or the address of a remote
+data-store. It allows to use :meth:`.DataInterface.get_source`, though other
+modules will typically call it automatically when they need it.
 
 See :ref:`existing source modules<existing_source>`.
 
-Sometimes, you may have datasets split in different locations. To solve this,
-you can combine multiple source modules into one by taking the union (or
-intersection) of their results.
-Say you have data files in two locations with different naming convention::
+Sometimes, you may have data split in different locations. To solve this, you
+can combine multiple source modules into one by taking the union (or
+intersection) of their results. Say you have data files in two locations with
+different naming convention::
 
     /data1/<year>/data1_<year><month><day>.nc
     and
@@ -147,7 +184,7 @@ Say you have data files in two locations with different naming convention::
 
 We combine two :class:`.FileFinderSource` by taking the union::
 
-    class MyDataset(Dataset):
+    class MyDataInterface(DataInterface):
 
         class Source1(FileFinderSource):
             def get_root_directory(self):
@@ -171,13 +208,13 @@ module. That function receives the instance of the module mix and should return
 the class name of one base module. Let's say our first dataset contains years up
 to 2010, and the second one the years after that.::
 
-    class MyDataset(Dataset):
+    class MyDataInterface(DataInterface):
 
         ...
 
         @staticmethod
         def _select_source(mod: SourceBase, **kwargs):
-            year = mod.params.get("Y", None)
+            year = mod.parameters.get("Y", None)
             # if user specify a year in kwargs it gets precedence
             year = kwargs.get("Y", year)
             if year is None:
@@ -190,38 +227,38 @@ to 2010, and the second one the years after that.::
         Source = SourceUnion.create([Source1, Source2], select=_select_source)
 
 We can then run a method on a selected module with
-``dm.source.apply_select("get_filename", year=2015)``, we can specify the year
-by hand or the year in the dataset parameters will be used.
+``di.source.apply_select("get_filename", year=2015)``, we can specify the year
+by hand or the year in the interface parameters will be used.
 
 .. tip::
 
    The module mix will also try to dispatch any attribute access to the selected
-   base module, so ``dm.source.get_filename()`` will work.
+   base module, so ``di.source.get_filename()`` will work.
 
 More details on :ref:`module_mixes`.
 
 Loader
 ------
 
-The Loader module deals with loading the data from the location specified by the
-Source module. It allows to use :meth:`.Dataset.get_data`. Different loaders may
-use different libraries or functions. The source can always be specified
-manually with ``dm.get_data(source="my_file")``. It also allows to post-process
-your data: *ie* run a function every time it is loaded. For instance say we need
-to change units on a variable, we just need to implement the
+The ``Loader`` module loads the data from the location specified by the Source
+module using different libraries or functions. It allows to use
+:meth:`.DataInterface.get_data`. The source can always be specified manually
+with ``di.get_data(source="my_file")``. It also allows to post-process your
+data, *ie* run a function every time it is loaded. For instance say we need to
+change units on a variable, we just need to implement the
 :meth:`~.LoaderAbstract.postprocess` method::
 
-    class MyDataset(Dataset):
+    class MyDataInterface(DataInterface):
 
         class Loader(XarrayLoader):
-            def postprocess(self, data: xr.Dataset):
+            def postprocess(self, data: xr.Dataset) -> xr.Dataset:
                 # go from Kelvin to Celsius
                 data["sst"] += 273.15
                 return data
 
-Now, every time we load data (using :meth:`.Dataset.get_data`), the function is
-applied. You can always disable it by passing
-``dm.get_data(ignore_postprocess=True)``.
+Now, every time we load data (using :meth:`.DataInterface.get_data`), the
+function is applied. You can always disable it by passing
+``di.get_data(ignore_postprocess=True)``.
 
 New loaders should implement the method
 :meth:`~.LoaderAbstract.load_data_concrete` that loads data from a given source.
@@ -232,12 +269,12 @@ Writer
 ------
 
 The Writer writes data to the location given by the Source module. It allows to
-use :meth:`.Dataset.write`.
+use :meth:`.DataInterface.write`.
 
 The writer will create directories if needed, and can also add metadata to the
 data you are writing:
 
-* ``written_as_dataset``: name of dataset class.
+* ``written_with_interface``: name of the interface class.
 * ``created_by``: hostname and filename of the python script used
 * ``created_with_params``: a string representing the parameters,
 * ``created_on``: date of creation
@@ -246,16 +283,16 @@ data you are writing:
 * ``git_diff_long``: if workdir is dirty, the full diff (truncated) at
   :attr:`~.WriterAbstract.metadata_max_diff_lines`.
 
-The writer will generate one or more *calls*, each consisting of a location
-and data to write there. Calls can then be executed serially or in parallel
-(for instance when using Xarray and Dask).
+The writer will generate one or more *calls*, each consisting of a location and
+data to write there. It will then execute calls serially or in parallel (for
+instance when using Xarray and Dask).
 
 Some writers are able to split your dataset into multiple files. They should
 inherit :class:`.SplitWriterMixin`, and the source module should follow the
 :class:`.Splitable` protocol.
 
 
-.. _dataset-typing:
+.. _interface-typing:
 
 Typing
 ------
@@ -272,20 +309,20 @@ a list of them. ``XarrayLoader`` may receive a ``str`` or list thereof (that it
 will concatenate into a single output).
 
 The types of parameters, source, and data are also left as generics for the
-Dataset class (in this order). By specifying them you get type-checks for some
-top-level methods like :meth:`.Dataset.get_data` or :meth:`.Dataset.get_source`,
-and because those generics are transmitted to modules, it also allows to
-type-check compatibility between modules.
+interface class (in this order). By specifying them you get type-checks for some
+top-level methods like :meth:`.DataInterface.get_data` or
+:meth:`.DataInterface.get_source`, and because those generics are transmitted to
+modules, it also allows to type-check compatibility between modules.
 
 ::
 
-    class MyDataset(Dataset[App, str, xr.Dataset]):
-        ParamsManager = ParamsManagerApp
+    class MyDataInterface(DataInterface[App, str, xr.Dataset]):
+        Parameters = ParametersApp
         Source = FileFinderSource
         Loader = XarrayLoader
 
         # module instances must be type-hinted by hand :(
-        params_manager: ParamsManagerApp[App]
+        parameters: ParametersApp[App]
         source: FileFinderSource
         Loader: XarrayLoader
 
@@ -299,7 +336,7 @@ type-check compatibility between modules.
     - loader modules take in source and output data,
     - writer modules take in source and data.
 
-    For outputs, you should specify all types in your Dataset generic. For
+    For outputs, you should specify all types in your interface generic. For
     inputs, it's okay not to list them all.
 
     For example, if your source modules returns ``str | bytes`` you should list
@@ -333,18 +370,18 @@ Mixes can run methods on their base modules:
   be selected by a user defined function that can be set in
   :meth:`~.ModuleMix.create` or with :meth:`.ModuleMix.set_select`. It chooses
   the appropriate base module based on the current state of the mix module, the
-  dataset manager and its parameters, and eventual keywords arguments it might
-  receive. It should return the class name of one of the module.
+  interface parameters, and eventual keywords arguments it might receive. It
+  should return the class name of one of the module.
 * :meth:`~.ModuleMix.apply` will use the *all* or *select* version based on the
-  value of the *all* argument. In all methods, *args* and *kwargs* are passed to
-  the method that is run, and the *select* keyword argument is a passed to the
-  selection function.
+  value of the ``all`` argument. In all methods, *args* and *kwargs* are passed
+  to the method that is run, and the *select* keyword argument is a passed to
+  the selection function.
 
 .. tip::
 
-    If an attribute access fails on a ModuleMix, it tries to select a base module
-    and access that attribute on it. This allows to dispatch quickly to a base
-    module.
+    If an attribute access fails on a ModuleMix, it tries to select a base
+    module and access that attribute on it. This allows to dispatch quickly to a
+    base module.
 
 .. _cache-module:
 
@@ -358,10 +395,10 @@ Cache module
 It might help for some modules to have a cache to write information into. For
 instance source modules for multiple files leverage this. A module simply needs
 to be a subclass of :class:`.CachedModule`. This will automatically create a
-``cache`` attribute containing a dictionnary. It will also add a callback to the
-list of reset-callbacks of the Dataset, so that this module cache will be
+``cache`` attribute containing a dictionary. It will also add a callback to the
+list of reset-callbacks of the interface, so that this module cache will be
 voided on parameters change. This can be disabled however by setting the class
-attribute ``_add_void_callback`` to False (in the new submodule class).
+attribute ``_add_void_callback`` to False (in the new module subclass).
 
 If a module has a cache, you can use the :func:`.autocached` decorator to make
 the value of one of its method or property automatically cached. Watch out
@@ -378,31 +415,32 @@ Defining new modules
 ====================
 
 Users will typically only need to use existing modules, possibly redefining some
-of their methods, but in the case more dramatic changes are necessary, here are more
-details on the module system.
+of their methods, but in the case more dramatic changes are necessary, here are
+more details on the module system.
 
 All modules inherit from abstract classes that define their API. Note that they
 are not defined through the :external+python:mod:`abc` module, and thus will not
-raise if instantiated. These classes are more guidelines than strict protocols.
+raise if methods lack an implementation. These classes are more guidelines than
+strict protocols.
 
 .. admonition:: For developers
 
     Nevertheless it is advised to keep a common signature for module subclasses,
     relying on keyword arguments if necessary. This helps ensure
-    inter-operability between module and easy substitution of modules types.
+    inter-operability between modules and easy substitution of module types.
 
 To add more modules types, the correspondence between the attribute containing
 the module instance and the one containing the module type must be indicated in
-the mapping :attr:`~.Dataset._modules_attributes`.
+the mapping :attr:`~.DataInterface._modules_attributes`.
 
 .. note::
 
    The parameters module is instantiated first. Other modules are instantiated
    in the order of that mapping. Modules are then setup in the same order.
 
-Datasets are initialized with an optional argument giving the parameters, and
+Interfaces are initialized with an optional argument giving the parameters, and
 additional keyword arguments. All modules are instantiated with the same
-arguments. Their :attr:`~.Module.dm` attribute is set to the containing dataset.
+arguments. Their :attr:`~.Module.di` attribute is set to the parent interface.
 Once they are all instantiated, they are setup using the :meth:`.Module.setup`
 method. This allow to be (mostly) sure that all other module exist if there is
 need for interplay.
@@ -413,49 +451,48 @@ need for interplay.
    :attr:`.Module._allow_instantiation_failure` is True, it will only log a
    warning and the module will not be accessible.
 
-For the most part, modules are made to be independant of each others, but it can
-be useful to have interplay. The dataset provides some basic API that modules
-can leverage like :meth:`.Dataset.get_source` or :meth:`.Dataset.get_data`. For
-more specific features the package contains some abstract base classes that
-define the methods to be expected. See :doc:`existing_modules` for examples.
+For the most part, modules are made to be independent of each others, but it can
+be useful to have interplay. The interface provides some basic API that modules
+can leverage like :meth:`.DataInterface.get_source` or
+:meth:`.DataInterface.get_data`. See :doc:`existing_modules` for examples.
 
-Dataset store
-=============
+Interface store
+===============
 
-To help deal with numerous Dataset classes, we provide a
-:class:`mapping<.DatasetStore>` allowing to store and easily access your
-datasets using the dataset :attr:`~.Dataset.ID` or :attr:`~.Dataset.SHORTNAME`
-attributes, or a custom name.
+To help deal with numerous interfaces classes, we provide a
+:class:`mapping<.DataInterfaceStore>` allowing to store and easily access your
+interfaces using their :attr:`~.DataInterface.ID` or
+:attr:`~.DataInterface.SHORTNAME` attributes, or a custom name.
 
 ::
 
-    from neba.data import Dataset, DatasetStore
+    from neba.data import DataInterface, DataInterfaceStore
 
-    class MyDataset(Dataset):
-        ID = "MyDatasetLongID"
+    class MyDataInterface(DataInterface):
+        ID = "SomeLongID"
         SHORTNAME = "SST"
 
-    store = DatasetStore(MyDataset)
+    store = DataInterfaceStore(MyDataInterface)
 
-    dm = store["MyDatasetLongID"]
+    di_cls = store["SomeLongID"]
     # or
-    dm = store["SST"]
+    di_cls = store["SST"]
 
-If multiple datasets have the same shortname, they can only be accessed by their
-ID. Trying to access with an ambiguous shortname will raise a KeyError.
+If multiple interface0 have the same shortname, they can only be accessed by
+their ID. Trying to access with an ambiguous shortname will raise a KeyError.
 
-You can directly register a dataset with a decorator::
+You can directly register an interface with a decorator::
 
-    store = DatasetStore()
+    store = DataInterfaceStore()
 
     @store.register()
-    class MyDataset(Dataset):
+    class MyDataInterface(DataInterface):
         ...
 
-You can also store a dataset as an import string. When accessed, the store will
-automatically import your dataset (and replace the string by the dataset for
-subsequent accesses).::
+You can also store an interface as an import string. When accessed, the store
+will automatically import your interface (and replace the string by the imported
+class for subsequent accesses).::
 
-    store.add("path.to.MyDataset")
-    ds = store["MyDataset"]
-    # a dataset class
+    store.add("path.to.MyDataInterface")
+    di_cls = store["MyDataInterface"]
+    # an interface class

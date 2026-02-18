@@ -1,31 +1,30 @@
 
 .. currentmodule:: neba.data
 
-******************
-Dataset management
-******************
+***************
+Data management
+***************
 
 Neba tries to ease the creation and management of multiple datasets with
-different file formats, structures, etc. One dataset can deal with multiple
+different file formats, structures, etc. One dataset can have with multiple
 source files selected via glob patterns, loaded into pandas, while another could
 have a remote data-store as input loaded into xarray.
 
-Each new dataset is specified by creating a subclass of :class:`~.Dataset`. It
-contains interchangeable *modules* that each cover some functionalities. Modules
-can be customized and can rely on parameters contained in the Dataset object.
-
-
+Each new dataset is specified by creating a subclass of
+:class:`~.DataInterface`. It can then be re-used in various scripts to read or
+write data easily. The interface contains interchangeable *modules* that are
+tasked with managing parameters, retrieving data locations, loading and writing
+data. Their behavior can depend on parameters held by the interface.
 
 Here is a example::
 
-
-   from neba.data import Dataset, ParamsManagerDict, GlobSource
+   from neba.data import DataInterface, ParametersDict, GlobSource
    from neba.data.xarray import XarrayLoader
 
-   class SST(Dataset):
+   class SST(DataInterface):
 
       # manage parameters with a simple dict
-      ParamsManager = ParamsManagerDict
+      Parameters = ParametersDict
 
       # load data using xarray
       Loader = XarrayLoader
@@ -37,10 +36,10 @@ Here is a example::
             return "/data"
 
          def get_glob_pattern(self):
-            return f"{self.params['year']}/SST_*.nc"
+            return f"{self.parameters['year']}/SST_*.nc"
 
-    dm = SST(year=2000)
-    sst = dm.get_data()
+    di = SST(year=2000)
+    sst = di.get_data()
 
 .. toctree::
    :hidden:

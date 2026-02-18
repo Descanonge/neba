@@ -68,22 +68,27 @@ Parameters from the example above could be retrieved from the command line with 
 # Only some values are accepted
 ```
 
-## Dataset management
+## Data management
 
-The second part aims to ease the creation and management of datasets with different file formats, structures, etc.
-Each new dataset is specified by creating a new subclass. It contains
-interchangeable *modules* that each cover some functionalities. One dataset can
-deal with multiple source files selected via glob patterns, loaded into pandas,
-while another could have a remote data-store as input loaded into xarray.
+Neba tries to ease the creation and management of multiple datasets with
+different file formats, structures, etc. One dataset can have with multiple
+source files selected via glob patterns, loaded into pandas, while another could
+have a remote data-store as input loaded into xarray.
 
-Here is an example of a dataset where multiple files are found with a glob pattern, and fed into Xarray:
+Each new dataset is specified by creating a subclass of `DataInterface` which
+can then be re-used in various scripts to read or write data easily. The
+interface contains interchangeable *modules* that are tasked with retrieving
+data locations, loading and writing data. Their behavior can depend on
+parameters held by the interface.
+
+Here is an example of an interface where multiple files are found with a glob pattern, and fed into Xarray:
 ``` python
-from neba.data import Dataset, GlobSource, ParamsManagerDict
+from neba.data import DataInterface, GlobSource, ParametersDict
 from neba.data.xarray import XarrayLoader
 
-class SST(Dataset):
-    # manage parameters with a simple dict
-    ParamsManager = ParamsManagerDict
+class SST(DataInterface):
+    # store parameters with a simple dict
+    Parameters = ParametersDict
 
     # load data using xarray
     Loader = XarrayLoader
@@ -93,15 +98,15 @@ class SST(Dataset):
     class Source(GlobSource):
         def get_root_directory(self):
             # we use the parameters of the Dataset instance
-            root = self.params["data_dir"]
+            root = self.parameters["data_dir"]
             # this will automatically be joined into a path
             return [root, "SST"]
             
         def get_filename_pattern(self):
-            return f"{self.params['year']}/SST_*.nc*"
+            return f"{self.parameters['year']}/SST_*.nc*"
             
-ds = SST(year=2000, data_dir="/data")
-sst = ds.get_data()
+di = SST(year=2000, data_dir="/data")
+sst = di.get_data()
 ```
 We used the parameters and loader modules as is, but we configured the source module for our needs.
 

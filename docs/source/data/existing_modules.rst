@@ -5,7 +5,7 @@
 Existing modules
 ****************
 
-The *Dataset* class is expected to be populated by modules (see
+The interface class is expected to be populated by modules (see
 :ref:`module-system`). Here is a quick description of modules that are already
 defined in Neba.
 
@@ -18,57 +18,57 @@ Parameters
 Dict
 ----
 
-:class:`.ParamsManagerDict` stores the parameters in a dictionary.
-Technically it is a subclass of dict that has a callback setup to void the
-modules cache when a parameter is changed.
+:class:`.ParametersDict` stores the parameters in a dictionary. Technically it
+is a subclass of dict that has a callback setup to void the modules cache when a
+parameter is changed.
 
 The callback is called only when setting a value that is new or different from
 the old value. Any change to a mutable (list or dict) will not register::
 
     # Will void cache
-    dm.params["a"] = 0
-    dm.params["nested"] = {"b": 1}
+    di.parameters.direc["a"] = 0
+    di.parameters.direct["nested"] = {"b": 1}
 
     # Will *not* void cache
-    dm.params["a"] = 0  # no change
-    dm.params["nested"]["b"] = 2
+    di.parameters.direct["a"] = 0  # no change
+    di.parameters.direct["nested"]["b"] = 2
 
 
 Section
 -------
 
-:class:`.ParamsManagerSection` stores the parameters in a :class:`.Section`
-object. The section class is specified in the attribute
-:attr:`~.ParamsManagerSection.SECTION_CLS` and defaults to an empty Section.
-When initialized, the module creates a new ``SECTION_CLS`` and updates it
-with the arguments passed to it.
+:class:`.ParametersSection` stores the parameters in a :class:`.Section` object.
+The section class is specified in the attribute
+:attr:`~.ParametersSection.SECTION_CLS` and defaults to an empty Section. When
+initialized, the module creates a new ``SECTION_CLS`` and updates it with the
+arguments passed to it.
 
 It can be defined with::
 
-    class MyDataset(Dataset):
+    class MyDataInterface(DataInterface):
 
-        Params = ParamsManagerSection.new(MySection)
+        Parameters = ParametersSection.new(MySection)
 
 The section has a callback setup to it so that any modification will trigger a
 cache void (except mutable modification)::
 
     # Will void cache
-    dm.params["a"] = 0
-    dm.params.a = 1
-    dm.params.nested.b = 1
-    dm.param["my_list"] = [0]
+    di.parameters.direct["a"] = 0
+    di.parameters.direct.a = 1
+    di.parameters.direct.nested.b = 1
+    di.parameters.direct["my_list"] = [0]
 
     # Will *not* void cache
-    dm.params["a"] = 1  # no change
-    dm.params["my_list"].append(1)
+    di.parameters.direct["a"] = 1  # no change
+    di.parameters.direct["my_list"].append(1)
 
 
 App
 ---
 
-:class:`.ParamsManagerApp` stores its parameters in an :class:`.Application`
+:class:`.ParametersApp` stores its parameters in an :class:`.Application`
 object. An application *must* be supplied as argument. It will be **copied**
-(any modification of the dataset parameters will not affect the original
+(any modification of the interface parameters will not affect the original
 application instance).
 
 .. tip::
@@ -78,11 +78,11 @@ application instance).
 
         from neba.data.util import T_Source, T_Data
 
-        class MyDataset(Dataset[MyApp, T_Source, T_Data]):
+        class MyDataInterface(DataInterface[MyApp, T_Source, T_Data]):
             ...
 
     ``T_Source`` and ``T_Data`` can also be specified, see
-    :ref:`dataset-typing`.
+    :ref:`interface-typing`.
 
 
 .. _existing_source:
@@ -96,7 +96,7 @@ Simple
 For simple case, :class:`.SimpleSource` will just return its attribute
 :attr:`~.SimpleSource.source_loc`::
 
-    class MyDataset(Dataset):
+    class MyDataInterface(DataInterface):
         Source = SimpleSource
         Source.source_loc = "/my_data/file.txt"
 
@@ -117,16 +117,16 @@ defined by :meth:`~.GlobSource.get_glob_pattern`, using :mod:`glob`. Files on
 disk matching the pattern are cached and available at
 :meth:`~.GlobSource.datafiles`. For instance::
 
-    class MyDataset(Dataset):
+    class MyDataInterface(DataInterface):
 
         class Source(GlobSource):
             def get_root_directory(self):
-                return ["/data", self.params["user"], "subfolder"]
+                return ["/data", self.parameters["user"], "subfolder"]
 
             def get_glob_pattern(self):
                 return "SST_*.nc"
 
-    files = MyDataset().get_source()
+    files = MyDataInterface().get_source()
 
 FileFinder
 ++++++++++
@@ -137,11 +137,11 @@ by :class:`.FileFinderSource`. This module relies on the `filefinder
 <https://filefinder.readthedocs.io/en/latest/>`__ package to find files
 according to a specific filename pattern. For instance::
 
-    class MyDataset(Dataset):
+    class MyDataInterface(DataInterface):
 
         class Source(FileFinderSource):
             def get_root_directory(self):
-                return ["/data", self.params["user"], "subfolder"]
+                return ["/data", self.parameters["user"], "subfolder"]
 
             def get_glob_pattern(self):
                 return "SST_%(depth:fmt=.1f)_%(Y)%(m)%(d).nc"
@@ -151,14 +151,14 @@ pattern can define parameters with specific formatting. Thus it can "fix" some
 parameters and restrict its search. With the same example as above we can
 select only the files for a specific depth::
 
-    MyDataset(depth=10.0).get_source()
+    MyDataInterface(depth=10.0).get_source()
 
 If we fix all parameters we can also generate a filename for a given set of
 parameters::
 
-    MyDataset(depth=10.0).source.get_filename(Y=2015, m=5, d=1)
+    MyDataInterface(depth=10.0).source.get_filename(Y=2015, m=5, d=1)
     # or equivalent:
-    MyDataset(depth=10.0, Y=2015, m=5, d=1).source.get_filename()
+    MyDataInterface(depth=10.0, Y=2015, m=5, d=1).source.get_filename()
 
 See the `filefinder <https://filefinder.readthedocs.io/en/latest/>`__
 documentation for more details on its features.
@@ -167,10 +167,9 @@ documentation for more details on its features.
 Xarray
 ======
 
-A compilation of module for interfacing with `Xarray
-<https://xarray.pydata.org/>`__ is available in
-:mod:`neba.data.xarray`. This submodule is not imported in the top
-evel package to avoid importing Xarray unless needed.
+A compilation of modules for using `Xarray <https://xarray.pydata.org/>`__ is
+available in :mod:`neba.data.xarray`. This submodule is not imported in the top
+level package to avoid importing Xarray unless needed.
 
 Loaders
 -------
@@ -183,7 +182,7 @@ Options for these functions can be changed in the attributes
 :attr:`~.XarrayLoader.OPEN_DATASET_KWARGS` and
 :attr:`~.XarrayLoader.OPEN_MFDATASET_KWARGS`::
 
-    class MyDataset(Dataset):
+    class MyDataInterface(DataInterface):
         class Loader(XarrayLoader):
             OPEN_MFDATASET_KWARGS = dict(...)
 
@@ -191,8 +190,8 @@ Writers
 -------
 
 :class:`.XarrayWriter` allows to write to either a single file/store or multiple
-files if given a sequence of datasets. It will guess the function to use from the
-file extension. It currently supports Zarr and Netcdf.
+files if given a sequence of datasets. It will guess the function to use from
+the file extension. It currently supports Zarr and Netcdf.
 
 .. note::
 
@@ -234,9 +233,9 @@ using data along the lines of::
         temp                  (time, depth, lat, lon) float32 dask.array<chunksize=(1, 1, 4320, 8640), meta=np.ndarray>
 
 
-and a dataset defined as::
+and an interface defined as::
 
-    class MyDataset(Dataset):
+    class MyDataInterface(DataInterface):
 
         Writer = XarraySplitWriter
 
@@ -248,10 +247,10 @@ and a dataset defined as::
                 """Yearly folders, date as YYYYMM and depth as integer."""
                 return "%(Y)/temp_%(Y)%(m)_depth_%(depth:fmt=d).nc"
 
-we can then simply call ``MyDataset().write(ds)``. Note this will detect that
-the smallest time parameter in the filename pattern is the month and split the
-dataset appropriately using :external+xarray:meth:`xarray.Dataset.resample`.
-This can be specified manually or avoided alltogether. See the
+we can then simply call ``MyDataInterface().write(ds)``. Note this will detect
+that the smallest time parameter in the filename pattern is the month and split
+the dataset appropriately using :external+xarray:meth:`xarray.Dataset.resample`.
+This can be specified manually or avoided altogether. See the
 :meth:`.XarraySplitWriter.write` documentation for details.
 
 .. note::
@@ -260,5 +259,5 @@ This can be specified manually or avoided alltogether. See the
     appropriate, it is possible to control more finely the splitting process by
     using :meth:`~.XarraySplitWriter.split_by_unfixed` and
     :meth:`~.XarraySplitWriter.split_by_time`. The "time" dimension is split
-    separately to account for the fact that a filename pattern will define separate
-    datetime elements (the year, the month, the day, ...).
+    separately to account for the fact that a filename pattern will define
+    separate datetime elements (the year, the month, the day, ...).

@@ -21,18 +21,17 @@ print(f"{project}: {version}")
 
 ## General configuration
 
-nitpicky = False
+nitpicky = True
 nitpick_ignore = [
-    ("py:class", "Sphinx"),
-    ("py:class", "ObjectMember"),
-    ("py:class", "DocumenterBridge"),
-    ("py:class", "dask.distributed.Security"),
+    # ("py:class", "Sphinx"),
+    # ("py:class", "ObjectMember"),
+    # ("py:class", "DocumenterBridge"),
 ]
 nitpick_ignore_regex = [
-    ("py:.*", r"sphinx.*"),
-    ("py:class", r"(traitlets\.(traitlets\.)?)?TraitType"),
-    ("py:class", r"(traitlets\.(traitlets\.)?)?Int"),
-    ("py:meth", r"__\w+__"),
+    # ("py:.*", r"sphinx.*"),
+    # ("py:class", r"(traitlets\.(traitlets\.)?)?TraitType"),
+    # ("py:class", r"(traitlets\.(traitlets\.)?)?Int"),
+    # ("py:meth", r"__\w+__"),
 ]
 
 templates_path = ["_templates"]
