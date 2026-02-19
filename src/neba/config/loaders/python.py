@@ -11,7 +11,7 @@ from neba.config.section import Section
 from neba.config.types import ConfigParsingError, MultipleConfigKeyError
 from neba.utils import get_classname
 
-from .core import ConfigValue, FileLoader, SerializerDefault
+from .core import ConfigValue, FileLoader
 
 
 class PyConfigContainer:
@@ -63,28 +63,6 @@ class PyConfigContainer:
         return out
 
 
-class SerializerPython(SerializerDefault):
-    """Serializer for writing to a Python file."""
-
-    def default(self, trait: TraitType, key: str | None = None) -> str:
-        """Serialize the default value of the trait."""
-        if trait.default_value is None:
-            if isinstance(trait, Type | Instance) and trait.klass is not None:
-                return self.value(trait, trait.klass)
-            return "None"
-
-        try:
-            return trait.default_value_repr()
-        except Exception:
-            return self.value(trait, trait.default(), key=key)
-
-    def value(self, trait: TraitType, value: Any, key: str | None = None) -> str:
-        """Serialize the current value of the trait using repr."""
-        if type(trait) is Type:
-            return get_classname(value)
-        return repr(value)
-
-
 class PyLoader(FileLoader):
     """Load config from a python file.
 
@@ -103,8 +81,6 @@ class PyLoader(FileLoader):
 
     Sub-configs are not supported (but could be if necessary).
     """
-
-    serializer = SerializerPython()
 
     def load_config(self) -> Iterator[ConfigValue]:
         """Populate the config attribute from python file.
@@ -134,9 +110,13 @@ class PyLoader(FileLoader):
             cv.value = cv.input
             yield cv
 
-    def write(self, fp: IO[str], comment: str = "full") -> None:
+    def write(
+        self, fp: IO[str], comment: str = "full", comment_default: bool = False
+    ) -> None:
         """Return lines of configuration file corresponding to the app config tree."""
-        lines = self.serialize_section(self.app.__class__, [], comment=comment)
+        lines = self.serialize_section(
+            self.app.__class__, [], comment=comment, comment_default=comment_default
+        )
 
         # newline at the end of file
         lines.append("")
@@ -148,6 +128,7 @@ class PyLoader(FileLoader):
         section: type[Section],
         fullpath: list[str],
         comment: str = "full",
+        comment_default: bool = False,
     ) -> list[str]:
         """Serialize a Section and its subsections recursively.
 
@@ -165,27 +146,29 @@ class PyLoader(FileLoader):
         traits = section.class_traits(config=True)
 
         for name, trait in sorted(traits.items()):
-            value = self.serializer.default(trait)
+            fullkey = ".".join(fullpath + [name])
+
+            default = trait.default()
+            is_default = fullkey not in self.config
+            value = self.config.pop(fullkey).get_value() if not is_default else default
+            try:
+                default_str = self.serialize_item(default, trait)
+            except Exception:
+                default_str = ""
+
+            value_repr = self.serialize_item(value, trait)
+            keyval = f"c.{fullkey} = "
+            if value_repr is not None:
+                keyval += value_repr
+            if value_repr is None or (comment_default and is_default):
+                keyval = f"# {keyval}"
+            lines.append(keyval)
 
             if comment != "none":
                 typehint = get_trait_typehint(trait, "minimal")
-                lines.append(f"## {name} ({typehint}) default: {value}")
-
-            fullkey = ".".join(fullpath + [name])
-
-            uncomment_key = fullkey in self.config
-            if uncomment_key:
-                value = self.serializer.value(
-                    trait, self.config.pop(fullkey).get_value()
-                )
-
-            keyval = f"c.{fullkey} = {value}"
-            if not uncomment_key:
-                keyval = "# " + keyval
-            lines.append(keyval)
-
-            if comment != "none" and isinstance(trait, Enum):
-                lines.append("# Accepted values: " + repr(trait.values))
+                lines.append(f"# {name} ({typehint}) default: {default_str}")
+                if isinstance(trait, Enum):
+                    lines.append("# Accepted values: " + repr(trait.values))
 
             if comment not in ["none", "no-help"] and trait.help:
                 lines += self.wrap_comment(trait.help)
@@ -199,10 +182,21 @@ class PyLoader(FileLoader):
             lines.append(f"## {subsection.__class__.__name__} (.{name}) ##")
             underline(lines, "#")
             lines += self.serialize_section(
-                subsection, fullpath + [name], comment=comment
+                subsection,
+                fullpath + [name],
+                comment=comment,
+                comment_default=comment_default,
             )
 
         return lines
+
+    def serialize_item(self, value: Any, trait: TraitType) -> str | None:
+        """Serialize value using repr."""
+        if type(trait) is Type:
+            return repr(get_classname(value))
+        if type(trait) is Instance:
+            return None
+        return repr(value)
 
     def wrap_comment(self, text: str | list[str]) -> list[str]:
         """Wrap text and return it as commented lines."""

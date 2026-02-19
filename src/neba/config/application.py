@@ -379,6 +379,7 @@ class Application(Section, LoggingConfigurable):
         self,
         filename: str | None = None,
         comment: str = "full",
+        comment_default: bool = False,
         use_current_values: bool = True,
         clobber: str | None = None,
     ) -> None:
@@ -395,9 +396,9 @@ class Application(Section, LoggingConfigurable):
             * full: all information about traits is included
             * no-help: help string is not included
             * none: no information is included, only the key and default value
-
-            Note that the line containing the key and value, for instance
-            ``traitname = 2`` will be commented if the value is equal to the default.
+        comment_default:
+            If True (default is False), comment the line ``key = value`` if the value is
+            equal to the trait default.
         use_current_values:
             If True (default), use the current values of the traits instead, otherwise
             use the trait default value.
@@ -478,7 +479,7 @@ class Application(Section, LoggingConfigurable):
         loader.config = config
 
         with open(filename, "w") as fp:
-            loader.write(fp, comment=comment)
+            loader.write(fp, comment=comment, comment_default=comment_default)
 
     def exit(self, exit_status: int | str = 0) -> Never:
         """Exit python interpreter."""

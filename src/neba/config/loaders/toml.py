@@ -40,11 +40,19 @@ class TomlkitLoader(FileLoader, DictLikeLoaderMixin):
 
         return self.resolve_mapping(root_table.unwrap(), origin=self.filename)
 
-    def write(self, fp: IO[str], comment: str = "full") -> None:
+    def write(
+        self, fp: IO[str], comment: str = "full", comment_default: bool = False
+    ) -> None:
         """Return lines of configuration file corresponding to the app config tree."""
         doc = tomlkit.document()
 
-        self.serialize_section(doc, self.app.__class__, [], comment=comment)
+        self.serialize_section(
+            doc,
+            self.app.__class__,
+            [],
+            comment=comment,
+            comment_default=comment_default,
+        )
 
         tomlkit.dump(doc, fp)
 
@@ -54,6 +62,7 @@ class TomlkitLoader(FileLoader, DictLikeLoaderMixin):
         section: type[Section],
         fullpath: list[str],
         comment: str = "full",
+        comment_default: bool = False,
     ) -> T:
         """Serialize a Section and its subsections recursively.
 
@@ -74,33 +83,30 @@ class TomlkitLoader(FileLoader, DictLikeLoaderMixin):
             lines: list[str] = []
 
             fullkey = ".".join(fullpath + [name])
-            update = fullkey in self.config
-            if update:
-                value = self.config.pop(fullkey).get_value()
-                try:
-                    t.add(name, self._sanitize_item(value))
-                except Exception:
-                    update = False
-                    self.log.warning("Failed to serialize value %s=%s", fullkey, value)
 
-            # If anything goes wrong we just use str, it may not be valid toml but
-            # the default value is in a comment anyway, and the user will deal with it.
+            default = trait.default()
+            value = (
+                self.config.pop(fullkey).get_value()
+                if fullkey in self.config
+                else default
+            )
+
             try:
-                default = self._sanitize_item(trait.default()).as_string()
+                t.add(name, self._sanitize_item(value))
             except Exception:
-                default = str(trait.default())
-            if not update:
-                lines.append(f"{name} = {default}")
-
-            if comment == "full":
-                # a separator between the key = value and block of help/info
-                lines.append("-" * len(name))
+                if value is None:
+                    lines.append(f"{name} =")
+                else:
+                    self.log.warning("Failed to serialize value %s=%s", fullkey, value)
+                    lines.append(f"{name} = {value!s}")
 
             if comment != "none":
+                try:
+                    default_str = self._sanitize_item(trait.default()).as_string()
+                except Exception:
+                    default_str = str(trait.default())
                 typehint = get_trait_typehint(trait, "minimal")
-                if trait.default() is None:
-                    default = "None"
-                lines.append(f"{fullkey} ({typehint}) default: {default}")
+                lines.append(f"{fullkey} ({typehint}) default: {default_str}")
 
                 if isinstance(trait, Enum):
                     lines.append("Accepted values: " + repr(trait.values))
@@ -114,7 +120,11 @@ class TomlkitLoader(FileLoader, DictLikeLoaderMixin):
             t.add(
                 name,
                 self.serialize_section(
-                    tomlkit.table(), subsection, fullpath + [name], comment=comment
+                    tomlkit.table(),
+                    subsection,
+                    fullpath + [name],
+                    comment=comment,
+                    comment_default=comment_default,
                 ),
             )
 
@@ -125,9 +135,6 @@ class TomlkitLoader(FileLoader, DictLikeLoaderMixin):
 
         Take care of specific cases when default value is None or a type.
         """
-        if value is None:
-            return String.from_raw("")
-
         # tomlkit only creates InlineTables if parent is Array, so we do it manually
         # TODO: inline tables for dict traits could get too longs, maybe we could find a
         # way to accept proper tables (like we do for dict based loaders ?)

@@ -56,9 +56,11 @@ class JsonLoader(FileLoader, DictLikeLoaderMixin):
 
         return self.resolve_mapping(input, origin=self.filename)
 
-    def write(self, fp: IO[str], comment: str = "full") -> None:
+    def write(
+        self, fp: IO[str], comment: str = "full", comment_default: bool = False
+    ) -> None:
         """Serialize configuration."""
-        if comment != "none":
+        if comment != "none" or comment_default:
             self.app.log.warning("No comments possible in JSON format.")
 
         data = {k: cv.get_value() for k, cv in self.config.items()}

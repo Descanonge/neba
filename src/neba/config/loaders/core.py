@@ -250,18 +250,6 @@ class ConfigLoader:
         raise NotImplementedError
 
 
-class SerializerDefault:
-    """Serialize trait values for config files."""
-
-    def default(self, trait: TraitType, key: str | None = None) -> Any:
-        """Serialize the default value of the trait."""
-        raise NotImplementedError()
-
-    def value(self, trait: TraitType, value: Any, key: str | None = None) -> Any:
-        """Serialize the current value of the trait."""
-        raise NotImplementedError()
-
-
 class FileLoader(ConfigLoader):
     """Load config from a file.
 
@@ -273,8 +261,6 @@ class FileLoader(ConfigLoader):
         Path of configuration file to load.
     """
 
-    serializer = SerializerDefault()
-
     def __init__(
         self, app: Application, filename: str, *args: Any, **kwargs: Any
     ) -> None:
@@ -282,7 +268,7 @@ class FileLoader(ConfigLoader):
         self.filename = filename
         self.full_filename = path.abspath(filename)
 
-    def write(self, fp: IO, comment: Any = None) -> None:
+    def write(self, fp: IO, comment: Any = None, comment_default: bool = False) -> None:
         """Write a configuration file corresponding to the loader config.
 
         Parameters
@@ -295,10 +281,9 @@ class FileLoader(ConfigLoader):
             * full: all information about traits is included
             * no-help: trait help attribute is not included
             * none: no information is included, only the key and default value
-
-            Note that the line containing the key and default value, for instance
-            ``traitname = 2`` will be commented since we do not need to parse/load the
-            default value.
+        comment_default:
+            If True (default is False), comment the line ``key = value`` if the value is
+            equal to the trait default.
         """
         raise NotImplementedError()
 

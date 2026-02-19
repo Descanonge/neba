@@ -70,23 +70,24 @@ class YamlLoader(DictLikeLoaderMixin, FileLoader):
         traits = section.class_traits(config=True)
         for name, trait in traits.items():
             fullkey = ".".join(fullpath + [name])
-            update = fullkey in self.config
+            default = trait.default()
+            value = (
+                self.config.pop(fullkey).get_value()
+                if fullkey in self.config
+                else default
+            )
 
-            value = self.config.pop(fullkey).get_value() if update else trait.default()
-            to_insert = self._sanitize_item(value, trait)
-            if to_insert is not NoOp:
-                data[name] = self._sanitize_item(value, trait)
+            default_str = "null" if default is None else str(default)
+            value_sane = self.serialize_item(value, trait)
+
+            if value_sane is not NoOp:
+                data[name] = value_sane
                 last_key = name
-
-            if trait.default() is None:
-                default = "None"
-            else:
-                default = str(trait.default())
 
             eol_comment = []
             if comment != "none":
                 eol_comment.append(f"({get_trait_typehint(trait, 'minimal')})")
-            eol_comment.append(f"default: {default}")
+            eol_comment.append(f"default: {default_str}")
             data.yaml_add_eol_comment(" ".join(eol_comment), name)
 
             if comment == "full":
@@ -104,7 +105,8 @@ class YamlLoader(DictLikeLoaderMixin, FileLoader):
                 data[name], subsection, fullpath + [name], comment=comment
             )
 
-    def _sanitize_item(self, value: Any, trait: TraitType) -> Any:
+    def serialize_item(self, value: Any, trait: TraitType) -> Any:
+        """Serialize item."""
         if isinstance(value, type):
             return get_classname(value)
 
@@ -127,8 +129,16 @@ class YamlLoader(DictLikeLoaderMixin, FileLoader):
 
         return value
 
-    def write(self, fp: IO, comment: str = "full") -> None:
+    def write(
+        self, fp: IO, comment: str = "full", comment_default: bool = False
+    ) -> None:
         """Return lines of configuration file corresponding to the app config tree."""
+        if comment_default:
+            self.app.log.warning(
+                "YamlLoader does not support commenting the default values "
+                "(received comment_default=True)."
+            )
+
         self.setup_yaml()
         data = CommentedMap()
 
