@@ -120,7 +120,7 @@ class Range(List[T]):
         if len(values) >= self.range_max_len:
             raise IndexError(
                 f"Range length exceding maximum length ({self.range_max_len}). "
-                "Possible mistake, else change FixableTrait.range_max_len"
+                "Possible mistake, else change Fixable.range_max_len"
             )
 
         return values
@@ -132,7 +132,7 @@ class Fixable(Union):
     A fixable parameter meant to work with :mod:`filefinder`. It can take:
 
     1. a value of the appropriate type,
-    2. a string specifying a range of values, see :class:`.RangeTrait`,
+    2. a string specifying a range of values, see :class:`.Range`,
     3. a string that will be interpreted as a regular expression to match a filename
        part,
     4. a list of values (see 1), any of which will be accepted as a valid filename part.
@@ -148,7 +148,7 @@ class Fixable(Union):
         command line that cannot be parsed would still be allowed.
     range
         If trait is Int or Float, allow to transform a string into a range of value
-        using :class:`.RangeTrait`.
+        using :class:`.Range`.
     allow_none
         Allow None as a valid value. Default is True.
     kwargs

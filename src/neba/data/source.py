@@ -129,7 +129,8 @@ class GlobSource(MultiFileSource, CachedModule):
     def get_glob_pattern(self) -> str:
         """Return the glob pattern matching your files.
 
-        If it is defined, the pattern starts from :meth:`get_root_directory`.
+        If it is defined, the pattern starts from
+        :meth:`~MultiFileSource.get_root_directory`.
 
         :Not implemented: implement in your Source module subclass.
         """

@@ -46,8 +46,8 @@ class XarrayLoader(LoaderAbstract[str | os.PathLike, xr.Dataset]):
         """Return a function to preprocess data.
 
         If ``preprocess`` in :attr:`open_mfdataset_kwargs` is True, the function will be
-        used for `open_mfdataset` corresponding argument. The function should take in
-        and return a dataset.
+        used for the corresponding `open_mfdataset` argument. The function should take
+        in and return a dataset.
         """
         raise NotImplementedError
 

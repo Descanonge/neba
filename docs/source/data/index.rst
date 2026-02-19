@@ -8,7 +8,7 @@ Data management
 Neba tries to ease the creation and management of multiple datasets with
 different file formats, structures, etc. One dataset can have with multiple
 source files selected via glob patterns, loaded into pandas, while another could
-have a remote data-store as input loaded into xarray.
+have xarray load a remote data-store.
 
 Each new dataset is specified by creating a subclass of
 :class:`~.DataInterface`. It can then be re-used in various scripts to read or
@@ -23,7 +23,7 @@ Here is a example::
 
    class SST(DataInterface):
 
-      # manage parameters with a simple dict
+      # store parameters in a simple dict
       Parameters = ParametersDict
 
       # load data using xarray

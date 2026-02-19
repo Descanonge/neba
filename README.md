@@ -43,7 +43,7 @@ class App(Application):
         style = Enum(["serial", "parallel"], "serial", help="Only some values are accepted.")
 
 app = App()
-print(app.model.year)
+print(app.model.style)
 ```
 
 Parameters from the example above could be retrieved from the command line with `--result_dir "./some_dir" --model.coefficients 0 2.5 10`. The application can generate a configuration file, for instance in TOML:
@@ -73,7 +73,7 @@ Parameters from the example above could be retrieved from the command line with 
 Neba tries to ease the creation and management of multiple datasets with
 different file formats, structures, etc. One dataset can have with multiple
 source files selected via glob patterns, loaded into pandas, while another could
-have a remote data-store as input loaded into xarray.
+have xarray load a remote data-store.
 
 Each new dataset is specified by creating a subclass of `DataInterface` which
 can then be re-used in various scripts to read or write data easily. The

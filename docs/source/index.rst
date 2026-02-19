@@ -46,7 +46,8 @@ From source::
 Links
 =====
 
-Project home: https://github.com/Descanonge/neba
+- Source: https://github.com/Descanonge/neba
+- PyPI: https://pypi.org/project/neba/
 
 
 .. toctree::

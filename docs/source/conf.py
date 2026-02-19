@@ -21,7 +21,7 @@ print(f"{project}: {version}")
 
 ## General configuration
 
-nitpicky = True
+nitpicky = False
 nitpick_ignore = [
     # ("py:class", "Sphinx"),
     # ("py:class", "ObjectMember"),
@@ -60,7 +60,9 @@ autodoc_typehints_description_target = "all"
 autodoc_class_content = "both"
 autodoc_class_signature = "mixed"
 autodoc_type_aliases = {
-    "traitlets.traitlets.Int": "~traitlets.Int",
+    "traitlets.traitlets.Int": "traitlets.Int",
+    "Finder": "filefinder.finder.Finder",
+    "CallXr": "tuple[str, xarray.Dataset]",
 }
 
 python_use_unqualified_type_names = True

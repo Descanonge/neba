@@ -1,6 +1,4 @@
 
-.. currentmodule:: neba
-
 ****************
 Existing modules
 ****************
@@ -14,6 +12,15 @@ defined in Neba.
 
 Parameters
 ==========
+
+.. currentmodule:: neba.data.params
+
+.. autosummary::
+   :nosignatures:
+
+    ParametersDict
+    ParametersSection
+    ParametersApp
 
 Dict
 ----
@@ -31,7 +38,7 @@ the old value. Any change to a mutable (list or dict) will not register::
 
     # Will *not* void cache
     di.parameters.direct["a"] = 0  # no change
-    di.parameters.direct["nested"]["b"] = 2
+    di.parameters.direct["nested"]["b"] = 2  # mutable operation
 
 
 Section
@@ -60,7 +67,7 @@ cache void (except mutable modification)::
 
     # Will *not* void cache
     di.parameters.direct["a"] = 1  # no change
-    di.parameters.direct["my_list"].append(1)
+    di.parameters.direct["my_list"].append(1)  # mutable operation
 
 
 App
@@ -89,6 +96,15 @@ application instance).
 
 Source
 ======
+
+.. currentmodule:: neba.data.source
+
+.. autosummary::
+   :nosignatures:
+
+    SimpleSource
+    GlobSource
+    FileFinderSource
 
 Simple
 ------
@@ -171,6 +187,15 @@ A compilation of modules for using `Xarray <https://xarray.pydata.org/>`__ is
 available in :mod:`neba.data.xarray`. This submodule is not imported in the top
 level package to avoid importing Xarray unless needed.
 
+.. currentmodule:: neba.data.xarray
+
+.. autosummary::
+   :nosignatures:
+
+    XarrayLoader
+    XarrayWriter
+    XarraySplitWriter
+
 Loaders
 -------
 
@@ -205,10 +230,10 @@ operations in parallel.
 
 .. important::
 
-    Doing so is not so straightforward. It may fail on some filesystems with
-    permission errors. Using the scratch filesystem on a cluster might solve
-    this issue. See :meth:`~.XarrayWriter.send_calls_together`
-    documentation for details on the implementation.
+    Doing so is not so straightforward. It may return permission errors on some
+    filesystems. Using the scratch filesystem on a cluster might solve this
+    issue. See :meth:`~.XarrayWriter.send_calls_together` documentation for
+    details on the implementation.
 
 When writing to multiple files, the :class:`.XarrayWriter` module needs multiple
 datasets and their respective target file. :class:`.XarraySplitWriter` intends

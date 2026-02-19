@@ -15,27 +15,19 @@ To use the configuration framework, you must first define your configuration
 in Python. Here is an example of how it will look::
 
     from neba.config import Application, Section
-    from traitlets import Bool, Float, Int, List, Unicode
-
+    from traitlets import Enum, Float, List, Unicode
 
     class App(Application):
+        """The application will retrieve and store parameters."""
 
-        class computation(Section):
-            parallel = Bool(False, help="Conduct computation in parallel if true.")
-            n_cores = Int(1, help="Number of cores to use for computation.")
+        result_dir = Unicode("/data/results", help="Directory containing results")
 
-        class physical(Section):
-            threshold = Float(2.5, help="Threshold for some computation.")
-            data_name = Unicode("SST")
-            years = List(
-                Int(),
-                default_value=[2000, 2001, 2008],
-                min_length=1,
-                help="Years to do the computation on."
-            )
+        class model(Section):
+            """A nested section."""
+            coefficients = List(Float(), [0.5, 1.5, 10.0], help="Some coefficients for computation.")
+            style = Enum(["serial", "parallel"], "serial", help="Only some values are accepted.")
 
-        >>> app = App()
-        >>> app.physical.years = [2023, 2024]
+    app = App()
 
 Traits
 ------
@@ -56,12 +48,15 @@ section contains parameters in the form of class attribute of type
      class Container(Section):
          name = Float(default_value=1.)
 
-   From this we can access the trait instance with ``Container.name``, but it
-   only contains the information used for its definition, **it does not hold any
-   actual value**.
+   We can access the trait instance from the container *class*, but it only
+   contains the information used for its definition, **it does not hold any
+   actual value**::
 
-   But if we create an **instance of the container**, when we access ``name``
-   we will obtain a value, **not a trait**::
+     >>> Container.name
+     <traitlets.traitlets.Float>
+
+   However, if we access ``name`` from a container **instance** we will obtain a
+   **value**, not a trait::
 
      >>> c = Container()
      >>> type(c.name)
@@ -75,7 +70,7 @@ section contains parameters in the form of class attribute of type
    to validate the new value, or do some more advanced things. But the value
    remains tied to the container instance ``c``.
 
-Here are some of the basic traits types:
+Here are some of the basic trait types:
 
 +------------------------------+--------------------------------------------------+
 | :class:`~traitlets.Int`,     |                                                  |
@@ -94,7 +89,7 @@ Here are some of the basic traits types:
 |                              | its elements, you *must* specify every element:  |
 |                              | ``Tuple(Int(), Unicode())``                      |
 +------------------------------+--------------------------------------------------+
-| :class:`~traitlets.Dict`     | Dict can specify either keys and values:         |
+| :class:`~traitlets.Dict`     | Dict can specify keys and/or values:             |
 |                              | ``Dict(key_trait=Unicode(), value_trait=Int())`` |
 +------------------------------+--------------------------------------------------+
 | :class:`~traitlets.Enum`     | Must be one of the specified values:             |
@@ -114,20 +109,20 @@ Here are some of the basic traits types:
 | :class:`~traitlets.Instance` | This is currently unsupported.                   |
 +------------------------------+--------------------------------------------------+
 
-Neba provides two new of types traits. :class:`.RangeTrait` is a list of
-integers or floats that can be parsed from a slice specification of the form
-``start:stop[:step]``. 'stop' is **inclusive**. It can still take in lists of
-values normally (``--year 2002 2005 2006``).
+Neba provides two new of types traits. :class:`.Range` is a list of integers or
+floats that can be parsed from a slice specification of the form
+``start:stop[:step]``. 'stop' is **inclusive**.
 
-* With ``year = RangeTrait(Int())``, ``--year=2002:2004`` will be parsed as
+* With ``year = Range(Int())``, ``--year=2002:2004`` will be parsed as
   ``[2002, 2003, 2004]``
-* With ``coef = RangeTrait(Float())``, ``--coef=0:1:0.5`` will be parsed as
+* With ``coef = Range(Float())``, ``--coef=0:1:0.5`` will be parsed as
   ``[0.0, 0.5, 1.0]``.
 
 To get a descending list, change the order of start and stop:
-``--year=2008:2002:4`` will be parsed as ``[2008, 2004]``.
+``--year=2008:2002:4`` will be parsed as ``[2008, 2004]``. It can still take in
+lists of values normally (``--year 2002 2005 2006``).
 
-:class:`.FixableTrait` is meant to work with `filefinder
+:class:`.Fixable` is meant to work with `filefinder
 <https://filefinder.readthedocs.io/>`__, for parameters defined in filename
 patterns. It can take
 
@@ -172,7 +167,7 @@ configuration. It can be done by in two ways:
   list of plugins in your mypy configuration file, for instance in
   '*pyproject.toml*'::
 
-    [mypy]
+    [tool.mypy]
     plugins = ['neba.config.mypy_plugin']
 
 * A more standard way is by using the :class:`~section.Subsection` class
@@ -180,28 +175,27 @@ configuration. It can be done by in two ways:
 
     from neba.config import Subsection
 
-    class ChildSection(Section):
+    class MySubsection(Section):
         b = Int(2)
 
-    class ParentSection(Section):
+    class MySection(Section):
         a = Int(1)
 
-        child = Subsection(ChildSection)
+        sub = Subsection(MySubsection)
 
-    >>> sec = ParentSection()
+    >>> sec = MySection()
     >>> sec.a
     1
-    >>> sec.child.b
+    >>> sec.sub.b
     2
 
 .. Note::
 
    Like traits, Subsections are also descriptors: accessing from an instance
-   will give the subsection instance (``sec.child`` is a ChildSection instance),
+   will give the subsection instance (``sec.sub`` is a MySubsection instance),
    and accessing from a class will give a :class:`.Subsection` object which
-   contains information about the subsection type (``ParentSection.child.klass
-   is ChildSection``).
-
+   contains information about the subsection type (``MySection.sub.klass
+   is MySubsection``).
 
 
 Aliases
@@ -211,6 +205,21 @@ It is possible to define aliases with the :attr:`.Section.aliases` attribute.
 It is a mapping of shortcut names to a deeper subsection::
 
     {"short": "some.deeply.nested.subsection"}
+
+
+Documentation
+-------------
+
+Traits can be documented with the ``help`` argument. Sections should be documented
+with a class docstring.
+Both will be re-used:
+
+- in the python console, with :meth:`.Section.emit_help`
+- in the command line, with ``python my_script.py --help`` or
+  ``--list-arguments``
+- in configuration files generated by the application (see
+  :ref:`generating-configuration-files`)
+- in Sphinx, using the :doc:`autodoc_trait`.
 
 
 Application
@@ -246,8 +255,8 @@ Logging
 -------
 
 The base application contains some parameters to easily log information. A
-logger instance is available at :attr:`.Application.log` that will log to the
-console (stderr), and can be configured via the (trait) parameters
+logger instance is available at :attr:`.Application.log` that by default will
+log to the console (stderr), and can be configured via the (trait) parameters
 :attr:`~.Application.log_level`, :attr:`~.Application.log_format`, and
 :attr:`~.Application.log_datefmt`.
 
@@ -259,12 +268,35 @@ configure it further may look into :meth:`.Application._get_logging_config`.
    The logger will have the application class fullname (module + class name), so
    logging inheritance rules will apply.
 
+.. _generating-configuration-files:
+
+Generating configuration files
+------------------------------
+
+The application can generate configuration files automatically with
+:meth:`.Application.write_config`, for any supported format. It will write the
+values currently held by the application.
+
+For each parameter, it will add some information as comments (the trait
+location, type, and default value). You can reduce the amount of comments by
+passing ``comment="no-help"`` or ``comment="none"``.
+You can also comment the parameters if their value is equal to the trait default
+by passing ``comment_default=True``.
+
+If a file already exists, you can completely overwrite the file, or update it.
+In the latter case, the application will use the parameters values in the
+existing file but will replace everything else (comments, new traits, etc).
+
+Neba tries its best to generate valid configuration files, but some traits
+cannot be serialized (an :class:`~traitlets.Instance`, or a None value
+when using TOML for example) and will be commented.
+
 Accessing parameters
 ====================
 
-As explained :ref:`above<traits-explain>`, the **value** of parameters can be
-accessed (or changed) just like attributes of the section that contains them.
-This allows for deeply nested access::
+In a section, the **value** of a parameter can be accessed (or changed) just
+like any other attribute. Subsections are also accessible which allows for
+deeply nested access::
 
   app.some.deeply.nested.trait = 2
 
@@ -280,13 +312,13 @@ Sections also implements the interface of a
 attributes. This still benefits from all features of traitlets. ::
 
   app["some.deeply.nested.trait"] = 2
-  # or
-  app["some"]["deeply.nested.trait"] = 2
+  # is equivalent to
+  app["some"]["deeply"]["nested"]["trait"] = 2
 
 By default :meth:`.Section.keys`, :meth:`.Section.values` and
-:meth:`.Section.items` do not list subsections objects or aliases, but this
-can be altered. They also return flat output; to obtain a nested dictionnary
-pass ``nest=True``.
+:meth:`.Section.items` do not list subsections objects or aliases, but this can
+be altered via keyword arguments. They also return a flat output; to obtain a
+nested dictionary pass ``nest=True``.
 
 .. important::
 
@@ -312,23 +344,24 @@ with some specific input, see the docstring for details.
 .. warning::
 
    Adding traits to a Section instance (via :meth:`~.Section.add_trait`,
-   :meth:`~.Section.update`, or :meth:`~.Section.setdefault`) internally creates a
-   new class and modifies in-place the section instance; something along
-   the lines of::
+   :meth:`~.Section.update`, or :meth:`~.Section.setdefault`) internally creates
+   a new class and modifies in-place the section instance; something along the
+   lines of::
 
-       section.__class__ = type("NewClass", (section.__class__), ...)
+       section.__class__ = type("NewClass", (section.__class__), {<the new traits>})
 
    References to section classes necessary to operate the nested structure are
    updated accordingly, but this is a possibly dangerous operation and it would
    be preferred to set traits statically.
 
+
 .. note::
 
     When changing the value of a trait (with any method), traitlets will
-    validate the new value and trigger callbacks if registered. Refer to the
-    :external+traitlets:doc:`traitlets documentation<using_traitlets>` for more
-    details on how to use these features.
-
+    validate the new value and trigger callbacks if registered. This ensures the
+    configuration stays valid. Refer to the :external+traitlets:doc:`traitlets
+    documentation<using_traitlets>` for more details on how to use these
+    features.
 
 Obtaining subsets of all parameters
 -----------------------------------
@@ -360,22 +393,20 @@ Use :func:`@tag_all_traits<.tag_all_traits>` to tag all traits of a section::
             b = Int(1).tag(group_a=False)  # will not be tagged as True
 
 If some traits are meant to be used as arguments to a specific function,
-:meth:`~.Section.trait_values_from_func_signature` will find the parameters that
-share the same name as arguments from a function signature.
+:meth:`.Section.values_from_func_signature` will find the parameters that share
+the same name as arguments from a function signature.
 
 Input parameters
 ================
 
-The :class:`.Application` class allows to retrieve the values of parameters from
-configuration files or from command line arguments (CLI), when
-:meth:`.Application.start` is launched. It first parses command line arguments
-(unless deactivated) and then reads values from specified configuration files.
-Each time parameters are loaded from any kind of source, the parameters for the
-application object are immediately applied to it, since they can alter the rest
-of the process.
+During its :meth:`~.Application.start` sequence, the :class:`.Application` class
+will first parse command line (CLI) arguments (unless deactivated) and then
+reads values from specified configuration files. Each time parameters are loaded
+from any kind of source, the parameters for the application object are
+immediately applied to it, since they can alter the rest of the process.
 
 The configuration values are retrieved by :class:`.ConfigLoader` objects adapted
-for each source. Its output will be a **flat** dictionary mapping keys to a
+for each source. Their outputs is a **flat** dictionary mapping keys to a
 :class:`.ConfigValue`. Aliases are expanded so that each key is unique.
 
 .. note::
@@ -387,11 +418,11 @@ for each source. Its output will be a **flat** dictionary mapping keys to a
 
 Parameters obtained from configuration files and from CLI are merged. Parameters
 are stored in :attr:`~.Application.file_conf`, :attr:`~.Application.cli_conf`
-and :attr:`~.Application.conf`.
+and the merged version in :attr:`~.Application.conf`.
 
-Finally, the application will recursively instantiate all sections while passing
-the configuration values. Unspecified values will take the trait default value.
-All values will undergo validation from traitlets.
+Finally, the application will recursively instantiate all sections with the
+retrieved configuration values. Unspecified values will take the trait default
+value. All values will undergo validation from traitlets.
 
 .. important::
 
@@ -410,9 +441,9 @@ From configuration files
 The application can retrieve parameters from configuration files by invoking
 :meth:`.Application.load_config_files`. It will load the file (or files)
 specified in :attr:`.Application.config_files`. If multiple files are specified,
-the parameter from one file will replace those from the previous files in the
-list. The resulting configuration will be stored in the
-:attr:`~.Application.file_conf` attribute.
+they are read in order (*ie* if ``config_files = [first_file, second_file]`` the
+parameters of the second file will replace those from the first). The resulting
+configuration will be stored in the :attr:`~.Application.file_conf` attribute.
 
 .. note::
 
@@ -433,7 +464,7 @@ list. The resulting configuration will be stored in the
 
 Different file formats require specific subclasses of :class:`~.FileLoader`. A
 loader is selected by looking at the config file extension. As some loaders have
-external dependencies, loaders are only imported when needed, according to the
+external dependencies, they are only imported when needed, according to the
 import string in :attr:`.Application.file_loaders`.
 
 +-----------------+------------------------------+----------+
@@ -451,14 +482,6 @@ import string in :attr:`.Application.file_loaders`.
 .. _tomlkit: https://pypi.org/project/tomlkit/
 .. _ruamel: https://yaml.dev/doc/ruamel.yaml/
 .. _json: https://docs.python.org/3/library/json.html
-
-File loaders can implement :meth:`.FileLoader.write` to generate a valid
-configuration file of the corresponding format, following the values present in
-its :attr:`~.ConfigLoader.config` attribute. This allows to generate lengthy
-configuration files, with different amounts of additional information in
-comments. The end user can simply use :meth:`.Application.write_config` which
-automatically deals with an existing configuration file that may need to be
-updated, keeping its current values (or not).
 
 Neba supports and **recommends** `TOML <https://toml.io>`__ configuration
 files. It is both easily readable and unambiguous. Despite allowing nested
@@ -492,7 +515,7 @@ that each configuration file replaces the values of the previous one in the
 list.
 
 `Yaml <https://yaml.org/>`__ is supported via :class:`.YamlLoader` and the
-third-party module `ruamel.ymal <ruamel_>`_.
+third-party module `ruamel.yaml <ruamel_>`_.
 
 Despite not being easily readable, the JSON format is also supported via
 :class:`.JsonLoader` and the builtin module :external+python:mod:`json`. The
@@ -503,7 +526,7 @@ From the command line
 
 Parameters can be set from parsing command line arguments, although it can be
 skipped by either setting the :attr:`.Application.ignore_cli` attribute or the
-``ignore_cli`` argument to :meth:`.Application.start`. The configuration
+``ignore_cli`` argument in :meth:`.Application.start`. The configuration
 obtained will be stored in the :attr:`~.Application.cli_conf` attribute and will
 take priority over parameters from configuration files.
 
@@ -514,10 +537,10 @@ paths leading to a trait. Aliases can be used for brevity.
 
 .. note ::
 
-    This can be changed with attributes of the corresponding loader class:
-    :attr:`.CLILoader.allow_kebab` and :attr:`.CLILoader.prefix`.
+    This behavior can be changed with attributes :attr:`.CLILoader.allow_kebab`
+    and :attr:`.CLILoader.prefix`.
 
-Command line arguments need to be parsed. The corresponding trait object
+Command line arguments *need* to be parsed. The corresponding trait object
 will deal with the parsing, using its ``from_string`` or ``from_string_list``
 (for containers) methods.
 
@@ -547,7 +570,7 @@ to be used::
 
     --physical.years 2015 --physical.years 2016 ...
 
-This will raise an error since duplicates are forbidden to avoid possible
+That would raise an error since duplicates are forbidden to avoid possible
 mistakes in user input.
 
 Extra parameters
@@ -565,7 +588,7 @@ and retrieve it with ``app.extra.threshold``.
 Autocompletion
 ++++++++++++++
 
-Autocompletion for parameters is available via `argcomplete
+Command line autocompletion for parameters is available via `argcomplete
 <https://github.com/kislyuk/argcomplete>`__. Install argcomplete and either
 register the scripts you need or activate global completion. In both cases you
 will need to add ``# PYTHON_ARGCOMPLETE_OK`` to the beginning of your scripts.
@@ -585,4 +608,4 @@ configuration.
 .. note::
 
     The loaders :class:`.TomlkitLoader`, :class:`.YamlLoader` and
-    :class:`.JsonLoader` are based on it, as they return a nested mapping.
+    :class:`.JsonLoader` are based on it.

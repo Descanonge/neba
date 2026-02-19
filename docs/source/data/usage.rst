@@ -14,8 +14,8 @@ class definition will contain information on:
 The interface can then be re-used in different scripts so that eventually, you
 can get your data with two simple lines::
 
-  >>> di = MyDataInterface()
-  >>> di.get_data()
+  di = MyDataInterface()
+  di.get_data()
 
 Each *instance* of that subclass corresponds to a set of parameters that can be
 used to change aspects of the interface on the fly: choose only files for a
@@ -33,7 +33,7 @@ attribute where the module instance can be accessed, and an attribute where its
 type can changed:
 
 +------------+------------+------------------------------+-------------+
-| Instance   | Definition | Class                        |  Function   |
+| Instance   | Type       | Class                        |  Function   |
 | attribute  | attribute  |                              |             |
 +============+============+==============================+=============+
 | parameters | Parameters | :class:`.ParametersAbstract` | manage      |
@@ -68,7 +68,7 @@ attribute change, or a class definition with the appropriate name, like so::
 
 .. tip::
 
-    Every module can access its parent interface via :attr:`Module.di`.
+    Every module can access its parent interface via :attr:`.Module.di`.
 
 Parameters
 ----------
@@ -77,24 +77,25 @@ The parameters of the interface are stored in the `Parameters` module. They are
 given as argument to the interface on initialization.
 
 Parameters can be stored in a simple dictionary, or using objects from the
-:doc:`configuration</config/index>` part of Neba like a Section or Application.
-See the :ref:`existing parameters modules<existing_params>`.
+:doc:`configuration</config/index>` part of Neba like a Section or an
+Application. See the :ref:`existing parameters modules<existing_params>`.
 
 There are two ways to access parameters.
 
-- you can use the methods of the parameters module which works like a dictionary:
-  :meth:`~.ParametersAbstract.get`, :meth:`~.ParametersAbstract.set`,
-  :meth:`~.ParametersAbstract.update`::
+- you can use the methods of the parameters module which works like a dictionary::
 
-    >>> di.parameters["a"] = 0
-    >>> di.parameters["a"]
-    0
-    >>> di.parameters.update(a=1, b=2)
+    di.parameters["a"] = 0
+    # equivalent to
+    di.parameters.set("a", 0)
+
+    di.parameters["a"]
+    # somewhat equivalent to
+    di.parameters.get("a")
+
+    di.parameters.update(a=1, b=2)
 
   If a key is not defined, ``di.parameters[key]`` will raise KeyError, and
   ``di.parameters.get(key)`` will return None by default.
-
-  This ensures that you can swap the parameters container without problems.
 
 - Or you can access the parameters container directly at
   :attr:`di.parameters.direct<.ParametersAbstract.direct>`. This is useful
@@ -114,8 +115,8 @@ Both ways of accessing parameters will void the cache appropriately.
     access, the dictionary container has ``__setitem__`` patched, and Sections
     objects have an `observer event
     <https://traitlets.readthedocs.io/en/stable/using_traitlets.html#observe>`__
-    added. Direct access will only void the cache if a new parameter is added,
-    or if the new value is different from the old
+    registered. Direct access will only void the cache if a new parameter is
+    added, or if the new value is different from the old
 
 .. important::
 
@@ -133,7 +134,7 @@ Both ways of accessing parameters will void the cache appropriately.
 .. tip::
 
    The parameters module is accessible from any other module at
-   :attr:`Module.parameters`.
+   :attr:`.Module.parameters`.
 
 It might be useful to quickly change parameters, eventually multiple times,
 before returning to the initial set of parameters. To this end, the method
@@ -149,7 +150,7 @@ save the initial parameters and restore them when exiting::
 
     # we are back to di.parameters["p"] == 0
 
-This is used by :meth:`.DataInterface.get_data_sets` that return data for
+This is used by :meth:`.DataInterface.get_data_sets` that returns data for
 multiple sets of parameters, for instance to get specific dates::
 
     data = di.get_data_sets(
@@ -168,15 +169,14 @@ Source
 
 The ``Source`` module manages the location of data that will be read or written
 by other modules. It could be files on disk, or the address of a remote
-data-store. It allows to use :meth:`.DataInterface.get_source`, though other
-modules will typically call it automatically when they need it.
-
-See :ref:`existing source modules<existing_source>`.
+data-store, or the store object itself. It allows to use
+:meth:`.DataInterface.get_source`, though other modules will typically call it
+automatically when they need it.
 
 Sometimes, you may have data split in different locations. To solve this, you
-can combine multiple source modules into one by taking the union (or
-intersection) of their results. Say you have data files in two locations with
-different naming convention::
+can use a *module mix* to combine multiple source modules into one by taking the
+union (or intersection) of their results. Say you have data files in two
+locations with different naming conventions::
 
     /data1/<year>/data1_<year><month><day>.nc
     and
@@ -200,6 +200,7 @@ We combine two :class:`.FileFinderSource` by taking the union::
             def get_filename_pattern(self):
                 return "data2_%(Y)%(j).nc"
 
+        # SourceUnion a is type of module mix
         Source = SourceUnion.create([Source1, Source2])
 
 If we need to run a method on one of the source modules, for instance to
@@ -240,12 +241,12 @@ More details on :ref:`module_mixes`.
 Loader
 ------
 
-The ``Loader`` module loads the data from the location specified by the Source
-module using different libraries or functions. It allows to use
-:meth:`.DataInterface.get_data`. The source can always be specified manually
-with ``di.get_data(source="my_file")``. It also allows to post-process your
-data, *ie* run a function every time it is loaded. For instance say we need to
-change units on a variable, we just need to implement the
+The ``Loader`` module loads the data using different libraries or functions. It
+allows to use :meth:`.DataInterface.get_data`. By default, it uses the location
+given by the Source module, but it can always be specified manually with
+``di.get_data(source="my_file")``. It also allows to post-process your data,
+*ie* run a function every time it is loaded. For instance say we need to change
+units on a variable, we just need to implement the
 :meth:`~.LoaderAbstract.postprocess` method::
 
     class MyDataInterface(DataInterface):
@@ -308,11 +309,11 @@ datasets, all modules are to be expected to receive either one source file, or
 a list of them. ``XarrayLoader`` may receive a ``str`` or list thereof (that it
 will concatenate into a single output).
 
-The types of parameters, source, and data are also left as generics for the
-interface class (in this order). By specifying them you get type-checks for some
-top-level methods like :meth:`.DataInterface.get_data` or
-:meth:`.DataInterface.get_source`, and because those generics are transmitted to
-modules, it also allows to type-check compatibility between modules.
+The types of parameters, source, and data (in this order) are also left as
+generics for the interface class. By specifying them you get type-checks for
+some top-level methods like :meth:`.DataInterface.get_data` or
+:meth:`.DataInterface.get_source`, and it allows to type-check compatibility
+between modules.
 
 ::
 
@@ -329,12 +330,12 @@ modules, it also allows to type-check compatibility between modules.
 
 .. note::
 
-    Module having union types can be tricky. You can think about it in terms of
+    Modules having union types can be tricky. You can think about it in terms of
     inputs and outputs:
 
-    - source modules output source,
-    - loader modules take in source and output data,
-    - writer modules take in source and data.
+    - source modules output *source*,
+    - loader modules take in *source* and output *data*,
+    - writer modules take in *source* and *data*.
 
     For outputs, you should specify all types in your interface generic. For
     inputs, it's okay not to list them all.
@@ -395,10 +396,10 @@ Cache module
 It might help for some modules to have a cache to write information into. For
 instance source modules for multiple files leverage this. A module simply needs
 to be a subclass of :class:`.CachedModule`. This will automatically create a
-``cache`` attribute containing a dictionary. It will also add a callback to the
-list of reset-callbacks of the interface, so that this module cache will be
-voided on parameters change. This can be disabled however by setting the class
-attribute ``_add_void_callback`` to False (in the new module subclass).
+dictionary in the ``cache`` attribute. It will also register a callback in the
+interface, so that this module cache will be voided on parameters change. This
+can be disabled however by setting the class attribute ``_add_void_callback`` to
+False (in the new module subclass).
 
 If a module has a cache, you can use the :func:`.autocached` decorator to make
 the value of one of its method or property automatically cached. Watch out
@@ -433,17 +434,14 @@ To add more modules types, the correspondence between the attribute containing
 the module instance and the one containing the module type must be indicated in
 the mapping :attr:`~.DataInterface._modules_attributes`.
 
-.. note::
-
-   The parameters module is instantiated first. Other modules are instantiated
-   in the order of that mapping. Modules are then setup in the same order.
-
 Interfaces are initialized with an optional argument giving the parameters, and
 additional keyword arguments. All modules are instantiated with the same
-arguments. Their :attr:`~.Module.di` attribute is set to the parent interface.
-Once they are all instantiated, they are setup using the :meth:`.Module.setup`
-method. This allow to be (mostly) sure that all other module exist if there is
-need for interplay.
+arguments. The parameters module is instantiated first. Other modules are
+instantiated in the order of :attr:`~.DataInterface._modules_attributes`. Once
+all instantiated, modules are then setup in the same order with
+:meth:`.Module.setup`. Once they are all instantiated, they are setup using the
+:meth:`.Module.setup` method. This allow to be (mostly) sure that all other
+modules exist if there is need for interplay.
 
 .. note::
 
@@ -451,15 +449,13 @@ need for interplay.
    :attr:`.Module._allow_instantiation_failure` is True, it will only log a
    warning and the module will not be accessible.
 
-For the most part, modules are made to be independent of each others, but it can
-be useful to have interplay. The interface provides some basic API that modules
-can leverage like :meth:`.DataInterface.get_source` or
-:meth:`.DataInterface.get_data`. See :doc:`existing_modules` for examples.
+   Similarly, only a warning is emitted if an exception occurs during setup.
+   Only the parameters module is not allowed to fail.
 
 Interface store
 ===============
 
-To help deal with numerous interfaces classes, we provide a
+To help deal with numerous interface classes, we provide a
 :class:`mapping<.DataInterfaceStore>` allowing to store and easily access your
 interfaces using their :attr:`~.DataInterface.ID` or
 :attr:`~.DataInterface.SHORTNAME` attributes, or a custom name.
@@ -478,7 +474,7 @@ interfaces using their :attr:`~.DataInterface.ID` or
     # or
     di_cls = store["SST"]
 
-If multiple interface0 have the same shortname, they can only be accessed by
+If multiple interfaces have the same shortname, they can only be accessed by
 their ID. Trying to access with an ambiguous shortname will raise a KeyError.
 
 You can directly register an interface with a decorator::

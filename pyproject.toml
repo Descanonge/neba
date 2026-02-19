@@ -36,6 +36,7 @@ thirdparty = [
     'numpy',
     'pandas',
     'dask',
+    'distributed',
     'tomlkit',
     'ruamel.yaml>=0.18',
     'filefinder>=1.2',
