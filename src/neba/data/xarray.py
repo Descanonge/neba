@@ -34,18 +34,18 @@ class XarrayLoader(LoaderAbstract[str | os.PathLike, xr.Dataset]):
     Uses :func:`xarray.open_dataset` or :func:`xarray.open_mfdataset` to open data.
     """
 
-    OPEN_DATASET_KWARGS: dict[str, t.Any] = {}
+    open_dataset_kwargs: dict[str, t.Any] = {}
     """Options passed to :func:`xarray.open_dataset`. :meth:`.DataInterface.get_data`
     kwargs take precedence."""
 
-    OPEN_MFDATASET_KWARGS: dict[str, t.Any] = {}
+    open_mfdataset_kwargs: dict[str, t.Any] = {}
     """Options passed to :func:`xarray.open_mfdataset`. :meth:`.DataInterface.get_data`
     kwargs take precedence."""
 
     def preprocess(self) -> abc.Callable[[xr.Dataset], xr.Dataset]:
         """Return a function to preprocess data.
 
-        If ``preprocess`` in :attr:`OPEN_MFDATASET_KWARGS` is True, the function will be
+        If ``preprocess`` in :attr:`open_mfdataset_kwargs` is True, the function will be
         used for `open_mfdataset` corresponding argument. The function should take in
         and return a dataset.
         """
@@ -64,14 +64,14 @@ class XarrayLoader(LoaderAbstract[str | os.PathLike, xr.Dataset]):
             Sequence of files containing data.
         kwargs:
             Arguments passed to :func:`xarray.open_dataset`. They will take precedence
-            over the default values of the class attribute :attr:`OPEN_DATASET_KWARGS`
-            and :attr:`OPEN_MFDATASET_KWARGS`.
+            over the default values of the class attribute :attr:`open_dataset_kwargs`
+            and :attr:`open_mfdataset_kwargs`.
         """
         if isinstance(source, str | os.PathLike):
-            kwargs = self.OPEN_DATASET_KWARGS | kwargs
+            kwargs = self.open_dataset_kwargs | kwargs
             ds = xr.open_dataset(source, **kwargs)
         else:
-            kwargs = self.OPEN_MFDATASET_KWARGS | kwargs
+            kwargs = self.open_mfdataset_kwargs | kwargs
             if kwargs.get("preprocess", False) is True:
                 kwargs["preprocess"] = self.preprocess()
             ds = xr.open_mfdataset(source, **kwargs)
@@ -82,10 +82,10 @@ class XarrayLoader(LoaderAbstract[str | os.PathLike, xr.Dataset]):
 class XarrayWriter(WriterAbstract[str, xr.Dataset]):
     """Write Xarray dataset."""
 
-    TO_NETCDF_KWARGS: dict[str, t.Any] = {}
+    to_netcdf_kwargs: dict[str, Any] = {}
     """Arguments passed to the function writing files."""
 
-    TO_ZARR_KWARGS: dict[str, t.Any] = {}
+    to_zarr_kwargs: dict[str, Any] = {}
     """Arguments passed to the writing function for zarr stores."""
 
     def _guess_format(self, filename: str) -> t.Literal["nc", "zarr"]:
@@ -155,11 +155,11 @@ class XarrayWriter(WriterAbstract[str, xr.Dataset]):
 
         log.debug("Sending single call to %s", outfile)
         if format == "nc":
-            kwargs = self.TO_NETCDF_KWARGS | kwargs
+            kwargs = self.to_netcdf_kwargs | kwargs
             return ds.to_netcdf(outfile, **kwargs)
 
         if format == "zarr":
-            kwargs = self.TO_ZARR_KWARGS | kwargs
+            kwargs = self.to_zarr_kwargs | kwargs
             return ds.to_zarr(outfile, **kwargs)
 
         t.assert_never(format)

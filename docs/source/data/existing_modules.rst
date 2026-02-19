@@ -179,12 +179,12 @@ Loaders
 :external+xarray:func:`~xarray.open_mfdataset`.
 
 Options for these functions can be changed in the attributes
-:attr:`~.XarrayLoader.OPEN_DATASET_KWARGS` and
-:attr:`~.XarrayLoader.OPEN_MFDATASET_KWARGS`::
+:attr:`~.XarrayLoader.open_dataset_kwargs` and
+:attr:`~.XarrayLoader.open_mfdataset_kwargs`::
 
     class MyDataInterface(DataInterface):
         class Loader(XarrayLoader):
-            OPEN_MFDATASET_KWARGS = dict(...)
+            open_mfdataset_kwargs = dict(...)
 
 Writers
 -------

@@ -92,12 +92,12 @@ class SST(DataInterface):
 
     # load data using xarray
     Loader = XarrayLoader
-    Loader.OPEN_MFDATASET_KWARGS = dict(parallel=True)
+    Loader.open_mfdataset_kwargs = dict(parallel=True)
     
     # find files on disk using glob
     class Source(GlobSource):
         def get_root_directory(self):
-            # we use the parameters of the Dataset instance
+            # we use the parameters of the interface instance
             root = self.parameters["data_dir"]
             # this will automatically be joined into a path
             return [root, "SST"]

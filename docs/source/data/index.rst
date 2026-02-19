@@ -28,7 +28,7 @@ Here is a example::
 
       # load data using xarray
       Loader = XarrayLoader
-      Loader.OPEN_MFDATASET_KWARGS = dict(parallel=True)
+      Loader.open_mfdataset_kwargs = dict(parallel=True)
 
       # find files on disk using glob
       class Source(GlobSource):

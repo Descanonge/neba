@@ -113,7 +113,7 @@ class TestLoader:
                     return "test_mf_dataset_%(time:fmt=d).nc"
 
             class Loader(XarrayLoader):
-                OPEN_MFDATASET_KWARGS = {"preprocess": True}
+                open_mfdataset_kwargs = {"preprocess": True}
 
                 def preprocess(self):
                     finder = self.di.source.filefinder
