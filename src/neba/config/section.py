@@ -1083,11 +1083,8 @@ class Section(HasTraits):
 
         return lines
 
-    def trait_values_from_func_signature(
-        self,
-        func: Callable,
-        trait_select: Mapping | None = None,
-        **kwargs: Any,
+    def values_from_func_signature(
+        self, func: Callable, trait_select: Mapping | None = None, **kwargs: Any
     ) -> dict:
         """Return trait values that appear in a function signature.
 
