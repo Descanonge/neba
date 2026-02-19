@@ -6,9 +6,8 @@ This uses :mod:`ruamel.yaml`.
 from __future__ import annotations
 
 import logging
-import typing as t
-from collections import abc
-from typing import IO
+from collections.abc import Iterator
+from typing import IO, TYPE_CHECKING, Any
 
 from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap, CommentedSeq, CommentedSet
@@ -19,7 +18,7 @@ from neba.utils import get_classname
 
 from .core import ConfigValue, DictLikeLoaderMixin, FileLoader
 
-if t.TYPE_CHECKING:
+if TYPE_CHECKING:
     from neba.config.section import Section
 
 log = logging.getLogger(__name__)
@@ -44,7 +43,7 @@ class YamlLoader(DictLikeLoaderMixin, FileLoader):
         self.yaml.default_flow_style = False
         self.yaml.compact(seq_seq=True, seq_map=True)
 
-    def load_config(self) -> abc.Iterator[ConfigValue]:
+    def load_config(self) -> Iterator[ConfigValue]:
         """Populate the config attribute from YAML file."""
         self.setup_yaml()
 
@@ -105,7 +104,7 @@ class YamlLoader(DictLikeLoaderMixin, FileLoader):
                 data[name], subsection, fullpath + [name], comment=comment
             )
 
-    def _sanitize_item(self, value: t.Any, trait: TraitType) -> t.Any:
+    def _sanitize_item(self, value: Any, trait: TraitType) -> Any:
         if isinstance(value, type):
             return get_classname(value)
 

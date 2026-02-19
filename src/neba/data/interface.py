@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import copy
 import logging
-import typing as t
-from collections import abc
+from collections.abc import Callable, Mapping, Sequence
+from typing import Any, Generic, Literal, Self
 
 from traitlets import Bunch
 
@@ -21,7 +21,7 @@ from .writer import WriterAbstract
 log = logging.getLogger(__name__)
 
 
-class DataInterface(t.Generic[T_Params, T_Source, T_Data]):
+class DataInterface(Generic[T_Params, T_Source, T_Data]):
     """Define how to interface with data.
 
     Delegates features to modules for parameters management, source management, data
@@ -63,14 +63,14 @@ class DataInterface(t.Generic[T_Params, T_Source, T_Data]):
     loader: LoaderAbstract[T_Source, T_Data]
     writer: WriterAbstract[T_Source, T_Data]
 
-    _reset_callbacks: dict[str, abc.Callable[..., None]]
+    _reset_callbacks: dict[str, Callable[..., None]]
     """Dictionary of callbacks to run when parameters are changed/reset.
 
     Callbacks should be functions that take the interface as first argument, then any
     number of keyword arguments.
     """
 
-    def __init__(self, params: t.Any | None = None, **kwargs: t.Any) -> None:
+    def __init__(self, params: Any | None = None, **kwargs: Any) -> None:
         self._modules = {}
         self._reset_callbacks = {}
 
@@ -88,7 +88,7 @@ class DataInterface(t.Generic[T_Params, T_Source, T_Data]):
         for mod in self._modules.values():
             mod.setup_safe()
 
-    def _instantiate_modules(self, *args: t.Any, **kwargs: t.Any) -> None:
+    def _instantiate_modules(self, *args: Any, **kwargs: Any) -> None:
         for instance_attr, type_attr in self._modules_attributes.items():
             # None means the user has deleted module without unregistering it, fine.
             mod_type = getattr(self, type_attr, None)
@@ -157,7 +157,7 @@ class DataInterface(t.Generic[T_Params, T_Source, T_Data]):
 
     # - end of parameters methods
 
-    def register_callback(self, key: str, func: abc.Callable[..., None]) -> None:
+    def register_callback(self, key: str, func: Callable[..., None]) -> None:
         """Register a new callback. Throw error if it already exists."""
         if key in self._reset_callbacks:
             raise KeyError(
@@ -166,7 +166,7 @@ class DataInterface(t.Generic[T_Params, T_Source, T_Data]):
         self._reset_callbacks[key] = func
 
     def trigger_callbacks(
-        self, callbacks: bool | list[str] = True, **kwargs: t.Any
+        self, callbacks: bool | list[str] = True, **kwargs: Any
     ) -> None:
         """Call all registered callbacks.
 
@@ -189,7 +189,7 @@ class DataInterface(t.Generic[T_Params, T_Source, T_Data]):
             callback = self._reset_callbacks[key]
             callback(self, **kwargs)
 
-    def get_source(self, *args: t.Any, **kwargs: t.Any) -> T_Source | list[T_Source]:
+    def get_source(self, *args: Any, **kwargs: Any) -> T_Source | list[T_Source]:
         """Return source for the data.
 
         Can be filenames, URL, store object, etc.
@@ -198,14 +198,14 @@ class DataInterface(t.Generic[T_Params, T_Source, T_Data]):
         """
         return self.source.get_source(*args, **kwargs)
 
-    def get_data(self, *args: t.Any, **kwargs: t.Any) -> T_Data:
+    def get_data(self, *args: Any, **kwargs: Any) -> T_Data:
         """Return data object.
 
         Wraps around ``loader.get_data()``.
         """
         return self.loader.get_data(*args, **kwargs)
 
-    def write(self, *args: t.Any, **kwargs: t.Any) -> t.Any:
+    def write(self, *args: Any, **kwargs: Any) -> Any:
         """Write data to target.
 
         Wraps around ``writer.write()``.
@@ -214,9 +214,9 @@ class DataInterface(t.Generic[T_Params, T_Source, T_Data]):
 
     def get_data_sets(
         self,
-        params_maps: abc.Sequence[abc.Mapping[str, t.Any]] | None = None,
-        params_sets: abc.Sequence[abc.Sequence] | None = None,
-        **kwargs: t.Any,
+        params_maps: Sequence[Mapping[str, Any]] | None = None,
+        params_sets: Sequence[Sequence] | None = None,
+        **kwargs: Any,
     ) -> T_Data | list[T_Data]:
         """Return data for specific sets of parameters.
 
@@ -305,10 +305,10 @@ class _ParamsContext:
             for key, val in saved_cache.items():
                 module.cache[key] = val
 
-    def __enter__(self) -> t.Self:
+    def __enter__(self) -> Self:
         return self
 
-    def __exit__(self, *exc: t.Any) -> t.Literal[False]:
+    def __exit__(self, *exc: Any) -> Literal[False]:
         self.di.parameters.reset()
         self.di.parameters.update(self.params)
 
@@ -332,7 +332,7 @@ class DataInterfaceSection(DataInterface, Section):
         Traits of the interface are extracted. The rest is passed to modules as usual.
     """
 
-    def __init__(self, params: t.Any | None = None, **kwargs: t.Any) -> None:
+    def __init__(self, params: Any | None = None, **kwargs: Any) -> None:
         # extract traits from kwargs
         config = {}
         for name in self.keys():

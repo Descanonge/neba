@@ -8,10 +8,10 @@ import logging
 import os
 import socket
 import subprocess
-import typing as t
-from collections import abc
+from collections.abc import Iterable, Sequence
 from datetime import datetime
 from os import path
+from typing import Any, Generic, Protocol, TypeVar, cast, runtime_checkable
 
 from neba.config.loaders.json import JsonEncoderTypes
 
@@ -21,22 +21,22 @@ from .types import T_Data, T_Source, T_Source_contra
 log = logging.getLogger(__name__)
 
 
-class WriterAbstract(t.Generic[T_Source_contra, T_Data], Module):
+class WriterAbstract(Generic[T_Source_contra, T_Data], Module):
     """Abstract class of Writer module.
 
     Manages metadata to (eventually) add to data before writing.
     """
 
-    metadata_params_exclude: abc.Sequence[str] = ["dask.", "log_"]
+    metadata_params_exclude: Sequence[str] = ["dask.", "log_"]
     """Prefixes of parameters to exclude from metadata attribute."""
 
-    metadata_git_ignore: abc.Sequence[str] = []
+    metadata_git_ignore: Sequence[str] = []
     """Files and folders to ignore when creating git diff."""
 
     metadata_max_diff_lines = 30
     """Maximum number of lines to include in diff."""
 
-    def add_git_metadata(self, script: str, meta: dict[str, t.Any]) -> None:
+    def add_git_metadata(self, script: str, meta: dict[str, Any]) -> None:
         """Add git information to meta dictionary."""
         # use the directory of the calling script
         gitdir = path.dirname(script) if script else "."
@@ -104,7 +104,7 @@ class WriterAbstract(t.Generic[T_Source_contra, T_Data], Module):
         self,
         add_interface_params: bool = True,
         add_commit: bool = True,
-    ) -> dict[str, t.Any]:
+    ) -> dict[str, Any]:
         """Get information on how data was created.
 
         Attributes are:
@@ -170,10 +170,10 @@ class WriterAbstract(t.Generic[T_Source_contra, T_Data], Module):
 
     def write(
         self,
-        data: T_Data | abc.Sequence[T_Data],
-        target: T_Source_contra | abc.Sequence[T_Source_contra] | None = None,
-        **kwargs: t.Any,
-    ) -> t.Any:
+        data: T_Data | Sequence[T_Data],
+        target: T_Source_contra | Sequence[T_Source_contra] | None = None,
+        **kwargs: Any,
+    ) -> Any:
         """Write data to file or store.
 
         :Not implemented: implement in a module subclass.
@@ -189,7 +189,7 @@ class WriterAbstract(t.Generic[T_Source_contra, T_Data], Module):
         raise NotImplementedError("Implement in a module subclass.")
 
     def check_directories(
-        self, calls: abc.Sequence[tuple[T_Source_contra, T_Data]]
+        self, calls: Sequence[tuple[T_Source_contra, T_Data]]
     ) -> None:
         """Check if directories are missing, and create them if necessary."""
         files = [f for f, _ in calls]
@@ -197,7 +197,7 @@ class WriterAbstract(t.Generic[T_Source_contra, T_Data], Module):
         # Keep only the containing directories, with no duplicate
         directories = set()
         for f in files:
-            directories.add(path.dirname(t.cast(str | os.PathLike, f)))
+            directories.add(path.dirname(cast(str | os.PathLike, f)))
 
         for d in directories:
             if not path.isdir(d):
@@ -209,7 +209,7 @@ class WriterAbstract(t.Generic[T_Source_contra, T_Data], Module):
         self.check_directories([call])
 
     def check_overwriting_calls(
-        self, calls: abc.Sequence[tuple[T_Source_contra, T_Data]]
+        self, calls: Sequence[tuple[T_Source_contra, T_Data]]
     ) -> None:
         """Check if some calls have the same filename."""
         outfiles = [f for f, _ in calls]
@@ -224,8 +224,8 @@ class WriterAbstract(t.Generic[T_Source_contra, T_Data], Module):
             )
 
     def send_single_call(
-        self, call: tuple[T_Source_contra, T_Data], **kwargs: t.Any
-    ) -> t.Any:
+        self, call: tuple[T_Source_contra, T_Data], **kwargs: Any
+    ) -> Any:
         """Execute a single call.
 
         :Not implemented: implement in a module subclass.
@@ -238,8 +238,8 @@ class WriterAbstract(t.Generic[T_Source_contra, T_Data], Module):
         raise NotImplementedError("Implement in a module subclass.")
 
     def send_calls(
-        self, calls: abc.Sequence[tuple[T_Source_contra, T_Data]], **kwargs: t.Any
-    ) -> list[t.Any]:
+        self, calls: Sequence[tuple[T_Source_contra, T_Data]], **kwargs: Any
+    ) -> list[Any]:
         """Send multiple calls serially.
 
         Check beforehand if there are filename conflicts betwen calls, and make
@@ -256,11 +256,11 @@ class WriterAbstract(t.Generic[T_Source_contra, T_Data], Module):
         return [self.send_single_call(call, **kwargs) for call in calls]
 
 
-T = t.TypeVar("T", covariant=True)
+T = TypeVar("T", covariant=True)
 
 
-@t.runtime_checkable
-class Splitable(t.Protocol[T]):
+@runtime_checkable
+class Splitable(Protocol[T]):
     """Protocol for a source module that can split data into multiple sources.
 
     A number of parameters can be left :meth:`unfixed` which results in multiple files
@@ -278,14 +278,14 @@ class Splitable(t.Protocol[T]):
     """
 
     @property
-    def unfixed(self) -> abc.Iterable[T]:
+    def unfixed(self) -> Iterable[T]:
         """Iterable of parameters that are not fixed.
 
         This must take into account the values that are specified (or not) in the
         data-manager parameters.
         """
 
-    def get_filename(self, **fixes: t.Any) -> T:
+    def get_filename(self, **fixes: Any) -> T:
         """Return a filename corresponding to this set of values.
 
         This must also take into account values that are already specified in the
@@ -315,6 +315,6 @@ class SplitWriterMixin(WriterAbstract[T_Source, T_Data]):
         """Return set of parameters that are not fixed."""
         return set(self.source.unfixed)
 
-    def get_filename(self, **kwargs: t.Any) -> T_Source:
+    def get_filename(self, **kwargs: Any) -> T_Source:
         """Return a filename corresponding to current parameters and kwargs."""
         return self.source.get_filename(**kwargs)

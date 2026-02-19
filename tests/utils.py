@@ -1,14 +1,16 @@
+"""Utilities for tests."""
+
 import keyword
-import typing as t
+from typing import Protocol, TypeVar
 
 from hypothesis import strategies as st
 from traitlets import TraitType
 
-P = t.TypeVar("P")
-T_Trait = t.TypeVar("T_Trait", bound=TraitType)
+P = TypeVar("P")
+T_Trait = TypeVar("T_Trait", bound=TraitType)
 
 
-class Drawer(t.Protocol):
+class Drawer(Protocol):
     """Drawing function."""
 
     def __call__(self, __strat: st.SearchStrategy[P]) -> P: ...

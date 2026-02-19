@@ -7,7 +7,7 @@ An accompanying class is defined and stores information statically about our gen
 config.
 """
 
-import typing as t
+from typing import Any, Generic, TypeVar
 
 import hypothesis.strategies as st
 from traitlets import (
@@ -31,10 +31,10 @@ from tests.utils import Drawer
 
 from .trait_generation import DummyClass, trait_to_strat
 
-S = t.TypeVar("S", bound=Section)
+S = TypeVar("S", bound=Section)
 
 
-class SectionInfo(t.Generic[S]):
+class SectionInfo(Generic[S]):
     """Class containing information about a given Section class.
 
     It retains the traits defined on this section level. For any trait, it can give its
@@ -54,7 +54,7 @@ class SectionInfo(t.Generic[S]):
 
     traits: dict[str, TraitType] = {}
 
-    cache: dict[tuple[bool, bool, bool], t.Any] = {}
+    cache: dict[tuple[bool, bool, bool], Any] = {}
 
     def __init_subclass__(cls):
         # Make copies
@@ -115,7 +115,7 @@ class SectionInfo(t.Generic[S]):
         return traits
 
     @classmethod
-    def default(cls, key: str) -> t.Any:
+    def default(cls, key: str) -> Any:
         """Get the default value of a key."""
         if key in cls.traits:
             trait = cls.traits[key]
@@ -128,7 +128,7 @@ class SectionInfo(t.Generic[S]):
         return subinfo.default(".".join(subkey))
 
     @classmethod
-    def generic_args(cls) -> dict[str, tuple[list[str], t.Any]]:
+    def generic_args(cls) -> dict[str, tuple[list[str], Any]]:
         """Return arguments as could be given on command-line and their parsed value."""
         raise NotImplementedError
 
@@ -294,7 +294,7 @@ class GenericSectionInfo(SectionInfo[GenericSection]):
     )
 
     @classmethod
-    def generic_args(cls) -> dict[str, tuple[list[str], t.Any]]:
+    def generic_args(cls) -> dict[str, tuple[list[str], Any]]:
         """Return arguments as could be given on command-line and their parsed value.
 
         Is also used as reference for creating manually configuration files.
@@ -413,7 +413,7 @@ class GenericConfigInfo(GenericSectionInfo):
     }
 
     @classmethod
-    def generic_args(cls) -> dict[str, tuple[list[str], t.Any]]:
+    def generic_args(cls) -> dict[str, tuple[list[str], Any]]:
         generic_args = dict(super().generic_args())
         generic_args.update(
             {f"sub_generic.{k}": v for k, v in super().generic_args().items()}

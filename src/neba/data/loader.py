@@ -1,15 +1,13 @@
 """Module to load data into python."""
 
-from __future__ import annotations
-
-import typing as t
-from collections import abc
+from collections.abc import Mapping, Sequence
+from typing import Any, Generic
 
 from .module import Module
 from .types import T_Data, T_Source_contra
 
 
-class LoaderAbstract(t.Generic[T_Source_contra, T_Data], Module):
+class LoaderAbstract(Generic[T_Source_contra, T_Data], Module):
     """Abstract class of Loader module.
 
     The Loader is tasked with opening the data into Python.
@@ -20,10 +18,10 @@ class LoaderAbstract(t.Generic[T_Source_contra, T_Data], Module):
         self,
         /,
         *,
-        source: T_Source_contra | abc.Sequence[T_Source_contra] | None = None,
+        source: T_Source_contra | Sequence[T_Source_contra] | None = None,
         ignore_postprocess: bool = False,
-        load_kwargs: abc.Mapping[str, t.Any] | None = None,
-        **kwargs: t.Any,
+        load_kwargs: Mapping[str, Any] | None = None,
+        **kwargs: Any,
     ) -> T_Data:
         """Load data and run post-processing.
 
@@ -71,8 +69,8 @@ class LoaderAbstract(t.Generic[T_Source_contra, T_Data], Module):
         )
 
     def load_data_concrete(
-        self, source: T_Source_contra | abc.Sequence[T_Source_contra], **kwargs: t.Any
-    ) -> t.Any:
+        self, source: T_Source_contra | Sequence[T_Source_contra], **kwargs: Any
+    ) -> Any:
         """Load the data from datafiles.
 
         This method should be implemented in subclasses to account for different

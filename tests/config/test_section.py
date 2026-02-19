@@ -1,7 +1,7 @@
 """Test Section class."""
 
 import logging
-from collections import abc
+from collections.abc import Mapping, MutableMapping
 
 import hypothesis.strategies as st
 import pytest
@@ -330,11 +330,11 @@ class TestMappingInterface:
     """Test the Mapping interface of Sections."""
 
     def test_is_mapping(self):
-        assert issubclass(Section, abc.Mapping)
-        assert isinstance(Section(), abc.Mapping)
+        assert issubclass(Section, Mapping)
+        assert isinstance(Section(), Mapping)
 
-        assert issubclass(info.section, abc.Mapping)
-        assert isinstance(info.section(), abc.Mapping)
+        assert issubclass(info.section, Mapping)
+        assert isinstance(info.section(), Mapping)
 
     def test_getitem(self):
         section = info.section()
@@ -455,11 +455,11 @@ class TestMutableMappingInterface:
     """
 
     def test_is_mutable_mapping(self):
-        assert issubclass(Section, abc.MutableMapping)
-        assert isinstance(Section(), abc.MutableMapping)
+        assert issubclass(Section, MutableMapping)
+        assert isinstance(Section(), MutableMapping)
 
-        assert issubclass(info.section, abc.MutableMapping)
-        assert isinstance(info.section(), abc.MutableMapping)
+        assert issubclass(info.section, MutableMapping)
+        assert isinstance(info.section(), MutableMapping)
 
     @given(values=GenericConfigInfo.values_strat())
     def test_set(self, values: dict):

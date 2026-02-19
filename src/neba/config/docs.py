@@ -1,7 +1,7 @@
 """Documentation related utilities."""
 
-import typing as t
-from collections import abc
+from collections.abc import Mapping
+from typing import Any
 
 from traitlets.traitlets import Container, Dict, Instance, TraitType, Tuple, Type, Union
 from traitlets.utils.text import wrap_paragraphs
@@ -45,7 +45,7 @@ def wrap_text(text: str) -> list[str]:
     return paragraphs.splitlines()
 
 
-def stringify(obj: t.Any, rst: bool = True) -> str:
+def stringify(obj: Any, rst: bool = True) -> str:
     """Return a string representation of object.
 
     To put in trait metadata in the documentation.
@@ -88,7 +88,7 @@ def stringify(obj: t.Any, rst: bool = True) -> str:
 
 
 def get_trait_typehint(
-    trait: t.Any, mode: str = "short", aliases: abc.Mapping[str, str] | None = None
+    trait: Any, mode: str = "short", aliases: Mapping[str, str] | None = None
 ) -> str:
     """Return the typehint corresponding to a trait object.
 
@@ -114,7 +114,7 @@ def get_trait_typehint(
 
         return fullname
 
-    def recurse(obj: t.Any) -> str:
+    def recurse(obj: Any) -> str:
         """Recurse this function, keeping optional arguments."""
         return get_trait_typehint(obj, mode, aliases)
 
@@ -154,7 +154,7 @@ def get_trait_typehint(
         if has_val:
             key_val.append(recurse(trait._value_trait))
             if not has_key:
-                key_val[0] = link(get_classname(t.Any))
+                key_val[0] = link(get_classname(Any))
 
         if any(key_val):
             interior = f"[{', '.join(key_val)}]"

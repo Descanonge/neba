@@ -1,6 +1,6 @@
 """Generate Sections."""
 
-import typing as t
+from typing import Any
 
 import hypothesis.strategies as st
 from traitlets import TraitType
@@ -69,11 +69,11 @@ class SectionGenerator:
 
         return values
 
-    def st_values(self) -> st.SearchStrategy[dict[str, t.Any]]:
+    def st_values(self) -> st.SearchStrategy[dict[str, Any]]:
         """Get flat mapping of values for every trait."""
 
         @st.composite
-        def strat(draw: Drawer) -> dict[str, t.Any]:
+        def strat(draw: Drawer) -> dict[str, Any]:
             return self.draw_values(draw)
 
         return strat()
@@ -88,7 +88,7 @@ def st_section_generator(max_leaves=32) -> st.SearchStrategy[SectionGenerator]:
 
     def extend(
         base: st.SearchStrategy,
-    ) -> st.SearchStrategy[dict[str, TraitGenerator | t.Any]]:
+    ) -> st.SearchStrategy[dict[str, TraitGenerator | Any]]:
         return st.dictionaries(
             keys=st_varname.filter(lambda x: x not in dir(Section)),
             values=base,
@@ -98,7 +98,7 @@ def st_section_generator(max_leaves=32) -> st.SearchStrategy[SectionGenerator]:
     @st.composite
     def strat(draw: Drawer):
         def recurse(
-            gen_dict: dict[str, t.Any | TraitGenerator],
+            gen_dict: dict[str, Any | TraitGenerator],
         ) -> tuple[dict[str, TraitGenerator], dict[str, SectionGenerator]]:
             traits = {}
             subsections = {}

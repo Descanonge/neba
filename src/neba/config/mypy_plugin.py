@@ -4,7 +4,7 @@ Use by adding to the list of plugins in your mypy configuration:
 ``"neba.config.mypy_plugin"``
 """
 
-from collections import abc
+from collections.abc import Callable
 
 from mypy.nodes import MDEF, ClassDef, Node, PlaceholderNode, SymbolTableNode, TypeInfo
 from mypy.plugin import ClassDefContext, Plugin, SemanticAnalyzerPluginInterface
@@ -29,7 +29,7 @@ class SectionPlugin(Plugin):
 
     def get_base_class_hook(
         self, fullname: str
-    ) -> abc.Callable[[ClassDefContext], None] | None:
+    ) -> Callable[[ClassDefContext], None] | None:
         """Adapt to the dynamic definition of subsections."""
         sym = self.lookup_fully_qualified(fullname)
 

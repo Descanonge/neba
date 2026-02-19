@@ -11,8 +11,8 @@ The module contains generator for all basic traits. And functions to generate tr
 out of thin air, or obtain generator from existing traits.
 """
 
-import typing as t
-from collections import abc
+from collections.abc import Sequence
+from typing import Any, Generic
 
 import hypothesis.strategies as st
 from traitlets import (
@@ -53,7 +53,7 @@ class DummyClass:
 DummySubclass = type("DummySubclass", (DummyClass,), {})
 
 
-class TraitGenerator(t.Generic[T_Trait]):
+class TraitGenerator(Generic[T_Trait]):
     """Generate a trait and valid values.
 
     This class is the base for every trait type.
@@ -99,7 +99,7 @@ class TraitGenerator(t.Generic[T_Trait]):
         """
         return self.st_value()
 
-    def draw_pre_instance(self, draw: Drawer, **kwargs) -> dict[str, t.Any]:
+    def draw_pre_instance(self, draw: Drawer, **kwargs) -> dict[str, Any]:
         """Generate keyword arguments for instantiation.
 
         Merge attribute :attr:`kwargs` and argument *kwargs*, draw default value and
@@ -167,7 +167,7 @@ class EnumGen(TraitGenerator[Enum]):
 
     traittype = Enum
 
-    def __init__(self, values: abc.Sequence[t.Any], **kwargs):
+    def __init__(self, values: Sequence[Any], **kwargs):
         self.values = list(values)
         super().__init__(**kwargs)
 
@@ -292,7 +292,7 @@ class UnionGen(ComposedGenerator[Union]):
 
     traittype = Union
 
-    def __init__(self, inner_gens: abc.Sequence[TraitGenerator], **kwargs):
+    def __init__(self, inner_gens: Sequence[TraitGenerator], **kwargs):
         super().__init__(**kwargs)
         self.inner_gens = list(inner_gens)
 

@@ -6,9 +6,9 @@ from __future__ import annotations
 
 import logging
 import sys
-import typing as t
-from collections import abc
+from collections.abc import Sequence
 from textwrap import dedent
+from typing import TYPE_CHECKING, Any
 
 from docutils import nodes
 from sphinx.addnodes import desc_sig_space, desc_signature
@@ -38,7 +38,7 @@ from neba.config.docs import get_trait_typehint, indent, stringify, wrap_text
 from neba.config.section import Section
 from neba.config.traits import Fixable
 
-if t.TYPE_CHECKING:
+if TYPE_CHECKING:
     from sphinx.application import Sphinx
     from sphinx.ext.autodoc import ObjectMember
 
@@ -47,7 +47,7 @@ log = logging.getLogger("autodoc_trait")
 log.setLevel(logging.INFO)
 
 
-def member_order_option(arg: t.Any) -> str:
+def member_order_option(arg: Any) -> str:
     """Replace autodoc option."""
     if arg in {None, True}:
         return "bysource"
@@ -110,10 +110,10 @@ class TraitDocumenter(AttributeDocumenter):
 
     def __init__(
         self,
-        *args: t.Any,
-        observers: abc.Sequence[ObjectMember] | None = None,
-        validators: abc.Sequence[ObjectMember] | None = None,
-        **kwargs: t.Any,
+        *args: Any,
+        observers: Sequence[ObjectMember] | None = None,
+        validators: Sequence[ObjectMember] | None = None,
+        **kwargs: Any,
     ) -> None:
         super().__init__(*args, **kwargs)
         self.observers = observers
@@ -233,7 +233,7 @@ class TraitDocumenter(AttributeDocumenter):
 
     @classmethod
     def can_document_member(
-        cls, member: t.Any, membername: str, isattr: bool, parent: t.Any
+        cls, member: Any, membername: str, isattr: bool, parent: Any
     ) -> bool:
         """Can this class document this member.
 
@@ -486,7 +486,7 @@ def skip_trait_member(
     app: Sphinx,
     what: str,
     name: str,
-    obj: t.Any,
+    obj: Any,
     skip: bool,
     options: _AutoDocumenterOptions,
 ) -> bool | None:

@@ -2,8 +2,8 @@
 
 import argparse
 import sys
-import typing as t
-from collections import abc
+from collections.abc import Iterator
+from typing import Any
 
 from traitlets import TraitType
 
@@ -30,10 +30,10 @@ class CLIConfigValue(ConfigValue):
     Automatically parse it when retrieving it.
     """
 
-    def __init__(self, input: t.Any, key: str, origin: str | None = "CLI") -> None:
+    def __init__(self, input: Any, key: str, origin: str | None = "CLI") -> None:
         super().__init__(input, key, origin=origin)
 
-    def get_value(self) -> t.Any:
+    def get_value(self) -> Any:
         """Return the parsed value."""
         if self.value is not Undefined:
             return self.value
@@ -56,7 +56,7 @@ class CLILoader(ConfigLoader):
     prefix: str = "both"
     """How much hyphens to use as prefix, either 'one', 'two', or 'both'."""
 
-    def __init__(self, *args: t.Any, **kwargs: t.Any) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.parser = self.create_parser()
 
@@ -71,7 +71,7 @@ class CLILoader(ConfigLoader):
         if _HAS_ARGCOMPLETE:
             argcomplete.autocomplete(self.parser)
 
-    def create_parser(self, **kwargs: t.Any) -> argparse.ArgumentParser:
+    def create_parser(self, **kwargs: Any) -> argparse.ArgumentParser:
         """Create a parser instance."""
         parser = argparse.ArgumentParser(
             add_help=False,
@@ -104,7 +104,7 @@ class CLILoader(ConfigLoader):
             help=trait.help.split("\n")[0].strip(),
         )
 
-    def load_config(self, argv: list[str] | None = None) -> abc.Iterator[ConfigValue]:
+    def load_config(self, argv: list[str] | None = None) -> Iterator[ConfigValue]:
         """Populate the config attribute from CLI.
 
         Use argparser to obtain key/values. Deal with 'help' flags.

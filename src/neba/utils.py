@@ -2,13 +2,13 @@
 
 import importlib
 import itertools
-import typing as t
-from collections import abc
+from collections.abc import Iterable
+from typing import Any
 
 import Levenshtein
 
 
-def import_item(name: str) -> t.Any:
+def import_item(name: str) -> Any:
     """Import item. Expected to import an item inside a module."""
     parts = name.rsplit(".", 1)
     if len(parts) != 2:
@@ -22,7 +22,7 @@ def import_item(name: str) -> t.Any:
     return obj
 
 
-def get_classname(cls: t.Any, module: bool = True) -> str:
+def get_classname(cls: Any, module: bool = True) -> str:
     """Return fullname of a class."""
     if not isinstance(cls, type):
         cls = type(cls)
@@ -45,7 +45,7 @@ def cut_in_slices(total_size: int, slice_size: int) -> list[slice]:
     return list(slices)
 
 
-def did_you_mean(suggestions: abc.Iterable[str], wrong_key: str) -> str | None:
+def did_you_mean(suggestions: Iterable[str], wrong_key: str) -> str | None:
     """Return element of `suggestions` closest to `wrong_key`."""
     min_distance = 9999
     closest_key = None

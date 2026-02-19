@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import logging
 import sys
-import typing as t
 from collections.abc import Mapping
 from os import path
+from typing import TYPE_CHECKING, Any, Never, Self, TypeVar
 
 from traitlets import (
     Bunch,
@@ -27,12 +27,12 @@ from .loaders import CLILoader, ConfigValue
 from .section import Section, Subsection
 from .types import ConfigError, UnknownConfigKeyError
 
-if t.TYPE_CHECKING:
+if TYPE_CHECKING:
     from .loaders import ConfigValue, FileLoader
 
 log = logging.getLogger(__name__)
 
-S = t.TypeVar("S", bound=Section)
+S = TypeVar("S", bound=Section)
 
 
 class Application(Section, LoggingConfigurable):
@@ -158,7 +158,7 @@ class Application(Section, LoggingConfigurable):
     file_conf: dict[str, ConfigValue]
     """Configuration values obtained from configuration files."""
 
-    def __init__(self, /, start: bool = True, **kwargs: t.Any) -> None:
+    def __init__(self, /, start: bool = True, **kwargs: Any) -> None:
         super().__init__(init_subsections=False)
 
         self.conf = {}
@@ -228,7 +228,7 @@ class Application(Section, LoggingConfigurable):
                 )
 
     def _create_cli_loader(
-        self, argv: list[str] | None, log: logging.Logger | None = None, **kwargs: t.Any
+        self, argv: list[str] | None, log: logging.Logger | None = None, **kwargs: Any
     ) -> CLILoader:
         """Create a CLILoader instance to parse command line arguments."""
         return CLILoader(self, **kwargs)
@@ -237,7 +237,7 @@ class Application(Section, LoggingConfigurable):
         self,
         argv: list[str] | None = None,
         log: logging.Logger | None = None,
-        **kwargs: t.Any,
+        **kwargs: Any,
     ) -> dict[str, ConfigValue]:
         """Return configuration parsed from command line arguments.
 
@@ -365,7 +365,7 @@ class Application(Section, LoggingConfigurable):
 
         return out
 
-    def copy(self, **kwargs: t.Any) -> t.Self:
+    def copy(self, **kwargs: Any) -> Self:
         """Return a copy."""
         out = self.__class__(start=False, **kwargs)
         out.conf = self.conf.copy()
@@ -480,6 +480,6 @@ class Application(Section, LoggingConfigurable):
         with open(filename, "w") as fp:
             loader.write(fp, comment=comment)
 
-    def exit(self, exit_status: int | str = 0) -> t.Never:
+    def exit(self, exit_status: int | str = 0) -> Never:
         """Exit python interpreter."""
         sys.exit(exit_status)

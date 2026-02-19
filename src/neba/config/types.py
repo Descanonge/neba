@@ -1,7 +1,7 @@
 """Type definitions."""
 
-import typing as t
-from collections import abc
+from collections.abc import Sequence
+from typing import Any
 
 
 class ConfigError(Exception):
@@ -19,9 +19,7 @@ class ConfigParsingError(ConfigError):
 class MultipleConfigKeyError(ConfigError):
     """A parameter was specified more than once."""
 
-    def __init__(
-        self, key: str, values: abc.Sequence[t.Any], msg: str | None = None
-    ) -> None:
+    def __init__(self, key: str, values: Sequence[Any], msg: str | None = None) -> None:
         super().__init__()
 
         if msg is None:

@@ -5,7 +5,7 @@ We use :mod:`tomlkit` to parse file.
 
 from __future__ import annotations
 
-from collections import abc
+from collections.abc import Iterator
 from textwrap import dedent
 from typing import IO, TYPE_CHECKING, Any, TypeVar
 
@@ -33,7 +33,7 @@ class TomlkitLoader(FileLoader, DictLikeLoaderMixin):
     files.
     """
 
-    def load_config(self) -> abc.Iterator[ConfigValue]:
+    def load_config(self) -> Iterator[ConfigValue]:
         """Populate the config attribute from TOML file."""
         with open(self.full_filename) as fp:
             root_table = tomlkit.load(fp)

@@ -1,8 +1,8 @@
 """JSON configuration file loader."""
 
 import json
-import typing as t
-from collections import abc
+from collections.abc import Iterator, Sequence
+from typing import IO, Any
 
 from neba.config.types import MultipleConfigKeyError
 from neba.utils import get_classname
@@ -16,7 +16,7 @@ class JsonEncoderTypes(json.JSONEncoder):
     Serialize types as strings and lists as sets.
     """
 
-    def default(self, o: t.Any) -> t.Any:
+    def default(self, o: Any) -> Any:
         """Serialize object."""
         if isinstance(o, type):
             return get_classname(o)
@@ -25,7 +25,7 @@ class JsonEncoderTypes(json.JSONEncoder):
         return super().default(o)
 
 
-def dict_raise_on_duplicate(ordered_pairs: abc.Sequence[tuple[t.Any, t.Any]]) -> dict:
+def dict_raise_on_duplicate(ordered_pairs: Sequence[tuple[Any, Any]]) -> dict:
     """Raise if there are duplicate keys."""
     d: dict = {}
     for k, v in ordered_pairs:
@@ -43,7 +43,7 @@ class JsonLoader(FileLoader, DictLikeLoaderMixin):
     JSON_ENCODER: type[json.JSONEncoder] | None = JsonEncoderTypes
     """Custom json encoder to use."""
 
-    def load_config(self) -> abc.Iterator[ConfigValue]:
+    def load_config(self) -> Iterator[ConfigValue]:
         """Populate the config attribute from TOML file.
 
         We use builtin :mod:`json` to parse file, with eventually a custom decoder
@@ -56,7 +56,7 @@ class JsonLoader(FileLoader, DictLikeLoaderMixin):
 
         return self.resolve_mapping(input, origin=self.filename)
 
-    def write(self, fp: t.IO[str], comment: str = "full") -> None:
+    def write(self, fp: IO[str], comment: str = "full") -> None:
         """Serialize configuration."""
         if comment != "none":
             self.app.log.warning("No comments possible in JSON format.")

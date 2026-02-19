@@ -1,7 +1,7 @@
 """Test added traits."""
 
 import math
-import typing as t
+from typing import Any
 
 import pytest
 from hypothesis import example, given, note
@@ -22,7 +22,7 @@ class TestRange:
         Range(Float())
 
     @pytest.mark.parametrize("input", [None, Bool(), List(), List(Int(1))])
-    def test_wrong_input(self, input: t.Any):
+    def test_wrong_input(self, input: Any):
         with pytest.raises(TypeError):
             if input is None:
                 Range()

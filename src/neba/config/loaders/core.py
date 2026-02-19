@@ -3,17 +3,17 @@
 from __future__ import annotations
 
 import logging
-import typing as t
-from collections import abc
+from collections.abc import Iterator, Mapping, Sequence
 from copy import deepcopy
 from os import path
+from typing import IO, TYPE_CHECKING, Any, Self
 
 from traitlets.traitlets import HasTraits, TraitError, TraitType, Union
 from traitlets.utils.sentinel import Sentinel
 
 from neba.config.types import ConfigParsingError, MultipleConfigKeyError
 
-if t.TYPE_CHECKING:
+if TYPE_CHECKING:
     from neba.config.application import Application
     from neba.config.section import Section
 
@@ -42,7 +42,7 @@ class ConfigValue:
         purpose mainly.
     """
 
-    def __init__(self, input: t.Any, key: str, origin: str | None = None) -> None:
+    def __init__(self, input: Any, key: str, origin: str | None = None) -> None:
         self.key = key
         """The key this value was associated to."""
         self.input = input
@@ -50,7 +50,7 @@ class ConfigValue:
         self.origin = origin
         """A description of the configuration source it was found in."""
 
-        self.value: t.Any = Undefined
+        self.value: Any = Undefined
         """The parameter value once parsed.
 
         By default, it equals to :attr:`Undefined`.
@@ -74,11 +74,11 @@ class ConfigValue:
         """List of the dot-separated names of the key."""
         return self.key.split(".")
 
-    def copy(self) -> t.Self:
+    def copy(self) -> Self:
         """Return a copy of this instance."""
         return deepcopy(self)
 
-    def get_value(self) -> t.Any:
+    def get_value(self) -> Any:
         """Return the actual value to use as parameter.
 
         By default, use the :attr:`value` attribute, unless it is :attr:`Undefined` then
@@ -105,7 +105,7 @@ class ConfigValue:
         have been tried and no parsing was successful the function will raise.
         """
 
-        def _try(func: str, trait: TraitType, src: str | abc.Sequence[str]) -> bool:
+        def _try(func: str, trait: TraitType, src: str | Sequence[str]) -> bool:
             try:
                 self.value = getattr(trait, func)(src)
                 return True
@@ -115,10 +115,10 @@ class ConfigValue:
         def try_item(src: str, trait: TraitType) -> bool:
             return _try("from_string", trait, src)
 
-        def try_list(src: abc.Sequence[str], trait: TraitType) -> bool:
+        def try_list(src: Sequence[str], trait: TraitType) -> bool:
             return _try("from_string_list", trait, src)
 
-        def _parse(src: str | abc.Sequence[str], trait: TraitType) -> bool:
+        def _parse(src: str | Sequence[str], trait: TraitType) -> bool:
             src = [src] if isinstance(src, str) else list(src)
 
             if hasattr(trait, "from_string_list") and try_list(src, trait):
@@ -202,10 +202,10 @@ class ConfigLoader:
 
     def get_config(
         self,
-        *args: t.Any,
+        *args: Any,
         apply_application_traits: bool = True,
         resolve: bool = True,
-        **kwargs: t.Any,
+        **kwargs: Any,
     ) -> dict[str, ConfigValue]:
         """Load and return a proper configuration dict.
 
@@ -242,7 +242,7 @@ class ConfigLoader:
                 cv.parse()
             setattr(self.app, traitname, cv.get_value())
 
-    def load_config(self, *args: t.Any, **kwargs: t.Any) -> abc.Iterator[ConfigValue]:
+    def load_config(self, *args: Any, **kwargs: Any) -> Iterator[ConfigValue]:
         """Populate the config attribute from a source.
 
         :Not implemented:
@@ -253,11 +253,11 @@ class ConfigLoader:
 class SerializerDefault:
     """Serialize trait values for config files."""
 
-    def default(self, trait: TraitType, key: str | None = None) -> t.Any:
+    def default(self, trait: TraitType, key: str | None = None) -> Any:
         """Serialize the default value of the trait."""
         raise NotImplementedError()
 
-    def value(self, trait: TraitType, value: t.Any, key: str | None = None) -> t.Any:
+    def value(self, trait: TraitType, value: Any, key: str | None = None) -> Any:
         """Serialize the current value of the trait."""
         raise NotImplementedError()
 
@@ -276,13 +276,13 @@ class FileLoader(ConfigLoader):
     serializer = SerializerDefault()
 
     def __init__(
-        self, app: Application, filename: str, *args: t.Any, **kwargs: t.Any
+        self, app: Application, filename: str, *args: Any, **kwargs: Any
     ) -> None:
         super().__init__(app, *args, **kwargs)
         self.filename = filename
         self.full_filename = path.abspath(filename)
 
-    def write(self, fp: t.IO, comment: t.Any = None) -> None:
+    def write(self, fp: IO, comment: Any = None) -> None:
         """Write a configuration file corresponding to the loader config.
 
         Parameters
@@ -313,24 +313,24 @@ class DictLikeLoaderMixin(ConfigLoader):
     """
 
     def resolve_mapping(
-        self, input: abc.Mapping, origin: str | None = None
-    ) -> abc.Iterator[ConfigValue]:
+        self, input: Mapping, origin: str | None = None
+    ) -> Iterator[ConfigValue]:
         """Flatten an input nested mapping."""
 
         def recurse(
-            d: abc.Mapping, section: type[Section], key: list[str]
-        ) -> abc.Iterator[ConfigValue]:
+            d: Mapping, section: type[Section], key: list[str]
+        ) -> Iterator[ConfigValue]:
             for k, v in d.items():
                 # key might be dot-separated
                 for subkey in k.split("."):
                     if subkey in section._subsections:
-                        assert isinstance(v, abc.Mapping)
+                        assert isinstance(v, Mapping)
                         yield from recurse(
                             v, section._subsections[subkey].klass, key + [subkey]
                         )
 
                     elif subkey in section.aliases:
-                        assert isinstance(v, abc.Mapping)
+                        assert isinstance(v, Mapping)
                         # resolve alias
                         sub = section
                         alias = section.aliases[subkey].split(".")
@@ -352,7 +352,7 @@ class DictLoader(DictLikeLoaderMixin):
     """Loader for mappings."""
 
     def load_config(
-        self, input: abc.Mapping, *args: t.Any, **kwargs: t.Any
-    ) -> abc.Iterator[ConfigValue]:
+        self, input: Mapping, *args: Any, **kwargs: Any
+    ) -> Iterator[ConfigValue]:
         """Populate the config attribute from a nested mapping."""
         yield from self.resolve_mapping(input)

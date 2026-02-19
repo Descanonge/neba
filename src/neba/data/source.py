@@ -5,24 +5,24 @@ from __future__ import annotations
 import itertools
 import logging
 import os
-import typing as t
-from collections import abc
+from collections.abc import Sequence
 from os import path
 from pathlib import Path
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 from .module import CachedModule, Module, ModuleMix, autocached
 from .types import T_Source_co
 
 log = logging.getLogger(__name__)
 
-if t.TYPE_CHECKING:
+if TYPE_CHECKING:
     from filefinder import Finder
 
 
-class SourceAbstract(t.Generic[T_Source_co], Module):
+class SourceAbstract(Generic[T_Source_co], Module):
     """Abstract of source managing module."""
 
-    def get_source(self, _warn: bool = True) -> t.Any:
+    def get_source(self, _warn: bool = True) -> Any:
         """Return source of data.
 
         :Not Implemented: Implement in Module subclass
@@ -207,7 +207,7 @@ class FileFinderSource(MultiFileSource, CachedModule):
         """
         raise NotImplementedError("Implement in your Source module subclass.")
 
-    def get_filename(self, relative: bool = False, **fixes: t.Any) -> str:
+    def get_filename(self, relative: bool = False, **fixes: Any) -> str:
         """Create a filename corresponding to a set of parameters values.
 
         All parameters must be defined, either by the interface parameters, or by the
@@ -285,7 +285,7 @@ class FileFinderSource(MultiFileSource, CachedModule):
             for g in self.filefinder.groups
             if g.fixed_value is None
             or (
-                isinstance(g.fixed_value, abc.Sequence)
+                isinstance(g.fixed_value, Sequence)
                 and not isinstance(g.fixed_value, str)
             )
         ]
@@ -321,11 +321,11 @@ class FileFinderSource(MultiFileSource, CachedModule):
         return s
 
 
-T_ModSource = t.TypeVar("T_ModSource", bound=SourceAbstract)
+T_ModSource = TypeVar("T_ModSource", bound=SourceAbstract)
 
 
 class _SourceMix(SourceAbstract, ModuleMix[T_ModSource]):
-    def _get_grouped_source(self) -> list[list[t.Any]]:
+    def _get_grouped_source(self) -> list[list[Any]]:
         grouped = self.apply_all("get_source", _warn=False)
         # I expect grouped to be list[list[Any] | Any]
         # we make sure we only have lists: list[list[Any]]
@@ -355,7 +355,7 @@ class SourceUnion(_SourceMix[T_ModSource]):
         s.insert(0, "Union of sources from modules:")
         return s
 
-    def get_source(self, _warn: bool = True) -> list[t.Any]:
+    def get_source(self, _warn: bool = True) -> list[Any]:
         """Get the union of sources from all base module."""
         source = self._get_grouped_source()
         # use fromkeys to remove duplicates. dict keep order which is nice
@@ -384,7 +384,7 @@ class SourceIntersection(_SourceMix[T_ModSource]):
         s.insert(0, "Intersection of sources from modules:")
         return s
 
-    def get_source(self, _warn: bool = True) -> list[t.Any]:
+    def get_source(self, _warn: bool = True) -> list[Any]:
         """Get the intersection of sources from all base module."""
         groups = self._get_grouped_source()
         inter = []

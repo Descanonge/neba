@@ -1,11 +1,11 @@
 """New traits."""
 
 import re
-import typing as t
+from typing import Any, TypeVar, cast
 
 from traitlets.traitlets import Float, Int, List, TraitType, Unicode, Union
 
-T = t.TypeVar("T")
+T = TypeVar("T")
 
 
 class Range(List[T]):
@@ -32,7 +32,7 @@ class Range(List[T]):
     allowed_traits: list[type[TraitType]] = [Float, Int]
     """Allowed trait types."""
 
-    def __init__(self, *args: t.Any, **kwargs: t.Any) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         if self._trait is None or not isinstance(
             self._trait, tuple(self.allowed_traits)
@@ -73,7 +73,7 @@ class Range(List[T]):
                         f"Failed to parse range specification {s}"
                     ) from err
             else:
-                values.append(t.cast(T, self.item_from_string(s)))
+                values.append(cast(T, self.item_from_string(s)))
         return values
 
     def generate_range(self, start_s: str, stop_s: str, step_s: str) -> list[T]:
@@ -160,11 +160,11 @@ class Fixable(Union):
     def __init__(
         self,
         trait: TraitType,
-        default_value: t.Any = None,
+        default_value: Any = None,
         unicode: bool = False,
         range: bool = True,
         allow_none: bool = True,
-        **kwargs: t.Any,
+        **kwargs: Any,
     ) -> None:
         self.trait = trait
 

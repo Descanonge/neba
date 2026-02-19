@@ -1,16 +1,16 @@
 """Store and easily access interfaces in a custom mapping."""
 
-import typing as t
-from collections import abc
+from collections.abc import Callable, Iterator, MutableMapping
+from typing import Any, TypeVar, cast
 
 from neba.utils import import_item
 
 from .interface import DataInterface
 
-_V = t.TypeVar("_V", bound=type[DataInterface])
+_V = TypeVar("_V", bound=type[DataInterface])
 
 
-class DataInterfaceStore(abc.MutableMapping[str, _V]):
+class DataInterfaceStore(MutableMapping[str, _V]):
     """Mapping of registered interfaces.
 
     Interface classes are stored using their unique ID, or SHORTNAME if not defined.
@@ -117,7 +117,7 @@ class DataInterfaceStore(abc.MutableMapping[str, _V]):
         """
         raw = self.get_no_import(key)
         if isinstance(raw, str):
-            raw = t.cast(_V, import_item(raw))
+            raw = cast(_V, import_item(raw))
             dict.__setitem__(self._interfaces, key, raw)
         return raw
 
@@ -125,7 +125,7 @@ class DataInterfaceStore(abc.MutableMapping[str, _V]):
         """Automatically adds shortcuts if value is an interface."""
         self.add(value, name=key)
 
-    def __contains__(self, key: t.Any) -> bool:
+    def __contains__(self, key: Any) -> bool:
         """Check registered IDs and Shortnames."""
         return key in self._interfaces or key in self.shortnames
 
@@ -133,7 +133,7 @@ class DataInterfaceStore(abc.MutableMapping[str, _V]):
         """Return number of interfaces."""
         return len(self._interfaces)
 
-    def __iter__(self) -> abc.Iterator[str]:
+    def __iter__(self) -> Iterator[str]:
         """Iterate over interfaces."""
         return iter(self._interfaces)
 
@@ -151,7 +151,7 @@ class DataInterfaceStore(abc.MutableMapping[str, _V]):
         for short in to_remove:
             self.shortnames.pop(short)
 
-    def register(self, name: str | None = None) -> abc.Callable[[_V], _V]:
+    def register(self, name: str | None = None) -> Callable[[_V], _V]:
         """Decorator to register an interface."""  # noqa: D401
 
         def decorator(di: _V) -> _V:

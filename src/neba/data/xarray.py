@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import logging
 import os
-import typing as t
-from collections import abc
+from collections.abc import Callable, Hashable, Mapping, Sequence
+from typing import TYPE_CHECKING, Any, Literal, assert_never, cast, overload
 
 import xarray as xr
 
@@ -14,7 +14,7 @@ from neba.utils import cut_in_slices
 from .loader import LoaderAbstract
 from .writer import SplitWriterMixin, WriterAbstract
 
-if t.TYPE_CHECKING:
+if TYPE_CHECKING:
     try:
         from dask.delayed import Delayed
         from distributed import Client
@@ -34,15 +34,15 @@ class XarrayLoader(LoaderAbstract[str | os.PathLike, xr.Dataset]):
     Uses :func:`xarray.open_dataset` or :func:`xarray.open_mfdataset` to open data.
     """
 
-    open_dataset_kwargs: dict[str, t.Any] = {}
+    open_dataset_kwargs: dict[str, Any] = {}
     """Options passed to :func:`xarray.open_dataset`. :meth:`.DataInterface.get_data`
     kwargs take precedence."""
 
-    open_mfdataset_kwargs: dict[str, t.Any] = {}
+    open_mfdataset_kwargs: dict[str, Any] = {}
     """Options passed to :func:`xarray.open_mfdataset`. :meth:`.DataInterface.get_data`
     kwargs take precedence."""
 
-    def preprocess(self) -> abc.Callable[[xr.Dataset], xr.Dataset]:
+    def preprocess(self) -> Callable[[xr.Dataset], xr.Dataset]:
         """Return a function to preprocess data.
 
         If ``preprocess`` in :attr:`open_mfdataset_kwargs` is True, the function will be
@@ -53,8 +53,8 @@ class XarrayLoader(LoaderAbstract[str | os.PathLike, xr.Dataset]):
 
     def load_data_concrete(
         self,
-        source: str | os.PathLike | abc.Sequence[str | os.PathLike],
-        **kwargs: t.Any,
+        source: str | os.PathLike | Sequence[str | os.PathLike],
+        **kwargs: Any,
     ) -> xr.Dataset:
         """Load data.
 
@@ -88,57 +88,57 @@ class XarrayWriter(WriterAbstract[str, xr.Dataset]):
     to_zarr_kwargs: dict[str, Any] = {}
     """Arguments passed to the writing function for zarr stores."""
 
-    def _guess_format(self, filename: str) -> t.Literal["nc", "zarr"]:
+    def _guess_format(self, filename: str) -> Literal["nc", "zarr"]:
         _, ext = os.path.splitext(filename)
         if ext:
             format = ext.removeprefix(".")
             if format not in ["nc", "zarr"]:
                 raise ValueError(f"Unsupported format extension '{ext}'")
-            return t.cast(t.Literal["nc", "zarr"], format)
+            return cast(Literal["nc", "zarr"], format)
         raise ValueError(f"Could not find file extension for '{filename}'")
 
-    @t.overload
+    @overload
     def send_single_call(
         self,
         call: CallXr,
-        format: t.Literal[None] = ...,
-        compute: t.Literal[True] = ...,
-        **kwargs: t.Any,
+        format: Literal[None] = ...,
+        compute: Literal[True] = ...,
+        **kwargs: Any,
     ) -> None | xr.backends.ZarrStore: ...
 
-    @t.overload
+    @overload
     def send_single_call(
         self,
         call: CallXr,
-        format: t.Literal["nc"],
-        compute: t.Literal[True],
-        **kwargs: t.Any,
+        format: Literal["nc"],
+        compute: Literal[True],
+        **kwargs: Any,
     ) -> None: ...
 
-    @t.overload
+    @overload
     def send_single_call(
         self,
         call: CallXr,
-        format: t.Literal["zarr"],
-        compute: t.Literal[True],
-        **kwargs: t.Any,
+        format: Literal["zarr"],
+        compute: Literal[True],
+        **kwargs: Any,
     ) -> xr.backends.ZarrStore: ...
 
-    @t.overload
+    @overload
     def send_single_call(
         self,
         call: CallXr,
         *,
-        compute: t.Literal[False],
-        **kwargs: t.Any,
+        compute: Literal[False],
+        **kwargs: Any,
     ) -> Delayed: ...
 
     def send_single_call(
         self,
         call: CallXr,
-        format: t.Literal["nc", "zarr", None] = None,
+        format: Literal["nc", "zarr", None] = None,
         compute: bool = True,
-        **kwargs: t.Any,
+        **kwargs: Any,
     ) -> Delayed | None | xr.backends.ZarrStore:
         """Execute a single call.
 
@@ -162,7 +162,7 @@ class XarrayWriter(WriterAbstract[str, xr.Dataset]):
             kwargs = self.to_zarr_kwargs | kwargs
             return ds.to_zarr(outfile, **kwargs)
 
-        t.assert_never(format)
+        assert_never(format)
 
     def add_metadata(
         self,
@@ -191,7 +191,7 @@ class XarrayWriter(WriterAbstract[str, xr.Dataset]):
         )
         return self._add_metadata(ds, meta)
 
-    def _add_metadata(self, ds: xr.Dataset, metadata: abc.Mapping) -> xr.Dataset:
+    def _add_metadata(self, ds: xr.Dataset, metadata: Mapping) -> xr.Dataset:
         # copy
         metadata = dict(metadata)
         # Do not overwrite attributes.
@@ -201,11 +201,11 @@ class XarrayWriter(WriterAbstract[str, xr.Dataset]):
 
     def send_calls_together(
         self,
-        calls: abc.Sequence[CallXr],
+        calls: Sequence[CallXr],
         client: Client,
         chop: int | None = None,
-        format: t.Literal["nc", "zarr", None] = None,
-        **kwargs: t.Any,
+        format: Literal["nc", "zarr", None] = None,
+        **kwargs: Any,
     ) -> None:
         """Send multiple calls together.
 
@@ -230,7 +230,7 @@ class XarrayWriter(WriterAbstract[str, xr.Dataset]):
             calls within each group being run in parallel.
         kwargs
             Passed to writing function. Overwrites the defaults from
-            :attr:`TO_NETCDF_KWARGS`, whatever the value of `function` is.
+            :attr:`to_netcdf_kwargs` or :attr:`to_zarr_kwargs`.
         """
         import distributed
 
@@ -244,7 +244,7 @@ class XarrayWriter(WriterAbstract[str, xr.Dataset]):
         slices = cut_in_slices(ncalls, chop)
         log.info("%d total calls in %d groups.", ncalls, len(slices))
 
-        kwargs = self.TO_NETCDF_KWARGS | kwargs
+        kwargs = self.to_netcdf_kwargs | kwargs
         kwargs["compute"] = False
 
         for slc in slices:
@@ -263,11 +263,11 @@ class XarrayWriter(WriterAbstract[str, xr.Dataset]):
 
     def write(
         self,
-        data: xr.Dataset | abc.Sequence[xr.Dataset],
-        target: str | abc.Sequence[str] | None = None,
+        data: xr.Dataset | Sequence[xr.Dataset],
+        target: str | Sequence[str] | None = None,
         client: Client | None = None,
-        **kwargs: t.Any,
-    ) -> t.Any:
+        **kwargs: Any,
+    ) -> Any:
         """Write datasets to multiple targets.
 
         Each dataset is written to its corresponding target (filename or store
@@ -359,10 +359,10 @@ class XarraySplitWriter(SplitWriterMixin, XarrayWriter):
         data: xr.Dataset,
         target: None = None,
         time_freq: str | bool = True,
-        squeeze: bool | str | abc.Mapping[abc.Hashable, bool | str] = False,
+        squeeze: bool | str | Mapping[Hashable, bool | str] = False,
         client: Client | None = None,
         chop: int | None = None,
-        **kwargs: t.Any,
+        **kwargs: Any,
     ) -> list[Delayed | xr.backends.ZarrStore | None] | None:
         """Write data to disk.
 
@@ -544,8 +544,8 @@ class XarraySplitWriter(SplitWriterMixin, XarrayWriter):
 
     def to_calls(
         self,
-        datasets: abc.Sequence[xr.Dataset],
-        squeeze: bool | str | abc.Mapping[abc.Hashable, bool | str] = False,
+        datasets: Sequence[xr.Dataset],
+        squeeze: bool | str | Mapping[Hashable, bool | str] = False,
     ) -> list[CallXr]:
         """Transform sequence of datasets into writing calls.
 
@@ -588,7 +588,7 @@ class XarraySplitWriter(SplitWriterMixin, XarrayWriter):
             outfile = self.get_filename(**unfixed_values)
 
             # Apply squeeze argument
-            if isinstance(squeeze, abc.Mapping):
+            if isinstance(squeeze, Mapping):
                 for d, sq in squeeze.items():
                     if sq:
                         ds = ds.squeeze(d, drop=(sq == "drop"))

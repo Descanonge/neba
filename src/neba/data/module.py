@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import functools
 import logging
-import typing as t
-from collections import abc
+from collections.abc import Callable, Sequence
+from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar, overload
 
 from neba.utils import get_classname
 
-if t.TYPE_CHECKING:
+if TYPE_CHECKING:
     from .interface import DataInterface
     from .params import ParametersAbstract
 
@@ -32,7 +32,7 @@ class Module:
         """Quick access to the parameters module."""
         return self.di.parameters
 
-    def __init__(self, params: t.Any | None = None, **kwargs: t.Any) -> None:
+    def __init__(self, params: Any | None = None, **kwargs: Any) -> None:
         pass
 
     def __repr__(self) -> str:
@@ -88,9 +88,9 @@ class CachedModule(Module):
         """
         cls_name = get_classname(self)
         log.debug("Setting up cache for %s", cls_name)
-        self.cache: dict[str, t.Any] = {}
+        self.cache: dict[str, Any] = {}
 
-        def callback(di: DataInterface, **kwargs: t.Any) -> None:
+        def callback(di: DataInterface, **kwargs: Any) -> None:
             self.void_cache()
 
         if self._add_void_callback:
@@ -103,13 +103,13 @@ class CachedModule(Module):
 
 
 # Typevar to preserve autocached properties' type.
-R = t.TypeVar("R")
-T_CachedMod = t.TypeVar("T_CachedMod", bound=CachedModule)
+R = TypeVar("R")
+T_CachedMod = TypeVar("T_CachedMod", bound=CachedModule)
 
 
 def autocached(
-    func: abc.Callable[[T_CachedMod], R],
-) -> abc.Callable[[T_CachedMod], R]:
+    func: Callable[[T_CachedMod], R],
+) -> Callable[[T_CachedMod], R]:
     """Make a method autocached.
 
     When the method is accessed, it will first check if a key with the same name (as
@@ -139,10 +139,10 @@ def autocached(
     return wrap
 
 
-T_Mod = t.TypeVar("T_Mod", bound=Module)
+T_Mod = TypeVar("T_Mod", bound=Module)
 
 
-class ModuleMix(t.Generic[T_Mod], Module):
+class ModuleMix(Generic[T_Mod], Module):
     """A module containing multiple other modules.
 
     This can allow to combine modules to collect different sources, write multiple
@@ -153,18 +153,18 @@ class ModuleMix(t.Generic[T_Mod], Module):
     Mixes are intended to be instantiated with the class method :meth:`create`.
     """
 
-    T_Self = t.TypeVar("T_Self", bound="ModuleMix[T_Mod]")
+    T_Self = TypeVar("T_Self", bound="ModuleMix[T_Mod]")
 
     base_types: tuple[type[T_Mod], ...] = ()
     """Tuple of types of the constituting modules."""
     base_modules: dict[str, T_Mod]
     """List of module instances."""
 
-    select_func: abc.Callable[..., str] | None = None
+    select_func: Callable[..., str] | None = None
 
     _auto_dispatch_getattr: bool = True
 
-    def __init__(self, *args: t.Any, **kwargs: t.Any) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 
         # initialize every base module
@@ -175,7 +175,7 @@ class ModuleMix(t.Generic[T_Mod], Module):
                 raise KeyError(f"There are multiple modules with the class name {name}")
             self.base_modules[name] = cls(*args, **kwargs)
 
-    def __getattr__(self, name: str) -> t.Any:
+    def __getattr__(self, name: str) -> Any:
         """Dispatch to base module if they have the attribute defined.
 
         This gets called if __getattribute__ fails, ie the attribute is not defined
@@ -202,8 +202,8 @@ class ModuleMix(t.Generic[T_Mod], Module):
     @classmethod
     def create(
         cls: type[T_Self],
-        bases: abc.Sequence[type[T_Mod]],
-        select_func: abc.Callable[..., str] | None = None,
+        bases: Sequence[type[T_Mod]],
+        select_func: Callable[..., str] | None = None,
     ) -> type[T_Self]:
         """Create a new mix-class from base module.
 
@@ -221,7 +221,7 @@ class ModuleMix(t.Generic[T_Mod], Module):
         return cls
 
     @classmethod
-    def set_select(cls: type[T_Self], select_func: abc.Callable[..., str]) -> None:
+    def set_select(cls: type[T_Self], select_func: Callable[..., str]) -> None:
         """Set the selection function.
 
         select_func
@@ -241,7 +241,7 @@ class ModuleMix(t.Generic[T_Mod], Module):
                 s += lines
         return s
 
-    def select(self, **kwargs: t.Any) -> T_Mod:
+    def select(self, **kwargs: Any) -> T_Mod:
         """Return the module to select under current module and data-manager state.
 
         Parameters
@@ -259,12 +259,12 @@ class ModuleMix(t.Generic[T_Mod], Module):
         self._auto_dispatch_getattr = old
         return self.base_modules[selected]
 
-    def apply_all(self, method: str, *args: t.Any, **kwargs: t.Any) -> list[t.Any]:
+    def apply_all(self, method: str, *args: Any, **kwargs: Any) -> list[Any]:
         """Get results from every base module.
 
         Every output is put in a list if not already.
         """
-        groups: list[t.Any] = []
+        groups: list[Any] = []
         for mod in self.base_modules.values():
             output = getattr(mod, method)(*args, **kwargs)
             groups.append(output)
@@ -273,10 +273,10 @@ class ModuleMix(t.Generic[T_Mod], Module):
     def apply_select(
         self,
         method: str,
-        *args: t.Any,
-        select: dict[str, t.Any] | None = None,
-        **kwargs: t.Any,
-    ) -> list[t.Any]:
+        *args: Any,
+        select: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> list[Any]:
         """Get result from a single base module.
 
         Module is selected with :attr:`select_func`, based on current module and
@@ -296,44 +296,44 @@ class ModuleMix(t.Generic[T_Mod], Module):
         mod = self.select(**select)
         return getattr(mod, method)(*args, **kwargs)
 
-    @t.overload
+    @overload
     def apply(
         self,
         method: str,
-        all: t.Literal[True],
-        *args: t.Any,
-        select: dict[str, t.Any] | None = None,
-        **kwargs: t.Any,
-    ) -> list[t.Any]: ...
+        all: Literal[True],
+        *args: Any,
+        select: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> list[Any]: ...
 
-    @t.overload
+    @overload
     def apply(
         self,
         method: str,
-        all: t.Literal[False],
-        *args: t.Any,
-        select: dict[str, t.Any] | None = None,
-        **kwargs: t.Any,
-    ) -> t.Any: ...
+        all: Literal[False],
+        *args: Any,
+        select: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> Any: ...
 
-    @t.overload
+    @overload
     def apply(
         self,
         method: str,
         all: bool,
-        *args: t.Any,
-        select: dict[str, t.Any] | None = None,
-        **kwargs: t.Any,
-    ) -> t.Any | list[t.Any]: ...
+        *args: Any,
+        select: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> Any | list[Any]: ...
 
     def apply(
         self,
         method: str,
         all: bool,
-        *args: t.Any,
-        select: dict[str, t.Any] | None = None,
-        **kwargs: t.Any,
-    ) -> t.Any | list[t.Any]:
+        *args: Any,
+        select: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> Any | list[Any]:
         """Get results from all or one of the base modules.
 
         Parameters

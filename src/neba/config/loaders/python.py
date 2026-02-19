@@ -1,10 +1,8 @@
 """Python configuration file loader."""
 
-from __future__ import annotations
-
-import typing as t
-from collections import abc
+from collections.abc import Iterator
 from textwrap import dedent
+from typing import IO, Any
 
 from traitlets import Enum, Instance, TraitType, Type
 
@@ -32,7 +30,7 @@ class PyConfigContainer:
     be expanded.
     """
 
-    def __getattribute__(self, key: str) -> t.Any:
+    def __getattribute__(self, key: str) -> Any:
         try:
             return super().__getattribute__(key)
         except AttributeError:
@@ -40,7 +38,7 @@ class PyConfigContainer:
             self.__setattr__(key, obj)
             return obj
 
-    def __setattr__(self, name: str, value: t.Any) -> None:
+    def __setattr__(self, name: str, value: Any) -> None:
         if name in self.__dict__:
             raise MultipleConfigKeyError(name, [value, getattr(self, name)])
         super().__setattr__(name, value)
@@ -80,7 +78,7 @@ class SerializerPython(SerializerDefault):
         except Exception:
             return self.value(trait, trait.default(), key=key)
 
-    def value(self, trait: TraitType, value: t.Any, key: str | None = None) -> str:
+    def value(self, trait: TraitType, value: Any, key: str | None = None) -> str:
         """Serialize the current value of the trait using repr."""
         if type(trait) is Type:
             return get_classname(value)
@@ -108,7 +106,7 @@ class PyLoader(FileLoader):
 
     serializer = SerializerPython()
 
-    def load_config(self) -> abc.Iterator[ConfigValue]:
+    def load_config(self) -> Iterator[ConfigValue]:
         """Populate the config attribute from python file.
 
         Compile the config file, and execute it with the variable ``c`` defined
@@ -136,7 +134,7 @@ class PyLoader(FileLoader):
             cv.value = cv.input
             yield cv
 
-    def write(self, fp: t.IO[str], comment: str = "full") -> None:
+    def write(self, fp: IO[str], comment: str = "full") -> None:
         """Return lines of configuration file corresponding to the app config tree."""
         lines = self.serialize_section(self.app.__class__, [], comment=comment)
 

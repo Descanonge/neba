@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import logging
-import typing as t
-from collections import abc
+from collections.abc import Callable, Mapping
+from typing import Any, Generic, TypeVar
 
 from traitlets import Bunch, TraitType
 
@@ -17,7 +17,7 @@ from .types import T_Params
 log = logging.getLogger(__name__)
 
 
-class ParametersAbstract(t.Generic[T_Params], Module):
+class ParametersAbstract(Generic[T_Params], Module):
     """Abstract Module for parameters management."""
 
     _allow_instantiation_failure = False
@@ -29,16 +29,16 @@ class ParametersAbstract(t.Generic[T_Params], Module):
         """Direct access to parameters container."""
         return self._params
 
-    def __getitem__(self, key: str) -> t.Any:
+    def __getitem__(self, key: str) -> Any:
         raise NotImplementedError("Implement in a subclass of this module.")
 
-    def __setitem__(self, key: str, value: t.Any) -> None:
+    def __setitem__(self, key: str, value: Any) -> None:
         self.set(key, value)
 
     def __contains__(self, key: str) -> bool:
         raise NotImplementedError("Implement in a subclass of this module.")
 
-    def get(self, key: str, default: t.Any = None) -> t.Any:
+    def get(self, key: str, default: Any = None) -> Any:
         """Return a parameter value.
 
         :Not Implemented: Implement in a subclass of this module.
@@ -52,14 +52,14 @@ class ParametersAbstract(t.Generic[T_Params], Module):
         """
         raise NotImplementedError("Implement in a subclass of this module.")
 
-    def set(self, key: str, value: t.Any) -> None:
+    def set(self, key: str, value: Any) -> None:
         """Set a parameter to value.
 
         :Not Implemented: Implement in a subclass of this module.
         """
         raise NotImplementedError("Implement in a subclass of this module.")
 
-    def update(self, params: t.Any | None = None, **kwargs: t.Any) -> None:
+    def update(self, params: Any | None = None, **kwargs: Any) -> None:
         """Update one or more parameters values.
 
         :Not Implemented: Implement in a subclass of this module.
@@ -81,17 +81,17 @@ class ParametersAbstract(t.Generic[T_Params], Module):
         raise NotImplementedError("Implement in a subclass of this module.")
 
 
-_K = t.TypeVar("_K")
-_V = t.TypeVar("_V")
+_K = TypeVar("_K")
+_V = TypeVar("_V")
 
 
-class CallbackDict(dict, t.Generic[_K, _V]):
+class CallbackDict(dict, Generic[_K, _V]):
     """Dictionary that sends a callback on change.
 
     Dictionary is considered flat (setting a nested key will not trigger a callback).
     """
 
-    _callback: abc.Callable[[Bunch], None] | None = None
+    _callback: Callable[[Bunch], None] | None = None
 
     def __setitem__(self, k: _K, v: _V) -> None:
         old = self.get(k, None)
@@ -111,12 +111,10 @@ class CallbackDict(dict, t.Generic[_K, _V]):
             self._callback(Bunch(name=k, old=old, new=v, type="change"))
 
 
-class ParametersDict(ParametersAbstract[CallbackDict[str, t.Any]]):
+class ParametersDict(ParametersAbstract[CallbackDict[str, Any]]):
     """Parameters stored in a dictionnary."""
 
-    def __init__(
-        self, params: abc.Mapping[str, t.Any] | None = None, **kwargs: t.Any
-    ) -> None:
+    def __init__(self, params: Mapping[str, Any] | None = None, **kwargs: Any) -> None:
         self._params = CallbackDict()
         if params is not None:
             self._params.update(**params)
@@ -127,13 +125,13 @@ class ParametersDict(ParametersAbstract[CallbackDict[str, t.Any]]):
 
         self._params._callback = handler
 
-    def __getitem__(self, key: str) -> t.Any:
+    def __getitem__(self, key: str) -> Any:
         return self._params[key]
 
     def __contains__(self, key: str) -> bool:
         return key in self._params
 
-    def get(self, key: str, default: t.Any = None) -> t.Any:
+    def get(self, key: str, default: Any = None) -> Any:
         """Return a parameter value.
 
         Parameters
@@ -145,12 +143,12 @@ class ParametersDict(ParametersAbstract[CallbackDict[str, t.Any]]):
         """
         return self._params.get(key, default)
 
-    def set(self, key: str, value: t.Any) -> None:
+    def set(self, key: str, value: Any) -> None:
         """Set a parameter to value."""
         dict.__setitem__(self._params, key, value)
         self.di.trigger_callbacks()
 
-    def update(self, params: t.Any | None = None, **kwargs: t.Any) -> None:
+    def update(self, params: Any | None = None, **kwargs: Any) -> None:
         """Update one or more parameters values.
 
         Parameters
@@ -172,7 +170,7 @@ class ParametersDict(ParametersAbstract[CallbackDict[str, t.Any]]):
         self.di.trigger_callbacks()
 
 
-T_Section = t.TypeVar("T_Section", bound=Section)
+T_Section = TypeVar("T_Section", bound=Section)
 
 
 class ParametersSectionBase(ParametersAbstract[T_Section]):
@@ -197,13 +195,13 @@ class ParametersSectionBase(ParametersAbstract[T_Section]):
         for subsection in self._params.subsections_recursive():
             subsection.observe(handler)
 
-    def __getitem__(self, key: str) -> t.Any:
+    def __getitem__(self, key: str) -> Any:
         return self._params[key]
 
     def __contains__(self, key: str) -> bool:
         return key in self._params
 
-    def get(self, key: str, default: t.Any = None) -> t.Any:
+    def get(self, key: str, default: Any = None) -> Any:
         """Return a parameter value.
 
         Parameters
@@ -215,7 +213,7 @@ class ParametersSectionBase(ParametersAbstract[T_Section]):
         """
         return self._params.get(key, default)
 
-    def set(self, key: str, value: t.Any) -> None:
+    def set(self, key: str, value: Any) -> None:
         """Set a parameter to value.
 
         :param value: Value to set. If :attr:`allow_new` is True, can be a
@@ -227,7 +225,7 @@ class ParametersSectionBase(ParametersAbstract[T_Section]):
             self._params.__setitem__(key, value)
         self.di.trigger_callbacks()
 
-    def update(self, params: t.Any | None = None, **kwargs: t.Any) -> None:
+    def update(self, params: Any | None = None, **kwargs: Any) -> None:
         """Update one or more parameters values.
 
         Parameters
@@ -263,19 +261,19 @@ class ParametersSection(ParametersSectionBase[T_Section]):
         """Return a subclass with the SECTION_CLS attribute set."""
         return type("ParametersSectionDynamic", (cls,), {"SECTION_CLS": section})
 
-    def __init__(self, params: T_Section | None = None, **kwargs: t.Any) -> None:
+    def __init__(self, params: T_Section | None = None, **kwargs: Any) -> None:
         self._params = self.SECTION_CLS()
         self._params.update(params, **kwargs)
         self._setup_cache_callback()
 
 
-T_App = t.TypeVar("T_App", bound=Application)
+T_App = TypeVar("T_App", bound=Application)
 
 
 class ParametersApp(ParametersSectionBase[T_App]):
     """Parameters are retrieved from an application instance."""
 
-    def __init__(self, params: T_App, **kwargs: t.Any) -> None:
+    def __init__(self, params: T_App, **kwargs: Any) -> None:
         if not isinstance(params, Application):
             raise TypeError(
                 f"An application must be passed as parameter, received {type(params)}."

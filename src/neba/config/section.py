@@ -7,10 +7,17 @@ Defines a :class:`Section` class meant to be used in place of
 from __future__ import annotations
 
 import logging
-import typing as t
-from collections import abc
+from collections.abc import (
+    Callable,
+    Generator,
+    Iterable,
+    Iterator,
+    Mapping,
+    MutableMapping,
+)
 from inspect import Parameter, signature
 from textwrap import dedent
+from typing import Any, Generic, Literal, Self, TypeVar, overload
 
 from traitlets import Enum, HasTraits, Sentinel, TraitType, Undefined
 from traitlets.config import Configurable
@@ -31,7 +38,7 @@ from .types import UnknownConfigKeyError
 log = logging.getLogger(__name__)
 
 
-S = t.TypeVar("S", bound="Section")
+S = TypeVar("S", bound="Section")
 
 _line = "\u2574"
 _branch = "\u251c" + _line
@@ -42,7 +49,7 @@ _pipe = "\u2502" + " " * len(_line)
 _blank = " " * len(_pipe)
 
 
-class Subsection(t.Generic[S]):
+class Subsection(Generic[S]):
     """Descriptor for subsection.
 
     I do not use traitlets.Instance because it initializes eagerly, I would prefer to
@@ -58,13 +65,13 @@ class Subsection(t.Generic[S]):
     def __set_name__(self, owner: type[S], name: str) -> None:
         self.private_name = "__" + name
 
-    @t.overload
-    def __get__(self, obj: None, owner: type[t.Any]) -> t.Self: ...
+    @overload
+    def __get__(self, obj: None, owner: type[Any]) -> Self: ...
 
-    @t.overload
-    def __get__(self, obj: Section, owner: type[t.Any]) -> S: ...
+    @overload
+    def __get__(self, obj: Section, owner: type[Any]) -> S: ...
 
-    def __get__(self, obj: Section | None, owner: type[t.Any]) -> t.Self | S:
+    def __get__(self, obj: Section | None, owner: type[Any]) -> Self | S:
         if obj is None:
             return self
         if not hasattr(obj, self.private_name):
@@ -129,7 +136,7 @@ class Section(HasTraits):
         short.my_parameter = 2
     """
 
-    def __init_subclass__(cls, /, **kwargs: t.Any) -> None:
+    def __init_subclass__(cls, /, **kwargs: Any) -> None:
         """Call :meth:`_setup_section`."""
         super().__init_subclass__(**kwargs)
         cls._setup_section()
@@ -148,7 +155,7 @@ class Section(HasTraits):
         """
         cls._subsections = {}
         classdict = cls.__dict__
-        to_add: dict[str, t.Any] = {}
+        to_add: dict[str, Any] = {}
 
         for k, v in classdict.items():
             # tag traits as configurable
@@ -201,10 +208,10 @@ class Section(HasTraits):
 
     def __init__(
         self,
-        config: abc.Mapping[str, t.Any] | None = None,
+        config: Mapping[str, Any] | None = None,
         *,
         init_subsections: bool = True,
-        **kwargs: t.Any,
+        **kwargs: Any,
     ) -> None:
         """Initialize section.
 
@@ -235,7 +242,7 @@ class Section(HasTraits):
 
         self.postinit()
 
-    def _init_direct_traits(self, config: dict[str, t.Any]) -> None:
+    def _init_direct_traits(self, config: dict[str, Any]) -> None:
         for name in self.trait_names(config=True):
             if name in config:
                 value = config.pop(name)
@@ -243,7 +250,7 @@ class Section(HasTraits):
                     value = value.get_value()
                 setattr(self, name, value)
 
-    def _init_subsections(self, config: dict[str, t.Any]) -> None:
+    def _init_subsections(self, config: dict[str, Any]) -> None:
         for name, subsection_cls in self.class_subsections().items():
             prefix = f"{name}."
             subconfig = {k: v for k, v in config.items() if k.startswith(prefix)}
@@ -295,7 +302,7 @@ class Section(HasTraits):
 
     @classmethod
     def _get_line_trait(
-        cls, key: str, trait: TraitType | None, elbow: bool, value: t.Any
+        cls, key: str, trait: TraitType | None, elbow: bool, value: Any
     ) -> str:
         symb = _elbow if elbow else _branch
         if trait is None:
@@ -317,14 +324,14 @@ class Section(HasTraits):
 
         return f"{symb}{key}: {value}  {trait_str}"
 
-    def __dir__(self) -> abc.Iterable[str]:
+    def __dir__(self) -> Iterable[str]:
         if not self._attr_completion_only_traits:
             return super().__dir__()
         configurables = set(self.trait_names(config=True))
         subsections = set(self._subsections.keys())
         return configurables | subsections
 
-    def __getattr__(self, name: str) -> t.Any:
+    def __getattr__(self, name: str) -> Any:
         """Patch for "did you mean" feature."""
         clsname = type(self).__qualname__
         section_name = object.__getattribute__(self, "_name")
@@ -338,7 +345,7 @@ class Section(HasTraits):
             msg += f" (did you mean '{suggestion}'?)"
         raise AttributeError(msg)
 
-    def copy(self, **kwargs: t.Any) -> t.Self:
+    def copy(self, **kwargs: Any) -> Self:
         """Return a copy."""
         config = self.as_dict()
         return self.__class__(config, **kwargs)
@@ -371,7 +378,7 @@ class Section(HasTraits):
 
     def values(
         self, subsections: bool = False, recursive: bool = True, aliases: bool = False
-    ) -> list[t.Any]:
+    ) -> list[Any]:
         """List of subsections instances and trait values.
 
         In the same order as :meth:`keys`.
@@ -390,7 +397,7 @@ class Section(HasTraits):
 
     def items(
         self, subsections: bool = False, recursive: bool = True, aliases: bool = False
-    ) -> list[tuple[str, t.Any]]:
+    ) -> list[tuple[str, Any]]:
         """Return mapping of keys to values.
 
         Keys can lead to subsections instances or trait values.
@@ -408,14 +415,14 @@ class Section(HasTraits):
         keys = self.keys(subsections=subsections, recursive=recursive, aliases=aliases)
         return [(key, self[key]) for key in keys]
 
-    def get(self, key: str, default: t.Any | None = None) -> t.Any:
+    def get(self, key: str, default: Any | None = None) -> Any:
         """Obtain value at `key`."""
         try:
             return self[key]
         except KeyError:
             return default
 
-    def __getitem__(self, key: str) -> t.Any:
+    def __getitem__(self, key: str) -> Any:
         """Obtain value at `key`."""
         fullpath = key.split(".")
         subsection = self
@@ -444,7 +451,7 @@ class Section(HasTraits):
         """Return if key leads to an existing subsection or trait."""
         return key in self.keys(subsections=True, aliases=True)
 
-    def __iter__(self) -> abc.Iterator[str]:
+    def __iter__(self) -> Iterator[str]:
         """Iterate over possible keys.
 
         Simply iter :meth:`keys`.
@@ -455,7 +462,7 @@ class Section(HasTraits):
         """Return number of valid keys."""
         return len(list(self.keys()))
 
-    def __eq__(self, other: t.Any) -> bool:
+    def __eq__(self, other: Any) -> bool:
         """Check equality with other section.
 
         If *other* is not a Section, will return False. Both section must have the same
@@ -468,13 +475,13 @@ class Section(HasTraits):
             return False
         return dict(self) == dict(other)
 
-    def __ne__(self, other: t.Any) -> bool:
+    def __ne__(self, other: Any) -> bool:
         return not self == other
 
     # - end of Mapping methods
     # - Mutable Mapping methods
 
-    def __setitem__(self, key: str, value: t.Any) -> None:
+    def __setitem__(self, key: str, value: Any) -> None:
         """Set a trait to a value.
 
         Parameters
@@ -502,8 +509,8 @@ class Section(HasTraits):
         self,
         key: str,
         default: TraitType | None = None,
-        value: t.Any | Sentinel = Undefined,
-    ) -> t.Any:
+        value: Any | Sentinel = Undefined,
+    ) -> Any:
         """Set a trait to a value if it exists.
 
         If the trait exists, return its value. Otherwise, the *default* argument must be
@@ -533,14 +540,14 @@ class Section(HasTraits):
 
         return self[key]
 
-    def pop(self, key: str, other: t.Any | None = None) -> t.Any:
+    def pop(self, key: str, other: Any | None = None) -> Any:
         """Sections do not support the *pop* operation.
 
         A trait cannot be deleted.
         """
         raise TypeError("Sections do not support 'pop'. A trait cannot be deleted")
 
-    def popitem(self) -> tuple[str, t.Any]:
+    def popitem(self) -> tuple[str, Any]:
         """Sections do not support the *popitem* operation.
 
         A trait cannot be deleted.
@@ -568,9 +575,9 @@ class Section(HasTraits):
 
     def update(
         self,
-        other: Section | abc.Mapping[str, t.Any] | None = None,
+        other: Section | Mapping[str, Any] | None = None,
         allow_new: bool = False,
-        **kwargs: t.Any,
+        **kwargs: Any,
     ) -> None:
         """Update values of this Section traits.
 
@@ -591,7 +598,7 @@ class Section(HasTraits):
             Same as `other`.
         """
         input_section = False
-        values: dict[str, t.Any]
+        values: dict[str, Any]
         if other is None:
             values = {}
         elif isinstance(other, Section):
@@ -689,7 +696,7 @@ class Section(HasTraits):
 
     def as_dict(
         self, recursive: bool = True, aliases: bool = False, nest: bool = False
-    ) -> dict[str, t.Any]:
+    ) -> dict[str, Any]:
         """Return traits as a dictionary.
 
         Parameters
@@ -710,7 +717,7 @@ class Section(HasTraits):
             output = self.nest_dict(output)
         return output
 
-    def select(self, *keys: str, nest: bool = False) -> dict[str, t.Any]:
+    def select(self, *keys: str, nest: bool = False) -> dict[str, Any]:
         """Select parameters from this sections or its subsections.
 
         Parameters
@@ -727,18 +734,18 @@ class Section(HasTraits):
             output = self.nest_dict(output)
         return output
 
-    @t.overload
+    @overload
     @classmethod
     def _iter_traits(
         cls,
-        subsections: t.Literal[False],
+        subsections: Literal[False],
         recursive: bool = ...,
         aliases: bool = ...,
         own_traits: bool = ...,
-        **metadata: t.Any,
-    ) -> abc.Generator[tuple[str, TraitType]]: ...
+        **metadata: Any,
+    ) -> Generator[tuple[str, TraitType]]: ...
 
-    @t.overload
+    @overload
     @classmethod
     def _iter_traits(
         cls,
@@ -746,8 +753,8 @@ class Section(HasTraits):
         recursive: bool = ...,
         aliases: bool = ...,
         own_traits: bool = ...,
-        **metadata: t.Any,
-    ) -> abc.Generator[tuple[str, TraitType | type[Section]]]: ...
+        **metadata: Any,
+    ) -> Generator[tuple[str, TraitType | type[Section]]]: ...
 
     @classmethod
     def _iter_traits(
@@ -756,8 +763,8 @@ class Section(HasTraits):
         recursive: bool = True,
         aliases: bool = False,
         own_traits: bool = False,
-        **metadata: t.Any,
-    ) -> abc.Generator[tuple[str, TraitType | type[Section]]]:
+        **metadata: Any,
+    ) -> Generator[tuple[str, TraitType | type[Section]]]:
         """Iterate over keys and traits.
 
         Traits are identical for class and instances. This method is thus used by
@@ -806,7 +813,7 @@ class Section(HasTraits):
 
     @classmethod
     def traits_recursive(
-        cls, nest: bool = False, aliases: bool = False, **metadata: t.Any
+        cls, nest: bool = False, aliases: bool = False, **metadata: Any
     ) -> dict[str, TraitType]:
         """Return dictionnary of all traits."""
         traits = dict(cls._iter_traits(subsections=False, aliases=aliases, **metadata))
@@ -816,8 +823,8 @@ class Section(HasTraits):
 
     @classmethod
     def defaults_recursive(
-        cls, nest: bool = False, aliases: bool = False, **metadata: t.Any
-    ) -> dict[str, t.Any]:
+        cls, nest: bool = False, aliases: bool = False, **metadata: Any
+    ) -> dict[str, Any]:
         """Return nested dictionnary of default traits values."""
         traits = cls._iter_traits(subsections=False, aliases=aliases, **metadata)
         defaults = {k: t.default() for k, t in traits}
@@ -835,22 +842,22 @@ class Section(HasTraits):
         return {name: getattr(self, name) for name in self._subsections}
 
     @classmethod
-    def class_subsections_recursive(cls) -> abc.Iterator[type[Section]]:
+    def class_subsections_recursive(cls) -> Iterator[type[Section]]:
         """Iterate recursively over all subsections types."""
         yield cls
         for subsection in cls.class_subsections().values():
             yield from subsection.class_subsections_recursive()
 
-    def subsections_recursive(self) -> abc.Iterator[Section]:
+    def subsections_recursive(self) -> Iterator[Section]:
         """Iterate recursively over all subsections instance."""
         yield self
         for subsection in self.subsections().values():
             yield from subsection.subsections_recursive()
 
     @classmethod
-    def nest_dict(cls, flat: abc.Mapping[str, t.Any]) -> dict[str, t.Any]:
+    def nest_dict(cls, flat: Mapping[str, Any]) -> dict[str, Any]:
         """Nest a dictionnary according to the structure of this section."""
-        nested: dict[str, t.Any] = {}
+        nested: dict[str, Any] = {}
         for key, val in flat.items():
             subconf = nested
             section = cls
@@ -872,14 +879,12 @@ class Section(HasTraits):
         return nested
 
     @classmethod
-    def flatten_dict(cls, nested: abc.Mapping[str, t.Any]) -> dict[str, t.Any]:
+    def flatten_dict(cls, nested: Mapping[str, Any]) -> dict[str, Any]:
         """Flatten a dictionnary according to the structure of this section."""
-        flat: dict[str, t.Any] = {}
+        flat: dict[str, Any] = {}
 
-        def recurse(
-            d: abc.Mapping, fullpath: list[str], section: type[Section]
-        ) -> None:
-            if not isinstance(d, abc.Mapping):
+        def recurse(d: Mapping, fullpath: list[str], section: type[Section]) -> None:
+            if not isinstance(d, Mapping):
                 raise KeyError(
                     f"{'.'.join(fullpath)} corresponds to a subsection, "
                     f"it should be a Mapping (received {type(d)})."
@@ -959,7 +964,7 @@ class Section(HasTraits):
 
     @staticmethod
     def merge_configs(
-        *configs: abc.Mapping[str, ConfigValue],
+        *configs: Mapping[str, ConfigValue],
     ) -> dict[str, ConfigValue]:
         """Merge multiple flat configuration mappings.
 
@@ -1080,9 +1085,9 @@ class Section(HasTraits):
 
     def trait_values_from_func_signature(
         self,
-        func: abc.Callable,
-        trait_select: abc.Mapping | None = None,
-        **kwargs: t.Any,
+        func: Callable,
+        trait_select: Mapping | None = None,
+        **kwargs: Any,
     ) -> dict:
         """Return trait values that appear in a function signature.
 
@@ -1128,12 +1133,12 @@ class Section(HasTraits):
         return params
 
 
-abc.MutableMapping[str, t.Any].register(Section)
+MutableMapping[str, Any].register(Section)
 
-_C = t.TypeVar("_C", bound=Configurable)
+_C = TypeVar("_C", bound=Configurable)
 
 
-def tag_all_traits(**metadata: t.Any) -> abc.Callable[[type[_C]], type[_C]]:
+def tag_all_traits(**metadata: Any) -> Callable[[type[_C]], type[_C]]:
     """Tag all class-own traits.
 
     Do not replace existing tags.
