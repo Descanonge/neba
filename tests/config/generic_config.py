@@ -216,6 +216,7 @@ class GenericSection(Section):
     enum_int = Enum(values=[1, 2, 3], default_value=1)
     enum_str = Enum(values=["a", "b", "c"], default_value="a")
     enum_mix = Enum(values=[1, 2, 3, "a", "b", "c"], default_value=1)
+    none = Int(None, allow_none=True)
 
     # Containers (list)
     list_int = List(Int(), default_value=[0])
@@ -307,6 +308,7 @@ class GenericSectionInfo(SectionInfo[GenericSection]):
             enum_int=(["2"], 2),
             enum_str=(["b"], "b"),
             enum_mix=(["2"], 2),
+            none=(["None"], None),
             # lists
             list_int=(["1", "2"], [1, 2]),
             list_str=(["b", "c"], ["b", "c"]),

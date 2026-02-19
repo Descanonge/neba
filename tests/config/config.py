@@ -7,6 +7,7 @@ c.str = "value"
 c.enum_int = 2
 c.enum_str = "b"
 c.enum_mix = 2
+c.none = None
 
 # lists
 c.list_int = [1, 2]
@@ -43,6 +44,7 @@ c.sub_generic.str = "value"
 c.sub_generic.enum_int = 2
 c.sub_generic.enum_str = "b"
 c.sub_generic.enum_mix = 2
+c.sub_generic.none = None
 
 # lists
 c.sub_generic.list_int = [1, 2]
@@ -78,6 +80,7 @@ c.deep_sub.sub_generic_deep.str = "value"
 c.deep_sub.sub_generic_deep.enum_int = 2
 c.deep_sub.sub_generic_deep.enum_str = "b"
 c.deep_sub.sub_generic_deep.enum_mix = 2
+c.deep_sub.sub_generic_deep.none = None
 
 # lists
 c.deep_sub.sub_generic_deep.list_int = [1, 2]

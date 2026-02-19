@@ -223,12 +223,16 @@ class FileLoaderTest:
     def test_reading(self):
         app = get_App()(start=False)
         app.config_files = f"./tests/config/config{self.ext}"
-        conf: dict[str, Any] = app.load_config_files()
+        conf = app.load_config_files()
         conf = {k: v.get_value() for k, v in conf.items()}
 
         ref = {k: v[1] for k, v in GenericConfigInfo.generic_args().items()}
         # deal with alias resolution separately
         ref["deep_sub.sub_generic_deep.alias_only"] = 5
+
+        # toml does not support None
+        if self.ext == ".toml":
+            ref = {k: v for k, v in ref.items() if v is not None}
 
         if self.convert_set_tuple:
             # toml, yaml, json only outputs lists so here we convert them

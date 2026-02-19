@@ -63,11 +63,7 @@ class Module:
             self.setup()
             self._is_setup = True
         except Exception as e:
-            log.warning(
-                "Error when initializing module %s",
-                self,
-                exc_info=e,
-            )
+            log.warning("Error when setting up module %s", self, exc_info=e)
             if raise_errors:
                 raise e
 

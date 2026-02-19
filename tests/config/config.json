@@ -7,6 +7,7 @@
     "enum_int": 2,
     "enum_str": "b",
     "enum_mix": 2,
+    "none": null,
 
     "list_int": [1, 2],
     "list_str": ["b", "c"],
@@ -36,6 +37,7 @@
         "enum_int": 2,
         "enum_str": "b",
         "enum_mix": 2,
+        "none": null,
 
         "list_int": [1, 2],
         "list_str": ["b", "c"],
@@ -67,6 +69,7 @@
             "enum_int": 2,
             "enum_str": "b",
             "enum_mix": 2,
+            "none": null,
 
             "list_int": [1, 2],
             "list_str": ["b", "c"],
