@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import logging.config
 import sys
 from collections.abc import Mapping
 from os import path
@@ -11,6 +12,7 @@ from typing import TYPE_CHECKING, Any, Never, Self, TypeVar
 from traitlets import (
     Bunch,
     Enum,
+    Instance,
     Int,
     List,
     TraitType,
@@ -19,7 +21,6 @@ from traitlets import (
     default,
     observe,
 )
-from traitlets.config.configurable import LoggingConfigurable
 
 from neba.utils import did_you_mean, get_classname, import_item
 
@@ -35,7 +36,7 @@ log = logging.getLogger(__name__)
 S = TypeVar("S", bound=Section)
 
 
-class Application(Section, LoggingConfigurable):
+class Application(Section):
     """Base application class.
 
     Orchestrate the loading of configuration keys from files or from command line
@@ -75,6 +76,8 @@ class Application(Section, LoggingConfigurable):
     )
 
     # -- Log config --
+
+    log = Instance(logging.Logger).tag(config=False)
 
     log_level = Union(
         [Enum(("DEBUG", "INFO", "WARN", "ERROR", "CRITICAL")), Int()],
