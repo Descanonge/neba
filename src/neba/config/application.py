@@ -153,20 +153,20 @@ class Application(Section):
 
     # -- Instance attributes --
 
-    conf: dict[str, ConfigValue]
+    config: dict[str, ConfigValue]
     """Configuration values obtained from command line arguments and configuration
     files."""
-    cli_conf: dict[str, ConfigValue]
+    cli_config: dict[str, ConfigValue]
     """Configuration values obtained from command line arguments."""
-    file_conf: dict[str, ConfigValue]
+    file_config: dict[str, ConfigValue]
     """Configuration values obtained from configuration files."""
 
     def __init__(self, /, start: bool = True, **kwargs: Any) -> None:
         super().__init__(init_subsections=False)
 
-        self.conf = {}
-        self.cli_conf = {}
-        self.file_conf = {}
+        self.config = {}
+        self.cli_config = {}
+        self.file_config = {}
 
         if start:
             self.start(**kwargs)
@@ -206,28 +206,31 @@ class Application(Section):
         if ignore_cli is None:
             ignore_cli = self.ignore_cli
         if not ignore_cli:
-            self.cli_conf = self.parse_command_line(argv)
-            log.debug("Found config keys from CLI: %s", ", ".join(self.cli_conf.keys()))
+            self.cli_config = self.parse_command_line(argv)
+            log.debug(
+                "Found config keys from CLI: %s", ", ".join(self.cli_config.keys())
+            )
 
         # Read config files
         if self.config_files:
-            self.file_conf = self.load_config_files()
+            self.file_config = self.load_config_files()
 
-        self.conf = self.merge_configs(self.file_conf, self.cli_conf)
+        self.config = self.merge_configs(self.file_config, self.cli_config)
 
         # make a copy
-        conf = dict(self.conf)
+        config = dict(self.config)
 
         # Apply config relevant to this instance (only self, not recursive)
-        self._init_direct_traits(conf)
+        self._init_direct_traits(config)
 
         if instantiate is None:
             instantiate = self.auto_instantiate
         if instantiate:
-            self._init_subsections(conf)
-            if conf:
+            self._init_subsections(config)
+            if config:
                 raise KeyError(
-                    f"Extra parameters for {self.__class__.__name__} {list(conf.keys())}"
+                    f"Extra parameters for {self.__class__.__name__}"
+                    f"{list(config.keys())}"
                 )
 
     def _create_cli_loader(
@@ -301,24 +304,24 @@ class Application(Section):
         if not self.config_files:
             return {}
 
-        file_conf = {}
-        file_confs: dict[str, dict[str, ConfigValue]] = {}
+        file_config = {}
+        file_configs: dict[str, dict[str, ConfigValue]] = {}
         for filepath in self.config_files:
             if not path.isfile(filepath):
                 continue
 
             loader_cls = self._select_file_loader(filepath)
             loader = loader_cls(self, filepath)
-            file_confs[filepath] = loader.get_config()
+            file_configs[filepath] = loader.get_config()
 
-        if len(file_confs) == 0:
+        if len(file_configs) == 0:
             log.info("No config files found (%s)", str(self.config_files))
-        elif len(file_confs) == 1:
-            file_conf = list(file_confs.values())[0]
+        elif len(file_configs) == 1:
+            file_config = list(file_configs.values())[0]
         else:
-            file_conf = self.merge_configs(*file_confs.values())
+            file_config = self.merge_configs(*file_configs.values())
 
-        return file_conf
+        return file_config
 
     def _select_file_loader(self, filename: str) -> type[FileLoader]:
         """Return the first appropriate FileLoader for this file."""
@@ -371,9 +374,9 @@ class Application(Section):
     def copy(self, **kwargs: Any) -> Self:
         """Return a copy."""
         out = self.__class__(start=False, **kwargs)
-        out.conf = self.conf.copy()
-        out.cli_conf = self.cli_conf.copy()
-        out.file_conf = self.file_conf.copy()
+        out.config = self.config.copy()
+        out.cli_config = self.cli_config.copy()
+        out.file_config = self.file_config.copy()
         config = self.as_dict()
         Section.__init__(out, config, **kwargs)
         return out
@@ -416,8 +419,8 @@ class Application(Section):
             * None: ask what to do interactively in the console
         """
         options = dict(u="update", o="overwrite", a="abort")
-        default = "a"
-        inits = [i.upper() if i == default else i for i in options.keys()]
+        clobber_default = "a"
+        inits = [i.upper() if i == clobber_default else i for i in options.keys()]
 
         # config to write, start with non-default traits
         config: dict[str, ConfigValue] = {}
@@ -434,10 +437,10 @@ class Application(Section):
                 + f" [{'/'.join(inits)}]"
             )
             try:
-                return input(prompt)[:1].lower() or default
+                return input(prompt)[:1].lower() or clobber_default
             except KeyboardInterrupt:
                 print("")  # empty line
-                return default
+                return clobber_default
 
         if filename is None:
             if isinstance(self.config_files, list | tuple):
