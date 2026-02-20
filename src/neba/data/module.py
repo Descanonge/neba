@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import functools
+import inspect
 import logging
 from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar, overload
@@ -162,7 +163,13 @@ class ModuleMix(Generic[T_Mod], Module):
                 f"'{type(self).__name__}' object has no attribute '{name}'"
             )
 
-        selected = self.select()
+        try:
+            selected = self.select()
+        except Exception as e:
+            raise AttributeError(
+                f"Could not select a module for accessing attribute '{name}'"
+            ) from e
+
         if not hasattr(selected, name):
             raise AttributeError(
                 f"Selected base module '{selected}' has no attribute '{name}' defined."
@@ -193,7 +200,7 @@ class ModuleMix(Generic[T_Mod], Module):
         """
         cls.base_types = tuple(bases)
         if select_func is not None:
-            cls.select_func = select_func  # type: ignore
+            cls.select_func = select_func
         return cls
 
     @classmethod
@@ -206,7 +213,7 @@ class ModuleMix(Generic[T_Mod], Module):
             mix and additional kwargs, and must return the class-name of one of the
             base module.
         """
-        cls.select_func = select_func  # type: ignore
+        cls.select_func = select_func
 
     def _lines(self) -> list[str]:
         s = []
@@ -228,11 +235,16 @@ class ModuleMix(Generic[T_Mod], Module):
         if self.select_func is None:
             raise ValueError(f"No selection function registered for {self.__class__}.")
         # temporarily desactivate auto dispatch to avoid endless recursion if
-        # select_func has AttributeErrors (error message will be easire to understand)
+        # select_func has AttributeErrors (error message will be easier to understand)
         old = self._auto_dispatch_getattr
         self._auto_dispatch_getattr = False
-        selected = self.select_func(**kwargs)
-        self._auto_dispatch_getattr = old
+        try:
+            if inspect.ismethod(self.select_func):
+                selected = self.select_func(**kwargs)
+            else:
+                selected = self.select_func(self, **kwargs)
+        finally:
+            self._auto_dispatch_getattr = old
         return self.base_modules[selected]
 
     def apply_all(self, method: str, *args: Any, **kwargs: Any) -> list[Any]:
