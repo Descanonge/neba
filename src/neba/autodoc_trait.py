@@ -86,7 +86,7 @@ class TraitDocumenter(AttributeDocumenter):
     """Documenter for Trait objects."""
 
     objtype = "trait"
-    directivetype = "trait"
+    directivetype = "attribute"
     priority = AttributeDocumenter.priority + 10
 
     metadata_properties = [
@@ -521,7 +521,6 @@ def setup(app: Sphinx) -> dict:  # noqa: D103
     app.add_directive_to_domain("py", "trait", PyAttributeFullkeyTOC)
     app.add_directive_to_domain("py", "subsection", PyAttributeSubsection)
 
-    app.add_autodocumenter(SectionDocumenter)
     app.add_autodocumenter(TraitDocumenter)
     app.connect("autodoc-skip-member", skip_trait_member)
 

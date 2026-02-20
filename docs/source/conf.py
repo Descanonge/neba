@@ -53,6 +53,7 @@ toc_object_entries_show_parents = "hide"
 pygments_style = "default"
 
 ## Autodoc config
+autodoc_use_legacy_class_based = True
 autodoc_typehints = "description"
 autodoc_typehints_format = "short"
 autodoc_typehints_description_target = "all"
