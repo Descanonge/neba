@@ -265,6 +265,7 @@ class GenericSectionInfo(SectionInfo[GenericSection]):
         enum_int=Enum(values=[1, 2, 3], default_value=1),
         enum_str=Enum(values=["a", "b", "c"], default_value="a"),
         enum_mix=Enum(values=[1, 2, 3, "a", "b", "c"], default_value=1),
+        none=Int(None, allow_none=True),
         # Containers (list)
         list_int=List(Int(), default_value=[0]),
         list_str=List(Unicode(), default_value=["a"]),

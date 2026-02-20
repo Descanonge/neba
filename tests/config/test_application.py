@@ -23,15 +23,15 @@ class TestStartup:
     def test_ignore_cli(self):
         # value different than what is defined in config.py and config.toml
         app = App(argv=["--int", "2"], ignore_cli=True)
-        assert len(app.cli_conf) == 0
+        assert len(app.cli_config) == 0
         assert app.int != 2
 
     def test_no_start(self):
         new_val = GenericConfigInfo.default("int") + 1
         app = App(argv=["--int", str(new_val)], start=False)
-        assert len(app.conf) == 0
-        assert len(app.cli_conf) == 0
-        assert len(app.file_conf) == 0
+        assert len(app.config) == 0
+        assert len(app.cli_config) == 0
+        assert len(app.file_config) == 0
         assert app.int == GenericConfigInfo.default("int")
         assert app.str == GenericConfigInfo.default("str")
 

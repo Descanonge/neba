@@ -456,7 +456,7 @@ def test_config_merge():
         app = App(argv=argv)
 
         def check_cv(key: str, value: Any, origin: str):
-            cv = app.conf[key]
+            cv = app.config[key]
             assert cv.get_value() == value
             assert cv.origin == origin
 
