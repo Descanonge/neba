@@ -45,7 +45,7 @@ def wrap_text(text: str) -> list[str]:
     return paragraphs.splitlines()
 
 
-def stringify(obj: Any, rst: bool = True) -> str:
+def stringify(obj: Any, rst: bool = True, maxlength: int | None = None) -> str:
     """Return a string representation of object.
 
     To put in trait metadata in the documentation.
@@ -55,6 +55,8 @@ def stringify(obj: Any, rst: bool = True) -> str:
     rst
         If True, wrap the output in wrap the output in double backticks and link
         classes using roles.
+    maxlength
+        If not None, cut the result with ellipsis after that many characters.
     """
 
     def output(text: str) -> str:
@@ -79,8 +81,7 @@ def stringify(obj: Any, rst: bool = True) -> str:
     out = str(obj)
 
     # arbitrary length of characters
-    maxlength = 32
-    if len(out) > maxlength:
+    if maxlength is not None and len(out) > maxlength:
         # the repr/str is too long
         out = out[:maxlength] + "..."
 
