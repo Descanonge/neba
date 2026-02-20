@@ -72,6 +72,7 @@ autodoc_default_options = {"show-inheritance": True, "inherited-members": False}
 
 ## Autosummary config
 autosummary_generate = ["api/config.rst", "api/data.rst"]
+autosummary_generate_overwrite = False
 
 ## Napoleon config
 napoleon_google_docstring = False
