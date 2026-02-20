@@ -951,7 +951,7 @@ class TestTraitListing:
             pass
 
         section = info.section()
-        values = section.trait_values_from_func_signature(func)
+        values = section.values_from_func_signature(func)
         assert all(k in values for k in ["list_int", "enum_int", "tuple_float"])
         assert "other_a" not in values
         assert "other_b" not in values
