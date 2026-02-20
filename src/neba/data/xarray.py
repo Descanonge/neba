@@ -167,8 +167,7 @@ class XarrayWriter(WriterAbstract[str, xr.Dataset]):
     def add_metadata(
         self,
         ds: xr.Dataset,
-        add_interface_parameters: bool = True,
-        add_commit: bool = True,
+        **metadata_kwargs: Any,
     ) -> xr.Dataset:
         """Set some dataset attributes with information on how it was created.
 
@@ -179,16 +178,11 @@ class XarrayWriter(WriterAbstract[str, xr.Dataset]):
         ----------
         ds
             Dataset to add global attributes to. This is **not** done in-place.
-        add_interface_params
-            Add the parent interface parameters to serialization if True (default).
-        add_commit
-            If True (default), try to find the current commit hash of the directory
-            containing the script called.
+        metadata_kwargs
+            Passed to the :attr:`~.WriterAbstract.metadata_generator`. See
+            :class:`.MetadataOptions` for available options.
         """
-        meta = self.get_metadata(
-            add_interface_params=add_interface_parameters,
-            add_commit=add_commit,
-        )
+        meta = self.get_metadata(**metadata_kwargs)
         return self._add_metadata(ds, meta)
 
     def _add_metadata(self, ds: xr.Dataset, metadata: Mapping) -> xr.Dataset:
@@ -266,6 +260,7 @@ class XarrayWriter(WriterAbstract[str, xr.Dataset]):
         data: xr.Dataset | Sequence[xr.Dataset],
         target: str | Sequence[str] | None = None,
         client: Client | None = None,
+        metadata_kwargs: Mapping[str, Any] | None = None,
         **kwargs: Any,
     ) -> Any:
         """Write datasets to multiple targets.
@@ -285,6 +280,9 @@ class XarrayWriter(WriterAbstract[str, xr.Dataset]):
             Dask :class:`distributed.Client` instance. If present multiple write calls
             will be send in parallel. See :meth:`send_calls_together` for details.
             If left to None, the write calls will be sent serially.
+        metadata_kwargs
+            Passed to the :attr:`~.WriterAbstract.metadata_generator`. See
+            :class:`.MetadataOptions` for available options.
         kwargs
             Passed to the function that writes to disk
             (:meth:`xarray.Dataset.to_netcdf` or :meth:`xarray.Dataset.to_zarr`).
@@ -297,7 +295,9 @@ class XarrayWriter(WriterAbstract[str, xr.Dataset]):
         if isinstance(data, xr.Dataset):
             data = [data]
 
-        data = [self.add_metadata(d) for d in data]
+        if metadata_kwargs is None:
+            metadata_kwargs = {}
+        data = [self.add_metadata(d, **metadata_kwargs) for d in data]
 
         if len(target) != len(data):
             raise IndexError(
@@ -362,6 +362,7 @@ class XarraySplitWriter(SplitWriterMixin, XarrayWriter):
         squeeze: bool | str | Mapping[Hashable, bool | str] = False,
         client: Client | None = None,
         chop: int | None = None,
+        metadata_kwargs: Mapping[str, Any] | None = None,
         **kwargs: Any,
     ) -> list[Delayed | xr.backends.ZarrStore | None] | None:
         """Write data to disk.
@@ -410,6 +411,9 @@ class XarraySplitWriter(SplitWriterMixin, XarrayWriter):
             If None (default), all calls are sent together. If chop is an integer,
             groups of calls of size ``chop`` (at most) will be sent one after the other,
             calls within each group being run in parallel.
+        metadata_kwargs
+            Passed to the :attr:`~.WriterAbstract.metadata_generator`. See
+            :class:`.MetadataOptions` for available options.
         kwargs:
             Passed to the function that writes to disk
             (:meth:`xarray.Dataset.to_netcdf`).
@@ -428,7 +432,9 @@ class XarraySplitWriter(SplitWriterMixin, XarrayWriter):
         self.check_directories(calls)
         self.check_overwriting_calls(calls)
 
-        metadata = self.get_metadata()
+        if metadata_kwargs is None:
+            metadata_kwargs = {}
+        metadata = self.get_metadata(**metadata_kwargs)
         calls = [(f, self._add_metadata(ds, metadata)) for f, ds in calls]
 
         if client is not None:

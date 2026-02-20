@@ -8,54 +8,247 @@ import logging
 import os
 import socket
 import subprocess
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime
 from os import path
-from typing import Any, Generic, Protocol, TypeVar, cast, runtime_checkable
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Generic,
+    Protocol,
+    TypeVar,
+    cast,
+    runtime_checkable,
+)
 
+from traitlets import Bool, Int, List, Unicode
+
+from neba.config import Section
 from neba.config.loaders.json import JsonEncoderTypes
+from neba.utils import get_classname
 
 from .module import Module
 from .types import T_Data, T_Source, T_Source_contra
 
+if TYPE_CHECKING:
+    from .interface import DataInterface
+
+
 log = logging.getLogger(__name__)
 
 
-class WriterAbstract(Generic[T_Source_contra, T_Data], Module):
-    """Abstract class of Writer module.
+class MetadataOptions(Section):
+    """Options for metadata generator."""
 
-    Manages metadata to (eventually) add to data before writing.
+    elements = List(
+        Unicode(),
+        default_value=[
+            "written_with_interface",
+            "creation_time",
+            "creation_script",
+            "creation_hostname",
+            "creation_params_str",
+            "creation_commit",
+            "creation_diff",
+        ],
+    )
+
+    elements_to_skip = {
+        "add_params": ["creation_params", "creation_params_str"],
+        "add_git_info": ["creation_commit", "creation_diff"],
+    }
+    """Mapping from traits to lists of elements. If the trait is False, those
+    elements will be skipped."""
+
+    add_params = Bool(True, help="If True add parameters (either as dict or str).")
+    add_git_info = Bool(
+        True, help="If True add information about git repository status."
+    )
+
+    # -- Other parameters --
+
+    params_exclude = List(
+        Unicode(),
+        default_value=["log_"],
+        help="Prefixes of parameters to exclude from metadata attribute.",
+    )
+
+    max_diff_lines = Int(30, help="Maximum number of lines to include in diff.")
+
+    creation_script = Unicode(
+        None,
+        allow_none=True,
+        help="Manually specify the creation script.",
+    )
+
+    git_ignore = List(
+        Unicode(),
+        default_value=[],
+        help="Files and folders to ignore when creating git diff.",
+    )
+
+    def get_elements(self) -> list[str]:
+        """Return elements (skipping thoses not selected by user)."""
+        elements_to_skip = []
+        for selector_option, to_skip in self.elements_to_skip.items():
+            if not getattr(self, selector_option):
+                elements_to_skip += to_skip
+
+        return [elt for elt in self.elements if elt not in elements_to_skip]
+
+
+class MetadataGenerator:
+    """Generate metadata from Interface.
+
+    Options are stored in an instance of :attr:`options_cls`.
+
+    Metadata is split into elements. Each element corresponds to a method in this class,
+    that when run will add stuff to a metadata dictionary. The user can specify elements
+    to run via the :attr:`~.MetadataOptions.elements` trait, or skip groups of elements
+    by passing the parameters specified in :attr:`~.MetadataOptions.elements_to_skip`.
+
+    If an element returns a value when run, it will be added to the metadata dictionary
+    with that element name. Otherwise, the element can add to the metadata attribute
+    itself (maybe multiple items) and return None.
+
+    If an error is raised when running an element, the exception is only logged and
+    the generation continues.
+
+    When all elements have run, the :meth:`postprocess` method is run. This is a good
+    place to slightly modify the metadata, like for renaming some items.
+
+    Parameters
+    ----------
+    di
+        The parent DataInterface.
+    kwargs
+        Options passed to :attr:`options_cls`.
     """
 
-    metadata_params_exclude: Sequence[str] = ["dask.", "log_"]
-    """Prefixes of parameters to exclude from metadata attribute."""
+    options_cls = MetadataOptions
 
-    metadata_git_ignore: Sequence[str] = []
-    """Files and folders to ignore when creating git diff."""
+    def __init__(self, di: DataInterface, **kwargs: Any) -> None:
+        self.di: DataInterface = di
+        self.metadata: dict[str, Any] = {}
+        self.options = self.options_cls(**kwargs)
 
-    metadata_max_diff_lines = 30
-    """Maximum number of lines to include in diff."""
+    def generate(self) -> dict[str, Any]:
+        """Generate metadata."""
+        for name in self.options.get_elements():
+            if not hasattr(self, name):
+                raise AttributeError(f"No metadata property named '{name}'")
 
-    def add_git_metadata(self, script: str, meta: dict[str, Any]) -> None:
-        """Add git information to meta dictionary."""
+            try:
+                element = getattr(self, name)()
+                if element is not None:
+                    self.metadata[name] = element
+            except Exception as exc:
+                log.warning("Failed to retrieved metadata element '%s' (%s)", name, exc)
+                continue
+
+        self.postprocess()
+
+        return self.metadata
+
+    def postprocess(self) -> None:
+        """Modify the metadata attribute in place, after generation."""
+        pass
+
+    def written_with_interface(self) -> str:
+        """Class-name and ID of parent interface."""
+        cls_name = get_classname(self.di)
+        if self.di.ID:
+            cls_name += f":{self.di.ID}"
+        return cls_name
+
+    def creation_time(self) -> str:
+        """Date and time."""
+        return datetime.today().strftime("%x %X")
+
+    def creation_hostname(self) -> str:
+        """Return hostname of current running process."""
+        return socket.gethostname()
+
+    def creation_script(self) -> str:
+        """Filename of top-level script or notebook."""
+        if self.options.creation_script is not None:
+            return self.options.creation_script
+
+        # check if in Jupyter session
+        try:
+            import IPython
+        except ImportError:
+            pass
+        else:
+            ip = IPython.get_ipython()
+            if (
+                ip is not None
+                and (session := ip.user_ns.get("__session__")) is not None
+                and session.endswith(".ipynb")  # could be a console
+            ):
+                return session
+
+        script = None
+        for stack in inspect.stack():
+            # we can still be in a IPython console
+            if "IPython" in stack.filename:
+                break
+            script = stack.filename
+
+        if script is None:
+            raise ValueError
+
+        return script
+
+    def creation_params(self) -> dict[str, Any]:
+        """Return interface parameters as dictionary."""
+        # This should work for dict and Section, but not necessarily for future
+        # parameters containers
+        params = dict(self.di.parameters.direct)
+        for prefix in self.options.params_exclude:
+            params = {k: v for k, v in params.items() if not k.startswith(prefix)}
+
+        return params
+
+    def creation_params_str(self) -> None:
+        """Return interface parameters as string serialized by JSON.
+
+        Store them in ``creation_params``.
+        """
+        params = self.creation_params()
+        self.metadata["creation_params"] = json.dumps(params, cls=JsonEncoderTypes)
+
+    def creation_commit(self) -> str:
+        """Return latest commit hash."""
         # use the directory of the calling script
-        gitdir = path.dirname(script) if script else "."
+        gitdir = path.dirname(self.metadata.get("creation_script", "."))
 
-        # check if script is in a git directory and get current commit
         cmd = ["git", "-C", gitdir, "rev-parse", "HEAD"]
-        ret = subprocess.run(cmd, capture_output=True, text=True)
-        if ret.returncode != 0:
-            log.debug("'%s' not a valid git directory", gitdir)
+        ret = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        return ret.stdout.strip()
+
+    def creation_diff(self) -> None:
+        """Add git diff, only if latest commit hash is present."""
+        if "creation_commit" not in self.metadata:
             return
-        commit = ret.stdout.strip()
-        meta["created_at_commit"] = commit
+
+        def git_cmd(cmd: list[str]) -> str:
+            """Execute git command with informative log message."""
+            ret = subprocess.run(cmd, capture_output=True, text=True, check=False)
+            if ret.returncode != 0:
+                err = ret.stderr.strip()
+                if (stop := err.find("usage:")) > 0:
+                    err = err[:stop]
+                msg = f"Error in creating git diff with command {' '.join(cmd)}\n{err}"
+                log.warning(msg)
+                raise RuntimeError
+            return ret.stdout.strip()
+
+        # use the directory of the calling script
+        gitdir = path.dirname(self.metadata.get("creation_script", "."))
 
         # get top level (necessary for exclude arguments)
-        gitdir = subprocess.run(
-            ["git", "-C", gitdir, "rev-parse", "--show-toplevel"],
-            capture_output=True,
-            text=True,
-        ).stdout.strip()
+        gitdir = git_cmd(["git", "-C", gitdir, "rev-parse", "--show-toplevel"])
 
         # check if there is diff
         diffcmd = [
@@ -68,110 +261,69 @@ class WriterAbstract(Generic[T_Source_contra, T_Data], Module):
             "--diff-filter=M",
             "--minimal",
         ]
-        exclude_cmd = [f":!{x}" for x in self.metadata_git_ignore]
-        cmd = diffcmd + ["--numstat"] + exclude_cmd
-        ret = subprocess.run(cmd, capture_output=True, text=True)
-        if ret.returncode != 0:
-            err = ret.stderr.strip()
-            if (stop := err.find("usage:")) > 0:
-                err = err[:stop]
-            log.warning("Error in creating diff, [%s]\n (%s)", ret.stderr.strip())
-            return
-        stat = ret.stdout.strip()
+        exclude_cmd = [f":!{x}" for x in self.options.git_ignore]
+
+        stat = git_cmd(diffcmd + ["--numstat"] + exclude_cmd)
         if stat:
             stat_lines = []
             for line in stat.splitlines():
                 plus, minus, filename = line.split("\t")
                 stat_lines.append(f"{filename}:+{plus}:-{minus}")
-            meta["git_diff_short"] = stat_lines
+            self.metadata["creation_diff_short"] = stat_lines
 
             # add full diff
-            cmd = diffcmd + ["--unified=0"] + exclude_cmd
-            ret = subprocess.run(cmd, capture_output=True, text=True)
-            if ret.returncode != 0:
-                err = ret.stderr.strip()
-                if (stop := err.find("usage:")) > 0:
-                    err = err[:stop]
-                log.warning("Error in creating diff, [%s]\n (%s)", ret.stderr.strip())
-                return
-            diff = ret.stdout.strip().splitlines()
-            if (n := len(diff)) > (m := self.metadata_max_diff_lines):
+            diff = git_cmd(diffcmd + ["--unified=0"] + exclude_cmd).splitlines()
+            if (n := len(diff)) > (m := self.options.max_diff_lines):
                 diff = diff[:m]
                 diff.append(f"... {n - m} additional lines")
-            meta["git_diff_long"] = diff
+            self.metadata["git_diff_long"] = diff
 
-    def get_metadata(
-        self,
-        add_interface_params: bool = True,
-        add_commit: bool = True,
-    ) -> dict[str, Any]:
+
+class WriterAbstract(Generic[T_Source_contra, T_Data], Module):
+    """Abstract class of Writer module."""
+
+    metadata_generator = MetadataGenerator
+
+    def get_metadata(self, **kwargs: Any) -> dict[str, Any]:
         """Get information on how data was created.
 
-        Attributes are:
-
-        * ``written_with_interface``: name of interface class.
-        * ``created_by``: hostname and filename of the python script used
-        * ``created_with_params``: a string representing the parameters,
-        * ``created_on``: date of creation
-        * ``created_at_commit``: if found, the HEAD commit hash.
-        * ``git_diff_short``: if workdir is dirty, a list of modified files
-        * ``git_diff_long``: if workdir is dirty, the full diff (truncated) at
-          :attr:`metadata_max_diff_lines`.
+        Uses :attr:`metadata_generator`.
 
         Parameters
         ----------
-        add_interface_params
-            If True (default), add the parent interface parameters to metadata.
-            Parameters are converted to a dictionary are serialized using json, and if
-            that fails `str()`.
-        add_commit
-            If True (default), add the current commit hash of the directory
-            containing the script
+        kwargs
+            Options passed to :class:`MetadataOptions`
         """
-        meta = {}
+        generator = self.metadata_generator(self.di, **kwargs)
+        return generator.generate()
 
-        # Name of class
-        cls_name = self.di.__class__.__name__
-        if self.di.ID:
-            cls_name += f":{self.di.ID}"
-        meta["written_with_interface"] = cls_name
+        # # Get parameters as string
+        # if add_interface_params:
+        #     # copy / convert to dict
+        #     params = dict(self.di.parameters.direct)
+        #     for prefix in self.metadata_params_exclude:
+        #         params = {k: v for k, v in params.items() if not k.startswith(prefix)}
+        #     try:
+        #         params_str = json.dumps(params, cls=JsonEncoderTypes)
+        #     except TypeError:
+        #         params_str = str(params)
 
-        # Get hostname and script name
-        hostname = socket.gethostname()
-        script = ""
-        for stack in inspect.stack():
-            if "neba" not in stack.filename:
-                script = stack.filename
-                break
+        #     meta["created_with_params"] = params_str
 
-        meta["created_by"] = f"{hostname}:{script}"
+        # # Get date
+        # meta["created_on"] = datetime.today().strftime("%x %X")
 
-        # Get parameters as string
-        if add_interface_params:
-            # copy / convert to dict
-            params = dict(self.di.parameters.direct)
-            for prefix in self.metadata_params_exclude:
-                params = {k: v for k, v in params.items() if not k.startswith(prefix)}
-            try:
-                params_str = json.dumps(params, cls=JsonEncoderTypes)
-            except TypeError:
-                params_str = str(params)
+        # # Get commit hash
+        # if add_commit:
+        #     self.add_git_metadata(script, meta)
 
-            meta["created_with_params"] = params_str
-
-        # Get date
-        meta["created_on"] = datetime.today().strftime("%x %X")
-
-        # Get commit hash
-        if add_commit:
-            self.add_git_metadata(script, meta)
-
-        return meta
+        # return meta
 
     def write(
         self,
         data: T_Data | Sequence[T_Data],
         target: T_Source_contra | Sequence[T_Source_contra] | None = None,
+        metadata_kwargs: Mapping[str, Any] | None = None,
         **kwargs: Any,
     ) -> Any:
         """Write data to file or store.
@@ -185,6 +337,11 @@ class WriterAbstract(Generic[T_Source_contra, T_Data], Module):
         target
             If None, target location(s) should be obtained via
             :meth:`.DataInterface.get_source`.
+        metadata_kwargs
+            Passed to the :attr:`metadata_generator`. See :class:`.MetadataOptions` for
+            available options.
+        kwargs
+            Passed to the writing function.
         """
         raise NotImplementedError("Implement in a module subclass.")
 
