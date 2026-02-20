@@ -20,7 +20,6 @@ from textwrap import dedent
 from typing import Any, Generic, Literal, Self, TypeVar, overload
 
 from traitlets import Enum, HasTraits, Sentinel, TraitType, Undefined
-from traitlets.config import Configurable
 
 from neba.utils import did_you_mean, get_classname
 
@@ -1132,10 +1131,10 @@ class Section(HasTraits):
 
 MutableMapping[str, Any].register(Section)
 
-_C = TypeVar("_C", bound=Configurable)
+_HasTraits = TypeVar("_HasTraits", bound=HasTraits)
 
 
-def tag_all_traits(**metadata: Any) -> Callable[[type[_C]], type[_C]]:
+def tag_all_traits(**metadata: Any) -> Callable[[type[_HasTraits]], type[_HasTraits]]:
     """Tag all class-own traits.
 
     Do not replace existing tags.
@@ -1146,7 +1145,7 @@ def tag_all_traits(**metadata: Any) -> Callable[[type[_C]], type[_C]]:
         Are passed to ``trait.tag(**metadata)``.
     """
 
-    def decorator(cls: type[_C]) -> type[_C]:
+    def decorator(cls: type[_HasTraits]) -> type[_HasTraits]:
         for trait in cls.class_own_traits().values():
             for key, value in metadata.items():
                 if key not in trait.metadata:

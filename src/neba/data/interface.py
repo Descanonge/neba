@@ -319,7 +319,7 @@ class _ParamsContext:
         return False
 
 
-class DataInterfaceSection(DataInterface, Section):
+class DataInterfaceSection(DataInterface[T_Params, T_Source, T_Data], Section):
     """An interface that is also a configurable section.
 
     Any modification of the interface traits will void the cache.
