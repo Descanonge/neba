@@ -74,37 +74,25 @@ class DataInterface(Generic[T_Params, T_Source, T_Data]):
         self._modules = {}
         self._reset_callbacks = {}
 
-        self._instantiate_modules(params, **kwargs)
+        # Instantiate modules
+        for instance_attr, type_attr in self._modules_attributes.items():
+            mod_type = getattr(self, type_attr)
 
-        # backref
-        for mod in self._modules.values():
+            try:
+                mod = mod_type(params, **kwargs)
+            except Exception as e:
+                e.add_note(f"Error when instantiating module {mod_type}.")
+                raise e
+
+            self._modules[instance_attr] = mod
+            setattr(self, instance_attr, mod)
+            # backref
             mod.di = self
 
         # Setup modules
-        # Start with parameters.
-        self.parameters.setup_safe(raise_errors=True)
-
-        # Parameters won't initialize again
         for mod in self._modules.values():
-            mod.setup_safe()
-
-    def _instantiate_modules(self, *args: Any, **kwargs: Any) -> None:
-        for instance_attr, type_attr in self._modules_attributes.items():
-            # None means the user has deleted module without unregistering it, fine.
-            mod_type = getattr(self, type_attr, None)
-            if mod_type is None:
-                log.info("Module %%s registered but definition not present.", type_attr)
-                return
-
-            try:
-                mod = mod_type(*args, **kwargs)
-            except Exception as e:
-                log.warning("Error when instantiating module %s", mod_type, exc_info=e)
-                if not mod_type._allow_instantiation_failure:
-                    raise e
-            else:
-                self._modules[instance_attr] = mod
-                setattr(self, instance_attr, mod)
+            mod.setup()
+            mod._is_setup = True
 
     def __str__(self) -> str:
         """Return a string representation."""

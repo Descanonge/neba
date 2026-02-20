@@ -19,8 +19,6 @@ log = logging.getLogger(__name__)
 class Module:
     """Module to which the data-manager delegates some functionality."""
 
-    _allow_instantiation_failure: bool = True
-    """Whether exception will be raised or not during instantiation."""
     _is_setup: bool = False
     """Keep track if the module has been set up."""
 
@@ -48,24 +46,6 @@ class Module:
     def setup(self) -> None:
         """Initialize module."""
         pass
-
-    def setup_safe(self, raise_errors: bool = False) -> None:
-        """Initialize module safely.
-
-        Will only run if :attr:`_is_setup` is False.
-
-        :param raise_errors: If False (default), errors are logged and not raised.
-        """
-        if self._is_setup:
-            return
-
-        try:
-            self.setup()
-            self._is_setup = True
-        except Exception as e:
-            log.warning("Error when setting up module %s", self, exc_info=e)
-            if raise_errors:
-                raise e
 
 
 class CachedModule(Module):

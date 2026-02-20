@@ -20,8 +20,6 @@ log = logging.getLogger(__name__)
 class ParametersAbstract(Generic[T_Params], Module):
     """Abstract Module for parameters management."""
 
-    _allow_instantiation_failure = False
-
     _params: T_Params
 
     @property

@@ -76,23 +76,6 @@ def test_instantiate_order():
     assert order == ["P", "S", "L", "W"]
 
 
-def test_module_error():
-    """Test module instantiation raises (or not)."""
-
-    class MyDataInterface(DataInterface):
-        class Source(SourceAbstract):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
-                raise ValueError
-
-    MyDataInterface.Source._allow_instantiation_failure = False
-    with pytest.raises(ValueError):
-        MyDataInterface()
-
-    MyDataInterface.Source._allow_instantiation_failure = True
-    assert not hasattr(MyDataInterface(), "source")
-
-
 def test_parent_interface_access():
     """Test backref to parent interface."""
 
