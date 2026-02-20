@@ -214,9 +214,8 @@ class ConfigLoader:
         resolve/normalize the config and return it.
 
         Parameters to be applied to the application before proper resolution of the
-        whole configuration are detected in a simple manner. Only single level keys and
-        class keys corresponding to an existing application trait are used. Aliases not
-        yet supported.
+        whole configuration are detected in a simple manner. Only single level keys
+        corresponding to an existing application trait are used.
 
         Parameters
         ----------

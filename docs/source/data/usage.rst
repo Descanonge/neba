@@ -434,23 +434,16 @@ To add more modules types, the correspondence between the attribute containing
 the module instance and the one containing the module type must be indicated in
 the mapping :attr:`~.DataInterface._modules_attributes`.
 
-Interfaces are initialized with an optional argument giving the parameters, and
-additional keyword arguments. All modules are instantiated with the same
-arguments. The parameters module is instantiated first. Other modules are
-instantiated in the order of :attr:`~.DataInterface._modules_attributes`. Once
-all instantiated, modules are then setup in the same order with
-:meth:`.Module.setup`. Once they are all instantiated, they are setup using the
-:meth:`.Module.setup` method. This allow to be (mostly) sure that all other
-modules exist if there is need for interplay.
-
 .. note::
 
-   'Mostly' because if a module fails to instantiate and its attribute
-   :attr:`.Module._allow_instantiation_failure` is True, it will only log a
-   warning and the module will not be accessible.
+   Modules are instantiated and setup in the order of that mapping.
 
-   Similarly, only a warning is emitted if an exception occurs during setup.
-   Only the parameters module is not allowed to fail.
+Interfaces are initialized with an optional argument giving the parameters, and
+additional keyword arguments. All modules are instantiated with the same
+arguments. Once they are all instantiated, they are setup using the
+:meth:`.Module.setup` method. This allow to be sure that all other modules exist
+if there is need for interplay.
+
 
 Interface store
 ===============
