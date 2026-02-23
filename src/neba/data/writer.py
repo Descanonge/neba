@@ -238,7 +238,7 @@ class MetadataGenerator:
         self.options = self.options_cls(**kwargs)
 
         self.elements: dict[str, MetadataElement] = {}
-        for basetype in self.__class__.mro():
+        for basetype in reversed(self.__class__.mro()):
             for key, value in basetype.__dict__.items():
                 if isinstance(value, MetadataElement):
                     self.elements[key] = value
