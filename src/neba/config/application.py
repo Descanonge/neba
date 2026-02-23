@@ -77,7 +77,7 @@ class Application(Section):
 
     # -- Log config --
 
-    log = Instance(logging.Logger).tag(config=False)
+    log = Instance(logging.Logger, help="Logger instance.").tag(config=False)
 
     log_level = Union(
         [Enum(("DEBUG", "INFO", "WARN", "ERROR", "CRITICAL")), Int()],

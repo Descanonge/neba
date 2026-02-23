@@ -272,26 +272,74 @@ Writer
 The Writer writes data to the location given by the Source module. It allows to
 use :meth:`.DataInterface.write`.
 
-The writer will create directories if needed, and can also add metadata to the
-data you are writing:
-
-* ``written_with_interface``: name of the interface class.
-* ``created_by``: hostname and filename of the python script used
-* ``created_with_params``: a string representing the parameters,
-* ``created_on``: date of creation
-* ``created_at_commit``: if found, the HEAD commit hash.
-* ``git_diff_short``: if workdir is dirty, a list of modified files
-* ``git_diff_long``: if workdir is dirty, the full diff (truncated) at
-  :attr:`~.WriterAbstract.metadata_max_diff_lines`.
-
 The writer will generate one or more *calls*, each consisting of a location and
 data to write there. It will then execute calls serially or in parallel (for
-instance when using Xarray and Dask).
+instance when using Xarray and Dask). The writer will check that no call
+point to the same target, and will create directories if needed.
 
 Some writers are able to split your dataset into multiple files. They should
 inherit :class:`.SplitWriterMixin`, and the source module should follow the
-:class:`.Splitable` protocol.
+:class:`.Splitable` protocol. See :class:`.XarraySplitWriter` for an example.
 
+Metadata
+++++++++
+
+Writers can generate metadata with a :class:`.MetadataGenerator` object. You can
+modify the generator *class* via the
+:attr:`Writer.metadata_generator<.WriterAbstract.metadata_generator>` attribute
+(an instance will be created when generating metadata with
+:meth:`writer.get_metadata<.WriterAbstract.get_metadata>`).
+
+Metadata is split into elements. Elements can be "simple" and return a single
+item that will be given the same name as the element, or return a mapping of
+multiple items. Items can be renamed by with :meth:`~.MetadataElement.rename`.
+For instance::
+
+  di.writer.metadata_generator.creation_time.rename("created_on")
+
+.. note::
+
+    This only changes the name of the items that end up in the metadata, not the
+    elements that generate them.
+
+If an error is raised when running an element, the exception is only logged and
+the generation continues. When all elements have run, the
+:meth:`~.MetadataGenerator.postprocess` method is run. This is a good place to
+slightly modify the metadata.
+
+Users can specify options via the ``metadata_kwargs`` argument of appropriate
+writer methods. In particular, one can manually specify elements to run via
+:attr:`~.MetadataOptions.elements`, or skip groups of elements with
+:attr:`~.MetadataOptions.add_params` and :attr:`~.MetadataOptions.add_git_info`
+(or any option in :attr:`~.MetadataOptions.elements_to_skip`). Check the
+documentation of :class:`.MetadataOptions` for all available options.
+
+Default elements are:
+
+* :attr:`~.MetadataGenerator.written_with_interface`: name of the interface
+  class
+* :attr:`~.MetadataGenerator.creation_hostname`: hostname of current machine
+* :attr:`~.MetadataGenerator.creation_script`: filename of top-level script or
+  notebook
+* :attr:`~.MetadataGenerator.creation_params`: a dictionary or a string
+  representation of the interface parameters, depending on the
+  :attr:`~.MetadataOptions.params_str` option
+* :attr:`~.MetadataGenerator.creation_time`: date and time of creation
+* :attr:`~.MetadataGenerator.creation_commit`: if found, the HEAD commit hash
+* :attr:`~.MetadataGenerator.creation_diff`: if workdir is dirty, a list of
+  modified files and full diff truncated at
+  :attr:`~.MetadataOptions.max_diff_lines`
+
+To add new elements, subclass the generator and decorate your method with
+:func:`~.writer.element`. If your method return multiple items, you should
+specify their names in the decorator. Elements methods can access the
+:attr:`~.MetadataGenerator.metadata` attribute that is progressively populated.
+
+.. note::
+
+    Elements are run in the order of the :attr:`~.MetadataOptions.elements`
+    option if specified, or otherwise in the order they are defined in the
+    generator class.
 
 .. _interface-typing:
 

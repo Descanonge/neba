@@ -3,10 +3,16 @@
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
+from typing import Any
 
 import sphinx_book_theme
+from sphinx.ext.autodoc._legacy_class_based._documenters import (
+    AttributeDocumenter,
+    Documenter,
+)
 
 import neba
+from neba.data.writer import MetadataElement
 
 ## Project information
 
@@ -132,3 +138,51 @@ html_last_updated_fmt = "%Y-%m-%d"
 html_context = {
     "book_theme_version": sphinx_book_theme.__version__,
 }
+
+
+## Autodoc documenter for MetadataElements
+
+
+class MetadataElementDocumenter(AttributeDocumenter):
+    """Use docstring of method."""
+
+    objtype = "metadata_element"
+    directivetype = "attribute"
+    priority = AttributeDocumenter.priority + 10
+
+    @classmethod
+    def can_document_member(
+        cls, member: Any, membername: str, isattr: bool, parent: Any
+    ) -> bool:
+        can = super().can_document_member(member, membername, isattr, parent)
+        return can and isinstance(member, MetadataElement)
+
+    def get_doc(self) -> list[list[str]] | None:
+        return Documenter.get_doc(self)
+
+    def add_directive_header(self, sig: str) -> None:
+        super().add_directive_header(sig)
+
+    def format_signature(self, **kwargs: Any) -> str:
+        # does not find signature, but still allows to document return type
+        old_object = self.object
+        self.object = self.object.func
+
+        result = self._find_signature()
+        if result is not None:
+            self.args, self.retann = result
+        signature = Documenter.format_signature(self, **kwargs)
+
+        self.object = old_object
+        return signature
+
+
+def setup(app) -> dict:
+    app.setup_extension("sphinx.ext.autodoc")
+    app.add_autodocumenter(MetadataElementDocumenter)
+
+    return dict(
+        version="0.1",
+        parallel_read_safe=True,
+        parallel_write_safe=True,
+    )

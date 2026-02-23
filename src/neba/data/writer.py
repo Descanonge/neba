@@ -338,7 +338,10 @@ class MetadataGenerator:
 
     @element
     def creation_commit(self) -> str:
-        """Return latest commit hash."""
+        """Return latest commit hash.
+
+        Use the `creation_script` if present in metadata, or ``"."`` otherwise.
+        """
         # use the directory of the calling script
         gitdir = path.dirname(self.metadata.get("creation_script", "."))
 
@@ -348,7 +351,14 @@ class MetadataGenerator:
 
     @element(elements=["creation_diff_short", "creation_diff_long"])
     def creation_diff(self) -> dict[str, Any] | None:
-        """Add git diff, only if latest commit hash is present."""
+        """Add git diff, only if latest commit hash is present.
+
+        * ``creation_diff_short``: list of files modified since last commit
+        * ``creation_diff_long``: full diff, truncated at
+          :attr:`~.MetadataOptions.max_diff_lines`
+
+        Use the `creation_script` if present in metadata, or ``"."`` otherwise.
+        """
         if "creation_commit" not in self.metadata:
             return None
 
