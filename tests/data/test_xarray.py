@@ -161,8 +161,11 @@ class TestWriter:
 
         written = xr.open_dataset(filename)
 
-        assert written.attrs["written_with_interface"] == "XarrayInterface"
-        assert written.attrs["created_with_params"] == '{"a": 0}'
+        assert (
+            written.attrs["written_with_interface"]
+            == "tests.data.test_xarray.XarrayInterface"
+        )
+        assert written.attrs["creation_params"] == '{"a": 0}'
 
     def setup_multifile(self, tmpdir) -> tuple[xr.Dataset, list[xr.Dataset], list[str]]:
         data = np.arange(12).reshape(3, 4)

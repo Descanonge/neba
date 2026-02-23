@@ -37,6 +37,7 @@ def pytest_collection_modifyitems(items):
         "tests.data.test_interface",
         "tests.data.test_params",
         "tests.data.test_source",
+        "tests.data.test_writer",
         "tests.data.test_store",
         "tests.data.test_xarray",
     ]
