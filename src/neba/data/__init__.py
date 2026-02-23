@@ -19,7 +19,13 @@ from .source import (
     SourceUnion,
 )
 from .store import DataInterfaceStore
-from .writer import Splitable, SplitWriterMixin, WriterAbstract
+from .writer import (
+    MetadataGenerator,
+    Splitable,
+    SplitWriterMixin,
+    WriterAbstract,
+    element,
+)
 
 __all__ = [
     "CachedModule",
@@ -29,6 +35,7 @@ __all__ = [
     "FileFinderSource",
     "GlobSource",
     "LoaderAbstract",
+    "MetadataGenerator",
     "Module",
     "MultiFileSource",
     "ParametersAbstract",
@@ -43,4 +50,5 @@ __all__ = [
     "Splitable",
     "WriterAbstract",
     "autocached",
+    "element",
 ]
