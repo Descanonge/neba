@@ -259,8 +259,8 @@ class XarrayWriter(WriterAbstract[str, xr.Dataset]):
         self,
         data: xr.Dataset | Sequence[xr.Dataset],
         target: str | Sequence[str] | None = None,
-        client: Client | None = None,
         metadata_kwargs: Mapping[str, Any] | None = None,
+        client: Client | None = None,
         **kwargs: Any,
     ) -> Any:
         """Write datasets to multiple targets.
