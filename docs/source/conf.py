@@ -12,7 +12,7 @@ from sphinx.ext.autodoc._legacy_class_based._documenters import (
 )
 
 import neba
-from neba.data.writer import MetadataElement
+from neba.data.writer import MetadataMethod
 
 ## Project information
 
@@ -140,13 +140,13 @@ html_context = {
 }
 
 
-## Autodoc documenter for MetadataElements
+## Autodoc documenter for MetadataMethods
 
 
-class MetadataElementDocumenter(AttributeDocumenter):
+class MetadataMethodDocumenter(AttributeDocumenter):
     """Use docstring of method."""
 
-    objtype = "metadata_element"
+    objtype = "metadata_method"
     directivetype = "attribute"
     priority = AttributeDocumenter.priority + 10
 
@@ -155,7 +155,7 @@ class MetadataElementDocumenter(AttributeDocumenter):
         cls, member: Any, membername: str, isattr: bool, parent: Any
     ) -> bool:
         can = super().can_document_member(member, membername, isattr, parent)
-        return can and isinstance(member, MetadataElement)
+        return can and isinstance(member, MetadataMethod)
 
     def get_doc(self) -> list[list[str]] | None:
         return Documenter.get_doc(self)
@@ -179,7 +179,7 @@ class MetadataElementDocumenter(AttributeDocumenter):
 
 def setup(app) -> dict:
     app.setup_extension("sphinx.ext.autodoc")
-    app.add_autodocumenter(MetadataElementDocumenter)
+    app.add_autodocumenter(MetadataMethodDocumenter)
 
     return dict(
         version="0.1",

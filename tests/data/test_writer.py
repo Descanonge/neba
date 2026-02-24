@@ -3,18 +3,18 @@
 import os
 
 from neba.data import DataInterface, ParametersDict
-from neba.data.writer import MetadataGenerator, WriterAbstract, element
+from neba.data.writer import MetadataGenerator, WriterAbstract, method
 
 
 class TestMetadata:
-    ELTS_BASIC = [
+    METH_BASIC = [
         "written_with_interface",
         "creation_time",
         "creation_hostname",
         "creation_script",
     ]
-    ELTS_PARAMS = ["creation_params"]
-    ELTS_GIT = ["creation_commit", "creation_diff"]
+    METH_PARAMS = ["creation_params"]
+    METH_GIT = ["creation_commit", "creation_diff"]
 
     def get_interface(self, *args, **kwargs) -> DataInterface:
         class MyDataInterface(DataInterface):
@@ -22,45 +22,45 @@ class TestMetadata:
 
         return MyDataInterface(*args, **kwargs)
 
-    def test_elements_selection(self):
+    def test_methods_selection(self):
 
         di = self.get_interface()
         metadata = di.writer.get_metadata()
 
         # git will fail on github CI for some reason
-        for key in self.ELTS_BASIC + self.ELTS_PARAMS:
+        for key in self.METH_BASIC + self.METH_PARAMS:
             assert key in metadata
 
         # Test group skip
         assert (
-            di.writer.metadata_generator(None, add_git_info=False).get_elements()
-            == self.ELTS_BASIC + self.ELTS_PARAMS
+            di.writer.metadata_generator(None, add_git_info=False).get_methods()
+            == self.METH_BASIC + self.METH_PARAMS
         )
 
         assert (
-            di.writer.metadata_generator(None, add_params=False).get_elements()
-            == self.ELTS_BASIC + self.ELTS_GIT
+            di.writer.metadata_generator(None, add_params=False).get_methods()
+            == self.METH_BASIC + self.METH_GIT
         )
 
         metadata = di.writer.get_metadata(add_params=False, add_git_info=False)
-        assert list(metadata.keys()) == self.ELTS_BASIC
+        assert list(metadata.keys()) == self.METH_BASIC
 
-        # Test manually specifying elements (in different order)
-        elts = ["creation_hostname", "written_with_interface", "creation_params"]
-        metadata = di.writer.get_metadata(elements=elts)
-        assert list(metadata.keys()) == elts
+        # Test manually specifying methods (in different order)
+        methods = ["creation_hostname", "written_with_interface", "creation_params"]
+        metadata = di.writer.get_metadata(methods=methods)
+        assert list(metadata.keys()) == methods
 
     def test_generator_subclass(self):
         class MyGenerator(MetadataGenerator):
-            @element
+            @method
             def simple(self):
                 return 0
 
-            @element(elements=["a", "b"])
+            @method(items=["a", "b"])
             def multiple(self):
                 return {"a": 0, "b": 1}
 
-            @element(elements=["b"])
+            @method(items=["b"])
             def last(self):
                 return {"b": 5}
 
@@ -73,7 +73,7 @@ class TestMetadata:
         di = MyDataInterface()
         metadata = di.writer.get_metadata(add_git_info=False)
 
-        assert list(metadata.keys()) == self.ELTS_BASIC + self.ELTS_PARAMS + [
+        assert list(metadata.keys()) == self.METH_BASIC + self.METH_PARAMS + [
             "simple",
             "a",
             "b",
@@ -85,11 +85,11 @@ class TestMetadata:
 
     def test_renaming(self):
         class MyGenerator(MetadataGenerator):
-            @element
+            @method
             def simple(self):
                 return 0
 
-            @element(elements=["a", "b"])
+            @method(items=["a", "b"])
             def multiple(self):
                 return {"a": 0, "b": 1}
 
@@ -121,7 +121,7 @@ class TestMetadata:
     def test_script_filename(self):
         di = self.get_interface()
         metadata = di.writer.get_metadata(
-            creation_script="a", elements=["creation_script"]
+            creation_script="a", methods=["creation_script"]
         )
         assert metadata["creation_script"] == "a"
 

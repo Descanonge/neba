@@ -24,7 +24,7 @@ from .writer import (
     Splitable,
     SplitWriterMixin,
     WriterAbstract,
-    element,
+    method,
 )
 
 __all__ = [
@@ -50,5 +50,5 @@ __all__ = [
     "Splitable",
     "WriterAbstract",
     "autocached",
-    "element",
+    "method",
 ]
