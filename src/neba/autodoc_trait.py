@@ -522,6 +522,7 @@ def setup(app: Sphinx) -> dict:  # noqa: D103
     app.add_directive_to_domain("py", "subsection", PyAttributeSubsection)
 
     app.add_autodocumenter(TraitDocumenter)
+    app.add_autodocumenter(SectionDocumenter)
     app.connect("autodoc-skip-member", skip_trait_member)
 
     return dict(
