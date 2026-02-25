@@ -117,9 +117,14 @@ html_theme_options = dict(
     # Social icons
     icon_links=[
         dict(
-            name="Repository",
+            name="Source",
             url="https://github.com/Descanonge/neba",
             icon="fa-brands fa-square-github",
+        ),
+        dict(
+            name="PyPI",
+            url="https://pypi.org/project/neba/",
+            icon="fa-brands fa-python",
         ),
     ],
     # Footer
