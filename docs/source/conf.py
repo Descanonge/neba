@@ -17,7 +17,7 @@ from neba.data.writer import MetadataMethod
 ## Project information
 
 project = "Neba"
-copyright = "2023, Clément Haëck"
+copyright = "2026, Clément Haëck"
 author = "Clément Haëck"
 
 version = neba.__version__

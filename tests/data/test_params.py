@@ -300,31 +300,49 @@ class TestCacheCallback:
             di.sub.b = 1
 
 
-def test_autocached():
-    class MyDataInterface(DataInterface):
-        Parameters = ParametersDict
+class TestCachedModule:
 
-        class Loader(LoaderAbstract, CachedModule):
-            @property
-            @autocached
-            def test_property(self):
-                return 0
+    def get_interface(self):
+        class MyDataInterface(DataInterface):
+            Parameters = ParametersDict
 
-            @autocached
-            def test_method(self):
-                return 1
+            class Loader(LoaderAbstract, CachedModule):
+                @property
+                @autocached
+                def test_property(self):
+                    return 0
 
-    di = MyDataInterface()
-    assert len(di.loader.cache) == 0
+                @autocached
+                def test_method(self):
+                    return 1
 
-    _ = di.loader.test_property
-    assert di.loader.cache == dict(test_property=0)
+        return MyDataInterface
 
-    _ = di.loader.test_method()
-    assert di.loader.cache == dict(test_property=0, test_method=1)
+    def test_autocached(self):
+        di = self.get_interface()()
+        assert len(di.loader.cache) == 0
 
-    di.trigger_callbacks()
-    assert len(di.loader.cache) == 0
+        _ = di.loader.test_property
+        assert di.loader.cache == dict(test_property=0)
+
+        _ = di.loader.test_method()
+        assert di.loader.cache == dict(test_property=0, test_method=1)
+
+        di.trigger_callbacks()
+        assert len(di.loader.cache) == 0
+
+    def test_disable(self):
+        di_cls = self.get_interface()
+        di_cls.Loader._add_void_callback = False
+        di = di_cls()
+
+        assert len(di._reset_callbacks) == 0
+
+        _ = di.loader.test_property
+        assert "test_property" in di.loader.cache
+        di.trigger_callbacks()
+        assert "test_property" in di.loader.cache
+
 
 
 class TestParamsExcursion:

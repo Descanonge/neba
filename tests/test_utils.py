@@ -29,9 +29,11 @@ def test_import_item():
     assert import_item("tests.test_utils.Outer") is Outer
 
     with pytest.raises(ImportError):
-        assert import_item("wrong_package.item")
+        import_item("only_a_package")
     with pytest.raises(ImportError):
-        assert import_item("tests.test_utils.wrong_item")
+        import_item("wrong_package.item")
+    with pytest.raises(ImportError):
+        import_item("tests.test_utils.wrong_item")
 
 
 def test_get_classname():

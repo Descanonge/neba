@@ -240,8 +240,29 @@ class TestModuleMix:
                 is_setup.add("B")
                 super().setup()
 
+            def _lines(self):
+                return "SourceB_repr"
+
+
         class MyDataInterface(DataInterface):
             Source = ModuleMix.create([SourceA, SourceB])
 
         MyDataInterface()
         assert is_setup == {"A", "B", "C"}
+
+    def test_repr(self):
+
+        class MyDataInterface(DataInterface):
+            class SourceA(SourceAbstract):
+                def _lines(self):
+                    return ["SourceA_repr"]
+            class SourceB(SourceAbstract):
+                def _lines(self):
+                    return ["SourceB_repr"]
+
+            Source = ModuleMix.create([SourceA, SourceB])
+
+        di = MyDataInterface()
+        assert repr(di.source) == "SourceA\n\tSourceA_repr\nSourceB\n\tSourceB_repr"
+
+    # more tests in test_saource.TestModuleMix

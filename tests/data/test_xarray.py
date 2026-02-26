@@ -4,12 +4,12 @@ from os import path
 
 import numpy as np
 import pandas as pd
+import pytest
 import xarray as xr
 from xarray.testing import assert_equal
 
 from neba.data import DataInterface, FileFinderSource, ParametersDict
 from neba.data.xarray import XarrayLoader, XarraySplitWriter, XarrayWriter
-from tests.conftest import todo
 
 
 class XarrayInterface(DataInterface):
@@ -146,15 +146,35 @@ class TestWriter:
 
         assert_equal(written, ref)
 
-    @todo
+    def test_wrong_extension(self, tmpdir):
+        di = XarrayInterface()
+        with pytest.raises(ValueError):
+            di.write(xr.Dataset(), tmpdir / "wrong_extension.txt")
+        with pytest.raises(ValueError):
+            di.write(xr.Dataset(), tmpdir / "no_extension")
+        with pytest.raises(ValueError):
+            di.write(xr.Dataset(), tmpdir / "no_extension", format="wrong")
+
     def test_zarr(self, tmpdir):
-        pass
+        ref = xr.Dataset(
+            {"test": xr.DataArray(np.arange(4), coords={"x": range(4)}, dims=["x"])}
+        )
+        filename = tmpdir / "test_dataset.zarr"
+
+        di = XarrayInterface()
+        di.write(ref, target=filename)
+
+        written = xr.open_dataset(filename)
+
+        assert_equal(written, ref)
 
     def test_metadata(self, tmpdir):
         ref = xr.Dataset(
             {"test": xr.DataArray(np.arange(4), coords={"x": range(4)}, dims=["x"])}
         )
         filename = tmpdir / "test_dataset.nc"
+        # this should not be overwritten
+        ref.attrs["creation_hostname"] = "a"
 
         di = XarrayInterface(a=0)
         di.write(ref, target=filename)
@@ -166,6 +186,7 @@ class TestWriter:
             == "tests.data.test_xarray.XarrayInterface"
         )
         assert written.attrs["creation_params"] == '{"a": 0}'
+        assert written.attrs["creation_hostname"] == "a"
 
     def setup_multifile(self, tmpdir) -> tuple[xr.Dataset, list[xr.Dataset], list[str]]:
         data = np.arange(12).reshape(3, 4)
@@ -193,9 +214,22 @@ class TestWriter:
         for r, w in zip(ref_split, written, strict=True):
             assert_equal(r, w)
 
-    @todo
-    def test_multifile_together(self):
-        assert 0
+    def test_multifile_together(self, tmpdir, client):
+        import time
+
+        _, ref_split, filenames = self.setup_multifile(tmpdir)
+
+        di = XarrayInterface()
+        result = di.write(ref_split, target=filenames, client=client)
+
+        assert result is None
+        for _ in range(5):
+            if len(client.futures) == 0:
+                return
+            for f in client.futures.values():
+                assert f.status == "finished"
+            time.sleep(0.3)
+        raise RuntimeError("Timeout")
 
 
 class TestSplitWriter:
@@ -215,6 +249,8 @@ class TestSplitWriter:
         return ref
 
     def test_daily(self, tmpdir):
+        """Simple daily frequency."""
+
         class XarrayDataset(DataInterface):
             Parameters = ParametersDict
             Writer = XarraySplitWriter
@@ -235,6 +271,8 @@ class TestSplitWriter:
                 assert path.isfile(str(tmpdir / f"2000-{date}_{y:02d}.nc"))
 
     def test_long_freq(self, tmpdir):
+        """Daily files with sparse dates."""
+
         class XarrayDataset(DataInterface):
             Parameters = ParametersDict
             Writer = XarraySplitWriter
@@ -255,6 +293,8 @@ class TestSplitWriter:
                 assert path.isfile(str(tmpdir / f"2000-{date}_{y:02d}.nc"))
 
     def test_monthly_file(self, tmpdir):
+        """Monthly files with daily data"""
+
         class XarrayInterface(DataInterface):
             Parameters = ParametersDict
             Writer = XarraySplitWriter

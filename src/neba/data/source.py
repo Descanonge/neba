@@ -83,7 +83,7 @@ class MultiFileSource(SourceAbstract[str]):
 
         return rootdir
 
-    def get_source(self, relative: bool = False, _warn: bool = True) -> list[str]:  # type: ignore
+    def get_source(self, relative: bool = False, _warn: bool = True) -> list[str]:  # type: ignore[override]
         """Return list of filenames.
 
         Parameters

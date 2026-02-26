@@ -19,6 +19,9 @@ settings.register_profile(
 settings.load_profile(os.getenv("HYPOTHESIS_PROFILE", "dev").lower())
 
 
+# register dask.distributed fixtures
+pytest_plugins = "distributed.utils_test"
+
 def pytest_configure(config: pytest.Config):
     config.addinivalue_line("markers", "todo")
 

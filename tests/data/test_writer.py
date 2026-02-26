@@ -2,8 +2,32 @@
 
 import os
 
+import pytest
+
 from neba.data import DataInterface, ParametersDict
 from neba.data.writer import MetadataGenerator, WriterAbstract, method
+
+
+def test_check_directories(tmpdir):
+    (tmpdir / "a").mkdir()
+
+    calls = [(str(tmpdir / "a" / "b" / "file.txt"), None)]
+
+    writer = WriterAbstract()
+    writer.check_directories(calls)
+
+    assert (tmpdir / "a" / "b").exists()
+
+
+def test_check_overwriting_calls():
+    writer = WriterAbstract()
+
+    writer.check_overwriting_calls([("a/b/0", None), ("a/b/1", None), ("a/0", None)])
+
+    with pytest.raises(ValueError):
+        writer.check_overwriting_calls(
+            [("a/b/0", None), ("a/b/1", None), ("a/b/0", None)]
+        )
 
 
 class TestMetadata:
@@ -50,6 +74,9 @@ class TestMetadata:
         metadata = di.writer.get_metadata(methods=methods)
         assert list(metadata.keys()) == methods
 
+        with pytest.raises(AttributeError):
+            di.writer.get_metadata(methods=["creation_hostname", "unknown_method"])
+
     def test_generator_subclass(self):
         class MyGenerator(MetadataGenerator):
             @method
@@ -93,6 +120,10 @@ class TestMetadata:
             def multiple(self):
                 return {"a": 0, "b": 1}
 
+            @method(name_mapping=dict(from_decorator="renamed_from_decorator"))
+            def from_decorator(self):
+                return 0
+
         class MyDataInterface(DataInterface):
             Parameters = ParametersDict
 
@@ -102,12 +133,18 @@ class TestMetadata:
         di = MyDataInterface()
         MyGenerator.simple.rename("simple_rename")
         MyGenerator.multiple.rename(a="a_rename")
-        metadata = di.writer.get_metadata()
-        assert metadata["simple_rename"] == 0
-        assert metadata["a_rename"] == 0
-        assert metadata["b"] == 1
-        assert "a" not in metadata
-        assert "simple" not in metadata
+        metadata = di.writer.get_metadata(
+            methods=["simple", "multiple", "from_decorator"]
+        )
+        assert metadata == dict(
+            simple_rename=0, a_rename=0, b=1, renamed_from_decorator=0
+        )
+
+        with pytest.raises(TypeError):
+            MyGenerator.multiple.rename("simple_renaming")
+
+        with pytest.raises(KeyError):
+            MyGenerator.multiple.rename(wrong="a_rename")
 
     def test_parameters(self):
         params = dict(a=0, b=1)
@@ -135,3 +172,14 @@ class TestMetadata:
 
         if (commit := os.environ.get("GITHUB_SHA")) is not None:
             assert metadata["creation_commit"] == commit
+
+    def test_none(self):
+        """Method that returns None is not added to metadata."""
+
+        class MyGenerator(MetadataGenerator):
+            @method
+            def none(self):
+                return None
+
+        gen = MyGenerator(None, methods=["none"])
+        assert gen.generate() == dict()

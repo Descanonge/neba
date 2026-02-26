@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import os
 from collections.abc import Callable, Hashable, Mapping, Sequence
-from typing import TYPE_CHECKING, Any, Literal, assert_never, cast, overload
+from typing import TYPE_CHECKING, Any, Literal, cast, overload
 
 import xarray as xr
 
@@ -162,7 +162,7 @@ class XarrayWriter(WriterAbstract[str, xr.Dataset]):
             kwargs = self.to_zarr_kwargs | kwargs
             return ds.to_zarr(outfile, **kwargs)
 
-        assert_never(format)
+        raise ValueError(f"File format '{format}' not supported.")
 
     def add_metadata(
         self,
@@ -247,11 +247,8 @@ class XarrayWriter(WriterAbstract[str, xr.Dataset]):
             grouped_calls = calls[slc]
             delayed = [self.send_single_call(c, **kwargs) for c in grouped_calls]
 
-            # Compute them all at once
-            # This loop is super important, this create all the futures for computation
-            # and remove them as soon as they are completed (and the variable `future`
-            # goes out of scope). That way the data does not pile up, it is freed.
-            # We only care about the side effect of writing to disk, not the result data.
+            # Futures are deleted as soon as they go out of scope. They do not pile up
+            # but we still return only when all are completed.
             for future in distributed.as_completed(client.compute(delayed)):
                 log.debug("\t\tfuture completed: %s", future)
 
@@ -510,7 +507,7 @@ class XarraySplitWriter(SplitWriterMixin, XarrayWriter):
                     "Resampling frequency is equal to that of dataset. "
                     "Will not resample."
                 )
-                return [ds_unit for _, ds_unit in ds.groupby("time", squeeze=False)]
+                return [ds.isel(time=[i]) for i in range(ds.time.size)]
 
         resample = ds.resample(time=freq)
         return [ds_unit for _, ds_unit in resample]
