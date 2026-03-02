@@ -123,7 +123,7 @@ def get_trait_typehint(
         """Hook before returning the typehint."""  # noqa: D401
         if (alias := aliases.get(typehint.lstrip("~"), None)) is not None:
             typehint = alias
-        if trait.allow_none or add_none:
+        if (isinstance(trait, TraitType) and trait.allow_none) or add_none:
             typehint += " | None"
         return typehint
 
@@ -132,7 +132,7 @@ def get_trait_typehint(
 
     # If simply an object, nothing specific to do:
     if not isinstance(trait, TraitType):
-        return typehint
+        return output(typehint)
 
     if isinstance(trait, Union):
         subhints = [recurse(subtrait) for subtrait in trait.trait_types]

@@ -2,8 +2,7 @@
 
 from traitlets import Dict, Enum, Instance, Int, List, Tuple, Type, Unicode, Union
 
-from neba.config.docs import get_trait_typehint
-from neba.config.section import Section, tag_all_traits
+from neba.config.docs import get_trait_typehint, stringify
 
 
 class TestTypehint:
@@ -27,9 +26,7 @@ class TestTypehint:
         self.valid(Test(), f"{qual_path}.Test", mode="full")
         self.valid(Test(), "Test", mode="minimal")
 
-        self.valid(Test, f"~{qual_path}.Test")
-        self.valid(Test, f"{qual_path}.Test", mode="full")
-        self.valid(Test, "Test", mode="minimal")
+        self.valid(Test(), "MyAlias", mode="minimal", aliases={"Test": "MyAlias"})
 
     def test_basic_trait(self):
         self.valid(Int(), "~traitlets.traitlets.Int")
@@ -185,11 +182,24 @@ class TestTypehint:
         )
 
 
-def test_tag_all_traits():
-    @tag_all_traits(test_tag=True)
-    class MySection(Section):
-        a = Int()
-        b = Int()
-        c = Int().tag(test_tag=False)
+def test_stringify():
 
-    assert MySection().trait_names(test_tag=True) == ["a", "b"]
+    def valid(x, target: str, **kwargs):
+        assert stringify(x, **kwargs) == target
+
+    valid(1, "``1``")
+    valid(1, "1", rst=False)
+    valid("a", '``"a"``')
+    valid("a", '"a"', rst=False)
+
+    valid([0, 1, 2], "``[0, 1, 2]``")
+    valid(list(range(24)), "``[0, 1, 2, ...``", maxlength=10)
+    valid(list(range(24)), "[0, 1, 2, ...", maxlength=10, rst=False)
+
+    class Test:
+        pass
+
+    qual_path = "tests.config.test_docs.test_stringify.<locals>"
+
+    valid(Test, f":class:`{qual_path}.Test`")
+    valid(Test, f"{qual_path}.Test", rst=False)

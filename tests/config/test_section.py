@@ -8,7 +8,7 @@ import pytest
 from hypothesis import given, settings
 from traitlets import Bool, Int, Unicode
 
-from neba.config import Section, Subsection
+from neba.config import Section, Subsection, tag_all_traits
 from neba.config.types import UnknownConfigKeyError
 from tests.config.generic_config import (
     GenericConfigInfo,
@@ -1082,3 +1082,13 @@ class TestNestFlatten:
         nested = dict(int=0, sub_generic=5.0)
         with pytest.raises(KeyError):
             section.flatten_dict(nested)
+
+
+def test_tag_all_traits():
+    @tag_all_traits(test_tag=True)
+    class MySection(Section):
+        a = Int()
+        b = Int()
+        c = Int().tag(test_tag=False)
+
+    assert MySection().trait_names(test_tag=True) == ["a", "b"]

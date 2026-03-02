@@ -1,14 +1,15 @@
 """Test added traits."""
 
 import math
+from collections.abc import Sequence
 from typing import Any
 
 import pytest
 from hypothesis import example, given, note
 from hypothesis import strategies as st
-from traitlets import Bool, Float, Int, List, TraitError
+from traitlets import Bool, Float, Int, List, TraitError, TraitType, Unicode, Union
 
-from neba.config.traits import Range
+from neba.config.traits import Fixable, Range
 
 floats_nice = st.floats(
     allow_nan=False, allow_infinity=False, min_value=-1e4, max_value=1e4
@@ -143,3 +144,49 @@ class TestRange:
 
         if n_values > 1:
             assert math.isclose(abs(values[1] - values[0]), abs(step))
+
+
+class TestFixable:
+    def assert_types(
+        self, traits: Sequence[TraitType], types: Sequence[type[TraitType]]
+    ) -> None:
+        assert len(traits) == len(types)
+        for trait, trait_type in zip(traits, types):
+            assert isinstance(trait, trait_type)
+
+    def test_basic(self):
+        t = Fixable(Int(), 0)
+        assert t.default_value == 0
+        assert isinstance(t.trait, Int)
+        t = Fixable(Bool(), True, allow_none=True)
+        assert isinstance(t.trait, Bool)
+        assert t.default_value
+        assert t.allow_none
+
+    def test_range(self):
+        t = Fixable(Int())
+        assert isinstance(t, Union)
+        assert isinstance(t.trait, Int)
+        self.assert_types(t.trait_types, [Int, Range])
+        assert isinstance(t.trait_types[1]._trait, Int)
+
+        # not allowed for range
+        t = Fixable(Bool())
+        assert not any(isinstance(x, Range) for x in t.trait_types)
+        self.assert_types(t.trait_types, [Bool, List])
+
+        # disabled
+        t = Fixable(Int(), range=False)
+        assert not any(isinstance(x, Range) for x in t.trait_types)
+        self.assert_types(t.trait_types, [Int, List])
+
+    def test_unicode(self):
+        t = Fixable(Int(), unicode=True)
+        assert isinstance(t, Union)
+        assert isinstance(t.trait, Int)
+        self.assert_types(t.trait_types, [Int, Range, Unicode])
+
+        t = Fixable(Unicode(), unicode=False)
+        assert isinstance(t, Union)
+        assert isinstance(t.trait, Unicode)
+        self.assert_types(t.trait_types, [Unicode, List])

@@ -1,6 +1,10 @@
 """Test more integrated features of the Application."""
 
 import logging
+import os
+import sys
+from contextlib import contextmanager
+from io import StringIO
 
 import pytest
 from traitlets import Float, Int
@@ -62,6 +66,70 @@ class TestCLIParsing:
 def test_select_file_loader(filename: str, loader: type[FileLoader]):
     app = App(start=False)
     assert issubclass(app._select_file_loader(filename), loader)
+
+
+def test_select_file_loader_wrong():
+    app = App(start=False)
+    with pytest.raises(KeyError):
+        app._select_file_loader("filename.wrong_ext")
+
+
+@contextmanager
+def replace_stdin(fp):
+    orig = sys.stdin
+    sys.stdin = fp
+    yield
+    sys.stdin = orig
+
+
+def test_write_clobber(tmpdir):
+    """Test the clobber option setup via user-input."""
+
+    filename = str(tmpdir / "config.toml")
+
+    class AppClobber(Application):
+        # if we just change the trait default value it will affect subsequent tests
+        config_files = filename
+        p = Int(0)
+
+    app = AppClobber(argv=[])
+    app.write_config()
+
+    timestamp = os.path.getmtime(filename)
+
+    # abort by default
+    with replace_stdin(StringIO("\n")):
+        app.write_config()
+        assert os.path.getmtime(filename) == timestamp
+
+    # abort
+    with replace_stdin(StringIO("bad\nabort\n")):
+        app.write_config()
+        assert os.path.getmtime(filename) == timestamp
+
+    # overwrite
+    app.p = 1
+    with replace_stdin(StringIO("o\n")):
+        app.write_config()
+        new_timestamp = os.path.getmtime(filename)
+        assert new_timestamp > timestamp
+        timestamp = new_timestamp
+
+        # read
+        app = AppClobber(argv=[])
+        assert app.p == 1
+
+    # update
+    app.p = 5
+    with replace_stdin(StringIO("u\n")):
+        app.write_config()
+        new_timestamp = os.path.getmtime(filename)
+        assert new_timestamp > timestamp
+        timestamp = new_timestamp
+
+        # read, value in config file (1) is not overwritten by current value (5)
+        app = AppClobber(argv=[])
+        assert app.p == 1
 
 
 def test_resolve_config():
