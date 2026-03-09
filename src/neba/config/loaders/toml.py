@@ -85,20 +85,22 @@ class TomlkitLoader(FileLoader, DictLikeLoaderMixin):
             fullkey = ".".join(fullpath + [name])
 
             default = trait.default()
-            value = (
-                self.config.pop(fullkey).get_value()
-                if fullkey in self.config
-                else default
-            )
+            is_default = fullkey not in self.config
+            value = self.config.pop(fullkey).get_value() if not is_default else default
 
-            try:
-                t.add(name, self._sanitize_item(value))
-            except Exception:
-                if value is None:
-                    lines.append(f"{name} =")
-                else:
-                    self.log.warning("Failed to serialize value %s=%s", fullkey, value)
-                    lines.append(f"{name} = {value!s}")
+            key_value_str = f"{name} =" if value is None else f"{name} = {value!s}"
+
+            if comment_default and is_default:
+                lines.append(key_value_str)
+            else:
+                try:
+                    t.add(name, self._sanitize_item(value))
+                except Exception:
+                    lines.append(key_value_str)
+                    if value is not None:
+                        self.log.warning(
+                            "Failed to serialize value %s=%s", fullkey, value
+                        )
 
             if comment != "none":
                 try:
