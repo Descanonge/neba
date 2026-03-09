@@ -399,7 +399,7 @@ class MetadataGenerator:
             "--diff-filter=M",
             "--minimal",
         ]
-        exclude_cmd = [f":!{x}" for x in self.options.git_ignore]
+        exclude_cmd = ["--"] + [f":!{x}" for x in self.options.git_ignore]
 
         stat = git_cmd(diffcmd + ["--numstat"] + exclude_cmd)
         if stat:
