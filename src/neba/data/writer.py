@@ -231,11 +231,17 @@ class MetadataGenerator:
 
     options_cls = MetadataOptions
 
+    options_defaults: dict[str, Any] = {}
+    """Replace default options. Will be overridden by arguments passed during
+    initialization."""
+
     def __init__(self, di: DataInterface, **kwargs: Any) -> None:
         self.di: DataInterface = di
         self.metadata: dict[str, Any] = {}
         """Dictionary that is progressively filled during generation."""
-        self.options = self.options_cls(**kwargs)
+
+        options = self.options_defaults | kwargs
+        self.options = self.options_cls(**options)
 
         self.methods: dict[str, MetadataMethod] = {}
         for basetype in reversed(self.__class__.mro()):
